@@ -14,7 +14,8 @@ export async function apiGet(params) {
   if (!EXEC_URL) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const url = new URL(EXEC_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-  const res = await fetch(url.toString(), { redirect: "follow" });
+  url.searchParams.set("_t", String(Date.now())); // bust Google Apps Script GET cache
+  const res = await fetch(url.toString(), { redirect: "follow", cache: "no-store" });
   if (!res.ok) throw new Error(`API GET error: ${res.status}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error);

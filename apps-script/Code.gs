@@ -70,8 +70,9 @@ var LISTING_HEADERS = [
   "Outputs",           // X 23  JSON
   "Review Status",     // Y 24  JSON
   "Compliance Flag",   // Z 25  JSON
-  "Media Checklist",   // AA 26 JSON
-  "Drive Files",       // AB 27 JSON
+  "Media Checklist",      // AA 26 JSON
+  "Drive Files",          // AB 27 JSON
+  "Enhanced Folder ID",   // AC 28 — 02_AI_Enhanced_Photos subfolder Drive ID
 ];
 
 // ── Router ───────────────────────────────────────────────────────────────────
@@ -222,6 +223,7 @@ function rowToListing_(row, headerMap) {
     complianceFlag:  tryParse_(col("Compliance Flag"), {}),
     mediaChecklist:  tryParse_(col("Media Checklist"), [false, false, false, false]),
     driveFiles:      tryParse_(col("Drive Files"),     []),
+    enhancedFolderId: col("Enhanced Folder ID") || null,
   };
 }
 
@@ -254,8 +256,9 @@ function makeDataMap_(d) {
   m["Outputs"]           = JSON.stringify(d.outputs        || {});
   m["Review Status"]     = JSON.stringify(d.reviewStatus   || {});
   m["Compliance Flag"]   = JSON.stringify(d.complianceFlag || {});
-  m["Media Checklist"]   = JSON.stringify(d.mediaChecklist || [false, false, false, false]);
-  m["Drive Files"]       = JSON.stringify(d.driveFiles     || []);
+  m["Media Checklist"]      = JSON.stringify(d.mediaChecklist || [false, false, false, false]);
+  m["Drive Files"]          = JSON.stringify(d.driveFiles     || []);
+  m["Enhanced Folder ID"]   = d.enhancedFolderId             || "";
   return m;
 }
 

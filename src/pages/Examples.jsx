@@ -12,7 +12,10 @@ export default function Examples({ lang }) {
   useEffect(() => {
     getListings()
       .then(all => {
-        const active = (all || []).filter(l => l.status === "Published");
+        const rows = all || [];
+        const active = rows.filter(l =>
+          (l.status || "").trim().toLowerCase() === "published"
+        );
         setListings(active);
       })
       .catch(err => setError(err.message))
