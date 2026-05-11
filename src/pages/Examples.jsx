@@ -24,7 +24,10 @@ export default function Examples({ lang }) {
       <section className="hero" style={{ padding: "80px 20px 60px" }}>
         <h1 className="hero__title">Active Rental Listings</h1>
         <p className="hero__subtitle">当前可租房源</p>
-        <p className="hero__sub2">{t(lang, "examples.subtitle")}</p>
+        <p className="hero__sub2">
+          Listings created in Admin Studio will appear here when active.
+          <br />在 Admin Studio 创建并启用的房源会显示在这里。
+        </p>
       </section>
 
       <section className="section">
