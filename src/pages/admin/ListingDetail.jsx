@@ -211,6 +211,7 @@ export default function ListingDetail({ lang }) {
   const [videoMsg,       setVideoMsg]       = useState(null);
   const [videoFolderUrl, setVideoFolderUrl] = useState(null);
   const [videoFileUrl,   setVideoFileUrl]   = useState(null);
+  const [videoFormat,    setVideoFormat]    = useState("landscape"); // "landscape" | "vertical"
 
   // Light Enhancement Batch state
   const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
@@ -567,11 +568,15 @@ export default function ListingDetail({ lang }) {
 
     if (!window.MediaRecorder) {
       setVideoStatus("error");
-      setVideoMsg("MediaRecorder not supported. Please use Chrome or Edge.");
+      setVideoMsg("MediaRecorder not supported. Use Chrome or Edge.");
       return;
     }
 
-    // Photo source: use enhanced if available, matched to activePhotos order
+    const isLandscape = videoFormat === "landscape";
+    const W = isLandscape ? 1280 : 720;
+    const H = isLandscape ? 720  : 1280;
+
+    // Photo source: enhanced > original (cover first, up to 8)
     const MAX_PHOTOS = 8;
     const photoSource = activePhotos.slice(0, MAX_PHOTOS).map(orig => {
       if (enhancedPhotos.length === 0) return orig;
@@ -579,7 +584,6 @@ export default function ListingDetail({ lang }) {
       return enhancedPhotos.find(e => e.name === `enhanced__${base}.jpg`) || orig;
     });
 
-    // Preload images
     const loadedImages = await Promise.all(
       photoSource.map(photo => new Promise(resolve => {
         const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
@@ -597,120 +601,248 @@ export default function ListingDetail({ lang }) {
       return;
     }
 
-    // Canvas + MediaRecorder setup
-    const W = 1280, H = 720;
+    // Canvas + MediaRecorder
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
       ? "video/webm;codecs=vp8" : "video/webm";
     const stream   = canvas.captureStream(24);
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_000_000 });
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
     const chunks   = [];
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     recorder.start(200);
     setVideoStatus("rendering");
 
+    // ── Slide data ───────────────────────────────────────────────────────────
+    const beds   = `${listing.bedrooms || "?"} Bed / ${listing.bathrooms || "?"} Bath`;
+    const rent   = listing.rent ? `$${Number(listing.rent).toLocaleString()}/month` : "";
+    const avail  = fmtDate(listing.available);
+    const addr   = listing.address || "";
+    const pubUrl = `landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
+    const feats  = listing.features
+      ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)
+      : [];
+
     // ── Drawing helpers ──────────────────────────────────────────────────────
+    const FF = "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+
     function drawBg() {
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, "#1A2332"); g.addColorStop(1, "#2C5F8A");
+      g.addColorStop(0, "#0F1E2E"); g.addColorStop(1, "#1A3A5C");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
-    function drawText(lines) {
-      drawBg();
-      const totalH = lines.reduce((s, l) => s + l.size + 14, -14);
-      let y = (H - totalH) / 2;
-      ctx.textAlign = "center"; ctx.textBaseline = "top";
-      for (const { text, size, color, bold } of lines) {
-        if (!text) { y += size + 14; continue; }
-        ctx.font = `${bold !== false ? "700" : "400"} ${size}px Inter, system-ui, sans-serif`;
-        ctx.fillStyle = color || "#FFFFFF";
-        ctx.fillText(text, W / 2, y);
-        y += size + 14;
-      }
-    }
-    function drawPhoto(img, progress) {
-      const scale = 1 + progress * 0.08;
-      const ia = img.naturalWidth / img.naturalHeight, ca = W / H;
-      const dw = ia > ca ? H * scale * ia : W * scale;
-      const dh = ia > ca ? H * scale      : W * scale / ia;
-      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+
+    function roundRect(x, y, w, h, r, fill, alpha) {
+      ctx.save();
+      if (alpha !== undefined) ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+      ctx.restore();
     }
 
-    // ── Frame renderer ───────────────────────────────────────────────────────
+    function fitText(text, maxW, font) {
+      ctx.save(); ctx.font = font;
+      let t = String(text);
+      while (t.length > 2 && ctx.measureText(t).width > maxW) t = t.slice(0, -1);
+      ctx.restore();
+      return t.length < String(text).length ? t + "…" : t;
+    }
+
+    function accentLine(x1, y1, x2, y2) {
+      ctx.save(); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.strokeStyle = "#F59E0B"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    }
+
+    function drawIntro() {
+      drawBg();
+      ctx.textBaseline = "top";
+      if (isLandscape) {
+        const lx = 88, maxW = W - lx - 80;
+        // Left amber accent bar
+        ctx.fillStyle = "#F59E0B"; ctx.fillRect(64, 158, 5, 380);
+        ctx.textAlign = "left";
+        // Beds / baths
+        const bedsFont = `700 58px ${FF}`;
+        ctx.font = bedsFont; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(fitText(beds, maxW, bedsFont), lx, 172);
+        // Address
+        const addrFont = `400 26px ${FF}`;
+        ctx.font = addrFont; ctx.fillStyle = "#94A3B8";
+        ctx.fillText(fitText(addr, maxW, addrFont), lx, 256);
+        // Divider
+        accentLine(lx, 316, W - 80, 316);
+        // Rent
+        if (rent) {
+          const rentFont = `700 64px ${FF}`;
+          ctx.font = rentFont; ctx.fillStyle = "#F59E0B";
+          ctx.fillText(fitText(rent, maxW, rentFont), lx, 342);
+        }
+        // Available
+        if (avail) {
+          ctx.font = `400 27px ${FF}`; ctx.fillStyle = "#93C5FD";
+          ctx.fillText(`Available ${avail}`, lx, 440);
+        }
+      } else {
+        // Vertical — centered layout
+        const cx = W / 2, maxW = W - 80;
+        ctx.textAlign = "center";
+        accentLine(cx - 100, 268, cx + 100, 268);
+        const bedsFont = `700 52px ${FF}`;
+        ctx.font = bedsFont; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(fitText(beds, maxW, bedsFont), cx, 292);
+        const addrFont = `400 23px ${FF}`;
+        ctx.font = addrFont; ctx.fillStyle = "#94A3B8";
+        ctx.fillText(fitText(addr, maxW, addrFont), cx, 376);
+        accentLine(cx - 140, 438, cx + 140, 438);
+        if (rent) {
+          const rentFont = `700 66px ${FF}`;
+          ctx.font = rentFont; ctx.fillStyle = "#F59E0B";
+          ctx.fillText(fitText(rent, maxW, rentFont), cx, 464);
+        }
+        if (avail) {
+          ctx.font = `400 28px ${FF}`; ctx.fillStyle = "#93C5FD";
+          ctx.fillText(`Available ${avail}`, cx, 572);
+        }
+      }
+    }
+
+    function drawPhoto(img, progress, idx) {
+      // Cover-fit then zoom + alternate pan direction per slide
+      const scale = 1 + progress * 0.07;
+      const ia = img.naturalWidth / img.naturalHeight, ca = W / H;
+      const bw = ia > ca ? H * ia : W, bh = ia > ca ? H : W / ia;
+      const sw = bw * scale, sh = bh * scale;
+      const panDir = idx % 2 === 0 ? 1 : -1;
+      const panAmt = sw * 0.03 * (progress - 0.5) * panDir;
+      ctx.drawImage(img, (W - sw) / 2 + panAmt, (H - sh) / 2, sw, sh);
+    }
+
+    function drawCaption(text) {
+      if (!text) return;
+      const fs = isLandscape ? 26 : 28, padX = 22, padY = 11;
+      const font = `600 ${fs}px ${FF}`;
+      ctx.save(); ctx.font = font;
+      const tw = ctx.measureText(String(text)).width;
+      ctx.restore();
+      const bw = Math.min(tw + padX * 2, W - 80);
+      const bh = fs + padY * 2;
+      const bx = (W - bw) / 2, by = H - bh - (isLandscape ? 46 : 62);
+      roundRect(bx, by, bw, bh, 8, "#0F1E2E", 0.82);
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.font = font; ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(fitText(String(text), bw - padX * 2, font), W / 2, by + padY);
+    }
+
+    function drawOutro() {
+      drawBg();
+      ctx.textBaseline = "top"; ctx.textAlign = "center";
+      if (isLandscape) {
+        accentLine(W * 0.15, H / 2 - 108, W * 0.85, H / 2 - 108);
+        ctx.font = `700 44px ${FF}`; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("View Full Listing & Apply Online", W / 2, H / 2 - 90);
+        // URL box
+        const uf = `400 20px monospace`;
+        ctx.save(); ctx.font = uf;
+        const uw = Math.min(ctx.measureText(pubUrl).width + 60, W - 160);
+        ctx.restore();
+        roundRect((W - uw) / 2, H / 2 + 14, uw, 50, 8, "#1E3A5F");
+        ctx.font = uf; ctx.fillStyle = "#93C5FD";
+        ctx.fillText(fitText(pubUrl, uw - 40, uf), W / 2, H / 2 + 28);
+        // Music note
+        ctx.font = `400 17px ${FF}`; ctx.fillStyle = "#475569";
+        ctx.fillText("Music can be added later in Facebook / CapCut / Canva", W / 2, H / 2 + 106);
+      } else {
+        accentLine(W * 0.1, H / 2 - 148, W * 0.9, H / 2 - 148);
+        ctx.font = `700 36px ${FF}`; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("View Full Listing", W / 2, H / 2 - 136);
+        ctx.fillText("& Apply Online",    W / 2, H / 2 - 84);
+        const uf = `400 16px monospace`;
+        const uw = W - 80;
+        roundRect(40, H / 2 + 6, uw, 50, 8, "#1E3A5F");
+        ctx.font = uf; ctx.fillStyle = "#93C5FD";
+        ctx.fillText(fitText(pubUrl, uw - 40, uf), W / 2, H / 2 + 21);
+        ctx.font = `400 17px ${FF}`; ctx.fillStyle = "#475569";
+        ctx.fillText("Music: Facebook / CapCut / Canva", W / 2, H / 2 + 110);
+      }
+    }
+
+    function fadeBlack(drawBase, alpha) {
+      drawBase();
+      ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
+
+    function sceneCaption(idx, total) {
+      if (idx === 0) return null;          // cover photo — let it breathe
+      if (idx === 1) return beds;
+      if (idx === 2 && feats[0]) return feats[0];
+      if (idx === 3 && feats[1]) return feats[1];
+      if (idx === 4 && feats[2]) return feats[2];
+      if (idx === total - 1) return "Apply Online";
+      return null;
+    }
+
+    // ── Frame loop ───────────────────────────────────────────────────────────
     const FRAME_MS = Math.round(1000 / 24);
-    function renderFor(drawFn, durationSec) {
+    function renderFor(drawFn, secs) {
       return new Promise(resolve => {
-        const ms = durationSec * 1000, start = Date.now();
+        const ms = secs * 1000, t0 = Date.now();
         function tick() {
-          const p = Math.min((Date.now() - start) / ms, 1);
-          drawFn(p);
-          p < 1 ? setTimeout(tick, FRAME_MS) : resolve();
+          const p = Math.min((Date.now() - t0) / ms, 1);
+          drawFn(p); p < 1 ? setTimeout(tick, FRAME_MS) : resolve();
         }
         tick();
       });
     }
 
-    // ── Slide data ───────────────────────────────────────────────────────────
-    const beds    = `${listing.bedrooms || "?"} Bed / ${listing.bathrooms || "?"} Bath`;
-    const rent    = listing.rent ? `$${Number(listing.rent).toLocaleString()}/month` : "";
-    const avail   = fmtDate(listing.available);
-    const addr    = listing.address || "";
-    const pubUrl  = `landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
-    const total   = 2 + validImages.length;
-    let   current = 0;
+    // ── Render sequence ──────────────────────────────────────────────────────
+    const totalScenes = 2 + validImages.length;
+    let cur = 0;
 
-    // Intro slide
-    setVideoProgress({ slide: ++current, total });
-    await renderFor(() => drawText([
-      { text: beds,  size: 52, bold: true },
-      { text: addr,  size: 32 },
-      { text: rent,  size: 44, bold: true, color: "#F59E0B" },
-      { text: avail ? `Available ${avail}` : "", size: 26, color: "#93C5FD" },
-    ]), 3);
+    // Opening title card (3.5s) + fade out
+    setVideoProgress({ slide: ++cur, total: totalScenes });
+    await renderFor(() => drawIntro(), 3.5);
+    await renderFor(p => fadeBlack(drawIntro, p), 0.4);
 
-    // Photo slides
+    // Photo scenes (2.2s each + 0.35s fade to black)
     for (let i = 0; i < validImages.length; i++) {
       const img = validImages[i];
-      setVideoProgress({ slide: ++current, total });
-      await renderFor(p => drawPhoto(img, p), 2.5);
-      // Fade to black between slides
-      const nextImg = validImages[i + 1];
-      if (nextImg) {
-        await renderFor(p => {
-          drawPhoto(img, 1);
-          ctx.globalAlpha = p; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
-        }, 0.3);
-      }
+      const cap = sceneCaption(i, validImages.length);
+      setVideoProgress({ slide: ++cur, total: totalScenes });
+      await renderFor(p => { drawPhoto(img, p, i); drawCaption(cap); }, 2.2);
+      await renderFor(p => fadeBlack(() => { drawPhoto(img, 1, i); drawCaption(cap); }, p), 0.35);
     }
 
-    // Fade out before outro
-    await renderFor(p => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }, 0.3);
+    // CTA outro: fade in + hold (3.5s) + fade out
+    setVideoProgress({ slide: ++cur, total: totalScenes });
+    await renderFor(p => {
+      drawOutro();
+      ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }, 0.4);
+    await renderFor(() => drawOutro(), 3.5);
+    await renderFor(p => fadeBlack(drawOutro, p), 0.5);
 
-    // Outro slide
-    setVideoProgress({ slide: ++current, total });
-    await renderFor(() => drawText([
-      { text: "View Full Listing & Apply Online", size: 40, bold: true },
-      { text: pubUrl, size: 22, color: "#93C5FD" },
-    ]), 3);
-
-    // Stop and collect
+    // Stop recorder
     recorder.stop();
-    await new Promise(resolve => { recorder.onstop = resolve; });
+    await new Promise(r => { recorder.onstop = r; });
     stream.getTracks().forEach(t => t.stop());
 
-    // Upload
+    // Upload to 04_Video_Output
     setVideoStatus("uploading");
     try {
-      const blob   = new Blob(chunks, { type: "video/webm" });
+      const blob = new Blob(chunks, { type: "video/webm" });
       const base64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload  = () => res(r.result.split(",")[1]);
-        r.onerror = rej;
-        r.readAsDataURL(blob);
+        const fr = new FileReader();
+        fr.onload  = () => res(fr.result.split(",")[1]);
+        fr.onerror = rej;
+        fr.readAsDataURL(blob);
       });
-      const fileName = `video__${listing.id}.webm`;
+      const fileName = `video__${listing.id}__${videoFormat}.webm`;
       const result = await apiPost({
         action:        "uploadToSubfolder",
         folderId,
@@ -1338,19 +1470,52 @@ export default function ListingDetail({ lang }) {
             {/* ── Short Video Generator ─────────────────────────────────── */}
             {!folderLoading && activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>🎬 Short Video Generator / 短视频生成</p>
-                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.7 }}>
-                  Generates a ~20–30 sec slideshow video using{" "}
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>🎬 Short Video Generator / 短视频生成</p>
+                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.7 }}>
+                  Polished ~25–35 sec listing video using{" "}
                   <strong>{enhancedPhotos.length > 0 ? "enhanced" : "original"} photos</strong>{" "}
-                  (up to 8, in active order). Outputs → <code>04_Video_Output/</code>
+                  (cover first, up to 8). Ken Burns zoom · fade transitions · text overlays.
+                  Output → <code>04_Video_Output/</code>
                   <br />
                   <span style={{ fontSize: "0.78rem" }}>
                     {enhancedPhotos.length > 0
-                      ? "将使用美化照片生成幻灯片视频"
-                      : "将使用原始照片生成幻灯片视频（建议先运行美化批次）"}
+                      ? "使用美化照片生成精美幻灯片视频"
+                      : "将使用原始照片生成视频（建议先运行美化批次）"}
                     ，输出至 <code>04_Video_Output/</code>。
                   </span>
                 </p>
+
+                {/* Format selector — disabled while rendering */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Format / 格式:</span>
+                  {[
+                    { value: "landscape", label: "Landscape 16:9", sub: "Facebook / YouTube" },
+                    { value: "vertical",  label: "Vertical 9:16",  sub: "Reels / TikTok / WeChat" },
+                  ].map(opt => (
+                    <label key={opt.value} style={{
+                      display: "flex", alignItems: "center", gap: 7, cursor: videoStatus !== "idle" ? "default" : "pointer",
+                      border: `1.5px solid ${videoFormat === opt.value ? "var(--color-primary)" : "var(--color-border)"}`,
+                      borderRadius: 7, padding: "6px 14px", userSelect: "none",
+                      background: videoFormat === opt.value ? "#EFF3F8" : "#fff",
+                      opacity: videoStatus !== "idle" ? 0.55 : 1,
+                      transition: "border-color 0.15s",
+                    }}>
+                      <input
+                        type="radio" name="videoFormat" value={opt.value}
+                        checked={videoFormat === opt.value}
+                        onChange={() => setVideoFormat(opt.value)}
+                        disabled={videoStatus !== "idle"}
+                        style={{ accentColor: "var(--color-primary)", margin: 0, cursor: "inherit" }}
+                      />
+                      <span>
+                        <span style={{ fontSize: "0.84rem", fontWeight: videoFormat === opt.value ? 700 : 400, color: videoFormat === opt.value ? "var(--color-primary)" : "var(--color-text)" }}>
+                          {opt.label}
+                        </span>
+                        <span style={{ display: "block", fontSize: "0.7rem", color: "var(--color-text-muted)", lineHeight: 1.3 }}>{opt.sub}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
 
                 {videoStatus === "idle" && (
                   <button
@@ -1358,7 +1523,7 @@ export default function ListingDetail({ lang }) {
                     disabled={!isApiConnected()}
                     onClick={generateShortVideo}
                   >
-                    🎬 Generate Short Video
+                    🎬 Generate Polished Short Video
                   </button>
                 )}
 
@@ -1368,22 +1533,23 @@ export default function ListingDetail({ lang }) {
                       {videoStatus === "preparing" && "Preparing photos…"}
                       {videoStatus === "rendering" && (
                         <>
-                          Rendering slide {videoProgress.slide} of {videoProgress.total}…
+                          Rendering scene {videoProgress.slide} of {videoProgress.total}…
                           <span style={{ marginLeft: 8, opacity: 0.65 }}>
                             ({Math.round((videoProgress.slide / Math.max(videoProgress.total, 1)) * 100)}%)
                           </span>
                         </>
                       )}
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 2 }}>
-                      Rendering runs in real time — this takes ~25–35 seconds.
+                    <div style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 2 }}>
+                      Rendering runs in real time (~25–35 sec). Keep this tab open.
+                      / 实时渲染中，请保持当前页面。
                     </div>
                   </div>
                 )}
 
                 {videoStatus === "uploading" && (
                   <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
-                    Uploading video to Drive…
+                    Uploading video to Drive… / 正在上传至 Drive…
                   </div>
                 )}
 
@@ -1407,6 +1573,10 @@ export default function ListingDetail({ lang }) {
                         </a>
                       )}
                     </div>
+                    <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 8, lineHeight: 1.7 }}>
+                      No background music is included. Music can be added later in Facebook / CapCut / Canva.
+                      <br />视频不含背景音乐，可在 Facebook / CapCut / Canva 中自行添加。
+                    </p>
                   </div>
                 )}
 
@@ -1421,7 +1591,7 @@ export default function ListingDetail({ lang }) {
                   </div>
                 )}
 
-                {!isApiConnected() && (
+                {!isApiConnected() && videoStatus === "idle" && (
                   <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
                     Requires API connection (VITE_STUDIO_EXEC_URL).
                   </p>
