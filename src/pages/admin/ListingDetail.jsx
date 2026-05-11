@@ -493,7 +493,9 @@ export default function ListingDetail({ lang }) {
     setEnhancedLoading(true);
     try {
       const files = await getListingFolderFiles(subfolderId);
-      setEnhancedPhotos(files || []);
+      const seen = new Map();
+      for (const f of (files || [])) seen.set(f.name, f);
+      setEnhancedPhotos(Array.from(seen.values()));
     } catch {
       setEnhancedPhotos([]);
     } finally {
