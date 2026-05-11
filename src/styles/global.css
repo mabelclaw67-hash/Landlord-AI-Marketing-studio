@@ -46,6 +46,7 @@ img { max-width: 100%; height: auto; display: block; }
 .container { max-width: var(--max-w); margin: 0 auto; padding: 0 20px; }
 .page-wrapper { padding-top: var(--nav-height); min-height: 100vh; }
 .section { padding: 64px 0; }
+@media (max-width: 600px) { .section { padding: 40px 0; } }
 .section--alt { background: #EFF3F8; }
 
 /* =====================
@@ -182,9 +183,16 @@ img { max-width: 100%; height: auto; display: block; }
 .hero__actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .hero__actions .btn { min-width: 140px; }
 
+@media (max-width: 768px) {
+  .hero { padding: 64px 20px 48px; }
+}
 @media (max-width: 600px) {
+  .hero { padding: 48px 16px 36px; }
   .hero__title { font-size: 1.7rem; }
   .hero__subtitle { font-size: 0.95rem; }
+  .hero__sub2 { font-size: 0.85rem; margin-bottom: 28px; }
+  .hero__actions { flex-direction: column; align-items: stretch; }
+  .hero__actions .btn { min-width: unset; width: 100%; min-height: 48px; font-size: 1rem; }
 }
 
 /* =====================
@@ -225,7 +233,11 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .btn--ghost:hover { background: #EFF3F8; }
 .btn--sm { padding: 6px 14px; font-size: 0.82rem; }
-.btn--full { width: 100%; }
+.btn--full { width: 100%; display: block; }
+@media (max-width: 600px) {
+  .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .btn--sm { min-height: 40px; }
+}
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* =====================
@@ -533,6 +545,31 @@ tr:hover td { background: #F8FAFC; }
 }
 
 /* =====================
+   Tenant Nav (Rental Listings + Listing Detail pages)
+   ===================== */
+.tenant-brand { font-size: 1rem; }
+.navbar__links--tenant { gap: 4px; }
+.navbar__links--tenant a { padding: 8px 14px; font-size: 0.9rem; border-radius: 6px; }
+@media (max-width: 600px) {
+  /* Tenant nav: stack links inline but keep them visible (no hamburger needed) */
+  .navbar__links--tenant { gap: 2px; }
+  .navbar__links--tenant a { padding: 6px 10px; font-size: 0.82rem; }
+}
+
+/* De-emphasise Admin Studio link in mobile hamburger menu */
+@media (max-width: 768px) {
+  .navbar__links a.admin-link {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    font-size: 0.82rem;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  .navbar__links a.admin-link:hover { background: var(--color-bg); color: var(--color-text); }
+}
+
+/* =====================
    Example Card
    ===================== */
 .example-card__meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: var(--color-text-muted); margin: 10px 0; }
@@ -551,6 +588,28 @@ tr:hover td { background: #F8FAFC; }
 .example-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .example-card h3 { font-size: 1rem; font-weight: 700; color: var(--color-text); }
 .example-card .ch-label { font-size: 0.82rem; color: var(--color-text-muted); margin-top: 2px; }
+@media (max-width: 600px) {
+  .example-card__meta { font-size: 0.88rem; gap: 12px; }
+  .example-card h3 { font-size: 1.05rem; }
+}
+
+/* =====================
+   Public Listing Detail — mobile
+   ===================== */
+@media (max-width: 600px) {
+  /* Key facts strip: allow wrapping into 2×2 on small screens */
+  .listing-facts-strip > div {
+    flex: 1 1 45%;
+    border-right: none !important;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .listing-facts-strip > div:last-child { border-bottom: none; }
+  /* Apply button: full width, easy tap */
+  .listing-apply-btn {
+    font-size: 1.05rem !important;
+    padding: 18px 20px !important;
+  }
+}
 
 /* =====================
    Resource Card

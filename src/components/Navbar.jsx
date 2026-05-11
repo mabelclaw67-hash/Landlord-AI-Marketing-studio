@@ -5,23 +5,21 @@ import { t } from "../translations";
 export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  const isPublicListing = pathname.startsWith("/listings/");
 
-  // ── Tenant-only header on public listing pages ────────────────────────────
-  if (isPublicListing) {
+  // ── Tenant-facing header: Rental Listings index + individual listing pages ─
+  const isTenantPage = pathname === "/examples" || pathname.startsWith("/listings/");
+  if (isTenantPage) {
     return (
       <nav className="navbar">
         <div className="navbar__inner">
-          <span className="navbar__brand" style={{ cursor: "default" }}>
+          <Link to="/" className="navbar__brand tenant-brand">
             <span>🏠</span>
-            Vanisland Rental Listing
-          </span>
-          <ul className="navbar__links" style={{ display: "flex" }}>
-            <li>
-              <Link to="/contact" onClick={() => setOpen(false)}>
-                Contact Mabel
-              </Link>
-            </li>
+            Vanisland Rentals
+          </Link>
+          <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
+            <li><Link to="/">Home</Link></li>
+            <li><Link to="/examples">Rental Listings</Link></li>
+            <li><Link to="/contact">Contact</Link></li>
           </ul>
         </div>
       </nav>

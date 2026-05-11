@@ -212,7 +212,7 @@ export default function PublicListing() {
 
       {/* ── Key facts strip ─────────────────────────────────────────────────── */}
       <div style={{ background: "#fff", borderBottom: "1px solid var(--color-border)" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", flexWrap: "wrap" }}>
+        <div className="listing-facts-strip" style={{ maxWidth: 800, margin: "0 auto", display: "flex", flexWrap: "wrap" }}>
           {[
             ["Rent",      listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
             ["Available", formatDate(listing.available)],
@@ -220,11 +220,11 @@ export default function PublicListing() {
             ["Bathrooms", String(listing.bathrooms || "—")],
           ].map(([label, val], i, arr) => (
             <div key={label} style={{
-              flex: "1 1 100px", padding: "14px 16px 12px",
+              flex: "1 1 120px", padding: "16px 16px 14px",
               borderRight: i < arr.length - 1 ? "1px solid var(--color-border)" : "none",
             }}>
               <div style={labelStyle}>{label}</div>
-              <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--color-primary)" }}>{val}</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--color-primary)" }}>{val}</div>
             </div>
           ))}
         </div>
@@ -304,6 +304,7 @@ export default function PublicListing() {
               href={buildPrefilledApplicationUrl(listing)}
               target="_blank"
               rel="noopener noreferrer"
+              className="listing-apply-btn"
               style={{
                 display: "block", width: "100%", textAlign: "center",
                 background: "var(--color-accent)", color: "#fff",
@@ -313,7 +314,7 @@ export default function PublicListing() {
                 boxShadow: "0 3px 10px rgba(224,123,57,0.4)",
               }}
             >
-              Apply Online →
+              Apply Now →
             </a>
           ) : (
             <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "14px 16px", marginBottom: 12 }}>
@@ -377,14 +378,15 @@ export default function PublicListing() {
               href={buildPrefilledApplicationUrl(listing)}
               target="_blank"
               rel="noopener noreferrer"
+              className="listing-apply-btn"
               style={{
-                display: "inline-block", marginTop: 14,
+                display: "block", marginTop: 14,
                 background: "var(--color-accent)", color: "#fff",
-                padding: "12px 28px", borderRadius: 8, fontWeight: 700,
-                fontSize: "0.95rem", textDecoration: "none",
+                padding: "14px 28px", borderRadius: 8, fontWeight: 700,
+                fontSize: "1rem", textDecoration: "none", textAlign: "center",
               }}
             >
-              Apply Online →
+              Apply Now →
             </a>
           )}
         </div>

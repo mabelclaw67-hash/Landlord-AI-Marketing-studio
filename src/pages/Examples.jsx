@@ -25,11 +25,11 @@ export default function Examples({ lang }) {
   return (
     <div className="page-wrapper">
       <section className="hero" style={{ padding: "80px 20px 60px" }}>
-        <h1 className="hero__title">Active Rental Listings</h1>
+        <h1 className="hero__title">Rental Listings</h1>
         <p className="hero__subtitle">当前可租房源</p>
         <p className="hero__sub2">
-          Listings created in Admin Studio will appear here when active.
-          <br />在 Admin Studio 创建并启用的房源会显示在这里。
+          Browse current rental listings and apply online.
+          <br />查看当前可租房源，并在线提交申请。
         </p>
       </section>
 
@@ -50,8 +50,8 @@ export default function Examples({ lang }) {
 
           {!loading && !error && listings.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--color-text-muted)" }}>
-              <p style={{ fontSize: "1.1rem", marginBottom: 8 }}>No active rental listings available right now.</p>
-              <p style={{ fontSize: "0.95rem" }}>目前暂无可租房源。</p>
+              <p style={{ fontSize: "1.1rem", marginBottom: 8 }}>No rental listings available right now.</p>
+              <p style={{ fontSize: "0.95rem" }}>目前暂无可租房源，请稍后再查看。</p>
             </div>
           )}
 
@@ -69,7 +69,7 @@ export default function Examples({ lang }) {
                         <h3>{listing.address || listing.id}</h3>
                         <div className="ch-label">{listing.city}</div>
                       </div>
-                      <span className="badge badge--published">Active</span>
+                      <span className="badge badge--published">Available</span>
                     </div>
 
                     <div className="example-card__meta">
@@ -104,10 +104,10 @@ export default function Examples({ lang }) {
 
                     <Link
                       to={`/listings/${listing.id}`}
-                      className="btn btn--ghost btn--sm btn--full"
+                      className="btn btn--primary btn--sm btn--full"
                       style={{ marginTop: 4 }}
                     >
-                      {lang === "zh" ? "查看房源详情 →" : "View Listing →"}
+                      {lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →"}
                     </Link>
                   </div>
                 );
