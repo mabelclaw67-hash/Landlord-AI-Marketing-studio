@@ -15,6 +15,22 @@ function extractFolderId(link) {
   return m ? m[1] : null;
 }
 
+// Build a prefilled Google Form URL for the given listing.
+// Entry 1083146033 = "Property Applied For / Listing ID"
+const PREFILL_ENTRY = "entry.1083146033";
+function buildPrefilledApplicationUrl(listing) {
+  if (!FORM_URL_READY) return RENTAL_FORM_URL;
+  try {
+    const base  = RENTAL_FORM_URL.split("?")[0];
+    const label = listing.id && listing.address
+      ? `${listing.id} — ${listing.address}`
+      : listing.id || "";
+    return `${base}?${PREFILL_ENTRY}=${encodeURIComponent(label)}&usp=pp_url`;
+  } catch {
+    return RENTAL_FORM_URL;
+  }
+}
+
 // Normalise ISO timestamps and Excel serial dates to YYYY-MM-DD for display.
 function formatDate(val) {
   if (!val) return "—";
@@ -285,7 +301,7 @@ export default function PublicListing() {
           {/* Primary CTA */}
           {FORM_URL_READY ? (
             <a
-              href={RENTAL_FORM_URL}
+              href={buildPrefilledApplicationUrl(listing)}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -358,7 +374,7 @@ export default function PublicListing() {
           </p>
           {FORM_URL_READY && (
             <a
-              href={RENTAL_FORM_URL}
+              href={buildPrefilledApplicationUrl(listing)}
               target="_blank"
               rel="noopener noreferrer"
               style={{
