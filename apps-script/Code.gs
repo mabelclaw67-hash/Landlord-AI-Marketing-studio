@@ -65,11 +65,11 @@ var LISTING_HEADERS = [
   "Target Audience",   // S 18
   "Language",          // T 19
   "Platforms",         // U 20
-  "Status",            // V 21
+  "Workflow Status",   // V 21  — actual header name in the sheet
   "Drive Folder Link", // W 22  — existing column, source of truth for photos
-  "Outputs",           // X 23  JSON
-  "Review Status",     // Y 24  JSON
-  "Compliance Flag",   // Z 25  JSON
+  "Final Package Link", // X 23  URL to admin marketing package
+  "Published Link",     // Y 24  URL to public tenant-facing listing
+  "Outputs",           // Z 25  JSON (generated copy — app-managed)
   "Media Checklist",      // AA 26 JSON
   "Drive Files",          // AB 27 JSON
   "Enhanced Folder ID",   // AC 28 — 02_AI_Enhanced_Photos subfolder Drive ID
@@ -216,12 +216,14 @@ function rowToListing_(row, headerMap) {
     features:        col("Key Features"),
     targetAudience:  col("Target Audience"),
     language:        col("Language"),
-    platforms:       parsePlatforms_(col("Platforms")),
-    status:          col("Status") || "Draft",
-    driveFolderLink: col("Drive Folder Link"),          // W — existing column
-    outputs:         tryParse_(col("Outputs"),         {}),
-    reviewStatus:    tryParse_(col("Review Status"),   {}),
-    complianceFlag:  tryParse_(col("Compliance Flag"), {}),
+    platforms:        parsePlatforms_(col("Platforms")),
+    status:           col("Workflow Status") || "Draft", // V — actual sheet column name
+    driveFolderLink:  col("Drive Folder Link"),          // W — existing column
+    finalPackageLink: col("Final Package Link") || null, // X
+    publishedLink:    col("Published Link")    || null,  // Y
+    outputs:          tryParse_(col("Outputs"),         {}),
+    reviewStatus:     tryParse_(col("Review Status"),   {}),
+    complianceFlag:   tryParse_(col("Compliance Flag"), {}),
     mediaChecklist:  tryParse_(col("Media Checklist"), [false, false, false, false]),
     driveFiles:      tryParse_(col("Drive Files"),     []),
     enhancedFolderId: col("Enhanced Folder ID") || null,
@@ -251,12 +253,14 @@ function makeDataMap_(d) {
   m["Key Features"]      = d.features        || "";
   m["Target Audience"]   = d.targetAudience  || "";
   m["Language"]          = d.language        || "";
-  m["Platforms"]         = JSON.stringify(d.platforms      || []);
-  m["Status"]            = d.status          || "Draft";
-  m["Drive Folder Link"] = d.driveFolderLink || "";   // W — never overwrite with blank
-  m["Outputs"]           = JSON.stringify(d.outputs        || {});
-  m["Review Status"]     = JSON.stringify(d.reviewStatus   || {});
-  m["Compliance Flag"]   = JSON.stringify(d.complianceFlag || {});
+  m["Platforms"]          = JSON.stringify(d.platforms      || []);
+  m["Workflow Status"]    = d.status          || "Draft";   // V — actual column name
+  m["Drive Folder Link"]  = d.driveFolderLink || "";        // W — never overwrite with blank
+  m["Final Package Link"] = d.finalPackageLink || "";       // X
+  m["Published Link"]     = d.publishedLink    || "";       // Y
+  m["Outputs"]            = JSON.stringify(d.outputs        || {});
+  m["Review Status"]      = JSON.stringify(d.reviewStatus   || {});
+  m["Compliance Flag"]    = JSON.stringify(d.complianceFlag || {});
   m["Media Checklist"]      = JSON.stringify(d.mediaChecklist || [false, false, false, false]);
   m["Drive Files"]          = JSON.stringify(d.driveFiles     || []);
   m["Enhanced Folder ID"]   = d.enhancedFolderId             || "";

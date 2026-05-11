@@ -323,7 +323,23 @@ export default function ListingDetail({ lang }) {
 
   const updateReviewStatus  = (key, val) => persist({ ...listing, reviewStatus:   { ...listing.reviewStatus,   [key]: val } });
   const updateComplianceFlag = (key, val) => persist({ ...listing, complianceFlag: { ...listing.complianceFlag, [key]: val } });
-  const updateOverallStatus  = (val)      => persist({ ...listing, status: val });
+
+  const updateOverallStatus = async (val) => {
+    const base = window.location.origin;
+    const update = {
+      ...listing,
+      status: val,
+      // When publishing, stamp the public URL and admin package URL into the sheet
+      publishedLink:    val === "Published" ? (listing.publishedLink    || `${base}/listings/${listing.id}`)      : listing.publishedLink,
+      finalPackageLink: val === "Published" ? (listing.finalPackageLink || `${base}/admin/listing/${listing.id}`) : listing.finalPackageLink,
+    };
+    await persist(update);
+    // Re-read from Google Sheet to confirm the write landed in column V
+    try {
+      const fresh = await getListing(id);
+      if (fresh) setListing(fresh);
+    } catch (_) {}
+  };
 
   const toggleMediaCheck = (i) => {
     const mc = [...(listing.mediaChecklist || [false, false, false, false])];
