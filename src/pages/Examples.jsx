@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { t } from "../translations";
 import { sampleListings } from "../data/sampleListings";
 import Footer from "../components/Footer";
@@ -18,6 +19,22 @@ export default function Examples({ lang }) {
 
       <section className="section">
         <div className="container">
+
+          {/* Audience context + live listing link */}
+          <div className="notice notice--info" style={{ maxWidth: 720, margin: "0 auto 40px" }}>
+            <p>
+              These examples show what a tenant-facing rental listing page can look like after the marketing package is generated.
+            </p>
+            <p style={{ marginTop: 6, opacity: 0.85 }}>
+              以下示例展示广告包生成后，租客看到的房源展示页面效果。
+            </p>
+            <div style={{ marginTop: 14 }}>
+              <Link to="/listings/LST-2026-002" className="btn btn--primary btn--sm">
+                View Live Listing Example ↗
+              </Link>
+            </div>
+          </div>
+
           <div className="grid-3">
             {sampleListings.map((listing) => (
               <div key={listing.id} className="card card--hover example-card">
