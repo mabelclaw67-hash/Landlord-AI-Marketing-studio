@@ -307,6 +307,7 @@ function saveContact_(data) {
   var sheet   = getSheet_(CONTACTS_SHEET);
   var headers = ["Name", "Email", "Phone", "City", "Service Interest", "Message", "Submitted At"];
   ensureHeaders_(sheet, headers);
+  var submittedAt = new Date().toISOString();
   sheet.appendRow([
     data.name    || "",
     data.email   || "",
@@ -314,9 +315,30 @@ function saveContact_(data) {
     data.city    || "",
     data.service || "",
     data.message || "",
-    new Date().toISOString(),
+    submittedAt,
   ]);
-  return { success: true };
+
+  var emailWarning = null;
+  try {
+    var body =
+      "New service inquiry submitted via Vanisland AI Marketing Studio.\n\n" +
+      "Name:             " + (data.name    || "—") + "\n" +
+      "Email:            " + (data.email   || "—") + "\n" +
+      "Phone:            " + (data.phone   || "—") + "\n" +
+      "City:             " + (data.city    || "—") + "\n" +
+      "Service Interest: " + (data.service || "—") + "\n" +
+      "Message:\n" + (data.message || "—") + "\n\n" +
+      "Submitted At: " + submittedAt;
+    MailApp.sendEmail({
+      to:      "vanisland2017@hotmail.com",
+      subject: "New AI Marketing Studio Service Inquiry",
+      body:    body,
+    });
+  } catch (emailErr) {
+    emailWarning = emailErr.message;
+  }
+
+  return emailWarning ? { success: true, emailWarning: emailWarning } : { success: true };
 }
 
 // ── File upload → Drive (legacy — kept for backward compat) ──────────────────
