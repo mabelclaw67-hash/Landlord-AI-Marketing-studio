@@ -13,7 +13,7 @@ const SERVICE_OPTIONS = [
 ];
 
 export default function Contact({ lang }) {
-  const [form,      setForm]      = useState({ name: "", email: "", phone: "", city: "", service: "", message: "" });
+  const [form,      setForm]      = useState({ name: "", email: "", phone: "", wechat: "", city: "", service: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting,setSubmitting]= useState(false);
   const [submitErr, setSubmitErr] = useState(null);
@@ -29,6 +29,7 @@ export default function Contact({ lang }) {
         name:    form.name,
         email:   form.email,
         phone:   form.phone,
+        wechat:  form.wechat,
         city:    form.city,
         service: form.service,
         message: form.message,
@@ -93,7 +94,7 @@ export default function Contact({ lang }) {
                   <button
                     className="btn btn--ghost mt-16"
                     style={{ marginTop: 20 }}
-                    onClick={() => { setSubmitted(false); setForm({ name: "", email: "", phone: "", city: "", service: "", message: "" }); }}
+                    onClick={() => { setSubmitted(false); setForm({ name: "", email: "", phone: "", wechat: "", city: "", service: "", message: "" }); }}
                   >
                     Submit another / 再次提交
                   </button>
@@ -133,6 +134,17 @@ export default function Contact({ lang }) {
                         placeholder={t(lang, "contact.placeholder.phone")}
                       />
                     </div>
+                    <div className="form-group">
+                      <label>WeChat ID / 微信号</label>
+                      <input
+                        className="form-control"
+                        value={form.wechat}
+                        onChange={set("wechat")}
+                        placeholder="e.g. mabel_wechat"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row">
                     <div className="form-group">
                       <label>{t(lang, "contact.city")}</label>
                       <input

@@ -305,13 +305,14 @@ function saveListing_(data) {
 
 function saveContact_(data) {
   var sheet   = getSheet_(CONTACTS_SHEET);
-  var headers = ["Name", "Email", "Phone", "City", "Service Interest", "Message", "Submitted At"];
+  var headers = ["Name", "Email", "Phone", "WeChat ID", "City", "Service Interest", "Message", "Submitted At"];
   ensureHeaders_(sheet, headers);
   var submittedAt = new Date().toISOString();
   sheet.appendRow([
     data.name    || "",
     data.email   || "",
     data.phone   || "",
+    data.wechat  || "",
     data.city    || "",
     data.service || "",
     data.message || "",
@@ -325,6 +326,7 @@ function saveContact_(data) {
       "Name:             " + (data.name    || "—") + "\n" +
       "Email:            " + (data.email   || "—") + "\n" +
       "Phone:            " + (data.phone   || "—") + "\n" +
+      "WeChat ID:        " + (data.wechat  || "—") + "\n" +
       "City:             " + (data.city    || "—") + "\n" +
       "Service Interest: " + (data.service || "—") + "\n" +
       "Message:\n" + (data.message || "—") + "\n\n" +
