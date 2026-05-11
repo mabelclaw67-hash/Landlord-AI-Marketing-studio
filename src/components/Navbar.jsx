@@ -5,9 +5,30 @@ import { t } from "../translations";
 export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  // Hide admin controls on public listing pages so applicants don't see them.
   const isPublicListing = pathname.startsWith("/listings/");
 
+  // ── Tenant-only header on public listing pages ────────────────────────────
+  if (isPublicListing) {
+    return (
+      <nav className="navbar">
+        <div className="navbar__inner">
+          <span className="navbar__brand" style={{ cursor: "default" }}>
+            <span>🏠</span>
+            Vanisland Rental Listing
+          </span>
+          <ul className="navbar__links" style={{ display: "flex" }}>
+            <li>
+              <Link to="/contact" onClick={() => setOpen(false)}>
+                Contact Mabel
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    );
+  }
+
+  // ── Full product nav on all other pages ───────────────────────────────────
   return (
     <nav className="navbar">
       <div className="navbar__inner">
@@ -44,17 +65,15 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
-          {!isPublicListing && (
-            <li>
-              <NavLink
-                to="/admin"
-                className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
-                onClick={() => setOpen(false)}
-              >
-                {t(lang, "nav.admin")}
-              </NavLink>
-            </li>
-          )}
+          <li>
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
+              onClick={() => setOpen(false)}
+            >
+              {t(lang, "nav.admin")}
+            </NavLink>
+          </li>
           <li className="navbar__lang">
             <button
               className={lang === "en" ? "active" : ""}
