@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { t } from "../../translations";
 import { getListing, saveListing, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
-import { isApiConnected } from "../../utils/api";
+import { isApiConnected, apiPost } from "../../utils/api";
 import PrototypeBanner from "../../components/PrototypeBanner";
 
 const TAB_LABELS = {
@@ -204,6 +204,11 @@ export default function ListingDetail({ lang }) {
 
   // Copy regeneration state
   const [regenerating, setRegenerating] = useState(false);
+
+  // Light Enhancement Batch state
+  const [enhanceStatus,   setEnhanceStatus]   = useState("idle"); // idle|running|done|error
+  const [enhanceProgress, setEnhanceProgress] = useState({ done: 0, total: 0 });
+  const [enhanceMsg,      setEnhanceMsg]      = useState(null);
 
   // ── Load listing ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -448,6 +453,69 @@ export default function ListingDetail({ lang }) {
   };
 
   const mediaItems = [t(lang, "detail.m1"), t(lang, "detail.m2"), t(lang, "detail.m3"), t(lang, "detail.m4")];
+
+  // ── Light Enhancement Batch ───────────────────────────────────────────────────
+  async function runLightEnhancementBatch() {
+    const folderId = extractFolderId(listing?.driveFolderLink);
+    if (!folderId || activePhotos.length === 0) return;
+    setEnhanceStatus("running");
+    setEnhanceMsg(null);
+    setEnhanceProgress({ done: 0, total: activePhotos.length });
+
+    let done = 0;
+    const errors = [];
+
+    for (const photo of activePhotos) {
+      const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
+      if (!src) { errors.push(`${photo.name}: no image data`); done++; setEnhanceProgress({ done, total: activePhotos.length }); continue; }
+
+      try {
+        // Draw onto Canvas with light enhancement filter
+        const dataUrl = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width  = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.filter = "brightness(1.12) contrast(1.08) saturate(1.06)";
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/jpeg", 0.92));
+          };
+          img.onerror = () => reject(new Error("Image load failed"));
+          img.crossOrigin = "anonymous";
+          img.src = src;
+        });
+
+        // Strip data:image/jpeg;base64, prefix
+        const base64 = dataUrl.split(",")[1];
+        const baseName = photo.name.replace(/\.[^.]+$/, "");
+        const fileName = `enhanced__${baseName}.jpg`;
+
+        await apiPost({
+          action:        "uploadToSubfolder",
+          folderId,
+          subfolderName: "02_AI_Enhanced_Photos",
+          fileName,
+          mimeType:      "image/jpeg",
+          data:          base64,
+        });
+      } catch (err) {
+        errors.push(`${photo.name}: ${err.message}`);
+      }
+
+      done++;
+      setEnhanceProgress({ done, total: activePhotos.length });
+    }
+
+    if (errors.length === 0) {
+      setEnhanceStatus("done");
+      setEnhanceMsg(`${done} enhanced copies saved to 02_AI_Enhanced_Photos/.`);
+    } else {
+      setEnhanceStatus(done === errors.length ? "error" : "done");
+      setEnhanceMsg(`${done - errors.length} succeeded. Errors: ${errors.join("; ")}`);
+    }
+  }
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
@@ -929,13 +997,57 @@ export default function ListingDetail({ lang }) {
                   <br />
                   <span style={{ fontSize: "0.78rem" }}>全部 {activePhotos.length} 张已激活照片将进行轻度美化，副本保存至 <code>02_AI_Enhanced_Photos/</code>，原始文件不变。</span>
                 </p>
-                <div className="notice notice--info">
+                <div className="notice notice--info" style={{ marginBottom: 12 }}>
                   <p style={{ fontSize: "0.8rem", lineHeight: 1.8 }}>
                     <strong>Allowed adjustments only:</strong> brightness · contrast · color balance · clarity<br />
                     Must <strong>not</strong> alter layout, furniture, fixtures, view, condition, or any factual property feature.<br />
                     <span style={{ opacity: 0.85 }}>仅限亮度、对比度、色彩平衡、清晰度。不得修改布局、家具、固定设施、景观、状况或任何真实房源特征。</span>
                   </p>
                 </div>
+
+                {/* Status display */}
+                {enhanceStatus === "idle" && (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    disabled={!isApiConnected()}
+                    onClick={runLightEnhancementBatch}
+                  >
+                    ✨ Run Light Enhancement Batch
+                  </button>
+                )}
+                {enhanceStatus === "running" && (
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
+                    Processing photo {enhanceProgress.done + 1} of {enhanceProgress.total}…
+                    <span style={{ marginLeft: 8, opacity: 0.65 }}>
+                      ({Math.round((enhanceProgress.done / enhanceProgress.total) * 100)}%)
+                    </span>
+                  </div>
+                )}
+                {enhanceStatus === "done" && (
+                  <div>
+                    <div className="notice notice--success" style={{ marginBottom: 8 }}>
+                      <p style={{ fontSize: "0.82rem" }}>✅ {enhanceMsg}</p>
+                    </div>
+                    <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
+                      Run Again
+                    </button>
+                  </div>
+                )}
+                {enhanceStatus === "error" && (
+                  <div>
+                    <div className="notice notice--warning" style={{ marginBottom: 8 }}>
+                      <p style={{ fontSize: "0.82rem" }}>⚠️ {enhanceMsg}</p>
+                    </div>
+                    <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
+                      Try Again
+                    </button>
+                  </div>
+                )}
+                {!isApiConnected() && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                    Requires API connection (VITE_STUDIO_EXEC_URL).
+                  </p>
+                )}
               </div>
             )}
 
