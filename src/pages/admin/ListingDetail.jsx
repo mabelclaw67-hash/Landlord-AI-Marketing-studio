@@ -4,6 +4,7 @@ import { t } from "../../translations";
 import { getListing, saveListing, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
+import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import PrototypeBanner from "../../components/PrototypeBanner";
 
 const TAB_LABELS = {
@@ -258,6 +259,23 @@ export default function ListingDetail({ lang }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Restore cached video for this listing + format on mount or format change
+  useEffect(() => {
+    if (!id || videoStatus !== "idle") return;
+    loadVideoBlob(id, videoFormat)
+      .then(blob => {
+        if (!blob) return;
+        if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
+        setVideoBlob(blob);
+        setVideoBlobUrl(URL.createObjectURL(blob));
+        setVideoStatus("done");
+        setVideoMsg("Video loaded from cache. / 已从缓存加载视频。");
+        setVideoMusicStatus(null);
+        setVideoSourceType(null);
+      })
+      .catch(() => {});
+  }, [id, videoFormat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load music manifest once on mount
   useEffect(() => {
@@ -928,6 +946,8 @@ export default function ListingDetail({ lang }) {
     const blob = new Blob(chunks, { type: "video/webm" });
     setVideoBlob(blob);
     setVideoBlobUrl(URL.createObjectURL(blob));
+    // Persist to IndexedDB so video survives page refresh
+    saveVideoBlob(listing.id, videoFormat, blob).catch(() => {});
 
     // Resolve music status message
     const selectedLabel = loadedMusicOptions.find(o => o.file === musicTrack)?.label || musicTrack;
