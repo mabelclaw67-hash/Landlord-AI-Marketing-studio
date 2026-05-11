@@ -31,6 +31,14 @@ function extractFolderId(link) {
 
 // Cover = first file (numeric alpha order) whose name starts with "1".
 // Falls back to first file if none match.
+function sortByFilenameNumber(photos) {
+  return [...photos].sort((a, b) => {
+    const numA = parseInt((a.name.match(/\d+/) || ['0'])[0], 10);
+    const numB = parseInt((b.name.match(/\d+/) || ['0'])[0], 10);
+    return numA !== numB ? numA - numB : a.name.localeCompare(b.name);
+  });
+}
+
 function detectCoverPhoto(files) {
   if (!files || files.length === 0) return { coverFile: null, isFallback: false };
   const candidates = files
@@ -221,6 +229,8 @@ export default function ListingDetail({ lang }) {
   const [musicTrack,     setMusicTrack]     = useState("none");      // "none" or full path like /music/xxx.mp3
   const [videoMusicStatus,setVideoMusicStatus]= useState(null);      // music result message after generation
   const [loadedMusicOptions, setLoadedMusicOptions] = useState([MUSIC_NO_MUSIC]); // populated from manifest
+  const [videoPhotoIds,  setVideoPhotoIds]  = useState(null);        // null = auto-sort; string[] = manual selection in order
+  const [showVideoPicker,setShowVideoPicker]= useState(false);       // expand/collapse photo picker
 
   // Light Enhancement Batch state
   const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
@@ -603,10 +613,19 @@ export default function ListingDetail({ lang }) {
     const W = isLandscape ? 1280 : 720;
     const H = isLandscape ? 720  : 1280;
 
-    // Photo source: enhanced > original (cover first, up to 8)
+    // Photo source: manual selection OR auto-sort by filename number, then enhanced > original
     const MAX_PHOTOS = 8;
+    let basePhotos;
+    if (videoPhotoIds && videoPhotoIds.length > 0) {
+      basePhotos = videoPhotoIds
+        .map(fid => activePhotos.find(p => p.fileId === fid))
+        .filter(Boolean)
+        .slice(0, MAX_PHOTOS);
+    } else {
+      basePhotos = sortByFilenameNumber(activePhotos).slice(0, MAX_PHOTOS);
+    }
     let usedEnhanced = 0;
-    const photoSource = activePhotos.slice(0, MAX_PHOTOS).map(orig => {
+    const photoSource = basePhotos.map(orig => {
       if (enhancedPhotos.length === 0) return orig;
       const base = orig.name.replace(/\.[^.]+$/, "");
       const ep = enhancedPhotos.find(e => e.name === `enhanced__${base}.jpg`);
@@ -1574,6 +1593,142 @@ export default function ListingDetail({ lang }) {
                       Run Light Enhancement Batch above to use enhanced photos.
                     </span>
                   )}
+                </div>
+
+                {/* ── Video Photo Picker ──────────────────────────────────── */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>📷 Video Photos / 视频照片</span>
+                    {videoPhotoIds
+                      ? <span style={{ fontSize: "0.74rem", background: "#EFF3F8", color: "var(--color-primary)", borderRadius: 5, padding: "2px 8px", fontWeight: 600 }}>
+                          Manual: {videoPhotoIds.length} selected / 已手动选择 {videoPhotoIds.length} 张
+                        </span>
+                      : <span style={{ fontSize: "0.74rem", background: "#f0fdf4", color: "#16a34a", borderRadius: 5, padding: "2px 8px", fontWeight: 600 }}>
+                          Auto (by filename order) / 自动按文件名数字排序
+                        </span>
+                    }
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      style={{ fontSize: "0.74rem", padding: "2px 10px" }}
+                      disabled={videoStatus !== "idle"}
+                      onClick={() => setShowVideoPicker(p => !p)}
+                    >
+                      {showVideoPicker ? "Hide ▲" : "Choose Photos ▼"}
+                    </button>
+                    {videoPhotoIds && (
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        style={{ fontSize: "0.74rem", padding: "2px 10px", color: "#d97706", borderColor: "#fde68a" }}
+                        disabled={videoStatus !== "idle"}
+                        onClick={() => setVideoPhotoIds(null)}
+                      >
+                        Reset to auto / 重置自动
+                      </button>
+                    )}
+                  </div>
+
+                  {showVideoPicker && videoStatus === "idle" && (() => {
+                    const sorted = sortByFilenameNumber(activePhotos);
+                    const MAX_SEL = 8;
+                    const togglePhoto = (fid) => {
+                      setVideoPhotoIds(prev => {
+                        const cur = prev || [];
+                        if (cur.includes(fid)) return cur.length === 1 ? null : cur.filter(id => id !== fid);
+                        if (cur.length >= MAX_SEL) return cur;
+                        return [...cur, fid];
+                      });
+                    };
+                    const movePhoto = (idx, dir) => {
+                      setVideoPhotoIds(prev => {
+                        if (!prev) return prev;
+                        const arr = [...prev];
+                        const to = idx + dir;
+                        if (to < 0 || to >= arr.length) return arr;
+                        [arr[idx], arr[to]] = [arr[to], arr[idx]];
+                        return arr;
+                      });
+                    };
+                    const selectedIds = videoPhotoIds || [];
+                    return (
+                      <div style={{ border: "1px solid var(--color-border)", borderRadius: 8, padding: 12, background: "#fafafa" }}>
+                        <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.6 }}>
+                          Click to select up to {MAX_SEL} photos. Numbers show video order. If nothing selected, first {MAX_SEL} by filename number are used.
+                          <br />点击选择最多 {MAX_SEL} 张。数字为视频顺序。不选则自动按文件名数字取前 {MAX_SEL} 张。
+                        </p>
+
+                        {/* Thumbnail grid */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: selectedIds.length > 0 ? 12 : 0 }}>
+                          {sorted.map(photo => {
+                            const selIdx = selectedIds.indexOf(photo.fileId);
+                            const isSelected = selIdx !== -1;
+                            const src = photo.thumbUrl || photo.thumbUrlLg || (photo.fileId ? `https://drive.google.com/thumbnail?id=${photo.fileId}&sz=w200` : null);
+                            return (
+                              <div
+                                key={photo.fileId}
+                                onClick={() => togglePhoto(photo.fileId)}
+                                title={photo.name}
+                                style={{
+                                  position: "relative", width: 72, height: 52, borderRadius: 5, overflow: "hidden", cursor: "pointer",
+                                  border: `2.5px solid ${isSelected ? "var(--color-primary)" : "var(--color-border)"}`,
+                                  opacity: !isSelected && selectedIds.length >= MAX_SEL ? 0.4 : 1,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {src
+                                  ? <img src={src} alt={photo.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  : <div style={{ width: "100%", height: "100%", background: "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#9ca3af" }}>no img</div>
+                                }
+                                {isSelected && (
+                                  <div style={{
+                                    position: "absolute", top: 2, left: 2,
+                                    background: "var(--color-primary)", color: "#fff",
+                                    borderRadius: 4, fontSize: "0.68rem", fontWeight: 800,
+                                    padding: "0 5px", lineHeight: "18px", minWidth: 18, textAlign: "center",
+                                  }}>
+                                    {selIdx + 1}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Reorder strip for selected photos */}
+                        {selectedIds.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginBottom: 6 }}>
+                              Reorder / 调整顺序：
+                            </p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {selectedIds.map((fid, idx) => {
+                                const photo = activePhotos.find(p => p.fileId === fid);
+                                const src = photo?.thumbUrl || photo?.thumbUrlLg || (photo?.fileId ? `https://drive.google.com/thumbnail?id=${photo.fileId}&sz=w200` : null);
+                                return (
+                                  <div key={fid} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                                    <div style={{ position: "relative", width: 56, height: 40, borderRadius: 4, overflow: "hidden", border: "2px solid var(--color-primary)" }}>
+                                      {src
+                                        ? <img src={src} alt={photo?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                        : <div style={{ width: "100%", height: "100%", background: "#e5e7eb" }} />
+                                      }
+                                      <div style={{ position: "absolute", top: 1, left: 2, background: "var(--color-primary)", color: "#fff", borderRadius: 3, fontSize: "0.62rem", fontWeight: 800, padding: "0 4px", lineHeight: "16px" }}>
+                                        {idx + 1}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 2 }}>
+                                      <button onClick={() => movePhoto(idx, -1)} disabled={idx === 0}
+                                        style={{ fontSize: "0.62rem", padding: "1px 5px", border: "1px solid var(--color-border)", borderRadius: 3, background: "#fff", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.3 : 1 }}>◀</button>
+                                      <button onClick={() => movePhoto(idx, 1)} disabled={idx === selectedIds.length - 1}
+                                        style={{ fontSize: "0.62rem", padding: "1px 5px", border: "1px solid var(--color-border)", borderRadius: 3, background: "#fff", cursor: idx === selectedIds.length - 1 ? "default" : "pointer", opacity: idx === selectedIds.length - 1 ? 0.3 : 1 }}>▶</button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Background Music selector */}
