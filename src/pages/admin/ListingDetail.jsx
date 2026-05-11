@@ -705,7 +705,8 @@ export default function ListingDetail({ lang }) {
         const at = dest.stream.getAudioTracks()[0];
         if (at) { stream.addTrack(at); audioAdded = true; }
       } catch (err) {
-        console.warn("Music setup failed, generating silent video:", err.message);
+        // Surface the exact error so user knows why music failed
+        setVideoMsg(`⚠️ Music failed (${err.message}) — generating silent video.`);
         if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
         audioSource = null;
       }
