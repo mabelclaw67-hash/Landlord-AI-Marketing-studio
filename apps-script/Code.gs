@@ -454,9 +454,11 @@ function uploadToSubfolder_(body) {
 
   var fileId = file.getId();
   return {
-    fileId:   fileId,
-    url:      file.getUrl(),
-    thumbUrl: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w400",
-    fileName: blob.getName(),
+    fileId:          fileId,
+    url:             file.getUrl(),
+    thumbUrl:        "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w400",
+    fileName:        blob.getName(),
+    subfolderFolderId: target.getId(),
+    subfolderUrl:    target.getUrl(),
   };
 }

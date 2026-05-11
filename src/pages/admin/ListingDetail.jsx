@@ -206,9 +206,13 @@ export default function ListingDetail({ lang }) {
   const [regenerating, setRegenerating] = useState(false);
 
   // Light Enhancement Batch state
-  const [enhanceStatus,   setEnhanceStatus]   = useState("idle"); // idle|running|done|error
-  const [enhanceProgress, setEnhanceProgress] = useState({ done: 0, total: 0 });
-  const [enhanceMsg,      setEnhanceMsg]      = useState(null);
+  const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
+  const [enhanceProgress,    setEnhanceProgress]    = useState({ done: 0, total: 0 });
+  const [enhanceMsg,         setEnhanceMsg]         = useState(null);
+  const [enhancedFolderUrl,  setEnhancedFolderUrl]  = useState(null);
+  const [enhancedFolderId,   setEnhancedFolderId]   = useState(null);
+  const [enhancedPhotos,     setEnhancedPhotos]     = useState([]);
+  const [enhancedLoading,    setEnhancedLoading]    = useState(false);
 
   // ── Load listing ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -454,6 +458,20 @@ export default function ListingDetail({ lang }) {
 
   const mediaItems = [t(lang, "detail.m1"), t(lang, "detail.m2"), t(lang, "detail.m3"), t(lang, "detail.m4")];
 
+  // ── Enhanced Photos Preview ──────────────────────────────────────────────────
+  async function loadEnhancedPhotos(subfolderId) {
+    if (!subfolderId) return;
+    setEnhancedLoading(true);
+    try {
+      const files = await getListingFolderFiles(subfolderId);
+      setEnhancedPhotos(files || []);
+    } catch {
+      setEnhancedPhotos([]);
+    } finally {
+      setEnhancedLoading(false);
+    }
+  }
+
   // ── Light Enhancement Batch ───────────────────────────────────────────────────
   async function runLightEnhancementBatch() {
     const folderId = extractFolderId(listing?.driveFolderLink);
@@ -464,6 +482,8 @@ export default function ListingDetail({ lang }) {
 
     let done = 0;
     const errors = [];
+    let capturedFolderUrl = null;
+    let capturedFolderId  = null;
 
     for (const photo of activePhotos) {
       const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
@@ -478,7 +498,7 @@ export default function ListingDetail({ lang }) {
             canvas.width  = img.naturalWidth;
             canvas.height = img.naturalHeight;
             const ctx = canvas.getContext("2d");
-            ctx.filter = "brightness(1.12) contrast(1.08) saturate(1.06)";
+            ctx.filter = "brightness(1.16) contrast(1.12) saturate(1.10)";
             ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL("image/jpeg", 0.92));
           };
@@ -487,12 +507,11 @@ export default function ListingDetail({ lang }) {
           img.src = src;
         });
 
-        // Strip data:image/jpeg;base64, prefix
         const base64 = dataUrl.split(",")[1];
         const baseName = photo.name.replace(/\.[^.]+$/, "");
         const fileName = `enhanced__${baseName}.jpg`;
 
-        await apiPost({
+        const res = await apiPost({
           action:        "uploadToSubfolder",
           folderId,
           subfolderName: "02_AI_Enhanced_Photos",
@@ -500,6 +519,8 @@ export default function ListingDetail({ lang }) {
           mimeType:      "image/jpeg",
           data:          base64,
         });
+        if (res?.subfolderUrl  && !capturedFolderUrl)  capturedFolderUrl = res.subfolderUrl;
+        if (res?.subfolderFolderId && !capturedFolderId) capturedFolderId = res.subfolderFolderId;
       } catch (err) {
         errors.push(`${photo.name}: ${err.message}`);
       }
@@ -507,6 +528,9 @@ export default function ListingDetail({ lang }) {
       done++;
       setEnhanceProgress({ done, total: activePhotos.length });
     }
+
+    if (capturedFolderUrl)  setEnhancedFolderUrl(capturedFolderUrl);
+    if (capturedFolderId)   { setEnhancedFolderId(capturedFolderId); loadEnhancedPhotos(capturedFolderId); }
 
     if (errors.length === 0) {
       setEnhanceStatus("done");
@@ -1028,9 +1052,16 @@ export default function ListingDetail({ lang }) {
                     <div className="notice notice--success" style={{ marginBottom: 8 }}>
                       <p style={{ fontSize: "0.82rem" }}>✅ {enhanceMsg}</p>
                     </div>
-                    <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
-                      Run Again
-                    </button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
+                        Run Again
+                      </button>
+                      {enhancedFolderUrl && (
+                        <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
+                          📂 Open Enhanced Photos Folder
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
                 {enhanceStatus === "error" && (
@@ -1038,15 +1069,80 @@ export default function ListingDetail({ lang }) {
                     <div className="notice notice--warning" style={{ marginBottom: 8 }}>
                       <p style={{ fontSize: "0.82rem" }}>⚠️ {enhanceMsg}</p>
                     </div>
-                    <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
-                      Try Again
-                    </button>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
+                        Try Again
+                      </button>
+                      {enhancedFolderUrl && (
+                        <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
+                          📂 Open Enhanced Photos Folder
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
                 {!isApiConnected() && (
                   <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
                     Requires API connection (VITE_STUDIO_EXEC_URL).
                   </p>
+                )}
+              </div>
+            )}
+
+            {/* ── Enhanced Photos Preview ───────────────────────────────── */}
+            {!folderLoading && (
+              <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                  <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ Enhanced Photos Preview / 美化照片预览</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {enhancedFolderUrl && (
+                      <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
+                        📂 Open Folder
+                      </a>
+                    )}
+                    {enhancedFolderId && (
+                      <button className="btn btn--ghost btn--sm" disabled={enhancedLoading}
+                        onClick={() => loadEnhancedPhotos(enhancedFolderId)}>
+                        {enhancedLoading ? "Loading…" : "↺ Refresh Enhanced Photos"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {enhancedLoading && (
+                  <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>Loading enhanced photos…</p>
+                )}
+                {!enhancedLoading && enhancedPhotos.length === 0 && (
+                  <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+                    No enhanced photos yet. Run Light Enhancement Batch first.
+                    <br /><span style={{ fontSize: "0.78rem" }}>暂无美化照片，请先运行轻度美化批次。</span>
+                  </p>
+                )}
+                {!enhancedLoading && enhancedPhotos.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {enhancedPhotos.map((f) => (
+                      <div key={f.fileId} style={{ width: 150, border: "1px solid var(--color-border)", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                        {f.dataUrl || f.thumbUrl ? (
+                          <img
+                            src={f.dataUrl || f.thumbUrl}
+                            alt={f.name}
+                            style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }}
+                          />
+                        ) : (
+                          <div style={{ width: "100%", height: 100, background: "#EFF3F8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{ fontSize: "1.5rem" }}>🖼️</span>
+                          </div>
+                        )}
+                        <div style={{ padding: "5px 7px" }}>
+                          <div style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
+                            {f.name}
+                          </div>
+                          <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.65rem", color: "var(--color-primary)", fontWeight: 600 }}>
+                            Open in Drive ↗
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
