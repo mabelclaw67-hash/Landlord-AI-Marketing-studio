@@ -18,13 +18,8 @@ const TAB_LABELS = {
 
 const MAX_FILE_MB = 8;
 
-const MUSIC_OPTIONS = [
-  { value: "none",            label: "No music / 不加音乐",          file: null },
-  { value: "soft-piano",      label: "Soft Piano / 轻柔钢琴",        file: "soft-piano.mp3" },
-  { value: "warm-acoustic",   label: "Warm Acoustic / 温暖原声吉他", file: "warm-acoustic.mp3" },
-  { value: "light-corporate", label: "Light Corporate / 轻商务风格", file: "light-corporate.mp3" },
-  { value: "calm-ambient",    label: "Calm Ambient / 平静氛围",      file: "calm-ambient.mp3" },
-];
+// Fallback when manifest hasn't loaded yet
+const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
 
 // ── Pure helpers (outside component — stable identity, no remount risk) ───────
 
@@ -223,8 +218,9 @@ export default function ListingDetail({ lang }) {
   const [videoBlob,      setVideoBlob]      = useState(null);        // raw Blob for download
   const [videoBlobUrl,   setVideoBlobUrl]   = useState(null);        // URL.createObjectURL for in-page preview
   const [videoSourceType,setVideoSourceType]= useState(null);        // "enhanced" | "original"
-  const [musicTrack,     setMusicTrack]     = useState("none");      // selected music track value
+  const [musicTrack,     setMusicTrack]     = useState("none");      // "none" or full path like /music/xxx.mp3
   const [videoMusicStatus,setVideoMusicStatus]= useState(null);      // music result message after generation
+  const [loadedMusicOptions, setLoadedMusicOptions] = useState([MUSIC_NO_MUSIC]); // populated from manifest
 
   // Light Enhancement Batch state
   const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
@@ -247,6 +243,18 @@ export default function ListingDetail({ lang }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Load music manifest once on mount
+  useEffect(() => {
+    fetch("/music/music-manifest.json")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("manifest not found")))
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setLoadedMusicOptions([MUSIC_NO_MUSIC, ...data]);
+        }
+      })
+      .catch(() => { /* fallback: keep No music only — do not throw */ });
+  }, []);
 
   const loadFolderFiles = async (folderId) => {
     setFolderLoading(true);
@@ -632,8 +640,8 @@ export default function ListingDetail({ lang }) {
     let audioSource = null, audioCtx = null, audioAdded = false;
     if (musicTrack !== "none") {
       try {
-        const resp = await fetch(`/music/${musicTrack}.mp3`);
-        if (!resp.ok) throw new Error(`${musicTrack}.mp3 not found (HTTP ${resp.status})`);
+        const resp = await fetch(musicTrack); // musicTrack is the full path from manifest
+        if (!resp.ok) throw new Error(`${musicTrack} not found (HTTP ${resp.status})`);
         const ab = await resp.arrayBuffer();
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === "suspended") await audioCtx.resume();
@@ -889,10 +897,10 @@ export default function ListingDetail({ lang }) {
     setVideoBlobUrl(URL.createObjectURL(blob));
 
     // Resolve music status message
-    const selectedLabel = MUSIC_OPTIONS.find(o => o.value === musicTrack)?.label?.split(" / ")[0] || musicTrack;
+    const selectedLabel = loadedMusicOptions.find(o => o.file === musicTrack)?.label || musicTrack;
     const musicStatus = musicTrack === "none" ? null
       : audioAdded  ? `Music included: ${selectedLabel} ✅`
-      : `Music file not found — place public/music/${musicTrack}.mp3 to enable audio.`;
+      : `Music file failed to load: ${musicTrack}`;
 
     // Upload to 04_Video_Output — Drive is storage only, not the viewing interface
     setVideoStatus("uploading");
@@ -1578,20 +1586,21 @@ export default function ListingDetail({ lang }) {
                     style={{
                       padding: "6px 10px", border: "1.5px solid var(--color-border)", borderRadius: 6,
                       fontSize: "0.84rem", fontFamily: "inherit", background: "#fff",
-                      color: "var(--color-text)", minWidth: 240,
+                      color: "var(--color-text)", minWidth: 260,
                       cursor: videoStatus !== "idle" ? "default" : "pointer",
                       opacity: videoStatus !== "idle" ? 0.6 : 1,
                     }}
                   >
-                    {MUSIC_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                    {loadedMusicOptions.map(o => (
+                      <option key={o.file} value={o.file}>{o.label}</option>
                     ))}
                   </select>
-                  {musicTrack !== "none" && (
-                    <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 4 }}>
-                      Place <code>public/music/{musicTrack}.mp3</code> (royalty-free) to enable this track.
-                    </p>
-                  )}
+                  <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: 3 }}>
+                    {loadedMusicOptions.length > 1
+                      ? `${loadedMusicOptions.length - 1} royalty-free track${loadedMusicOptions.length > 2 ? "s" : ""} loaded from public/music/`
+                      : "Place MP3 files in public/music/ and add them to music-manifest.json"
+                    }
+                  </p>
                   <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 5, lineHeight: 1.6 }}>
                     Use royalty-free music only. Music can also be added later in Facebook, CapCut, or Canva.
                     <br />仅使用免版权音乐。也可以稍后在 Facebook、剪映/CapCut 或 Canva 中添加音乐。
