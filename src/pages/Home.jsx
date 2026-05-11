@@ -21,6 +21,12 @@ export default function Home({ lang }) {
           <Link to="/contact" className="btn btn--accent">{t(lang, "home.ctaStart")}</Link>
           <Link to="/services" className="btn btn--outline">{t(lang, "home.ctaLearn")}</Link>
         </div>
+        <div style={{ marginTop: 20 }}>
+          <Link to="/listings/LST-2026-002" className="btn btn--primary">
+            View Current Rental Listing
+          </Link>
+          <div style={{ marginTop: 6, fontSize: "0.8rem", opacity: 0.7 }}>查看当前招租房源</div>
+        </div>
       </section>
 
       {/* Services Overview */}
