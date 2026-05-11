@@ -194,7 +194,8 @@ export default function ListingDetail({ lang }) {
   const [uploadMsg,      setUploadMsg]      = useState(null);
   const [previews,       setPreviews]       = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null);
-  const fileInputRef = useRef(null);
+  const fileInputRef  = useRef(null);
+  const listingRef    = useRef(null); // always tracks the latest listing state
 
   // Photo state
   const [folderFiles,   setFolderFiles]   = useState([]);
@@ -259,6 +260,9 @@ export default function ListingDetail({ lang }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Keep listingRef in sync so async functions always see the latest listing state
+  useEffect(() => { listingRef.current = listing; }, [listing]);
 
   // Restore cached video for this listing + format on mount or format change
   useEffect(() => {
@@ -597,9 +601,12 @@ export default function ListingDetail({ lang }) {
     if (capturedFolderId) {
       setEnhancedFolderId(capturedFolderId);
       loadEnhancedPhotos(capturedFolderId);
-      // Persist subfolder ID so enhanced photos auto-load on page refresh
-      if (!listing.enhancedFolderId) {
-        persist({ ...listing, enhancedFolderId: capturedFolderId });
+      // Persist subfolder ID so enhanced photos auto-load on page refresh.
+      // Use listingRef.current (not the closure's listing) so we don't overwrite
+      // any status/field changes the user made while the batch was running.
+      const currentListing = listingRef.current;
+      if (currentListing && !currentListing.enhancedFolderId) {
+        persist({ ...currentListing, enhancedFolderId: capturedFolderId });
       }
     }
 
@@ -1008,7 +1015,10 @@ export default function ListingDetail({ lang }) {
             className="btn btn--ghost btn--sm" style={{ whiteSpace: "nowrap" }}>
             🔗 Open Public Listing Preview
           </a>
-          <Link to="/admin" className="btn btn--ghost btn--sm">← Dashboard</Link>
+          <Link to="/admin" className="btn btn--ghost btn--sm"
+            style={saving ? { pointerEvents: "none", opacity: 0.5 } : {}}>
+            ← Dashboard
+          </Link>
         </div>
       </div>
 
