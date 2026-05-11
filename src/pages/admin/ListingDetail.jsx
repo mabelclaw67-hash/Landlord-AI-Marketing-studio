@@ -249,6 +249,11 @@ export default function ListingDetail({ lang }) {
         if (!l) { setError("Listing not found."); return; }
         const fid = extractFolderId(l.driveFolderLink);
         if (fid) loadFolderFiles(fid);
+        // Auto-load enhanced photos if subfolder ID was saved from a previous batch run
+        if (l.enhancedFolderId) {
+          setEnhancedFolderId(l.enhancedFolderId);
+          loadEnhancedPhotos(l.enhancedFolderId);
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -571,7 +576,14 @@ export default function ListingDetail({ lang }) {
     }
 
     if (capturedFolderUrl)  setEnhancedFolderUrl(capturedFolderUrl);
-    if (capturedFolderId)   { setEnhancedFolderId(capturedFolderId); loadEnhancedPhotos(capturedFolderId); }
+    if (capturedFolderId) {
+      setEnhancedFolderId(capturedFolderId);
+      loadEnhancedPhotos(capturedFolderId);
+      // Persist subfolder ID so enhanced photos auto-load on page refresh
+      if (!listing.enhancedFolderId) {
+        persist({ ...listing, enhancedFolderId: capturedFolderId });
+      }
+    }
 
     if (errors.length === 0) {
       setEnhanceStatus("done");
