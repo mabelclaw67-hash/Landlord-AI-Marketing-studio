@@ -26,8 +26,8 @@ function lsSetAll(listings) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getListings() {
-  // POST bypasses Google Apps Script's aggressive GET response caching
-  if (isApiConnected()) return apiPost({ action: "getListings" });
+  // apiGet adds _t=Date.now() and cache:"no-store" to bust GET caching
+  if (isApiConnected()) return apiGet({ action: "getListings" });
   return lsGetAll();
 }
 
