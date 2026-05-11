@@ -330,7 +330,7 @@ function saveContact_(data) {
       "Message:\n" + (data.message || "—") + "\n\n" +
       "Submitted At: " + submittedAt;
     MailApp.sendEmail({
-      to:      "vanisland2017@hotmail.com",
+      to:      "mabelclaw67@gmail.com",
       subject: "New AI Marketing Studio Service Inquiry",
       body:    body,
     });
