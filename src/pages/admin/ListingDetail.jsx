@@ -212,6 +212,9 @@ export default function ListingDetail({ lang }) {
   const [videoFolderUrl, setVideoFolderUrl] = useState(null);
   const [videoFileUrl,   setVideoFileUrl]   = useState(null);
   const [videoFormat,    setVideoFormat]    = useState("landscape"); // "landscape" | "vertical"
+  const [videoBlob,      setVideoBlob]      = useState(null);        // raw Blob for download
+  const [videoBlobUrl,   setVideoBlobUrl]   = useState(null);        // URL.createObjectURL for in-page preview
+  const [videoSourceType,setVideoSourceType]= useState(null);        // "enhanced" | "original"
 
   // Light Enhancement Batch state
   const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
@@ -565,6 +568,9 @@ export default function ListingDetail({ lang }) {
     setVideoProgress({ slide: 0, total: 0 });
     setVideoFolderUrl(null);
     setVideoFileUrl(null);
+    setVideoBlob(null);
+    setVideoBlobUrl(null);
+    setVideoSourceType(null);
 
     if (!window.MediaRecorder) {
       setVideoStatus("error");
@@ -578,11 +584,15 @@ export default function ListingDetail({ lang }) {
 
     // Photo source: enhanced > original (cover first, up to 8)
     const MAX_PHOTOS = 8;
+    let usedEnhanced = 0;
     const photoSource = activePhotos.slice(0, MAX_PHOTOS).map(orig => {
       if (enhancedPhotos.length === 0) return orig;
       const base = orig.name.replace(/\.[^.]+$/, "");
-      return enhancedPhotos.find(e => e.name === `enhanced__${base}.jpg`) || orig;
+      const ep = enhancedPhotos.find(e => e.name === `enhanced__${base}.jpg`);
+      if (ep) { usedEnhanced++; return ep; }
+      return orig;
     });
+    setVideoSourceType(usedEnhanced > 0 ? "enhanced" : "original");
 
     const loadedImages = await Promise.all(
       photoSource.map(photo => new Promise(resolve => {
@@ -832,10 +842,14 @@ export default function ListingDetail({ lang }) {
     await new Promise(r => { recorder.onstop = r; });
     stream.getTracks().forEach(t => t.stop());
 
-    // Upload to 04_Video_Output
+    // Create local blob URL for in-page preview + download (no Drive needed for viewing)
+    const blob = new Blob(chunks, { type: "video/webm" });
+    setVideoBlob(blob);
+    setVideoBlobUrl(URL.createObjectURL(blob));
+
+    // Upload to 04_Video_Output — Drive is storage only, not the viewing interface
     setVideoStatus("uploading");
     try {
-      const blob = new Blob(chunks, { type: "video/webm" });
       const base64 = await new Promise((res, rej) => {
         const fr = new FileReader();
         fr.onload  = () => res(fr.result.split(",")[1]);
@@ -856,8 +870,8 @@ export default function ListingDetail({ lang }) {
       setVideoStatus("done");
       setVideoMsg(`${fileName} saved to 04_Video_Output/`);
     } catch (err) {
-      setVideoStatus("error");
-      setVideoMsg(`Upload failed: ${err.message}`);
+      setVideoStatus("done"); // still show preview even if Drive upload fails
+      setVideoMsg(`Video ready. Drive upload failed: ${err.message}`);
     }
   }
 
@@ -1471,26 +1485,44 @@ export default function ListingDetail({ lang }) {
             {!folderLoading && activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>🎬 Short Video Generator / 短视频生成</p>
-                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.7 }}>
-                  Polished ~25–35 sec listing video using{" "}
-                  <strong>{enhancedPhotos.length > 0 ? "enhanced" : "original"} photos</strong>{" "}
-                  (cover first, up to 8). Ken Burns zoom · fade transitions · text overlays.
-                  Output → <code>04_Video_Output/</code>
-                  <br />
-                  <span style={{ fontSize: "0.78rem" }}>
-                    {enhancedPhotos.length > 0
-                      ? "使用美化照片生成精美幻灯片视频"
-                      : "将使用原始照片生成视频（建议先运行美化批次）"}
-                    ，输出至 <code>04_Video_Output/</code>。
-                  </span>
+                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.7 }}>
+                  Polished ~25–35 sec listing video. Ken Burns zoom · fade transitions · text overlays.
+                  <br /><span style={{ fontSize: "0.78rem" }}>精美房源幻灯片视频，输出至 <code>04_Video_Output/</code>。</span>
                 </p>
+
+                {/* Photo source indicator */}
+                <div style={{ marginBottom: 12, padding: "7px 12px", borderRadius: 7, background: enhancedPhotos.length > 0 ? "#f0fdf4" : "#fffbeb", border: `1px solid ${enhancedPhotos.length > 0 ? "#86efac" : "#fde68a"}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.82rem" }}>
+                    <strong>Video source / 视频素材：</strong>{" "}
+                    {enhancedPhotos.length > 0 ? (
+                      <span style={{ color: "#16a34a", fontWeight: 700 }}>✅ Enhanced Photos ({enhancedPhotos.length} photos) / 美化照片</span>
+                    ) : (
+                      <span style={{ color: "#d97706", fontWeight: 600 }}>⚠️ Original Photos / 原始照片</span>
+                    )}
+                  </span>
+                  {enhancedPhotos.length === 0 && enhancedFolderId && (
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      style={{ fontSize: "0.74rem", padding: "2px 10px" }}
+                      disabled={enhancedLoading || videoStatus !== "idle"}
+                      onClick={() => loadEnhancedPhotos(enhancedFolderId)}
+                    >
+                      {enhancedLoading ? "Loading…" : "↺ Load Enhanced Photos"}
+                    </button>
+                  )}
+                  {enhancedPhotos.length === 0 && !enhancedFolderId && (
+                    <span style={{ fontSize: "0.74rem", color: "var(--color-text-muted)" }}>
+                      Run Light Enhancement Batch above to use enhanced photos.
+                    </span>
+                  )}
+                </div>
 
                 {/* Format selector — disabled while rendering */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Format / 格式:</span>
                   {[
-                    { value: "landscape", label: "Landscape 16:9", sub: "Facebook / YouTube" },
-                    { value: "vertical",  label: "Vertical 9:16",  sub: "Reels / TikTok / WeChat" },
+                    { value: "landscape", label: "Landscape 16:9", sub: "Facebook · YouTube" },
+                    { value: "vertical",  label: "Vertical 9:16",  sub: "Reels · TikTok · WeChat" },
                   ].map(opt => (
                     <label key={opt.value} style={{
                       display: "flex", alignItems: "center", gap: 7, cursor: videoStatus !== "idle" ? "default" : "pointer",
@@ -1498,7 +1530,6 @@ export default function ListingDetail({ lang }) {
                       borderRadius: 7, padding: "6px 14px", userSelect: "none",
                       background: videoFormat === opt.value ? "#EFF3F8" : "#fff",
                       opacity: videoStatus !== "idle" ? 0.55 : 1,
-                      transition: "border-color 0.15s",
                     }}>
                       <input
                         type="radio" name="videoFormat" value={opt.value}
@@ -1517,6 +1548,7 @@ export default function ListingDetail({ lang }) {
                   ))}
                 </div>
 
+                {/* Generate button */}
                 {videoStatus === "idle" && (
                   <button
                     className="btn btn--primary btn--sm"
@@ -1527,10 +1559,11 @@ export default function ListingDetail({ lang }) {
                   </button>
                 )}
 
+                {/* Progress */}
                 {(videoStatus === "preparing" || videoStatus === "rendering") && (
                   <div style={{ fontSize: "0.85rem", color: "var(--color-primary)", lineHeight: 1.8 }}>
                     <div>
-                      {videoStatus === "preparing" && "Preparing photos…"}
+                      {videoStatus === "preparing" && "Preparing photos… / 准备照片中…"}
                       {videoStatus === "rendering" && (
                         <>
                           Rendering scene {videoProgress.slide} of {videoProgress.total}…
@@ -1541,40 +1574,94 @@ export default function ListingDetail({ lang }) {
                       )}
                     </div>
                     <div style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 2 }}>
-                      Rendering runs in real time (~25–35 sec). Keep this tab open.
-                      / 实时渲染中，请保持当前页面。
+                      Rendering runs in real time (~25–35 sec). Keep this tab open. / 实时渲染中，请保持当前页面。
                     </div>
                   </div>
                 )}
 
                 {videoStatus === "uploading" && (
                   <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
-                    Uploading video to Drive… / 正在上传至 Drive…
+                    Saving video to Drive storage… / 正在保存至 Drive…
                   </div>
                 )}
 
+                {/* ── Completion: embedded preview + download ── */}
                 {videoStatus === "done" && (
                   <div>
-                    <div className="notice notice--success" style={{ marginBottom: 8 }}>
-                      <p style={{ fontSize: "0.82rem" }}>✅ {videoMsg}</p>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn btn--ghost btn--sm" onClick={() => { setVideoStatus("idle"); setVideoMsg(null); }}>
+                    {/* Inline video player — no Drive required */}
+                    {videoBlobUrl && (
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 8, color: "var(--color-primary)" }}>
+                          Video Preview / 视频预览
+                        </p>
+                        <video
+                          key={videoBlobUrl}
+                          controls
+                          src={videoBlobUrl}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            maxWidth: videoFormat === "landscape" ? 640 : 300,
+                            borderRadius: 8,
+                            background: "#000",
+                            boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+                          }}
+                        />
+                        {videoSourceType && (
+                          <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 5 }}>
+                            Source used: <strong>{videoSourceType === "enhanced" ? "Enhanced Photos ✅" : "Original Photos"}</strong>
+                            {" · "}{videoFormat === "landscape" ? "Landscape 16:9" : "Vertical 9:16"}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+                      {/* Download — primary action */}
+                      {videoBlobUrl && (
+                        <a
+                          href={videoBlobUrl}
+                          download={`video__${listing.id}__${videoFormat}.webm`}
+                          className="btn btn--primary btn--sm"
+                        >
+                          ⬇ Download Video
+                        </a>
+                      )}
+                      {/* Generate again */}
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => {
+                          if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
+                          setVideoStatus("idle");
+                          setVideoMsg(null);
+                          setVideoBlob(null);
+                          setVideoBlobUrl(null);
+                          setVideoSourceType(null);
+                        }}
+                      >
                         Generate Again
                       </button>
-                      {videoFolderUrl && (
-                        <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
-                          📂 Open Video Output Folder
-                        </a>
-                      )}
-                      {videoFileUrl && (
-                        <a href={videoFileUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
-                          ▶ Open Video in Drive
-                        </a>
-                      )}
                     </div>
+
+                    {/* Success note */}
+                    <div className="notice notice--success" style={{ marginBottom: 6 }}>
+                      <p style={{ fontSize: "0.82rem" }}>✅ {videoMsg}</p>
+                    </div>
+
+                    {/* Drive storage link — admin reference only, not primary workflow */}
+                    {videoFolderUrl && (
+                      <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 4 }}>
+                        Drive storage (admin only):{" "}
+                        <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ color: "var(--color-text-muted)", textDecoration: "underline" }}>
+                          📂 04_Video_Output ↗
+                        </a>
+                      </p>
+                    )}
+
                     <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 8, lineHeight: 1.7 }}>
-                      No background music is included. Music can be added later in Facebook / CapCut / Canva.
+                      No background music included. Add in Facebook / CapCut / Canva.
                       <br />视频不含背景音乐，可在 Facebook / CapCut / Canva 中自行添加。
                     </p>
                   </div>
