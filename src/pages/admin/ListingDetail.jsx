@@ -205,6 +205,13 @@ export default function ListingDetail({ lang }) {
   // Copy regeneration state
   const [regenerating, setRegenerating] = useState(false);
 
+  // Short Video state
+  const [videoStatus,    setVideoStatus]    = useState("idle"); // idle|preparing|rendering|uploading|done|error
+  const [videoProgress,  setVideoProgress]  = useState({ slide: 0, total: 0 });
+  const [videoMsg,       setVideoMsg]       = useState(null);
+  const [videoFolderUrl, setVideoFolderUrl] = useState(null);
+  const [videoFileUrl,   setVideoFileUrl]   = useState(null);
+
   // Light Enhancement Batch state
   const [enhanceStatus,      setEnhanceStatus]      = useState("idle"); // idle|running|done|error
   const [enhanceProgress,    setEnhanceProgress]    = useState({ done: 0, total: 0 });
@@ -538,6 +545,187 @@ export default function ListingDetail({ lang }) {
     } else {
       setEnhanceStatus(done === errors.length ? "error" : "done");
       setEnhanceMsg(`${done - errors.length} succeeded. Errors: ${errors.join("; ")}`);
+    }
+  }
+
+  // ── Short Video Generator ─────────────────────────────────────────────────────
+  function fmtDate(val) {
+    if (!val) return "";
+    const s = String(val).trim();
+    return /^\d{4}-\d{2}-\d{2}T/.test(s) ? s.slice(0, 10) : s;
+  }
+
+  async function generateShortVideo() {
+    const folderId = extractFolderId(listing?.driveFolderLink);
+    if (!folderId || activePhotos.length === 0) return;
+
+    setVideoStatus("preparing");
+    setVideoMsg(null);
+    setVideoProgress({ slide: 0, total: 0 });
+    setVideoFolderUrl(null);
+    setVideoFileUrl(null);
+
+    if (!window.MediaRecorder) {
+      setVideoStatus("error");
+      setVideoMsg("MediaRecorder not supported. Please use Chrome or Edge.");
+      return;
+    }
+
+    // Photo source: use enhanced if available, matched to activePhotos order
+    const MAX_PHOTOS = 8;
+    const photoSource = activePhotos.slice(0, MAX_PHOTOS).map(orig => {
+      if (enhancedPhotos.length === 0) return orig;
+      const base = orig.name.replace(/\.[^.]+$/, "");
+      return enhancedPhotos.find(e => e.name === `enhanced__${base}.jpg`) || orig;
+    });
+
+    // Preload images
+    const loadedImages = await Promise.all(
+      photoSource.map(photo => new Promise(resolve => {
+        const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
+        if (!src) { resolve(null); return; }
+        const img = new Image();
+        img.onload  = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      }))
+    );
+    const validImages = loadedImages.filter(Boolean);
+    if (validImages.length === 0) {
+      setVideoStatus("error");
+      setVideoMsg("No photos could be loaded. Try running the enhancement batch first.");
+      return;
+    }
+
+    // Canvas + MediaRecorder setup
+    const W = 1280, H = 720;
+    const canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8" : "video/webm";
+    const stream   = canvas.captureStream(24);
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_000_000 });
+    const chunks   = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.start(200);
+    setVideoStatus("rendering");
+
+    // ── Drawing helpers ──────────────────────────────────────────────────────
+    function drawBg() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#1A2332"); g.addColorStop(1, "#2C5F8A");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    function drawText(lines) {
+      drawBg();
+      const totalH = lines.reduce((s, l) => s + l.size + 14, -14);
+      let y = (H - totalH) / 2;
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (const { text, size, color, bold } of lines) {
+        if (!text) { y += size + 14; continue; }
+        ctx.font = `${bold !== false ? "700" : "400"} ${size}px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = color || "#FFFFFF";
+        ctx.fillText(text, W / 2, y);
+        y += size + 14;
+      }
+    }
+    function drawPhoto(img, progress) {
+      const scale = 1 + progress * 0.08;
+      const ia = img.naturalWidth / img.naturalHeight, ca = W / H;
+      const dw = ia > ca ? H * scale * ia : W * scale;
+      const dh = ia > ca ? H * scale      : W * scale / ia;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
+
+    // ── Frame renderer ───────────────────────────────────────────────────────
+    const FRAME_MS = Math.round(1000 / 24);
+    function renderFor(drawFn, durationSec) {
+      return new Promise(resolve => {
+        const ms = durationSec * 1000, start = Date.now();
+        function tick() {
+          const p = Math.min((Date.now() - start) / ms, 1);
+          drawFn(p);
+          p < 1 ? setTimeout(tick, FRAME_MS) : resolve();
+        }
+        tick();
+      });
+    }
+
+    // ── Slide data ───────────────────────────────────────────────────────────
+    const beds    = `${listing.bedrooms || "?"} Bed / ${listing.bathrooms || "?"} Bath`;
+    const rent    = listing.rent ? `$${Number(listing.rent).toLocaleString()}/month` : "";
+    const avail   = fmtDate(listing.available);
+    const addr    = listing.address || "";
+    const pubUrl  = `landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
+    const total   = 2 + validImages.length;
+    let   current = 0;
+
+    // Intro slide
+    setVideoProgress({ slide: ++current, total });
+    await renderFor(() => drawText([
+      { text: beds,  size: 52, bold: true },
+      { text: addr,  size: 32 },
+      { text: rent,  size: 44, bold: true, color: "#F59E0B" },
+      { text: avail ? `Available ${avail}` : "", size: 26, color: "#93C5FD" },
+    ]), 3);
+
+    // Photo slides
+    for (let i = 0; i < validImages.length; i++) {
+      const img = validImages[i];
+      setVideoProgress({ slide: ++current, total });
+      await renderFor(p => drawPhoto(img, p), 2.5);
+      // Fade to black between slides
+      const nextImg = validImages[i + 1];
+      if (nextImg) {
+        await renderFor(p => {
+          drawPhoto(img, 1);
+          ctx.globalAlpha = p; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+        }, 0.3);
+      }
+    }
+
+    // Fade out before outro
+    await renderFor(p => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }, 0.3);
+
+    // Outro slide
+    setVideoProgress({ slide: ++current, total });
+    await renderFor(() => drawText([
+      { text: "View Full Listing & Apply Online", size: 40, bold: true },
+      { text: pubUrl, size: 22, color: "#93C5FD" },
+    ]), 3);
+
+    // Stop and collect
+    recorder.stop();
+    await new Promise(resolve => { recorder.onstop = resolve; });
+    stream.getTracks().forEach(t => t.stop());
+
+    // Upload
+    setVideoStatus("uploading");
+    try {
+      const blob   = new Blob(chunks, { type: "video/webm" });
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload  = () => res(r.result.split(",")[1]);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+      const fileName = `video__${listing.id}.webm`;
+      const result = await apiPost({
+        action:        "uploadToSubfolder",
+        folderId,
+        subfolderName: "04_Video_Output",
+        fileName,
+        mimeType:      "video/webm",
+        data:          base64,
+      });
+      if (result?.subfolderUrl) setVideoFolderUrl(result.subfolderUrl);
+      if (result?.url)          setVideoFileUrl(result.url);
+      setVideoStatus("done");
+      setVideoMsg(`${fileName} saved to 04_Video_Output/`);
+    } catch (err) {
+      setVideoStatus("error");
+      setVideoMsg(`Upload failed: ${err.message}`);
     }
   }
 
@@ -1147,16 +1335,97 @@ export default function ListingDetail({ lang }) {
               </div>
             )}
 
-            {/* ── Short Video Source ────────────────────────────────────── */}
+            {/* ── Short Video Generator ─────────────────────────────────── */}
             {!folderLoading && activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>🎬 Short Video Source / 短视频素材</p>
-                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-                  All <strong>{activePhotos.length}</strong> active photo{activePhotos.length !== 1 ? "s" : ""} will be used as source material for the short video slideshow, in the order shown above.
-                  Video outputs → <code>04_Video_Output/</code>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>🎬 Short Video Generator / 短视频生成</p>
+                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.7 }}>
+                  Generates a ~20–30 sec slideshow video using{" "}
+                  <strong>{enhancedPhotos.length > 0 ? "enhanced" : "original"} photos</strong>{" "}
+                  (up to 8, in active order). Outputs → <code>04_Video_Output/</code>
                   <br />
-                  <span style={{ fontSize: "0.78rem" }}>全部 {activePhotos.length} 张已激活照片按上方顺序用于短视频，输出至 <code>04_Video_Output/</code>。</span>
+                  <span style={{ fontSize: "0.78rem" }}>
+                    {enhancedPhotos.length > 0
+                      ? "将使用美化照片生成幻灯片视频"
+                      : "将使用原始照片生成幻灯片视频（建议先运行美化批次）"}
+                    ，输出至 <code>04_Video_Output/</code>。
+                  </span>
                 </p>
+
+                {videoStatus === "idle" && (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    disabled={!isApiConnected()}
+                    onClick={generateShortVideo}
+                  >
+                    🎬 Generate Short Video
+                  </button>
+                )}
+
+                {(videoStatus === "preparing" || videoStatus === "rendering") && (
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-primary)", lineHeight: 1.8 }}>
+                    <div>
+                      {videoStatus === "preparing" && "Preparing photos…"}
+                      {videoStatus === "rendering" && (
+                        <>
+                          Rendering slide {videoProgress.slide} of {videoProgress.total}…
+                          <span style={{ marginLeft: 8, opacity: 0.65 }}>
+                            ({Math.round((videoProgress.slide / Math.max(videoProgress.total, 1)) * 100)}%)
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 2 }}>
+                      Rendering runs in real time — this takes ~25–35 seconds.
+                    </div>
+                  </div>
+                )}
+
+                {videoStatus === "uploading" && (
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
+                    Uploading video to Drive…
+                  </div>
+                )}
+
+                {videoStatus === "done" && (
+                  <div>
+                    <div className="notice notice--success" style={{ marginBottom: 8 }}>
+                      <p style={{ fontSize: "0.82rem" }}>✅ {videoMsg}</p>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn btn--ghost btn--sm" onClick={() => { setVideoStatus("idle"); setVideoMsg(null); }}>
+                        Generate Again
+                      </button>
+                      {videoFolderUrl && (
+                        <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
+                          📂 Open Video Output Folder
+                        </a>
+                      )}
+                      {videoFileUrl && (
+                        <a href={videoFileUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
+                          ▶ Open Video in Drive
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {videoStatus === "error" && (
+                  <div>
+                    <div className="notice notice--warning" style={{ marginBottom: 8 }}>
+                      <p style={{ fontSize: "0.82rem" }}>⚠️ {videoMsg}</p>
+                    </div>
+                    <button className="btn btn--ghost btn--sm" onClick={() => { setVideoStatus("idle"); setVideoMsg(null); }}>
+                      Try Again
+                    </button>
+                  </div>
+                )}
+
+                {!isApiConnected() && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                    Requires API connection (VITE_STUDIO_EXEC_URL).
+                  </p>
+                )}
               </div>
             )}
 
