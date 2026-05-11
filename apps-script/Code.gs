@@ -444,10 +444,15 @@ function uploadToSubfolder_(body) {
     target = parent;
   }
 
+  // Delete any existing file with the same name so re-runs overwrite cleanly.
+  var fileName = body.fileName || ("upload_" + Date.now());
+  var existing = target.getFilesByName(fileName);
+  while (existing.hasNext()) { existing.next().setTrashed(true); }
+
   var blob = Utilities.newBlob(
     Utilities.base64Decode(body.data),
     body.mimeType || "application/octet-stream",
-    body.fileName || ("upload_" + Date.now())
+    fileName
   );
   var file = target.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
