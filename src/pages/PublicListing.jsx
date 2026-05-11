@@ -15,6 +15,17 @@ function extractFolderId(link) {
   return m ? m[1] : null;
 }
 
+// Normalise ISO timestamps and Excel serial dates to YYYY-MM-DD for display.
+function formatDate(val) {
+  if (!val) return "—";
+  const s = String(val).trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ISO with time component — take date part only
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  return s;
+}
+
 // Cover = first file whose name starts with "1" (numeric sort), fallback first.
 function detectCover(files) {
   if (!files || files.length === 0) return null;
@@ -138,7 +149,7 @@ export default function PublicListing() {
 
   const detailRows = [
     ["Monthly Rent",   listing.rent ? `$${Number(listing.rent).toLocaleString()} / month` : null],
-    ["Available",      listing.available],
+    ["Available",      formatDate(listing.available)],
     ["Lease Term",     listing.leaseTerm],
     ["Utilities",      listing.utilities],
     ["Pets",           listing.pets],
@@ -188,7 +199,7 @@ export default function PublicListing() {
         <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", flexWrap: "wrap" }}>
           {[
             ["Rent",      listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
-            ["Available", listing.available || "—"],
+            ["Available", formatDate(listing.available)],
             ["Bedrooms",  String(listing.bedrooms || "—")],
             ["Bathrooms", String(listing.bathrooms || "—")],
           ].map(([label, val], i, arr) => (
