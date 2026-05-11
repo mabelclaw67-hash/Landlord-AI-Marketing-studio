@@ -93,6 +93,7 @@ function doPost(e) {
   try {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
+    if (action === "getListings")       return ok(getListings_());        // POST avoids GET cache
     if (action === "saveListing")       return ok(saveListing_(body.data));
     if (action === "saveContact")       return ok(saveContact_(body.data));
     if (action === "uploadFile")        return ok(uploadFile_(body));
@@ -301,6 +302,7 @@ function saveListing_(data) {
     sheet.appendRow(row);
   }
 
+  SpreadsheetApp.flush(); // commit writes before returning response
   return { success: true, id: data.id };
 }
 

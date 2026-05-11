@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { t } from "../../translations";
 import { getListings } from "../../utils/storage";
 import PrototypeBanner from "../../components/PrototypeBanner";
@@ -18,13 +18,16 @@ export default function Dashboard({ lang }) {
   const [listings, setListings] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     getListings()
       .then(setListings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [location.key]); // re-fetch every time user navigates to this page
 
   const counts = { Draft: 0, "In Review": 0, "Ready to Publish": 0, Published: 0 };
   listings.forEach((l) => { if (counts[l.status] !== undefined) counts[l.status]++; });

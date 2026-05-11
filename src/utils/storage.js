@@ -26,7 +26,8 @@ function lsSetAll(listings) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getListings() {
-  if (isApiConnected()) return apiGet({ action: "getListings" });
+  // POST bypasses Google Apps Script's aggressive GET response caching
+  if (isApiConnected()) return apiPost({ action: "getListings" });
   return lsGetAll();
 }
 
