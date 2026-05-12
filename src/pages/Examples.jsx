@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getListings } from "../utils/storage";
 import Footer from "../components/Footer";
+import ShareButton from "../components/ShareButton";
 
 function formatDate(val) {
   if (!val) return null;
@@ -121,6 +122,11 @@ export default function Examples({ lang }) {
                   >
                     {lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →"}
                   </Link>
+                  <ShareButton
+                    title={listing.address}
+                    text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
+                    url={`${window.location.origin}/listings/${listing.id}`}
+                  />
                 </div>
               );
             })}

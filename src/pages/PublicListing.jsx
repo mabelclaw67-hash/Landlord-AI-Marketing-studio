@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getListing, getListingFolderFiles } from "../utils/storage";
+import ShareButton from "../components/ShareButton";
 
 const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
 const FORM_URL_READY  = RENTAL_FORM_URL &&
@@ -343,6 +344,12 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.73rem", color: "var(--color-text-muted)", marginTop: 8, textAlign: "center", lineHeight: 1.6 }}>
             PDF available as backup — online form is preferred.
           </p>
+          <ShareButton
+            className="share-btn--detail"
+            title={title}
+            text={`Check out this rental listing: ${title}`}
+            url={window.location.href}
+          />
         </div>
 
         {/* ── Application Requirements ─────────────────────────────────────── */}
