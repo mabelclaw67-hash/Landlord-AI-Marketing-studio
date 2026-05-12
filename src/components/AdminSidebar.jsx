@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { t } from "../translations";
+import { lockAdmin } from "./AdminGuard";
 
 export default function AdminSidebar({ lang }) {
   return (
@@ -24,6 +25,10 @@ export default function AdminSidebar({ lang }) {
       >
         📋 {t(lang, "adminNav.listings")}
       </NavLink>
+
+      <button className="admin-lock-btn" onClick={lockAdmin}>
+        🔒 Lock Admin / 锁定
+      </button>
     </aside>
   );
 }

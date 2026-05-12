@@ -1,8 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { t } from "../translations";
 import { getListings } from "../utils/storage";
 import Footer from "../components/Footer";
+
+function formatDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  return s;
+}
 
 export default function Examples({ lang }) {
   const [listings, setListings] = useState([]);
@@ -12,8 +18,7 @@ export default function Examples({ lang }) {
   useEffect(() => {
     getListings()
       .then(all => {
-        const rows = all || [];
-        const active = rows.filter(l =>
+        const active = (all || []).filter(l =>
           (l.status || "").trim().toLowerCase() === "published"
         );
         setListings(active);
@@ -23,102 +28,107 @@ export default function Examples({ lang }) {
   }, []);
 
   return (
-    <div className="page-wrapper">
-      <section className="hero" style={{ padding: "80px 20px 60px" }}>
-        <h1 className="hero__title">Rental Listings</h1>
-        <p className="hero__subtitle">当前可租房源</p>
-        <p className="hero__sub2">
-          Browse current rental listings and apply online.
-          <br />查看当前可租房源，并在线提交申请。
+    <div className="page-wrapper tenant-page">
+
+      {/* Hero */}
+      <section className="tenant-hero">
+        <h1 className="tenant-hero__title">Rental Listings</h1>
+        <p className="tenant-hero__sub">当前可租房源</p>
+        <p className="tenant-hero__desc">
+          Browse current rentals and apply online.
+          <br />查看可租房源，在线提交申请。
         </p>
       </section>
 
-      <section className="section">
-        <div className="container">
+      <div className="tenant-listings-body">
 
-          {loading && (
-            <p style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "40px 0" }}>
-              Loading listings… / 正在加载房源…
+        {loading && (
+          <p className="tenant-loading">Loading listings… / 正在加载房源…</p>
+        )}
+
+        {error && (
+          <div className="notice notice--error" style={{ margin: "16px 0" }}>
+            <p>Failed to load listings: {error}</p>
+          </div>
+        )}
+
+        {!loading && !error && listings.length === 0 && (
+          <div className="tenant-empty">
+            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏘</div>
+            <p style={{ fontWeight: 700, marginBottom: 4 }}>No listings available right now.</p>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
+              目前暂无可租房源，请稍后再查看。
             </p>
-          )}
+          </div>
+        )}
 
-          {error && (
-            <div className="notice notice--error" style={{ maxWidth: 600, margin: "0 auto" }}>
-              <p>Failed to load listings: {error}</p>
-            </div>
-          )}
+        {!loading && !error && listings.length > 0 && (
+          <div className="rental-card-list">
+            {listings.map((listing) => {
+              const firstFeature = listing.features
+                ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)[0]
+                : null;
+              const avail = formatDate(listing.available);
 
-          {!loading && !error && listings.length === 0 && (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--color-text-muted)" }}>
-              <p style={{ fontSize: "1.1rem", marginBottom: 8 }}>No rental listings available right now.</p>
-              <p style={{ fontSize: "0.95rem" }}>目前暂无可租房源，请稍后再查看。</p>
-            </div>
-          )}
-
-          {!loading && !error && listings.length > 0 && (
-            <div className="grid-3">
-              {listings.map((listing) => {
-                const featureList = listing.features
-                  ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)
-                  : [];
-
-                return (
-                  <div key={listing.id} className="card card--hover example-card">
-                    <div className="example-card__header">
-                      <div>
-                        <h3>{listing.address || listing.id}</h3>
-                        <div className="ch-label">{listing.city}</div>
-                      </div>
-                      <span className="badge badge--published">Available</span>
+              return (
+                <div key={listing.id} className="rental-card">
+                  {/* Card header */}
+                  <div className="rental-card__header">
+                    <div>
+                      <h2 className="rental-card__address">{listing.address}</h2>
+                      <p className="rental-card__city">📍 {listing.city}, BC</p>
                     </div>
-
-                    <div className="example-card__meta">
-                      {listing.bedrooms  && <span>🛏 {listing.bedrooms} bed</span>}
-                      {listing.bathrooms && <span>🛁 {listing.bathrooms} bath</span>}
-                      {listing.rent      && <span>💰 ${Number(listing.rent).toLocaleString()}/mo</span>}
-                      {listing.city      && <span>📍 {listing.city}</span>}
-                    </div>
-
-                    {listing.available && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", margin: "6px 0 4px" }}>
-                        Available: {listing.available}
-                      </p>
-                    )}
-
-                    {featureList.length > 0 && (
-                      <div style={{ marginTop: 8, marginBottom: 10 }}>
-                        {featureList.slice(0, 5).map((f) => (
-                          <span
-                            key={f}
-                            style={{
-                              display: "inline-block", background: "#EFF3F8",
-                              borderRadius: 5, padding: "2px 8px", fontSize: "0.78rem",
-                              marginRight: 4, marginBottom: 4, color: "var(--color-primary)"
-                            }}
-                          >
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <Link
-                      to={`/listings/${listing.id}`}
-                      className="btn btn--primary btn--sm btn--full"
-                      style={{ marginTop: 4 }}
-                    >
-                      {lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →"}
-                    </Link>
+                    <span className="rental-card__badge">Available</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-        </div>
-      </section>
+                  {/* Key facts row */}
+                  <div className="rental-card__facts">
+                    {listing.rent && (
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Rent</span>
+                        <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
+                      </div>
+                    )}
+                    {listing.bedrooms && (
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Beds</span>
+                        <span className="rental-card__fact-value">{listing.bedrooms}</span>
+                      </div>
+                    )}
+                    {listing.bathrooms && (
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Baths</span>
+                        <span className="rental-card__fact-value">{listing.bathrooms}</span>
+                      </div>
+                    )}
+                    {avail && (
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Available</span>
+                        <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
+                      </div>
+                    )}
+                  </div>
 
-      <Footer />
+                  {/* Short feature highlight */}
+                  {firstFeature && (
+                    <p className="rental-card__feature">✓ {firstFeature}</p>
+                  )}
+
+                  {/* CTA */}
+                  <Link
+                    to={`/listings/${listing.id}`}
+                    className="rental-card__cta"
+                  >
+                    {lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →"}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Footer tenant />
     </div>
   );
 }

@@ -2,31 +2,91 @@ import { useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 
+const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
+const FORM_READY = RENTAL_FORM_URL && !RENTAL_FORM_URL.startsWith("PASTE");
+
+// Pages that get the tenant-only experience
+function isTenantRoute(pathname) {
+  return (
+    pathname === "/examples" ||
+    pathname === "/tenant-contact" ||
+    pathname.startsWith("/listings/")
+  );
+}
+
 export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const tenant = isTenantRoute(pathname);
 
-  // ── Tenant-facing header: Rental Listings index + individual listing pages ─
-  const isTenantPage = pathname === "/examples" || pathname.startsWith("/listings/");
-  if (isTenantPage) {
+  // ── Tenant top nav ─────────────────────────────────────────────────────────
+  if (tenant) {
     return (
-      <nav className="navbar">
-        <div className="navbar__inner">
-          <Link to="/" className="navbar__brand tenant-brand">
-            <span>🏠</span>
-            Vanisland Rentals
+      <>
+        <nav className="navbar">
+          <div className="navbar__inner">
+            <Link to="/" className="navbar__brand tenant-brand" onClick={() => setOpen(false)}>
+              <span>🏠</span>
+              Vanisland Rentals
+            </Link>
+            {/* Desktop tenant links */}
+            <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
+              <li><Link to="/" onClick={() => setOpen(false)}>Home</Link></li>
+              <li><Link to="/examples" onClick={() => setOpen(false)}>Rental Listings</Link></li>
+              <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>Contact</Link></li>
+              {FORM_READY && (
+                <li>
+                  <a
+                    href={RENTAL_FORM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tenant-apply-link"
+                    onClick={() => setOpen(false)}
+                  >
+                    Apply Now
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+        </nav>
+
+        {/* ── Mobile bottom nav — tenant pages only ─────────────────────────── */}
+        <nav className="mobile-bottom-nav" aria-label="Tenant navigation">
+          <Link to="/" className={`mobile-bottom-nav__item${pathname === "/" ? " active" : ""}`}>
+            <span className="mobile-bottom-nav__icon">🏠</span>
+            <span className="mobile-bottom-nav__label">Home</span>
           </Link>
-          <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
-            <li><Link to="/">Home</Link></li>
-            <li><Link to="/examples">Rental Listings</Link></li>
-            <li><Link to="/contact">Contact</Link></li>
-          </ul>
-        </div>
-      </nav>
+          <Link to="/examples" className={`mobile-bottom-nav__item${pathname === "/examples" ? " active" : ""}`}>
+            <span className="mobile-bottom-nav__icon">🏘</span>
+            <span className="mobile-bottom-nav__label">Rentals</span>
+          </Link>
+          <Link to="/tenant-contact" className={`mobile-bottom-nav__item${pathname === "/tenant-contact" ? " active" : ""}`}>
+            <span className="mobile-bottom-nav__icon">📞</span>
+            <span className="mobile-bottom-nav__label">Contact</span>
+          </Link>
+          {FORM_READY ? (
+            <a
+              href={RENTAL_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mobile-bottom-nav__item mobile-bottom-nav__item--apply"
+            >
+              <span className="mobile-bottom-nav__icon">📋</span>
+              <span className="mobile-bottom-nav__label">Apply</span>
+            </a>
+          ) : (
+            <Link to="/examples" className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
+              <span className="mobile-bottom-nav__icon">📋</span>
+              <span className="mobile-bottom-nav__label">Apply</span>
+            </Link>
+          )}
+        </nav>
+      </>
     );
   }
 
-  // ── Full product nav on all other pages ───────────────────────────────────
+  // ── Full product nav (Admin Studio + public marketing pages) ───────────────
   return (
     <nav className="navbar">
       <div className="navbar__inner">

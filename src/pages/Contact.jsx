@@ -43,10 +43,10 @@ export default function Contact({ lang }) {
   };
 
   return (
-    <div className="page-wrapper">
-      <section className="hero" style={{ padding: "80px 20px 60px" }}>
-        <h1 className="hero__title">{t(lang, "contact.title")}</h1>
-        <p className="hero__subtitle">{t(lang, "contact.chTitle")}</p>
+    <div className="pub-page">
+      <section className="pub-hero">
+        <h1 className="pub-hero__title">{t(lang, "contact.title")}</h1>
+        <p className="pub-hero__sub">{t(lang, "contact.chTitle")}</p>
       </section>
 
       <section className="section">
@@ -54,14 +54,14 @@ export default function Contact({ lang }) {
           <div className="contact-layout">
             {/* Left: Info */}
             <div>
-              <div className="notice notice--info" style={{ marginBottom: 24 }}>
+              <div className="notice notice--sage" style={{ marginBottom: 24 }}>
                 <h4>🔒 Private Beta / 内部测试</h4>
                 <p>{t(lang, "contact.betaNotice")}</p>
                 <p style={{ marginTop: 6, opacity: 0.8 }}>{t(lang, "contact.betaNoticeCh")}</p>
               </div>
 
-              <div className="card" style={{ marginBottom: 16 }}>
-                <h3 style={{ fontWeight: 700, marginBottom: 12 }}>What we prepare for you:</h3>
+              <div className="card" style={{ marginBottom: 16, borderColor: "#e5dfd6" }}>
+                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>What we prepare for you:</h3>
                 <ul style={{ paddingLeft: 16, fontSize: "0.88rem", lineHeight: 2 }}>
                   <li>📝 Bilingual rental ad copy (EN + CN)</li>
                   <li>💬 Facebook & Craigslist posts</li>
@@ -179,7 +179,7 @@ export default function Contact({ lang }) {
                       <p>Submission failed: {submitErr}</p>
                     </div>
                   )}
-                  <button type="submit" className="btn btn--primary btn--full" disabled={submitting}>
+                  <button type="submit" className="btn btn--sage btn--full" disabled={submitting}>
                     {submitting ? "Sending…" : t(lang, "contact.submit")}
                   </button>
                   <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 10, textAlign: "center" }}>

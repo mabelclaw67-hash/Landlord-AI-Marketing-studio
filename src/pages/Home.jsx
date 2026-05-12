@@ -1,80 +1,115 @@
 import { Link } from "react-router-dom";
 import { t } from "../translations";
-import Footer from "../components/Footer";
 
-const SERVICE_CARDS = [
+const FEATURES = [
   {
     icon: "📝",
     title: "Rental Ad Package",
     ch: "中英文广告文案包",
-    desc: "Bilingual Facebook, Craigslist & WeChat copy — ready to post.",
+    desc: "Bilingual Facebook, Craigslist and WeChat copy — ready to review and post.",
   },
   {
     icon: "🖼️",
     title: "Photo Listing Page",
     ch: "在线图片房源页面",
-    desc: "A shareable listing page with photos and application link.",
+    desc: "A shareable listing page with photos, property details and application link.",
   },
   {
     icon: "📋",
     title: "Online Application",
     ch: "在线申请表链接",
-    desc: "Google Form application embedded directly in the listing page.",
+    desc: "Connect tenants to the existing rental application form without entering Admin Studio.",
   },
 ];
 
 export default function Home({ lang }) {
   return (
-    <div className="page-wrapper">
+    <>
       {/* Hero */}
-      <section className="hero">
-        <div className="hero__badge">🇨🇦 Vancouver Island · BC</div>
-        <h1 className="hero__title">{t(lang, "home.heroTitle")}</h1>
-        <p className="hero__subtitle">{t(lang, "home.heroSubtitle")}</p>
-        <p className="hero__sub2">{t(lang, "home.heroChTitle")} — {t(lang, "home.heroChSubtitle")}</p>
-        <div className="hero__actions">
-          <Link to="/contact" className="btn btn--accent">{t(lang, "home.ctaStart")}</Link>
-          <Link to="/listings/LST-2026-002" className="btn btn--outline">View Current Listing</Link>
-        </div>
-      </section>
-
-      {/* Service cards */}
-      <section className="section">
-        <div className="container">
-          <div className="section-header">
-            <h2>{t(lang, "home.servicesTitle")}</h2>
-            <p className="ch">{t(lang, "home.servicesCh")}</p>
+      <section className="lh-hero">
+        <div className="lh-hero__inner">
+          <div>
+            <div className="lh-eyebrow">🇨🇦 Vancouver Island · BC Landlords</div>
+            <h1 className="lh-hero__title">{t(lang, "home.heroTitle")}</h1>
+            <p className="lh-hero__desc">{t(lang, "home.heroSubtitle")}</p>
+            <p className="lh-hero__desc-ch">{t(lang, "home.heroChSubtitle")}</p>
+            <div className="lh-hero__actions">
+              <Link to="/contact" className="lh-btn lh-btn--sand">
+                {t(lang, "home.ctaStart")}
+              </Link>
+              <Link to="/examples" className="lh-btn lh-btn--white">
+                View Current Listing
+              </Link>
+            </div>
           </div>
-          <div className="grid-3">
-            {SERVICE_CARDS.map(({ icon, title, ch, desc }) => (
-              <div key={title} className="card card--hover service-card">
-                <div className="service-card__icon">{icon}</div>
-                <h3>{title}</h3>
-                <div className="ch-label">{ch}</div>
-                <p>{desc}</p>
+
+          {/* BC Rental Update card */}
+          <div className="lh-hero__card">
+            <div className="lh-rtb-card">
+              <div className="lh-rtb-card__header">
+                <div className="lh-rtb-card__badge">⚖️ BC RTB</div>
+                <h3>BC Rental Update</h3>
+                <p>BC租赁法规提醒</p>
               </div>
-            ))}
+
+              <ul className="lh-rtb-card__list">
+                <li>Rent increase and RTB rule changes should be verified before publishing notices.</li>
+                <li>Review notice periods, pet policy wording, and tenant screening requirements before listing.</li>
+                <li>Always confirm the latest official RTB guidance before sending legal notices.</li>
+              </ul>
+
+              <ul className="lh-rtb-card__list lh-rtb-card__list--ch">
+                <li>发布出租广告或通知前，请先核对最新租金涨幅和 RTB 规则。</li>
+                <li>上市前请检查通知期限、宠物政策和租客筛选要求。</li>
+                <li>发送法律通知前，应以 BC 官方 RTB 信息为准。</li>
+              </ul>
+
+              <a
+                href="https://www2.gov.bc.ca/gov/content/housing-tenancy/residential-tenancies"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lh-rtb-card__btn"
+              >
+                View RTB Resources →
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="section section--alt">
-        <div className="container">
-          <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
-            <h2 style={{ marginBottom: 8 }}>Ready to list your rental?</h2>
-            <p style={{ color: "var(--color-text-muted)", marginBottom: 4 }}>
-              Contact Mabel to get your bilingual rental package ready.
-            </p>
-            <p className="ch" style={{ fontSize: "0.88rem", marginBottom: 28 }}>
+      {/* What We Generate */}
+      <section className="lh-section">
+        <div className="lh-section-title">
+          <h2>What We Generate</h2>
+          <p>我们能生成什么</p>
+        </div>
+        <div className="lh-feature-grid">
+          {FEATURES.map(({ icon, title, ch, desc }) => (
+            <article key={title} className="lh-feature-card">
+              <div className="lh-feature-icon">{icon}</div>
+              <h3>{title}</h3>
+              <small>{ch}</small>
+              <p>{desc}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Band */}
+      <section className="lh-cta-band">
+        <div className="lh-cta-inner">
+          <div>
+            <h2>Ready to list your rental?</h2>
+            <p>
+              Contact Mabel to get your bilingual rental package ready.{" "}
               联系 Mabel，快速准备您的中英文房源广告包。
             </p>
-            <Link to="/contact" className="btn btn--primary">{t(lang, "home.ctaStart")}</Link>
           </div>
+          <Link to="/contact" className="lh-btn lh-btn--sand">
+            {t(lang, "home.ctaStart")}
+          </Link>
         </div>
       </section>
-
-      <Footer />
-    </div>
+    </>
   );
 }

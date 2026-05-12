@@ -6,32 +6,30 @@ const ICONS = ["⚖️", "💰", "📸", "✅"];
 
 export default function Resources({ lang }) {
   return (
-    <div className="page-wrapper">
-      <section className="hero" style={{ padding: "80px 20px 60px" }}>
-        <h1 className="hero__title">{t(lang, "resources.title")}</h1>
-        <p className="hero__subtitle">{t(lang, "resources.chTitle")}</p>
-        <p className="hero__sub2">{t(lang, "resources.subtitle")}</p>
+    <div className="pub-page">
+      <section className="pub-hero">
+        <h1 className="pub-hero__title">{t(lang, "resources.title")}</h1>
+        <p className="pub-hero__sub">{t(lang, "resources.chTitle")}</p>
+        <p className="pub-hero__desc">{t(lang, "resources.subtitle")}</p>
       </section>
 
       <section className="section">
         <div className="container">
           <div className="grid-2">
             {RESOURCES.map((key, i) => (
-              <div key={key} className="card resource-card">
+              <div key={key} className="card resource-card" style={{ borderColor: "#e5dfd6" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div
-                    style={{
-                      width: 44, height: 44, flexShrink: 0,
-                      background: "#EFF3F8", borderRadius: 10,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "1.3rem"
-                    }}
-                  >
+                  <div style={{
+                    width: 44, height: 44, flexShrink: 0,
+                    background: "#edf3ee", borderRadius: 12,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "1.3rem",
+                  }}>
                     {ICONS[i]}
                   </div>
                   <div>
-                    <h3>{t(lang, `resources.${key}Title`)}</h3>
-                    <div className="ch-label">{t(lang, `resources.${key}Ch`)}</div>
+                    <h3 style={{ color: "#3e5b4b" }}>{t(lang, `resources.${key}Title`)}</h3>
+                    <div className="ch-label" style={{ color: "#62796b" }}>{t(lang, `resources.${key}Ch`)}</div>
                     <p>{t(lang, `resources.${key}Body`)}</p>
                     <p>{t(lang, `resources.${key}BodyCh`)}</p>
                   </div>
@@ -40,7 +38,7 @@ export default function Resources({ lang }) {
             ))}
           </div>
 
-          <div className="notice notice--info" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
+          <div className="notice notice--warm" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
             <h4>📌 Disclaimer / 免责声明</h4>
             <p>
               This information is for general reference only and does not constitute legal advice. Always consult the

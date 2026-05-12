@@ -10,11 +10,11 @@ const SERVICES = [
 
 export default function Services({ lang }) {
   return (
-    <div className="page-wrapper">
-      <section className="hero" style={{ padding: "80px 20px 60px" }}>
-        <h1 className="hero__title">{t(lang, "services.title")}</h1>
-        <p className="hero__subtitle">{t(lang, "services.chTitle")}</p>
-        <p className="hero__sub2">{t(lang, "services.subtitle")}</p>
+    <div className="pub-page">
+      <section className="pub-hero">
+        <h1 className="pub-hero__title">{t(lang, "services.title")}</h1>
+        <p className="pub-hero__sub">{t(lang, "services.chTitle")}</p>
+        <p className="pub-hero__desc">{t(lang, "services.subtitle")}</p>
       </section>
 
       <section className="section">
@@ -23,21 +23,19 @@ export default function Services({ lang }) {
             {SERVICES.map(({ icon, key }) => (
               <div key={key} className="card card--hover">
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-                  <div
-                    style={{
-                      width: 48, height: 48, flexShrink: 0,
-                      background: "#EFF3F8", borderRadius: 10,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "1.4rem"
-                    }}
-                  >
+                  <div style={{
+                    width: 48, height: 48, flexShrink: 0,
+                    background: "#edf3ee", borderRadius: 12,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "1.4rem",
+                  }}>
                     {icon}
                   </div>
                   <div>
-                    <h3 style={{ fontWeight: 700, color: "var(--color-primary)", marginBottom: 2 }}>
+                    <h3 style={{ fontWeight: 700, color: "#3e5b4b", marginBottom: 2 }}>
                       {t(lang, `services.${key}`)}
                     </h3>
-                    <div className="ch-label" style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 8 }}>
+                    <div className="ch-label" style={{ fontSize: "0.82rem", color: "#62796b", marginBottom: 8 }}>
                       {t(lang, `services.${key}Ch`)}
                     </div>
                     <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.65 }}>
@@ -49,7 +47,7 @@ export default function Services({ lang }) {
             ))}
           </div>
 
-          <div className="notice notice--info" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
+          <div className="notice notice--sage" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
             <h4>🔮 Coming Soon / 即将推出</h4>
             <p>{t(lang, "services.futureNote")}</p>
             <p style={{ marginTop: 4, opacity: 0.85 }}>{t(lang, "services.futureNoteCh")}</p>
