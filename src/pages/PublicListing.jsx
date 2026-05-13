@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getListing, getListingFolderFiles } from "../utils/storage";
 import ShareButton from "../components/ShareButton";
+import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
 
 const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
 const FORM_URL_READY  = RENTAL_FORM_URL &&
   !RENTAL_FORM_URL.startsWith("PASTE_MY");
-const PDF_URL = "/forms/rental-application-form.pdf";
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -116,6 +116,7 @@ export default function PublicListing() {
   const [error,        setError]        = useState(null);
   const [photos,        setPhotos]        = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const [pdfBusy,       setPdfBusy]       = useState(false);
 
   useEffect(() => {
     getListing(id)
@@ -190,6 +191,16 @@ export default function PublicListing() {
     fontWeight: 600, textTransform: "uppercase",
     letterSpacing: "0.06em", marginBottom: 3,
   };
+
+  function handlePdfDownload() {
+    if (!listing || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      downloadRentalApplicationPdf(listing, window.location.href);
+    } finally {
+      window.setTimeout(() => setPdfBusy(false), 800);
+    }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -329,20 +340,23 @@ export default function PublicListing() {
             </div>
           )}
 
-          {/* PDF backup — graceful if file absent */}
-          <a
-            href={PDF_URL}
+          <button
+            type="button"
+            onClick={handlePdfDownload}
+            disabled={pdfBusy}
             style={{
               display: "block", width: "100%", textAlign: "center",
               border: "1.5px solid var(--color-border)", color: "var(--color-text-muted)",
               padding: "13px 24px", borderRadius: 8, fontWeight: 600,
               fontSize: "0.88rem", textDecoration: "none",
+              background: "#fff", cursor: pdfBusy ? "wait" : "pointer",
+              fontFamily: "var(--font)",
             }}
           >
-            📄 Download Rental Application Form (PDF)
-          </a>
+            {pdfBusy ? "Generating Rental Application PDF..." : "📄 Download Rental Application Form (PDF)"}
+          </button>
           <p style={{ fontSize: "0.73rem", color: "var(--color-text-muted)", marginTop: 8, textAlign: "center", lineHeight: 1.6 }}>
-            PDF available as backup — online form is preferred.
+            Generates a printable PDF with this listing information. Online form is still preferred.
           </p>
           {/* Watch Video — only shown when videoUrl exists in listing data */}
           {listing.videoUrl && (
