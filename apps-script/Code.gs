@@ -292,16 +292,22 @@ function addMissingHeaders_(sheet, headers) {
 
 // Targeted write: update only the videoUrl cell for one listing.
 // Creates the "videoUrl" column header if it doesn't exist yet.
+// Returns sheetName, rowNumber, colName, colIndex so the caller can log them.
 function updateVideoUrl_(listingId, videoUrl) {
   if (!listingId) throw new Error("updateVideoUrl: listingId required");
   var sheet = getSheet_(LISTINGS_SHEET);
 
+  Logger.log("[updateVideoUrl] listingId: " + listingId);
+  Logger.log("[updateVideoUrl] sheet    : " + LISTINGS_SHEET);
+
   // Ensure the column header exists (safe on existing sheets).
   addMissingHeaders_(sheet, LISTING_HEADERS);
 
-  var headerMap    = getHeaderMap_(sheet);
-  var videoColIdx  = headerMap["videoUrl"];
+  var headerMap   = getHeaderMap_(sheet);
+  var videoColIdx = headerMap["videoUrl"];
   if (videoColIdx === undefined) throw new Error("videoUrl column still missing after addMissingHeaders_");
+
+  Logger.log("[updateVideoUrl] videoUrl col index (0-based): " + videoColIdx);
 
   var last = sheet.getLastRow();
   if (last < 2) throw new Error("No listing rows found");
@@ -309,12 +315,22 @@ function updateVideoUrl_(listingId, videoUrl) {
   var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (ids[i][0] === listingId) {
-      sheet.getRange(i + 2, videoColIdx + 1).setValue(videoUrl || "");
+      var rowNumber = i + 2;
+      sheet.getRange(rowNumber, videoColIdx + 1).setValue(videoUrl || "");
       SpreadsheetApp.flush();
-      return { success: true, id: listingId, videoUrl: videoUrl };
+      Logger.log("[updateVideoUrl] wrote to row " + rowNumber + ", col " + (videoColIdx + 1) + " → " + videoUrl);
+      return {
+        success:   true,
+        id:        listingId,
+        videoUrl:  videoUrl,
+        sheetName: LISTINGS_SHEET,
+        rowNumber: rowNumber,
+        colName:   "videoUrl",
+        colIndex:  videoColIdx + 1,
+      };
     }
   }
-  throw new Error("Listing not found: " + listingId);
+  throw new Error("Listing not found in sheet \"" + LISTINGS_SHEET + "\": " + listingId);
 }
 
 function saveListing_(data) {

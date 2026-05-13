@@ -1081,15 +1081,47 @@ export default function ListingDetail({ lang }) {
       setVideoMsg(`${fileName} saved to 04_Video_Output/`);
       setVideoMusicStatus(musicStatus);
 
-      // Write videoUrl back to the listing database so the public page shows Watch Video.
-      // Uses dedicated updateVideoUrl action which also creates the column header if missing.
-      if (result?.url) {
-        const updatedListing = { ...listingRef.current, videoUrl: result.url };
+      // ── videoUrl write-back ────────────────────────────────────────────────
+      const listingId   = listingRef.current.id;
+      const driveFileId = result?.fileId;
+      const driveUrl    = result?.url;
+
+      console.log("[videoUrl write-back] listingId :", listingId);
+      console.log("[videoUrl write-back] Drive fileId:", driveFileId);
+      console.log("[videoUrl write-back] Drive URL  :", driveUrl);
+
+      if (driveUrl) {
+        const updatedListing = { ...listingRef.current, videoUrl: driveUrl };
         setListing(updatedListing);
         listingRef.current = updatedListing;
-        updateVideoUrl(listingRef.current.id, result.url).catch(e =>
-          console.warn("videoUrl write-back failed:", e.message)
-        );
+
+        // Primary: targeted single-cell write (creates column header if missing)
+        let writeOk = false;
+        try {
+          const wr = await updateVideoUrl(listingId, driveUrl);
+          console.log("[videoUrl write-back] updateVideoUrl SUCCESS →", wr);
+          writeOk = true;
+        } catch (writeErr) {
+          console.error("[videoUrl write-back] updateVideoUrl FAILED:", writeErr.message);
+        }
+
+        // Fallback: full saveListing (works even if updateVideoUrl action is unavailable)
+        if (!writeOk) {
+          console.log("[videoUrl write-back] Trying saveListing fallback...");
+          try {
+            await saveListing(updatedListing);
+            console.log("[videoUrl write-back] saveListing fallback SUCCESS");
+            writeOk = true;
+          } catch (saveErr) {
+            console.error("[videoUrl write-back] saveListing fallback FAILED:", saveErr.message);
+          }
+        }
+
+        if (writeOk) {
+          setVideoMsg(prev => (prev || "") + " ✅ videoUrl saved to sheet.");
+        } else {
+          setVideoMsg(prev => (prev || "") + " ⚠️ videoUrl write-back failed — check console.");
+        }
       }
     } catch (err) {
       setVideoStatus("done"); // still show preview even if Drive upload fails
