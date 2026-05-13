@@ -114,7 +114,7 @@ export default function PublicListing() {
   const [listing,      setListing]      = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState(null);
-  const [photos,       setPhotos]       = useState([]);
+  const [photos,        setPhotos]        = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
 
   useEffect(() => {
@@ -344,6 +344,25 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.73rem", color: "var(--color-text-muted)", marginTop: 8, textAlign: "center", lineHeight: 1.6 }}>
             PDF available as backup — online form is preferred.
           </p>
+          {/* Watch Video — only shown when videoUrl exists in listing data */}
+          {listing.videoUrl && (
+            <a
+              href={listing.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 8, marginTop: 10, width: "100%", textAlign: "center",
+                border: "1.5px solid #3e5b4b", color: "#3e5b4b",
+                padding: "13px 24px", borderRadius: 8, fontWeight: 700,
+                fontSize: "0.95rem", textDecoration: "none",
+                background: "#f0f7f2",
+              }}
+            >
+              ▶ Watch Video / 查看视频
+            </a>
+          )}
+
           <ShareButton
             className="share-btn--detail"
             title={title}

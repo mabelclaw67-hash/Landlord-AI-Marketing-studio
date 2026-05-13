@@ -668,7 +668,7 @@ export default function ListingDetail({ lang }) {
     const H = isLandscape ? 720  : 1280;
 
     // Photo source: manual selection OR auto-sort by filename number, then enhanced > original
-    const MAX_PHOTOS = 8;
+    const MAX_PHOTOS = 20;
     let basePhotos;
     if (videoPhotoIds && videoPhotoIds.length > 0) {
       basePhotos = videoPhotoIds
@@ -805,12 +805,6 @@ export default function ListingDetail({ lang }) {
     // ── Drawing helpers ──────────────────────────────────────────────────────
     const FF = "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
 
-    function drawBg() {
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, "#0F1E2E"); g.addColorStop(1, "#1A3A5C");
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    }
-
     function roundRect(x, y, w, h, r, fill, alpha) {
       ctx.save();
       if (alpha !== undefined) ctx.globalAlpha = alpha;
@@ -832,61 +826,54 @@ export default function ListingDetail({ lang }) {
       return t.length < String(text).length ? t + "…" : t;
     }
 
-    function accentLine(x1, y1, x2, y2) {
-      ctx.save(); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-      ctx.strokeStyle = "#F59E0B"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-    }
+    function drawPhotoIntroOverlay() {
+      // Soft gradient at bottom for text legibility
+      const gradH = H * 0.45;
+      const g = ctx.createLinearGradient(0, H - gradH, 0, H);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,0.70)");
+      ctx.fillStyle = g; ctx.fillRect(0, H - gradH, W, gradH);
 
-    function drawIntro() {
-      drawBg();
-      ctx.textBaseline = "top";
-      if (isLandscape) {
-        const lx = 88, maxW = W - lx - 80;
-        // Left amber accent bar
-        ctx.fillStyle = "#F59E0B"; ctx.fillRect(64, 158, 5, 380);
-        ctx.textAlign = "left";
-        // Beds / baths
-        const bedsFont = `700 58px ${FF}`;
-        ctx.font = bedsFont; ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(fitText(beds, maxW, bedsFont), lx, 172);
-        // Address
-        const addrFont = `400 26px ${FF}`;
-        ctx.font = addrFont; ctx.fillStyle = "#94A3B8";
-        ctx.fillText(fitText(addr, maxW, addrFont), lx, 256);
-        // Divider
-        accentLine(lx, 316, W - 80, 316);
-        // Rent
-        if (rent) {
-          const rentFont = `700 64px ${FF}`;
-          ctx.font = rentFont; ctx.fillStyle = "#F59E0B";
-          ctx.fillText(fitText(rent, maxW, rentFont), lx, 342);
-        }
-        // Available
-        if (avail) {
-          ctx.font = `400 27px ${FF}`; ctx.fillStyle = "#93C5FD";
-          ctx.fillText(`Available ${avail}`, lx, 440);
-        }
-      } else {
-        // Vertical — centered layout
-        const cx = W / 2, maxW = W - 80;
-        ctx.textAlign = "center";
-        accentLine(cx - 100, 268, cx + 100, 268);
-        const bedsFont = `700 52px ${FF}`;
-        ctx.font = bedsFont; ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(fitText(beds, maxW, bedsFont), cx, 292);
-        const addrFont = `400 23px ${FF}`;
-        ctx.font = addrFont; ctx.fillStyle = "#94A3B8";
-        ctx.fillText(fitText(addr, maxW, addrFont), cx, 376);
-        accentLine(cx - 140, 438, cx + 140, 438);
-        if (rent) {
-          const rentFont = `700 66px ${FF}`;
-          ctx.font = rentFont; ctx.fillStyle = "#F59E0B";
-          ctx.fillText(fitText(rent, maxW, rentFont), cx, 464);
-        }
-        if (avail) {
-          ctx.font = `400 28px ${FF}`; ctx.fillStyle = "#93C5FD";
-          ctx.fillText(`Available ${avail}`, cx, 572);
-        }
+      ctx.textBaseline = "bottom";
+      const maxW = W - (isLandscape ? 120 : 80);
+      const pad = isLandscape ? 60 : 40;
+
+      // Rent — largest, amber
+      if (rent) {
+        const fs = isLandscape ? 54 : 48;
+        const font = `700 ${fs}px ${FF}`;
+        ctx.font = font; ctx.fillStyle = "#F59E0B";
+        ctx.textAlign = isLandscape ? "left" : "center";
+        ctx.fillText(fitText(rent, maxW, font), isLandscape ? pad : W / 2, H - (isLandscape ? 110 : 130));
+      }
+      // Beds / baths
+      const bedsFont = `600 ${isLandscape ? 30 : 27}px ${FF}`;
+      ctx.font = bedsFont; ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = isLandscape ? "left" : "center";
+      ctx.fillText(fitText(beds, maxW, bedsFont), isLandscape ? pad : W / 2, H - (isLandscape ? 64 : 80));
+      // Address
+      if (addr) {
+        const addrFont = `400 ${isLandscape ? 22 : 20}px ${FF}`;
+        ctx.font = addrFont; ctx.fillStyle = "rgba(255,255,255,0.80)";
+        ctx.fillText(fitText(addr, maxW, addrFont), isLandscape ? pad : W / 2, H - (isLandscape ? 30 : 42));
+      }
+
+      // "Available" pill badge — top-left / top-center
+      if (avail) {
+        const badgeText = `Available ${avail}`;
+        const bfs = isLandscape ? 20 : 18;
+        const bfont = `600 ${bfs}px ${FF}`;
+        ctx.save(); ctx.font = bfont;
+        const bw = ctx.measureText(badgeText).width + 28;
+        ctx.restore();
+        const bh = bfs + 16, br = bh / 2;
+        const bx = isLandscape ? pad : (W - bw) / 2;
+        const by = isLandscape ? 36 : 46;
+        roundRect(bx, by, bw, bh, br, "rgba(245,158,11,0.92)");
+        ctx.font = bfont; ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = isLandscape ? "left" : "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(badgeText, isLandscape ? bx + 14 : W / 2, by + 8);
       }
     }
 
@@ -911,42 +898,41 @@ export default function ListingDetail({ lang }) {
       const bw = Math.min(tw + padX * 2, W - 80);
       const bh = fs + padY * 2;
       const bx = (W - bw) / 2, by = H - bh - (isLandscape ? 46 : 62);
-      roundRect(bx, by, bw, bh, 8, "#0F1E2E", 0.82);
+      roundRect(bx, by, bw, bh, bh / 2, "rgba(0,0,0,0.52)");
       ctx.textAlign = "center"; ctx.textBaseline = "top";
       ctx.font = font; ctx.fillStyle = "#FFFFFF";
       ctx.fillText(fitText(String(text), bw - padX * 2, font), W / 2, by + padY);
     }
 
-    function drawOutro() {
-      drawBg();
-      ctx.textBaseline = "top"; ctx.textAlign = "center";
+    function drawPhotoOutro(bgImg) {
+      // Use last photo as background
+      drawPhoto(bgImg, 0.5, 0);
+      // Dark vignette overlay for readability
+      ctx.save(); ctx.globalAlpha = 0.58; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
+
+      ctx.textBaseline = "middle"; ctx.textAlign = "center";
+      const cy = H / 2;
+
       if (isLandscape) {
-        accentLine(W * 0.15, H / 2 - 108, W * 0.85, H / 2 - 108);
-        ctx.font = `700 44px ${FF}`; ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("View Full Listing & Apply Online", W / 2, H / 2 - 90);
-        // URL box
-        const uf = `400 20px monospace`;
-        ctx.save(); ctx.font = uf;
-        const uw = Math.min(ctx.measureText(pubUrl).width + 60, W - 160);
-        ctx.restore();
-        roundRect((W - uw) / 2, H / 2 + 14, uw, 50, 8, "#1E3A5F");
-        ctx.font = uf; ctx.fillStyle = "#93C5FD";
-        ctx.fillText(fitText(pubUrl, uw - 40, uf), W / 2, H / 2 + 28);
-        // Music note
-        ctx.font = `400 17px ${FF}`; ctx.fillStyle = "#475569";
-        ctx.fillText("Music can be added later in Facebook / CapCut / Canva", W / 2, H / 2 + 106);
+        ctx.font = `700 50px ${FF}`; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("View Full Listing", W / 2, cy - 60);
+        ctx.font = `700 50px ${FF}`; ctx.fillStyle = "#F59E0B";
+        ctx.fillText("Apply Online", W / 2, cy + 10);
+        ctx.font = `500 26px ${FF}`; ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.fillText("Contact Mabel", W / 2, cy + 76);
+        const uf = `400 18px monospace`;
+        ctx.font = uf; ctx.fillStyle = "rgba(147,197,253,0.90)";
+        ctx.fillText(fitText(pubUrl, W - 140, uf), W / 2, cy + 130);
       } else {
-        accentLine(W * 0.1, H / 2 - 148, W * 0.9, H / 2 - 148);
-        ctx.font = `700 36px ${FF}`; ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("View Full Listing", W / 2, H / 2 - 136);
-        ctx.fillText("& Apply Online",    W / 2, H / 2 - 84);
+        ctx.font = `700 42px ${FF}`; ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("View Full Listing", W / 2, cy - 80);
+        ctx.font = `700 42px ${FF}`; ctx.fillStyle = "#F59E0B";
+        ctx.fillText("Apply Online", W / 2, cy - 14);
+        ctx.font = `500 24px ${FF}`; ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.fillText("Contact Mabel", W / 2, cy + 60);
         const uf = `400 16px monospace`;
-        const uw = W - 80;
-        roundRect(40, H / 2 + 6, uw, 50, 8, "#1E3A5F");
-        ctx.font = uf; ctx.fillStyle = "#93C5FD";
-        ctx.fillText(fitText(pubUrl, uw - 40, uf), W / 2, H / 2 + 21);
-        ctx.font = `400 17px ${FF}`; ctx.fillStyle = "#475569";
-        ctx.fillText("Music: Facebook / CapCut / Canva", W / 2, H / 2 + 110);
+        ctx.font = uf; ctx.fillStyle = "rgba(147,197,253,0.90)";
+        ctx.fillText(fitText(pubUrl, W - 80, uf), W / 2, cy + 118);
       }
     }
 
@@ -956,12 +942,13 @@ export default function ListingDetail({ lang }) {
     }
 
     function sceneCaption(idx, total) {
-      if (idx === 0) return null;          // cover photo — let it breathe
-      if (idx === 1) return beds;
+      // idx 0 = cover (overlay text handles that slide)
+      if (idx === 0) return null;
+      if (idx === 1 && beds) return beds;
       if (idx === 2 && feats[0]) return feats[0];
       if (idx === 3 && feats[1]) return feats[1];
       if (idx === 4 && feats[2]) return feats[2];
-      if (idx === total - 1) return "Apply Online";
+      if (idx === 5 && feats[3]) return feats[3];
       return null;
     }
 
@@ -983,31 +970,43 @@ export default function ListingDetail({ lang }) {
     }
 
     // ── Render sequence ──────────────────────────────────────────────────────
-    const totalScenes = 2 + validImages.length;
+    // Dynamic per-photo duration: target under 58s total.
+    // Outro: 0.4s fade-in + 3.0s hold + 0.4s fade-out = 3.8s
+    const OUTRO_TOTAL_SECS = 3.8;
+    const PHOTO_FADE_SECS  = 0.35;
+    const MAX_VIDEO_SECS   = 57.5; // slight buffer under 58s
+    const availForPhotos   = MAX_VIDEO_SECS - OUTRO_TOTAL_SECS;
+    const perPhotoTotal    = availForPhotos / validImages.length;
+    // Clamp hold between 2.0s (20 photos) and 3.0s (few photos)
+    const photoHoldSecs    = Math.max(2.0, Math.min(3.0, perPhotoTotal - PHOTO_FADE_SECS));
+
+    const outroImg    = validImages[validImages.length - 1];
+    const totalScenes = 1 + validImages.length; // photos + outro
     let cur = 0;
 
-    // Opening title card (3.5s) + fade out
-    setVideoProgress({ slide: ++cur, total: totalScenes });
-    await renderFor(() => drawIntro(), 3.5);
-    await renderFor(p => fadeBlack(drawIntro, p), 0.4);
-
-    // Photo scenes (2.2s each + 0.35s fade to black)
+    // Photo slides — first photo gets intro overlay text instead of dark title card
     for (let i = 0; i < validImages.length; i++) {
       const img = validImages[i];
       const cap = sceneCaption(i, validImages.length);
       setVideoProgress({ slide: ++cur, total: totalScenes });
-      await renderFor(p => { drawPhoto(img, p, i); drawCaption(cap); }, 2.2);
-      await renderFor(p => fadeBlack(() => { drawPhoto(img, 1, i); drawCaption(cap); }, p), 0.35);
+      // First slide: cover photo + property info overlay
+      if (i === 0) {
+        await renderFor(p => { drawPhoto(img, p, i); drawPhotoIntroOverlay(); }, photoHoldSecs);
+        await renderFor(p => fadeBlack(() => { drawPhoto(img, 1, i); drawPhotoIntroOverlay(); }, p), PHOTO_FADE_SECS);
+      } else {
+        await renderFor(p => { drawPhoto(img, p, i); drawCaption(cap); }, photoHoldSecs);
+        await renderFor(p => fadeBlack(() => { drawPhoto(img, 1, i); drawCaption(cap); }, p), PHOTO_FADE_SECS);
+      }
     }
 
-    // CTA outro: fade in + hold (3.5s) + fade out
+    // CTA outro: photo background + fade in + hold + fade out
     setVideoProgress({ slide: ++cur, total: totalScenes });
     await renderFor(p => {
-      drawOutro();
+      drawPhotoOutro(outroImg);
       ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
     }, 0.4);
-    await renderFor(() => drawOutro(), 3.5);
-    await renderFor(p => fadeBlack(drawOutro, p), 0.5);
+    await renderFor(() => drawPhotoOutro(outroImg), 3.0);
+    await renderFor(p => fadeBlack(() => drawPhotoOutro(outroImg), p), 0.4);
 
     // Stop preview audio
     if (audioSource) { try { audioSource.stop(); } catch {} }
