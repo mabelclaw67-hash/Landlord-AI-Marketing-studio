@@ -1080,6 +1080,17 @@ export default function ListingDetail({ lang }) {
       setVideoStatus("done");
       setVideoMsg(`${fileName} saved to 04_Video_Output/`);
       setVideoMusicStatus(musicStatus);
+
+      // Write videoUrl back to the listing database so the public page shows Watch Video.
+      // Uses saveListing which updates only columns that exist in the sheet header row.
+      if (result?.url) {
+        const updatedListing = { ...listingRef.current, videoUrl: result.url };
+        setListing(updatedListing);
+        listingRef.current = updatedListing;
+        saveListing(updatedListing).catch(e =>
+          console.warn("videoUrl write-back failed:", e.message)
+        );
+      }
     } catch (err) {
       setVideoStatus("done"); // still show preview even if Drive upload fails
       setVideoMsg(`Video ready. Drive upload failed: ${err.message}`);
