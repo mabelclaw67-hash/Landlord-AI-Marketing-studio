@@ -110,6 +110,10 @@ export default function NewListing({ lang }) {
         complianceFlag: Object.fromEntries(Object.keys(outputs).map((k) => [k, "Review Needed"])),
         mediaChecklist: [false, false, false, false],
         driveFiles:     [],
+        listingStatus:  "Available",
+        openHouseDateTime: "",
+        openHouseViewingInstructions: "",
+        openHouseParkingNotes: "",
       };
       await saveListing(listing);
       navigate(`/admin/listing/${id}`);

@@ -4,6 +4,7 @@ import { getListings } from "../utils/storage";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
+import { getListingStatusMeta } from "../utils/listingPublicMeta";
 
 const TENANT_SHARE_MESSAGES = [
   {
@@ -111,6 +112,7 @@ export default function Examples({ lang }) {
                 ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)[0]
                 : null;
               const avail = formatDate(listing.available);
+              const statusMeta = getListingStatusMeta(listing);
 
               return (
                 <div key={listing.id} className="rental-card">
@@ -120,7 +122,16 @@ export default function Examples({ lang }) {
                       <h2 className="rental-card__address">{listing.address}</h2>
                       <p className="rental-card__city">📍 {listing.city}, BC</p>
                     </div>
-                    <span className="rental-card__badge">Available</span>
+                    <span
+                      className="rental-card__badge"
+                      style={{
+                        background: statusMeta.background,
+                        color: statusMeta.color,
+                        border: `1px solid ${statusMeta.border}`,
+                      }}
+                    >
+                      {statusMeta.label}
+                    </span>
                   </div>
 
                   {/* Key facts row */}
@@ -156,12 +167,20 @@ export default function Examples({ lang }) {
                     <p className="rental-card__feature">✓ {firstFeature}</p>
                   )}
 
+                  {statusMeta.applicationsClosed && (
+                    <p style={{ fontSize: "0.82rem", color: statusMeta.color, fontWeight: 700, marginBottom: 10 }}>
+                      Applications closed / 暂停申请
+                    </p>
+                  )}
+
                   {/* CTA */}
                   <Link
                     to={`/listings/${listing.id}`}
                     className="rental-card__cta"
                   >
-                    {lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →"}
+                    {statusMeta.applicationsClosed
+                      ? (lang === "zh" ? "查看详情 / 状态 →" : "View Details / Status →")
+                      : (lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →")}
                   </Link>
                   <ShareButton
                     title={listing.address}

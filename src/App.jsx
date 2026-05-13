@@ -13,6 +13,7 @@ import Dashboard from "./pages/admin/Dashboard";
 import NewListing from "./pages/admin/NewListing";
 import ListingDetail from "./pages/admin/ListingDetail";
 import Listings from "./pages/admin/Listings";
+import Leads from "./pages/admin/Leads";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
 
@@ -33,6 +34,7 @@ function AppInner({ lang, setLang }) {
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="new" element={<NewListing lang={lang} />} />
           <Route path="listings" element={<Listings lang={lang} />} />
+          <Route path="leads" element={<Leads />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />
         </Route>
         <Route path="/listings/:id" element={<PublicListing />} />

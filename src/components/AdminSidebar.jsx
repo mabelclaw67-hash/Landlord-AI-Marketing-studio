@@ -25,6 +25,12 @@ export default function AdminSidebar({ lang }) {
       >
         📋 {t(lang, "adminNav.listings")}
       </NavLink>
+      <NavLink
+        to="/admin/leads"
+        className={({ isActive }) => (isActive ? "active" : "")}
+      >
+        🗂️ Leads / 申请
+      </NavLink>
 
       <button className="admin-lock-btn" onClick={lockAdmin}>
         🔒 Lock Admin / 锁定

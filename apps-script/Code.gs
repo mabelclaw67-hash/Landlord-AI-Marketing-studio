@@ -69,6 +69,10 @@ var LISTING_HEADERS = [
   "Drive Folder Link", // W 22  — existing column, source of truth for photos
   "Final Package Link", // X 23  URL to admin marketing package
   "Published Link",     // Y 24  URL to public tenant-facing listing
+  "Listing Status",     // Z 25  tenant-facing public listing status
+  "Open House Date / Time", // AA 26
+  "Open House Viewing Instructions", // AB 27
+  "Open House Parking Notes", // AC 28
   "Outputs",           // Z 25  JSON (generated copy — app-managed)
   "Media Checklist",      // AA 26 JSON
   "Drive Files",          // AB 27 JSON
@@ -225,6 +229,12 @@ function rowToListing_(row, headerMap) {
     driveFolderLink:  col("Drive Folder Link"),          // W — existing column
     finalPackageLink: col("Final Package Link") || null, // X
     publishedLink:    col("Published Link")    || null,  // Y
+    listingStatus:    col("Listing Status") || col("Tenant Listing Status") || col("Public Status") || "",
+    tenantListingStatus: col("Tenant Listing Status") || col("Listing Status") || "",
+    publicStatus:     col("Public Status") || col("Listing Status") || "",
+    openHouseDateTime: col("Open House Date / Time") || "",
+    openHouseViewingInstructions: col("Open House Viewing Instructions") || "",
+    openHouseParkingNotes: col("Open House Parking Notes") || "",
     outputs:          tryParse_(col("Outputs"),         {}),
     reviewStatus:     tryParse_(col("Review Status"),   {}),
     complianceFlag:   tryParse_(col("Compliance Flag"), {}),
@@ -263,6 +273,10 @@ function makeDataMap_(d) {
   m["Drive Folder Link"]  = d.driveFolderLink || "";        // W — never overwrite with blank
   m["Final Package Link"] = d.finalPackageLink || "";       // X
   m["Published Link"]     = d.publishedLink    || "";       // Y
+  m["Listing Status"]     = d.listingStatus || d.tenantListingStatus || d.publicStatus || "";
+  m["Open House Date / Time"] = d.openHouseDateTime || "";
+  m["Open House Viewing Instructions"] = d.openHouseViewingInstructions || "";
+  m["Open House Parking Notes"] = d.openHouseParkingNotes || "";
   m["Outputs"]            = JSON.stringify(d.outputs        || {});
   m["Review Status"]      = JSON.stringify(d.reviewStatus   || {});
   m["Compliance Flag"]    = JSON.stringify(d.complianceFlag || {});

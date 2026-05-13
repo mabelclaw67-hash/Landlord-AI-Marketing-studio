@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { getListing, getListingFolderFiles } from "../utils/storage";
 import ShareButton from "../components/ShareButton";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
+import { buildQrCodeSvg } from "../utils/qrCodeSvg";
+import { getListingStatusMeta, getOpenHouseInfo } from "../utils/listingPublicMeta";
 
 const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
 const FORM_URL_READY  = RENTAL_FORM_URL &&
@@ -50,6 +52,15 @@ function detectCover(files) {
     a.name.localeCompare(b.name, undefined, { numeric: true })
   );
   return sorted.find((f) => /^1/i.test(f.name)) || sorted[0];
+}
+
+function escapePrintHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // ── Image sub-components ──────────────────────────────────────────────────────
@@ -178,6 +189,8 @@ export default function PublicListing() {
 
   const featureList = (listing.features || "")
     .split(/[,\n]/).map((f) => f.trim()).filter(Boolean);
+  const statusMeta = getListingStatusMeta(listing);
+  const openHouseInfo = getOpenHouseInfo(listing);
 
   // ── Shared styles ──────────────────────────────────────────────────────────
 
@@ -191,6 +204,13 @@ export default function PublicListing() {
     fontWeight: 600, textTransform: "uppercase",
     letterSpacing: "0.06em", marginBottom: 3,
   };
+  const listingUrl = window.location.href;
+  const qrSvg = buildQrCodeSvg(listingUrl, {
+    cellSize: 5,
+    quietZone: 4,
+    foreground: "#2f4338",
+    background: "#ffffff",
+  });
 
   function handlePdfDownload() {
     if (!listing || pdfBusy) return;
@@ -200,6 +220,237 @@ export default function PublicListing() {
     } finally {
       window.setTimeout(() => setPdfBusy(false), 800);
     }
+  }
+
+  function handlePrintQrCode() {
+    const printWindow = window.open("", "_blank", "width=540,height=720");
+    if (!printWindow) return;
+    const safeTitle = escapePrintHtml(title);
+    const safeListingUrl = escapePrintHtml(listingUrl);
+
+    printWindow.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Listing QR Code</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Arial, sans-serif;
+        color: #213128;
+        text-align: center;
+      }
+      .wrap {
+        max-width: 420px;
+        margin: 0 auto;
+      }
+      .code {
+        margin: 16px auto;
+        width: 240px;
+      }
+      .code svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .meta {
+        font-size: 14px;
+        line-height: 1.6;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1 style="font-size: 22px; margin-bottom: 8px;">QR Code / 扫码申请</h1>
+      <p class="meta" style="margin-bottom: 8px;">${safeTitle}</p>
+      <p class="meta" style="margin-bottom: 10px;">Scan to view listing and apply online / 扫码查看房源并在线申请</p>
+      <div class="code">${qrSvg}</div>
+      <p class="meta">${safeListingUrl}</p>
+    </div>
+    <script>
+      window.onload = function () {
+        window.print();
+      };
+    </script>
+  </body>
+</html>`);
+    printWindow.document.close();
+  }
+
+  function handlePrintOpenHouseCard() {
+    const printWindow = window.open("", "_blank", "width=760,height=960");
+    if (!printWindow) return;
+
+    const safeAddress = escapePrintHtml(listing.address || "Listing address");
+    const safeRent = escapePrintHtml(
+      listing.rent ? `$${Number(listing.rent).toLocaleString()} / month` : "Contact for rent"
+    );
+    const safeBedsBaths = escapePrintHtml(
+      `${listing.bedrooms || "—"} Bed / ${listing.bathrooms || "—"} Bath`
+    );
+    const safeAvailable = escapePrintHtml(formatDate(listing.available));
+    const safeListingUrl = escapePrintHtml(listingUrl);
+
+    printWindow.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Open House Print Card</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      @page {
+        size: auto;
+        margin: 12mm;
+      }
+      body {
+        margin: 0;
+        background: #f3f5f1;
+        font-family: Arial, sans-serif;
+        color: #213128;
+      }
+      .sheet {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      .card {
+        background: #ffffff;
+        border: 2px solid #d9e5dc;
+        border-radius: 18px;
+        padding: 24px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #5f7467;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin: 18px 0 22px;
+      }
+      .fact {
+        border: 1px solid #dce7df;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #f8fbf9;
+      }
+      .fact-label {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6e7d73;
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+      .fact-value {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+      .qr-wrap {
+        margin: 8px auto 16px;
+        width: 220px;
+      }
+      .qr-wrap svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .cta {
+        text-align: center;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #43584c;
+        margin-bottom: 18px;
+      }
+      .contact {
+        border-top: 1px solid #dce7df;
+        padding-top: 16px;
+        display: grid;
+        gap: 8px;
+      }
+      .contact-row {
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      .url {
+        margin-top: 14px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #6b7280;
+        word-break: break-word;
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        .sheet {
+          max-width: none;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="card">
+        <div class="eyebrow">Open House Print Card / 打印看房卡</div>
+        <h1>${safeAddress}</h1>
+        <div class="facts">
+          <div class="fact">
+            <div class="fact-label">Rent</div>
+            <div class="fact-value">${safeRent}</div>
+          </div>
+          <div class="fact">
+            <div class="fact-label">Beds / Baths</div>
+            <div class="fact-value">${safeBedsBaths}</div>
+          </div>
+          <div class="fact">
+            <div class="fact-label">Available</div>
+            <div class="fact-value">${safeAvailable}</div>
+          </div>
+          <div class="fact">
+            <div class="fact-label">Apply</div>
+            <div class="fact-value">Scan QR Code</div>
+          </div>
+        </div>
+        ${openHouseInfo ? `
+        <div style="margin: 0 0 20px; border: 1px solid #dce7df; border-radius: 12px; padding: 14px 16px; background: #f8fbf9;">
+          <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f7467; margin-bottom: 10px; font-weight: 700;">Open House</div>
+          ${openHouseInfo.dateTime ? `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 6px;"><strong>Date / Time:</strong> ${escapePrintHtml(openHouseInfo.dateTime)}</div>` : ""}
+          ${openHouseInfo.viewingInstructions ? `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 6px;"><strong>Viewing:</strong> ${escapePrintHtml(openHouseInfo.viewingInstructions)}</div>` : ""}
+          ${openHouseInfo.parkingAccessNotes ? `<div style="font-size: 15px; line-height: 1.6;"><strong>Parking / Access:</strong> ${escapePrintHtml(openHouseInfo.parkingAccessNotes)}</div>` : ""}
+        </div>` : ""}
+        <div class="qr-wrap">${qrSvg}</div>
+        <div class="cta">Scan to view listing and apply online / 扫码查看房源并在线申请</div>
+        <div class="contact">
+          <div class="contact-row">Phone: 672-514-8866</div>
+          <div class="contact-row">Email: mabelclaw67@gmail.com</div>
+        </div>
+        <div class="url">${safeListingUrl}</div>
+      </div>
+    </div>
+    <script>
+      window.onload = function () {
+        window.print();
+      };
+    </script>
+  </body>
+</html>`);
+    printWindow.document.close();
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -217,6 +468,24 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.75rem", color: "#62796b", marginBottom: 8, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
             Vanisland Residential · Rental Listing
           </p>
+          <div style={{ marginBottom: 12 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 32,
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: `1px solid ${statusMeta.border}`,
+                background: statusMeta.background,
+                color: statusMeta.color,
+                fontSize: "0.82rem",
+                fontWeight: 800,
+              }}
+            >
+              {statusMeta.label}
+            </span>
+          </div>
           <h1 style={{ fontSize: "clamp(1.25rem, 4.5vw, 1.85rem)", fontWeight: 800, lineHeight: 1.2, marginBottom: 8, color: "#213128" }}>
             {title}
           </h1>
@@ -312,10 +581,31 @@ export default function PublicListing() {
           <div style={{ background: "#edf3ee", borderRadius: 8, padding: "12px 16px", marginBottom: 22, fontSize: "0.88rem", lineHeight: 1.9 }}>
             <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Applying for: </span><strong>{title}</strong></div>
             <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing ID: </span><code style={{ fontSize: "0.84rem" }}>{listing.id}</code></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing status: </span><strong>{statusMeta.label}</strong></div>
           </div>
 
           {/* Primary CTA */}
-          {FORM_URL_READY ? (
+          {statusMeta.applicationsClosed ? (
+            <div style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                disabled
+                className="listing-apply-btn"
+                style={{
+                  display: "block", width: "100%", textAlign: "center",
+                  background: "#d7dce1", color: "#5f6b76",
+                  padding: "20px 24px", borderRadius: 9, fontWeight: 800,
+                  fontSize: "1.05rem", letterSpacing: "0.01em",
+                  border: "none", cursor: "not-allowed",
+                }}
+              >
+                Applications Closed / 暂停申请
+              </button>
+              <p style={{ fontSize: "0.82rem", color: statusMeta.color, textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
+                This listing remains visible, but it is not currently accepting new applications.
+              </p>
+            </div>
+          ) : FORM_URL_READY ? (
             <a
               href={buildPrefilledApplicationUrl(listing)}
               target="_blank"
@@ -339,6 +629,114 @@ export default function PublicListing() {
               </p>
             </div>
           )}
+
+          {openHouseInfo && (
+            <div style={{
+              marginTop: 14,
+              marginBottom: 14,
+              border: "1px solid #eadfc8",
+              borderRadius: 12,
+              background: "#fff9ef",
+              padding: "16px 14px",
+            }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#8a4b16", marginBottom: 10 }}>
+                Open House
+              </h3>
+              <div style={{ display: "grid", gap: 10 }}>
+                {openHouseInfo.dateTime && (
+                  <div>
+                    <div style={labelStyle}>Open House Date / Time</div>
+                    <div style={{ fontSize: "0.92rem", lineHeight: 1.55 }}>{openHouseInfo.dateTime}</div>
+                  </div>
+                )}
+                {openHouseInfo.viewingInstructions && (
+                  <div>
+                    <div style={labelStyle}>Viewing Instructions</div>
+                    <div style={{ fontSize: "0.92rem", lineHeight: 1.6 }}>{openHouseInfo.viewingInstructions}</div>
+                  </div>
+                )}
+                {openHouseInfo.parkingAccessNotes && (
+                  <div>
+                    <div style={labelStyle}>Parking / Access Notes</div>
+                    <div style={{ fontSize: "0.92rem", lineHeight: 1.6 }}>{openHouseInfo.parkingAccessNotes}</div>
+                  </div>
+                )}
+              </div>
+              <p style={{ fontSize: "0.84rem", color: "#7a5a2f", lineHeight: 1.65, marginTop: 12 }}>
+                Open House visitors can scan the QR code to view the listing and apply online.
+                <br />看房者可扫码查看房源并在线申请。
+              </p>
+            </div>
+          )}
+
+          <div style={{
+            marginTop: 14,
+            marginBottom: 14,
+            border: "1px solid #d8e4db",
+            borderRadius: 12,
+            background: "#f7fbf8",
+            padding: "16px 14px",
+          }}>
+            <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#2f4338", marginBottom: 10, textAlign: "center" }}>
+              QR Code / 扫码申请
+            </h3>
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{ width: 180, maxWidth: "100%" }}
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+              />
+            </div>
+            <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 12 }}>
+              Scan to view listing and apply online / 扫码查看房源并在线申请
+            </p>
+            <div style={{ display: "grid", gap: 10 }}>
+              <button
+                type="button"
+                onClick={handlePrintQrCode}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  minHeight: 44,
+                  border: "1.5px solid #3e5b4b",
+                  borderRadius: 8,
+                  background: "#fff",
+                  color: "#3e5b4b",
+                  fontWeight: 700,
+                  fontSize: "0.92rem",
+                  cursor: "pointer",
+                  fontFamily: "var(--font)",
+                }}
+              >
+                Print QR Code
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintOpenHouseCard}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  minHeight: 44,
+                  border: "1.5px solid #d8d0c2",
+                  borderRadius: 8,
+                  background: "#f7f0e4",
+                  color: "#3e5b4b",
+                  fontWeight: 700,
+                  fontSize: "0.92rem",
+                  cursor: "pointer",
+                  fontFamily: "var(--font)",
+                }}
+              >
+                Open House Print Card / 打印看房卡
+              </button>
+            </div>
+          </div>
 
           <button
             type="button"
@@ -417,7 +815,7 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
             If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
           </p>
-          {FORM_URL_READY && (
+          {!statusMeta.applicationsClosed && FORM_URL_READY && (
             <a
               href={buildPrefilledApplicationUrl(listing)}
               target="_blank"

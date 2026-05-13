@@ -27,7 +27,9 @@ function lsSetAll(listings) {
 
 export async function getListings() {
   // apiGet adds _t=Date.now() and cache:"no-store" to bust GET caching
-  if (isApiConnected()) return apiGet({ action: "getListings" });
+  if (isApiConnected()) {
+    return apiGet({ action: "getListings" });
+  }
   return lsGetAll();
 }
 

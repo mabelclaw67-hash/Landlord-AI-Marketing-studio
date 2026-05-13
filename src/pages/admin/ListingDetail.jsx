@@ -5,6 +5,7 @@ import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolder
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
+import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../utils/listingPublicMeta";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 
@@ -393,14 +394,18 @@ export default function ListingDetail({ lang }) {
   // ── Listing info edit helpers ────────────────────────────────────────────────
   const startEditInfo = () => {
     setInfoDraft({
-      available: listing.available  || "",
-      rent:      String(listing.rent      || ""),
-      bedrooms:  String(listing.bedrooms  || ""),
+      available: listing.available || "",
+      rent: String(listing.rent || ""),
+      bedrooms: String(listing.bedrooms || ""),
       bathrooms: String(listing.bathrooms || ""),
       utilities: listing.utilities || "",
-      pets:      listing.pets      || "",
-      parking:   listing.parking   || "",
-      features:  listing.features  || "",
+      pets: listing.pets || "",
+      parking: listing.parking || "",
+      features: listing.features || "",
+      listingStatus: getListingDisplayStatus(listing),
+      openHouseDateTime: listing.openHouseDateTime || "",
+      openHouseViewingInstructions: listing.openHouseViewingInstructions || "",
+      openHouseParkingNotes: listing.openHouseParkingNotes || "",
     });
     setInfoEditMode(true);
   };
@@ -410,7 +415,11 @@ export default function ListingDetail({ lang }) {
   const saveInfoToSheet = async () => {
     setInfoSaving(true);
     try {
-      const updated = { ...listing, ...infoDraft };
+      const updated = {
+        ...listing,
+        ...infoDraft,
+        listingStatus: infoDraft.listingStatus || "Available",
+      };
       await saveListing(updated);
       setListing(updated);
       setInfoEdited(true);
@@ -538,6 +547,7 @@ export default function ListingDetail({ lang }) {
     Draft: "badge--draft", "In Review": "badge--review",
     "Ready to Publish": "badge--ready", Published: "badge--published",
   };
+  const publicListingStatus = getListingDisplayStatus(listing);
 
   const mediaItems = [t(lang, "detail.m1"), t(lang, "detail.m2"), t(lang, "detail.m3"), t(lang, "detail.m4")];
 
@@ -1181,7 +1191,18 @@ export default function ListingDetail({ lang }) {
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
             🏠 {t(lang, "detail.propertyInfo")}
           </h3>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <span style={{
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              color: "#3e5b4b",
+              border: "1px solid #cddbcf",
+              background: "#edf3ee",
+              borderRadius: 999,
+              padding: "3px 10px",
+            }}>
+              Public Status: {publicListingStatus}
+            </span>
             {infoEdited && !infoEditMode && (
               <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "#16a34a", border: "1px solid #86efac", borderRadius: 4, padding: "1px 7px" }}>
                 ✅ Saved to Sheet
@@ -1228,6 +1249,20 @@ export default function ListingDetail({ lang }) {
                   />
                 </div>
               ))}
+              <div className="info-item">
+                <label>Tenant Listing Status</label>
+                <select
+                  value={infoDraft.listingStatus || "Available"}
+                  onChange={(e) => setInfoDraft((p) => ({ ...p, listingStatus: e.target.value }))}
+                  style={{
+                    width: "100%", padding: "5px 8px", border: "1.5px solid var(--color-primary)",
+                    borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
+                    background: "#fff", color: "var(--color-text)", boxSizing: "border-box",
+                  }}
+                >
+                  {PUBLIC_LISTING_STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </div>
               {/* Read-only fields */}
               {[
                 ["Owner Name", listing.ownerName], ["Property Address", listing.address],
@@ -1253,6 +1288,52 @@ export default function ListingDetail({ lang }) {
                   background: "#fff", color: "var(--color-text)", boxSizing: "border-box", resize: "vertical",
                 }}
               />
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
+              <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>
+                Open House Date / Time
+              </label>
+              <input
+                value={infoDraft.openHouseDateTime || ""}
+                onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseDateTime: e.target.value }))}
+                placeholder="Sunday 2:00 PM - 4:00 PM"
+                style={{
+                  width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
+                  borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
+                  background: "#fff", color: "var(--color-text)", boxSizing: "border-box",
+                }}
+              />
+              <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginTop: 12, marginBottom: 4 }}>
+                Open House Viewing Instructions
+              </label>
+              <textarea
+                value={infoDraft.openHouseViewingInstructions || ""}
+                onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseViewingInstructions: e.target.value }))}
+                rows={3}
+                placeholder="Please enter from the side entrance and scan the QR code on arrival."
+                style={{
+                  width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
+                  borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
+                  background: "#fff", color: "var(--color-text)", boxSizing: "border-box", resize: "vertical",
+                }}
+              />
+              <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginTop: 12, marginBottom: 4 }}>
+                Open House Parking / Access Notes
+              </label>
+              <textarea
+                value={infoDraft.openHouseParkingNotes || ""}
+                onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseParkingNotes: e.target.value }))}
+                rows={3}
+                placeholder="Street parking only. Please keep the access area clear."
+                style={{
+                  width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
+                  borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
+                  background: "#fff", color: "var(--color-text)", boxSizing: "border-box", resize: "vertical",
+                }}
+              />
+              <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 8, lineHeight: 1.6 }}>
+                Open House content only appears on the tenant-facing page when Tenant Listing Status is set to Open House.
+              </p>
             </div>
             {/* Action buttons */}
             <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -1283,7 +1364,7 @@ export default function ListingDetail({ lang }) {
                 ["Utilities", listing.utilities], ["Pet Policy", listing.pets],
                 ["Parking", listing.parking], ["Laundry", listing.laundry],
                 ["Smoking Policy", listing.smoking], ["Default Language", listing.language],
-                ["Target Audience", listing.targetAudience],
+                ["Target Audience", listing.targetAudience], ["Tenant Listing Status", publicListingStatus],
               ].map(([label, val]) => (
                 <div key={label} className="info-item"><label>{label}</label><p>{val || "—"}</p></div>
               ))}
@@ -1307,6 +1388,22 @@ export default function ListingDetail({ lang }) {
               {listing.features?.trim()
                 ? <p style={{ fontSize: "0.9rem" }}>{listing.features}</p>
                 : <span className="text-muted text-sm">—</span>}
+            </div>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
+              <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
+                Open House Settings
+              </label>
+              <div style={{ display: "grid", gap: 8 }}>
+                <p style={{ fontSize: "0.88rem", margin: 0 }}>
+                  <strong>Date / Time:</strong> {listing.openHouseDateTime || "—"}
+                </p>
+                <p style={{ fontSize: "0.88rem", margin: 0 }}>
+                  <strong>Viewing Instructions:</strong> {listing.openHouseViewingInstructions || "—"}
+                </p>
+                <p style={{ fontSize: "0.88rem", margin: 0 }}>
+                  <strong>Parking / Access Notes:</strong> {listing.openHouseParkingNotes || "—"}
+                </p>
+              </div>
             </div>
           </>
         )}
