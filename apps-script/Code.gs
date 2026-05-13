@@ -100,6 +100,8 @@ function doPost(e) {
     if (action === "uploadFile")        return ok(uploadFile_(body));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl));
+    if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId));
+    if (action === "syncAllVideoUrls")  return ok(syncAllVideoUrls_());
     return err("Unknown POST action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -374,6 +376,125 @@ function saveListing_(data) {
 
   SpreadsheetApp.flush(); // commit writes before returning response
   return { success: true, id: data.id };
+}
+
+// ── Video URL sync ────────────────────────────────────────────────────────────
+// Scans a listing's 04_Video_Output Drive subfolder for
+// video__{listingId}__landscape.mp4, sets it to "Anyone with link can view",
+// and writes the share URL into the videoUrl column of the sheet.
+
+function extractDriveFolderId_(url) {
+  if (!url) return null;
+  var m = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+// Sync videoUrl for one listing. Can also be called from the Apps Script editor.
+function syncVideoUrl_(listingId) {
+  if (!listingId) throw new Error("syncVideoUrl: listingId required");
+
+  var sheet     = getSheet_(LISTINGS_SHEET);
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var last      = sheet.getLastRow();
+  if (last < 2) throw new Error("No listing rows found");
+
+  // Find the row for this listing.
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  var rowNumber = -1;
+  var row       = null;
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === listingId) {
+      rowNumber = i + 2;
+      row       = sheet.getRange(rowNumber, 1, 1, numCols).getValues()[0];
+      break;
+    }
+  }
+  if (!row) throw new Error("Listing not found: " + listingId);
+
+  var driveFolderLink = colVal_(row, headerMap, "Drive Folder Link");
+  var folderId        = extractDriveFolderId_(driveFolderLink);
+
+  Logger.log("[syncVideoUrl] listingId        : " + listingId);
+  Logger.log("[syncVideoUrl] driveFolderLink  : " + driveFolderLink);
+  Logger.log("[syncVideoUrl] folderId         : " + folderId);
+  Logger.log("[syncVideoUrl] sheet            : " + LISTINGS_SHEET);
+  Logger.log("[syncVideoUrl] rowNumber        : " + rowNumber);
+
+  if (!folderId) throw new Error("No Drive Folder Link found for listing: " + listingId);
+
+  // Open 04_Video_Output subfolder.
+  var listingFolder   = DriveApp.getFolderById(folderId);
+  var videoFolderIter = listingFolder.getFoldersByName("04_Video_Output");
+  if (!videoFolderIter.hasNext()) throw new Error("04_Video_Output folder not found for: " + listingId);
+  var videoFolder = videoFolderIter.next();
+  Logger.log("[syncVideoUrl] 04_Video_Output folder ID: " + videoFolder.getId());
+
+  // Find video__{listingId}__landscape.mp4.
+  var targetFileName = "video__" + listingId + "__landscape.mp4";
+  var fileIter       = videoFolder.getFilesByName(targetFileName);
+  if (!fileIter.hasNext()) throw new Error("File not found in 04_Video_Output: " + targetFileName);
+
+  var videoFile = fileIter.next();
+  var fileId    = videoFile.getId();
+  Logger.log("[syncVideoUrl] Found file       : " + targetFileName + " (id=" + fileId + ")");
+
+  // Ensure Anyone with link can view.
+  videoFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  var fileUrl = videoFile.getUrl();
+  Logger.log("[syncVideoUrl] Drive URL        : " + fileUrl);
+
+  // Ensure videoUrl column exists and write.
+  addMissingHeaders_(sheet, LISTING_HEADERS);
+  var freshMap    = getHeaderMap_(sheet);
+  var videoColIdx = freshMap["videoUrl"];
+  if (videoColIdx === undefined) throw new Error("videoUrl column not found after addMissingHeaders_");
+
+  sheet.getRange(rowNumber, videoColIdx + 1).setValue(fileUrl);
+  SpreadsheetApp.flush();
+  Logger.log("[syncVideoUrl] Wrote to row " + rowNumber + ", col " + (videoColIdx + 1) + " (videoUrl)");
+
+  return {
+    success:   true,
+    id:        listingId,
+    fileId:    fileId,
+    fileName:  targetFileName,
+    videoUrl:  fileUrl,
+    sheetName: LISTINGS_SHEET,
+    rowNumber: rowNumber,
+    colName:   "videoUrl",
+    colIndex:  videoColIdx + 1,
+  };
+}
+
+// Sync all listings that have a Drive folder but no videoUrl yet.
+// Can be run directly from the Apps Script editor (no underscore wrapper needed).
+function syncAllVideoUrls_() {
+  var listings = getListings_();
+  var results  = [];
+  for (var i = 0; i < listings.length; i++) {
+    var listing = listings[i];
+    if (listing.videoUrl) {
+      results.push({ id: listing.id, skipped: true, reason: "already has videoUrl" });
+      continue;
+    }
+    try {
+      var r = syncVideoUrl_(listing.id);
+      results.push(r);
+    } catch (e) {
+      results.push({ id: listing.id, success: false, error: e.message });
+    }
+  }
+  return results;
+}
+
+// Runnable from Apps Script editor: click Run → syncAllVideoUrls
+function syncAllVideoUrls() {
+  var results = syncAllVideoUrls_();
+  Logger.log(JSON.stringify(results, null, 2));
 }
 
 // ── Contact form ──────────────────────────────────────────────────────────────
