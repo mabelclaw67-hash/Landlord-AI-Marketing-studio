@@ -5,6 +5,7 @@ import { getListing, saveListing, getListingFolderFiles, uploadToSubfolder } fro
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
+import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 
 const TAB_LABELS = {
@@ -656,9 +657,9 @@ export default function ListingDetail({ lang }) {
     setVideoSourceType(null);
     setVideoMusicStatus(null);
 
-    if (!window.MediaRecorder) {
+    if (!window.VideoEncoder || !window.VideoFrame || !window.AudioEncoder) {
       setVideoStatus("error");
-      setVideoMsg("MediaRecorder not supported. Use Chrome or Edge.");
+      setVideoMsg("MP4 export requires WebCodecs (Chrome 94+ or Edge 94+). Please use a supported browser.");
       return;
     }
 
@@ -708,42 +709,87 @@ export default function ListingDetail({ lang }) {
     const canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
-    const stream = canvas.captureStream(24);
 
-    // ── Web Audio API — load music and mix into stream ────────────────────
-    let audioSource = null, audioCtx = null, audioAdded = false;
+    // ── Web Audio API — decode music for preview playback + post-render AAC encoding ──
+    let audioSource = null, audioCtx = null, audioAdded = false, decodedAudioBuf = null;
     if (musicTrack !== "none") {
       try {
-        const resp = await fetch(musicTrack); // musicTrack is the full path from manifest
+        const resp = await fetch(musicTrack);
         if (!resp.ok) throw new Error(`${musicTrack} not found (HTTP ${resp.status})`);
         const ab = await resp.arrayBuffer();
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === "suspended") await audioCtx.resume();
-        const audioBuf = await audioCtx.decodeAudioData(ab);
-        const dest = audioCtx.createMediaStreamDestination();
+        decodedAudioBuf = await audioCtx.decodeAudioData(ab);
+        // Play through speakers during rendering so admin can hear the music
         audioSource = audioCtx.createBufferSource();
-        audioSource.buffer = audioBuf;
+        audioSource.buffer = decodedAudioBuf;
         audioSource.loop = true;
-        audioSource.connect(dest);
-        const at = dest.stream.getAudioTracks()[0];
-        if (at) { stream.addTrack(at); audioAdded = true; }
+        audioSource.connect(audioCtx.destination);
+        audioAdded = true;
       } catch (err) {
-        // Surface the exact error so user knows why music failed
         setVideoMsg(`⚠️ Music failed (${err.message}) — generating silent video.`);
         if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
         audioSource = null;
+        decodedAudioBuf = null;
       }
     }
 
-    // MediaRecorder — include opus codec when audio track is present
-    const mimeType = audioAdded
-      ? (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus") ? "video/webm;codecs=vp8,opus" : "video/webm")
-      : (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")       ? "video/webm;codecs=vp8"       : "video/webm");
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
-    const chunks   = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.start(200);
-    if (audioSource) audioSource.start(); // start music in sync with recorder
+    // ── MP4 encoder (WebCodecs + mp4-muxer → H.264 video + AAC audio) ──────
+    const mp4Target = new ArrayBufferTarget();
+    const muxer = new Muxer({
+      target: mp4Target,
+      video: { codec: "avc", width: W, height: H },
+      ...(audioAdded && decodedAudioBuf ? {
+        audio: {
+          codec: "aac",
+          sampleRate: decodedAudioBuf.sampleRate,
+          numberOfChannels: decodedAudioBuf.numberOfChannels,
+        },
+      } : {}),
+      fastStart: "in-memory",
+    });
+
+    // Check H.264 support before configuring
+    const videoCodec = "avc1.42001f"; // H.264 Baseline Profile 3.1 — broadest compatibility
+    const vcSupport = await VideoEncoder.isConfigSupported({ codec: videoCodec, width: W, height: H, bitrate: 2_500_000, framerate: 24 });
+    if (!vcSupport.supported) {
+      setVideoStatus("error");
+      setVideoMsg("H.264 encoding is not supported on this device. Use Chrome 94+ or Edge 94+.");
+      return;
+    }
+
+    const videoEncoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: e => { setVideoStatus("error"); setVideoMsg(`Video encoder error: ${e.message}`); },
+    });
+    videoEncoder.configure({ codec: videoCodec, width: W, height: H, bitrate: 2_500_000, framerate: 24 });
+
+    let audioEncoder = null;
+    if (audioAdded && decodedAudioBuf) {
+      const acSupport = await AudioEncoder.isConfigSupported({
+        codec: "mp4a.40.2", sampleRate: decodedAudioBuf.sampleRate,
+        numberOfChannels: decodedAudioBuf.numberOfChannels, bitrate: 128_000,
+      });
+      if (acSupport.supported) {
+        audioEncoder = new AudioEncoder({
+          output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+          error: e => console.error("Audio encoder:", e),
+        });
+        audioEncoder.configure({
+          codec: "mp4a.40.2", sampleRate: decodedAudioBuf.sampleRate,
+          numberOfChannels: decodedAudioBuf.numberOfChannels, bitrate: 128_000,
+        });
+      } else {
+        setVideoMsg("⚠️ AAC audio not supported on this device — generating silent MP4.");
+        audioAdded = false;
+      }
+    }
+
+    let videoTimestampUs = 0;
+    const FRAME_DURATION_US = Math.round(1_000_000 / 24);
+    let totalFrameCount = 0;
+
+    if (audioSource) audioSource.start(); // play through speakers during render
     setVideoStatus("rendering");
 
     // ── Slide data ───────────────────────────────────────────────────────────
@@ -919,17 +965,21 @@ export default function ListingDetail({ lang }) {
       return null;
     }
 
-    // ── Frame loop ───────────────────────────────────────────────────────────
+    // ── Frame loop (frame-based for deterministic MP4 timestamps) ────────────
     const FRAME_MS = Math.round(1000 / 24);
-    function renderFor(drawFn, secs) {
-      return new Promise(resolve => {
-        const ms = secs * 1000, t0 = Date.now();
-        function tick() {
-          const p = Math.min((Date.now() - t0) / ms, 1);
-          drawFn(p); p < 1 ? setTimeout(tick, FRAME_MS) : resolve();
-        }
-        tick();
-      });
+    async function renderFor(drawFn, secs) {
+      const totalFrames = Math.max(1, Math.round(secs * 24));
+      for (let f = 0; f < totalFrames; f++) {
+        const p = totalFrames <= 1 ? 1 : f / (totalFrames - 1);
+        drawFn(p);
+        const frame = new VideoFrame(canvas, { timestamp: videoTimestampUs, duration: FRAME_DURATION_US });
+        videoEncoder.encode(frame, { keyFrame: totalFrameCount % 48 === 0 });
+        frame.close();
+        videoTimestampUs += FRAME_DURATION_US;
+        totalFrameCount++;
+        // Yield to browser; slow down if encoder queue is backing up
+        await new Promise(r => setTimeout(r, videoEncoder.encodeQueueSize > 8 ? 80 : FRAME_MS));
+      }
     }
 
     // ── Render sequence ──────────────────────────────────────────────────────
@@ -959,15 +1009,44 @@ export default function ListingDetail({ lang }) {
     await renderFor(() => drawOutro(), 3.5);
     await renderFor(p => fadeBlack(drawOutro, p), 0.5);
 
-    // Stop audio then recorder (order matters — stop audio first to flush buffers)
+    // Stop preview audio
     if (audioSource) { try { audioSource.stop(); } catch {} }
     if (audioCtx)    { try { audioCtx.close();   } catch {} }
-    recorder.stop();
-    await new Promise(r => { recorder.onstop = r; });
-    stream.getTracks().forEach(t => t.stop());
 
-    // Create local blob URL for in-page preview + download (no Drive needed for viewing)
-    const blob = new Blob(chunks, { type: "video/webm" });
+    // Encode audio from the decoded buffer, looping to fill the full video duration
+    if (audioEncoder && decodedAudioBuf) {
+      const totalDurationSecs = videoTimestampUs / 1_000_000;
+      const { sampleRate, numberOfChannels } = decodedAudioBuf;
+      const totalSamples = Math.ceil(totalDurationSecs * sampleRate);
+      const CHUNK_FRAMES = 1024;
+      for (let offset = 0; offset < totalSamples; offset += CHUNK_FRAMES) {
+        const frames = Math.min(CHUNK_FRAMES, totalSamples - offset);
+        // f32-planar layout: all of channel 0, then all of channel 1
+        const buf = new ArrayBuffer(frames * numberOfChannels * 4);
+        for (let c = 0; c < numberOfChannels; c++) {
+          const src = decodedAudioBuf.getChannelData(c);
+          const dest = new Float32Array(buf, c * frames * 4, frames);
+          for (let s = 0; s < frames; s++) dest[s] = src[(offset + s) % src.length];
+        }
+        const audioData = new AudioData({
+          format: "f32-planar",
+          sampleRate,
+          numberOfFrames: frames,
+          numberOfChannels,
+          timestamp: Math.round((offset / sampleRate) * 1_000_000),
+          data: buf,
+        });
+        audioEncoder.encode(audioData);
+        audioData.close();
+      }
+      await audioEncoder.flush();
+    }
+
+    // Flush video encoder and finalize MP4 container
+    await videoEncoder.flush();
+    muxer.finalize();
+
+    const blob = new Blob([mp4Target.buffer], { type: "video/mp4" });
     setVideoBlob(blob);
     setVideoBlobUrl(URL.createObjectURL(blob));
     // Persist to IndexedDB so video survives page refresh
@@ -988,13 +1067,13 @@ export default function ListingDetail({ lang }) {
         fr.onerror = rej;
         fr.readAsDataURL(blob);
       });
-      const fileName = `video__${listing.id}__${videoFormat}.webm`;
+      const fileName = `video__${listing.id}__${videoFormat}.mp4`;
       const result = await apiPost({
         action:        "uploadToSubfolder",
         folderId,
         subfolderName: "04_Video_Output",
         fileName,
-        mimeType:      "video/webm",
+        mimeType:      "video/mp4",
         data:          base64,
       });
       if (result?.subfolderUrl) setVideoFolderUrl(result.subfolderUrl);
@@ -1936,7 +2015,7 @@ export default function ListingDetail({ lang }) {
                       {videoBlobUrl && (
                         <a
                           href={videoBlobUrl}
-                          download={`video__${listing.id}__${videoFormat}.webm`}
+                          download={`video__${listing.id}__${videoFormat}.mp4`}
                           className="btn btn--primary btn--sm"
                         >
                           ⬇ Download Video
