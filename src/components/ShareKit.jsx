@@ -53,7 +53,7 @@ export default function ShareKit({
                     className="share-kit__copy"
                     onClick={() => copyText(message.id, message.text)}
                   >
-                    {copiedKey === message.id ? "Copied" : "Copy"}
+                    {copiedKey === message.id ? "已复制 / Copied" : "复制文案 / Copy"}
                   </button>
                 </div>
                 <textarea
@@ -71,7 +71,7 @@ export default function ShareKit({
             className="share-kit__link"
             onClick={() => copyText("page-link", window.location.href)}
           >
-            {copiedKey === "page-link" ? "Link Copied" : linkLabel}
+            {copiedKey === "page-link" ? "已复制链接 / Link Copied" : linkLabel}
           </button>
         </div>
       )}

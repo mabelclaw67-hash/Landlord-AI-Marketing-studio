@@ -807,7 +807,7 @@ export default function ListingDetail({ lang }) {
     const rent   = listing.rent ? `$${Number(listing.rent).toLocaleString()}/month` : "";
     const avail  = fmtDate(listing.available);
     const addr   = listing.address || "";
-    const pubUrl = `landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
+    const pubUrl = `https://landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
     const feats  = listing.features
       ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)
       : [];

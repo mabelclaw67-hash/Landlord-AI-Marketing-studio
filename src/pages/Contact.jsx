@@ -5,11 +5,11 @@ import { saveContact } from "../utils/storage";
 import { isApiConnected } from "../utils/api";
 
 const SERVICE_OPTIONS = [
-  "Bilingual Rental Ad / 中英文广告",
-  "Facebook / Craigslist Post / 平台发帖",
-  "Listing Cover Text / 封面文案",
-  "Short Video Script / 短视频脚本",
-  "Full Package / 全套服务",
+  "中英文广告 / Bilingual Rental Ad",
+  "平台发帖 / Facebook / Craigslist Post",
+  "封面文案 / Listing Cover Text",
+  "短视频脚本 / Short Video Script",
+  "全套服务 / Full Package",
 ];
 
 export default function Contact({ lang }) {
@@ -61,13 +61,13 @@ export default function Contact({ lang }) {
               </div>
 
               <div className="card" style={{ marginBottom: 16, borderColor: "#e5dfd6" }}>
-                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>What we prepare for you:</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>我们可为您准备 / What we prepare for you:</h3>
                 <ul style={{ paddingLeft: 16, fontSize: "0.88rem", lineHeight: 2 }}>
-                  <li>📝 Bilingual rental ad copy (EN + CN)</li>
-                  <li>💬 Facebook & Craigslist posts</li>
-                  <li>📲 WeChat post content</li>
-                  <li>🖼️ Listing cover text for social images</li>
-                  <li>🎬 Short video narration script</li>
+                  <li>📝 中英文出租广告文案 / Bilingual rental ad copy</li>
+                  <li>💬 平台发帖文案 / Facebook & Craigslist posts</li>
+                  <li>📲 微信分享文案 / WeChat post content</li>
+                  <li>🖼️ 社交封面标题文案 / Listing cover text for social images</li>
+                  <li>🎬 短视频旁白脚本 / Short video narration script</li>
                 </ul>
                 <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 12, paddingTop: 10 }}>
                   <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
@@ -77,8 +77,8 @@ export default function Contact({ lang }) {
               </div>
 
               <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-                <p>📍 Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.</p>
-                <p style={{ marginTop: 4 }}>服务范围：纳奈莫、维多利亚、大温哥华及 BC 全省。</p>
+                <p>📍 服务范围：纳奈莫、维多利亚、大温哥华及 BC 全省。</p>
+                <p style={{ marginTop: 4 }}>Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.</p>
               </div>
             </div>
 

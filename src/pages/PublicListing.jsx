@@ -232,7 +232,7 @@ export default function PublicListing() {
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Listing QR Code</title>
+    <title>扫码申请 / Listing QR Code</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       body {
@@ -264,9 +264,9 @@ export default function PublicListing() {
   </head>
   <body>
     <div class="wrap">
-      <h1 style="font-size: 22px; margin-bottom: 8px;">QR Code / 扫码申请</h1>
+      <h1 style="font-size: 22px; margin-bottom: 8px;">扫码申请 / QR Code</h1>
       <p class="meta" style="margin-bottom: 8px;">${safeTitle}</p>
-      <p class="meta" style="margin-bottom: 10px;">Scan to view listing and apply online / 扫码查看房源并在线申请</p>
+      <p class="meta" style="margin-bottom: 10px;">扫码查看房源并在线申请 / Scan to view listing and apply online</p>
       <div class="code">${qrSvg}</div>
       <p class="meta">${safeListingUrl}</p>
     </div>
@@ -298,7 +298,7 @@ export default function PublicListing() {
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Open House Print Card</title>
+    <title>打印看房卡 / Open House Print Card</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       @page {
@@ -407,7 +407,7 @@ export default function PublicListing() {
   <body>
     <div class="sheet">
       <div class="card">
-        <div class="eyebrow">Open House Print Card / 打印看房卡</div>
+        <div class="eyebrow">打印看房卡 / Open House Print Card</div>
         <h1>${safeAddress}</h1>
         <div class="facts">
           <div class="fact">
@@ -424,21 +424,21 @@ export default function PublicListing() {
           </div>
           <div class="fact">
             <div class="fact-label">Apply</div>
-            <div class="fact-value">Scan QR Code</div>
+            <div class="fact-value">扫码申请 / Scan QR Code</div>
           </div>
         </div>
         ${openHouseInfo ? `
         <div style="margin: 0 0 20px; border: 1px solid #dce7df; border-radius: 12px; padding: 14px 16px; background: #f8fbf9;">
-          <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f7467; margin-bottom: 10px; font-weight: 700;">Open House</div>
+          <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5f7467; margin-bottom: 10px; font-weight: 700;">Open House / 看房信息</div>
           ${openHouseInfo.dateTime ? `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 6px;"><strong>Date / Time:</strong> ${escapePrintHtml(openHouseInfo.dateTime)}</div>` : ""}
           ${openHouseInfo.viewingInstructions ? `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 6px;"><strong>Viewing:</strong> ${escapePrintHtml(openHouseInfo.viewingInstructions)}</div>` : ""}
           ${openHouseInfo.parkingAccessNotes ? `<div style="font-size: 15px; line-height: 1.6;"><strong>Parking / Access:</strong> ${escapePrintHtml(openHouseInfo.parkingAccessNotes)}</div>` : ""}
         </div>` : ""}
         <div class="qr-wrap">${qrSvg}</div>
-        <div class="cta">Scan to view listing and apply online / 扫码查看房源并在线申请</div>
+        <div class="cta">扫码查看房源并在线申请 / Scan to view listing and apply online</div>
         <div class="contact">
-          <div class="contact-row">Phone: 672-514-8866</div>
-          <div class="contact-row">Email: mabelclaw67@gmail.com</div>
+          <div class="contact-row">电话 / Phone: 672-514-8866</div>
+          <div class="contact-row">邮箱 / Email: mabelclaw67@gmail.com</div>
         </div>
         <div class="url">${safeListingUrl}</div>
       </div>
@@ -663,8 +663,8 @@ export default function PublicListing() {
                 )}
               </div>
               <p style={{ fontSize: "0.84rem", color: "#7a5a2f", lineHeight: 1.65, marginTop: 12 }}>
-                Open House visitors can scan the QR code to view the listing and apply online.
-                <br />看房者可扫码查看房源并在线申请。
+                看房者可扫码查看房源并在线申请。
+                <br />Open House visitors can scan the QR code to view the listing and apply online.
               </p>
             </div>
           )}
@@ -678,7 +678,7 @@ export default function PublicListing() {
             padding: "16px 14px",
           }}>
             <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#2f4338", marginBottom: 10, textAlign: "center" }}>
-              QR Code / 扫码申请
+              扫码申请 / QR Code
             </h3>
             <div
               style={{
@@ -694,7 +694,7 @@ export default function PublicListing() {
               />
             </div>
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 12 }}>
-              Scan to view listing and apply online / 扫码查看房源并在线申请
+              扫码查看房源并在线申请 / Scan to view listing and apply online
             </p>
             <div style={{ display: "grid", gap: 10 }}>
               <button
@@ -714,7 +714,7 @@ export default function PublicListing() {
                   fontFamily: "var(--font)",
                 }}
               >
-                Print QR Code
+                打印二维码 / Print QR Code
               </button>
               <button
                 type="button"
@@ -733,7 +733,7 @@ export default function PublicListing() {
                   fontFamily: "var(--font)",
                 }}
               >
-                Open House Print Card / 打印看房卡
+                打印看房卡 / Open House Print Card
               </button>
             </div>
           </div>

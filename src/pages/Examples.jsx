@@ -9,31 +9,31 @@ import { getListingStatusMeta } from "../utils/listingPublicMeta";
 const TENANT_SHARE_MESSAGES = [
   {
     id: "general-rental-sharing",
-    label: "General rental listing sharing",
-    rows: 4,
+    label: "房源分享文案 / General Rental Sharing",
+    rows: 7,
     text:
-      "Here is the current rental listings page. You can browse available homes, view details, and apply online if a listing is a good fit:",
+      "这里是当前可租房源页面，您可以查看可租房、浏览详情，并在合适时直接在线申请。\n\n如需转发给家人朋友或潜在租客，可直接发送这个房源页面。\n\nEnglish:\nHere is the current rental listings page. You can browse available homes, view details, and apply online if a listing is a good fit.",
   },
   {
     id: "wechat-tenant-sharing",
-    label: "WeChat tenant sharing",
-    rows: 5,
+    label: "微信租客分享 / WeChat Tenant Sharing",
+    rows: 8,
     text:
-      "Hi, here is the current rental listings page for available homes. You can open each listing to see details, photos, and the application link. If you are interested, please apply online here:",
+      "你好，这里是当前可租房源页面。每个房源都可以打开查看详情、照片和在线申请链接，如果有兴趣可以直接手机在线申请。\n\n适合微信转发给正在找房的朋友或家人。\n\nEnglish:\nHere is the current rental listings page for available homes. You can open each listing to see details, photos, and the application link. If you are interested, please apply online here.",
   },
   {
     id: "facebook-rental-group",
-    label: "Facebook rental group sharing",
-    rows: 5,
+    label: "Facebook 租房群分享 / Facebook Rental Group Sharing",
+    rows: 7,
     text:
-      "Current rental listings are available at the link below. Prospective tenants can review property details and apply online directly from each listing page:",
+      "当前可租房源都在这个页面里，潜在租客可以直接查看房屋资料、照片和在线申请入口。\n\n适合分享到 Facebook 租房群、社区群或本地租房讨论区。\n\nEnglish:\nCurrent rental listings are available at the link below. Prospective tenants can review property details and apply online directly from each listing page.",
   },
   {
     id: "direct-message-tenant",
-    label: "Direct message to prospective tenant",
-    rows: 5,
+    label: "私信租客文案 / Direct Message to Prospective Tenant",
+    rows: 7,
     text:
-      "Hello, here is the rental listings page with current available homes. Please review the listing details carefully and submit the online application if you would like to be considered:",
+      "您好，这里是当前可租房源页面。请先查看房源详情、照片和申请要求，如果您有兴趣，可以直接在线提交申请。\n\nEnglish:\nHere is the rental listings page with current available homes. Please review the listing details carefully and submit the online application if you would like to be considered.",
   },
 ];
 
@@ -74,11 +74,11 @@ export default function Examples({ lang }) {
         </p>
         <div className="tenant-share-kit-wrap">
           <ShareKit
-            buttonLabel="Share Kit / 房源分享素材"
-            title="Tenant Rental Listings Share Kit"
-            subtitle="For tenants, applicants, and public rental listing sharing only."
+            buttonLabel="房源分享素材 / Share Kit"
+            title="房源分享素材 / Tenant Rental Listings Share Kit"
+            subtitle="供租客、申请人和公开房源转发使用。 / For tenants, applicants, and public rental listing sharing only."
             messages={TENANT_SHARE_MESSAGES}
-            linkLabel="Copy Current Page Link"
+            linkLabel="复制当前页面链接 / Copy Current Page Link"
           />
         </div>
       </section>
@@ -184,7 +184,7 @@ export default function Examples({ lang }) {
                   </Link>
                   <ShareButton
                     title={listing.address}
-                    text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
+                    text={`查看这个出租房源：${listing.address}, ${listing.city}, BC / Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
                     url={`${window.location.origin}/listings/${listing.id}`}
                   />
                 </div>
