@@ -3,6 +3,38 @@ import { Link } from "react-router-dom";
 import { getListings } from "../utils/storage";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
+import ShareKit from "../components/ShareKit";
+
+const TENANT_SHARE_MESSAGES = [
+  {
+    id: "general-rental-sharing",
+    label: "General rental listing sharing",
+    rows: 4,
+    text:
+      "Here is the current rental listings page. You can browse available homes, view details, and apply online if a listing is a good fit:",
+  },
+  {
+    id: "wechat-tenant-sharing",
+    label: "WeChat tenant sharing",
+    rows: 5,
+    text:
+      "Hi, here is the current rental listings page for available homes. You can open each listing to see details, photos, and the application link. If you are interested, please apply online here:",
+  },
+  {
+    id: "facebook-rental-group",
+    label: "Facebook rental group sharing",
+    rows: 5,
+    text:
+      "Current rental listings are available at the link below. Prospective tenants can review property details and apply online directly from each listing page:",
+  },
+  {
+    id: "direct-message-tenant",
+    label: "Direct message to prospective tenant",
+    rows: 5,
+    text:
+      "Hello, here is the rental listings page with current available homes. Please review the listing details carefully and submit the online application if you would like to be considered:",
+  },
+];
 
 function formatDate(val) {
   if (!val) return null;
@@ -39,6 +71,15 @@ export default function Examples({ lang }) {
           Browse current rentals and apply online.
           <br />查看可租房源，在线提交申请。
         </p>
+        <div className="tenant-share-kit-wrap">
+          <ShareKit
+            buttonLabel="Share Kit / 房源分享素材"
+            title="Tenant Rental Listings Share Kit"
+            subtitle="For tenants, applicants, and public rental listing sharing only."
+            messages={TENANT_SHARE_MESSAGES}
+            linkLabel="Copy Current Page Link"
+          />
+        </div>
       </section>
 
       <div className="tenant-listings-body">

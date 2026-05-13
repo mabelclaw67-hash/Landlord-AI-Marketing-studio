@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { t } from "../translations";
+import ShareKit from "../components/ShareKit";
 
 const FEATURES = [
   {
@@ -22,6 +23,37 @@ const FEATURES = [
   },
 ];
 
+const LANDLORD_SHARE_MESSAGES = [
+  {
+    id: "wechat-landlord",
+    label: "WeChat landlord/client promotion",
+    rows: 5,
+    text:
+      "Hi, if you need help marketing a rental property, this AI Rental Listing Marketing Studio can prepare a bilingual rental ad package, a photo listing page, and an online application link. It is designed for busy landlords and property owners on Vancouver Island. You can take a look here:",
+  },
+  {
+    id: "facebook-landlord",
+    label: "Facebook landlord group promotion",
+    rows: 5,
+    text:
+      "For landlords and property owners who want faster rental marketing support: this AI Rental Listing Marketing Studio helps create bilingual listing copy, a shareable photo page, and an online application path in one simple workflow. Good fit for Vancouver Island rentals:",
+  },
+  {
+    id: "owner-invite",
+    label: "Owner invitation message",
+    rows: 5,
+    text:
+      "Hello, I wanted to share a rental marketing service that can help you prepare a cleaner and faster listing package for your property. It includes bilingual ad copy, a public photo listing page, and an application link for prospective tenants. You can review the service here:",
+  },
+  {
+    id: "general-website",
+    label: "General website sharing message",
+    rows: 4,
+    text:
+      "This website helps landlords and property owners prepare rental listing promotion materials, public photo pages, and tenant application links in a simple, mobile-friendly format:",
+  },
+];
+
 export default function Home({ lang }) {
   return (
     <>
@@ -40,6 +72,15 @@ export default function Home({ lang }) {
               <Link to="/examples" className="lh-btn lh-btn--white">
                 View Current Listing
               </Link>
+            </div>
+            <div className="lh-share-kit-wrap">
+              <ShareKit
+                buttonLabel="Admin Share Kit / 推广素材"
+                title="Landlord Promotion Share Kit"
+                subtitle="For landlords, property owners, and client referrals only."
+                messages={LANDLORD_SHARE_MESSAGES}
+                linkLabel="Copy Website Link"
+              />
             </div>
           </div>
 
