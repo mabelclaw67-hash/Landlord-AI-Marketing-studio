@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { t } from "../../translations";
-import { getListing, saveListing, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
+import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
@@ -1090,38 +1090,53 @@ export default function ListingDetail({ lang }) {
       console.log("[videoUrl write-back] Drive fileId:", driveFileId);
       console.log("[videoUrl write-back] Drive URL  :", driveUrl);
 
-      if (driveUrl) {
-        const updatedListing = { ...listingRef.current, videoUrl: driveUrl };
-        setListing(updatedListing);
-        listingRef.current = updatedListing;
+      let writeOk      = false;
+      let confirmedUrl = driveUrl;
 
-        // Primary: targeted single-cell write (creates column header if missing)
-        let writeOk = false;
+      // Primary: syncVideoUrl — scans Drive folder, confirms file, sets permission, writes sheet
+      try {
+        const sr = await syncVideoUrl(listingId);
+        console.log("[videoUrl write-back] syncVideoUrl SUCCESS →", sr);
+        confirmedUrl = sr?.videoUrl || driveUrl;
+        writeOk = true;
+      } catch (syncErr) {
+        console.error("[videoUrl write-back] syncVideoUrl FAILED:", syncErr.message);
+      }
+
+      // Fallback 1: updateVideoUrl (direct cell write with URL from upload result)
+      if (!writeOk && driveUrl) {
         try {
           const wr = await updateVideoUrl(listingId, driveUrl);
-          console.log("[videoUrl write-back] updateVideoUrl SUCCESS →", wr);
+          console.log("[videoUrl write-back] updateVideoUrl fallback SUCCESS →", wr);
           writeOk = true;
         } catch (writeErr) {
-          console.error("[videoUrl write-back] updateVideoUrl FAILED:", writeErr.message);
+          console.error("[videoUrl write-back] updateVideoUrl fallback FAILED:", writeErr.message);
         }
+      }
 
-        // Fallback: full saveListing (works even if updateVideoUrl action is unavailable)
-        if (!writeOk) {
-          console.log("[videoUrl write-back] Trying saveListing fallback...");
-          try {
-            await saveListing(updatedListing);
-            console.log("[videoUrl write-back] saveListing fallback SUCCESS");
-            writeOk = true;
-          } catch (saveErr) {
-            console.error("[videoUrl write-back] saveListing fallback FAILED:", saveErr.message);
-          }
+      // Fallback 2: full saveListing
+      if (!writeOk && driveUrl) {
+        try {
+          await saveListing({ ...listingRef.current, videoUrl: driveUrl });
+          console.log("[videoUrl write-back] saveListing fallback SUCCESS");
+          writeOk = true;
+        } catch (saveErr) {
+          console.error("[videoUrl write-back] saveListing fallback FAILED:", saveErr.message);
         }
+      }
 
-        if (writeOk) {
-          setVideoMsg(prev => (prev || "") + " ✅ videoUrl saved to sheet.");
-        } else {
-          setVideoMsg(prev => (prev || "") + " ⚠️ videoUrl write-back failed — check console.");
-        }
+      // Update local state with the confirmed URL
+      if (confirmedUrl) {
+        const updatedListing = { ...listingRef.current, videoUrl: confirmedUrl };
+        setListing(updatedListing);
+        listingRef.current = updatedListing;
+        setVideoFileUrl(confirmedUrl);
+      }
+
+      if (writeOk) {
+        setVideoMsg(prev => (prev || "") + " ✅ videoUrl saved to sheet.");
+      } else {
+        setVideoMsg(prev => (prev || "") + " ⚠️ videoUrl write-back failed — check console.");
       }
     } catch (err) {
       setVideoStatus("done"); // still show preview even if Drive upload fails

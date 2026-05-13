@@ -48,6 +48,16 @@ export async function saveListing(listing) {
   lsSetAll(all);
 }
 
+// Scan the listing's 04_Video_Output Drive folder, find the landscape MP4,
+// set its permission to anyone-with-link, and write the URL to the sheet.
+// This is the primary post-generation sync path.
+export async function syncVideoUrl(listingId) {
+  if (isApiConnected()) {
+    return apiPost({ action: "syncVideoUrl", listingId });
+  }
+  console.info("[localStorage mode] syncVideoUrl no-op for", listingId);
+}
+
 // Targeted write: update only the videoUrl field for one listing.
 // More reliable than saveListing for post-generation write-back because it
 // also creates the column header if it doesn't yet exist in the sheet.
