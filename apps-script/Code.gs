@@ -99,6 +99,7 @@ function doPost(e) {
     if (action === "saveContact")       return ok(saveContact_(body.data));
     if (action === "uploadFile")        return ok(uploadFile_(body));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body));
+    if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl));
     return err("Unknown POST action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -270,10 +271,56 @@ function makeDataMap_(d) {
   return m;
 }
 
+// Appends any headers from `headers` array that don't already exist in the sheet's row 1.
+// Safe to call on sheets that already have data — never removes or reorders existing columns.
+function addMissingHeaders_(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#E8F0FE");
+    return;
+  }
+  var existing = getHeaderMap_(sheet);
+  var lastCol  = sheet.getLastColumn();
+  for (var i = 0; i < headers.length; i++) {
+    var h = headers[i];
+    if (existing[h] === undefined) {
+      lastCol++;
+      sheet.getRange(1, lastCol).setValue(h).setFontWeight("bold").setBackground("#E8F0FE");
+    }
+  }
+}
+
+// Targeted write: update only the videoUrl cell for one listing.
+// Creates the "videoUrl" column header if it doesn't exist yet.
+function updateVideoUrl_(listingId, videoUrl) {
+  if (!listingId) throw new Error("updateVideoUrl: listingId required");
+  var sheet = getSheet_(LISTINGS_SHEET);
+
+  // Ensure the column header exists (safe on existing sheets).
+  addMissingHeaders_(sheet, LISTING_HEADERS);
+
+  var headerMap    = getHeaderMap_(sheet);
+  var videoColIdx  = headerMap["videoUrl"];
+  if (videoColIdx === undefined) throw new Error("videoUrl column still missing after addMissingHeaders_");
+
+  var last = sheet.getLastRow();
+  if (last < 2) throw new Error("No listing rows found");
+
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === listingId) {
+      sheet.getRange(i + 2, videoColIdx + 1).setValue(videoUrl || "");
+      SpreadsheetApp.flush();
+      return { success: true, id: listingId, videoUrl: videoUrl };
+    }
+  }
+  throw new Error("Listing not found: " + listingId);
+}
+
 function saveListing_(data) {
   if (!data || !data.id) throw new Error("Listing data missing id");
   var sheet = getSheet_(LISTINGS_SHEET);
-  ensureHeaders_(sheet, LISTING_HEADERS);
+  addMissingHeaders_(sheet, LISTING_HEADERS);
 
   var headerMap = getHeaderMap_(sheet);
   var dataMap   = makeDataMap_(data);

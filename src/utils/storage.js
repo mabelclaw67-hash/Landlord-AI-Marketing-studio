@@ -48,6 +48,19 @@ export async function saveListing(listing) {
   lsSetAll(all);
 }
 
+// Targeted write: update only the videoUrl field for one listing.
+// More reliable than saveListing for post-generation write-back because it
+// also creates the column header if it doesn't yet exist in the sheet.
+export async function updateVideoUrl(listingId, videoUrl) {
+  if (isApiConnected()) {
+    return apiPost({ action: "updateVideoUrl", listingId, videoUrl });
+  }
+  // localStorage mode: patch the listing object in place
+  const all = lsGetAll();
+  const idx = all.findIndex((l) => l.id === listingId);
+  if (idx >= 0) { all[idx].videoUrl = videoUrl; lsSetAll(all); }
+}
+
 export async function saveContact(data) {
   if (isApiConnected()) {
     await apiPost({ action: "saveContact", data });

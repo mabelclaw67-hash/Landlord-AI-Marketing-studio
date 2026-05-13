@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { t } from "../../translations";
-import { getListing, saveListing, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
+import { getListing, saveListing, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
@@ -1082,12 +1082,12 @@ export default function ListingDetail({ lang }) {
       setVideoMusicStatus(musicStatus);
 
       // Write videoUrl back to the listing database so the public page shows Watch Video.
-      // Uses saveListing which updates only columns that exist in the sheet header row.
+      // Uses dedicated updateVideoUrl action which also creates the column header if missing.
       if (result?.url) {
         const updatedListing = { ...listingRef.current, videoUrl: result.url };
         setListing(updatedListing);
         listingRef.current = updatedListing;
-        saveListing(updatedListing).catch(e =>
+        updateVideoUrl(listingRef.current.id, result.url).catch(e =>
           console.warn("videoUrl write-back failed:", e.message)
         );
       }
