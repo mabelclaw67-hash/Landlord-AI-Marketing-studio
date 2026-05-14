@@ -605,11 +605,9 @@ export default function PublicListing() {
                 This listing remains visible, but it is not currently accepting new applications.
               </p>
             </div>
-          ) : FORM_URL_READY ? (
-            <a
-              href={buildPrefilledApplicationUrl(listing)}
-              target="_blank"
-              rel="noopener noreferrer"
+          ) : (
+            <Link
+              to={`/apply/${listing.id}`}
               className="listing-apply-btn"
               style={{
                 display: "block", width: "100%", textAlign: "center",
@@ -621,13 +619,7 @@ export default function PublicListing() {
               }}
             >
               Apply Now →
-            </a>
-          ) : (
-            <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8, padding: "14px 16px", marginBottom: 12 }}>
-              <p style={{ fontSize: "0.85rem", color: "#92400e", fontWeight: 600 }}>
-                Application form URL not yet configured. Set <code>VITE_RENTAL_FORM_URL</code> in <code>.env.local</code>.
-              </p>
-            </div>
+            </Link>
           )}
 
           {openHouseInfo && (
@@ -815,11 +807,9 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
             If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
           </p>
-          {!statusMeta.applicationsClosed && FORM_URL_READY && (
-            <a
-              href={buildPrefilledApplicationUrl(listing)}
-              target="_blank"
-              rel="noopener noreferrer"
+          {!statusMeta.applicationsClosed && (
+            <Link
+              to={`/apply/${listing.id}`}
               className="listing-apply-btn"
               style={{
                 display: "block", marginTop: 14,
@@ -829,7 +819,7 @@ export default function PublicListing() {
               }}
             >
               Apply Now →
-            </a>
+            </Link>
           )}
         </div>
 

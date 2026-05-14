@@ -2212,6 +2212,108 @@ tr:hover td { background: #F8FAFC; }
   font-size: 14px;
 }
 
+/* ── QR Promotion Section ─────────────────────────────────────────────────── */
+
+.lh-qr-section {
+  background: linear-gradient(135deg, #f0f5f2 0%, #eaf4ec 100%);
+  border-top: 1px solid var(--lh-line);
+  border-bottom: 1px solid var(--lh-line);
+}
+
+.lh-qr-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 48px;
+  align-items: start;
+}
+
+.lh-qr-text h2 {
+  color: #1a3a2e;
+  margin: 0 0 4px;
+}
+
+.lh-qr-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.lh-qr-features li {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--color-text);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.lh-qr-features--ch {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #d8e8d8;
+}
+
+.lh-qr-features--ch li {
+  color: #4a5f50;
+}
+
+.lh-qr-code-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.lh-qr-card {
+  background: white;
+  border: 1.5px solid var(--lh-line);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(26,58,46,0.10);
+  padding: 24px 20px;
+  text-align: center;
+  width: 100%;
+  max-width: 240px;
+}
+
+.lh-qr-badge {
+  display: inline-block;
+  background: #1a3a2e;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+
+.lh-qr-code-box {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: white;
+  border: 1px solid #e5ede8;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.lh-qr-url {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1a3a2e;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.lh-qr-caption {
+  font-size: 0.78rem;
+  color: #4a5f50;
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* Mobile bottom nav — hidden on desktop */
 .lh-mobile-bottom { display: none; }
 
@@ -2347,6 +2449,20 @@ tr:hover td { background: #F8FAFC; }
 
   .lh-output-group__secondary {
     margin-top: 12px;
+  }
+
+  .lh-qr-inner {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .lh-qr-code-wrap {
+    order: -1;
+  }
+
+  .lh-qr-card {
+    max-width: 220px;
+    padding: 18px 16px;
   }
 
   .lh-cta-band { padding: 28px 16px 90px; }

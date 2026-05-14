@@ -1,5 +1,5 @@
 // ============================================================
-//  Vanisland AI Marketing Studio — Apps Script Backend v0.2
+//  Vanisland AI Marketing Studio — Apps Script Backend v0.3
 //  Spreadsheet ID : 1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4
 //  Drive Folder ID: 1RNF_WZWsDECSnIqnaZuXWsbUy-xtmE2r
 // ============================================================
@@ -8,6 +8,75 @@ var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1RNF_WZWsDECSnIqnaZuXWsbUy-xtmE2r";
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
+var INTAKE_SHEET    = "07 Intake Records";
+
+var INTAKE_HEADERS = [
+  // System
+  "Record ID",                       // A
+  "Listing ID",                      // B
+  "Submitted At",                    // C
+  // Applicant info
+  "Applicant Name",                  // D
+  "Email",                           // E
+  "Phone",                           // F
+  "Date of Birth",                   // G
+  "Current Address",                 // H
+  "WeChat",                          // I
+  // Employment / Income
+  "Employment Status",               // J
+  "Employer",                        // K
+  "Monthly Income",                  // L
+  // Reference & Credit
+  "Landlord Reference",              // M
+  "Credit History",                  // N
+  // Move-in / Occupancy
+  "Move-in Date",                    // O
+  "Lease Term Requested",            // P
+  "Occupants",                       // Q  (total occupants)
+  "Adults",                          // R
+  "Minors",                          // S
+  "Occupant Names Ages",             // T
+  // Joint applicant
+  "Has Joint Applicant",             // U
+  "Joint Name",                      // V
+  "Joint Phone",                     // W
+  "Joint Email",                     // X
+  "Joint DOB",                       // Y
+  "Joint Address",                   // Z
+  "Joint Employment",                // AA
+  "Joint Income",                    // AB
+  "Joint Employer Contact",          // AC
+  "Joint Landlord Reference",        // AD
+  "Joint Credit Info",               // AE
+  "Joint Proof of Income",           // AF
+  // Lease / Deposit
+  "Deposit Funds Available",         // AF
+  "Deposit Agreement",               // AG
+  // Pets
+  "Has Pets",                        // AH
+  "Pet Deposit Funds",               // AI
+  "Pet Details",                     // AJ
+  // Tenancy history
+  "Eviction History",                // AK
+  // Smoking
+  "Smokes Vapes Cannabis",           // AL
+  "No Smoking Agreement",            // AM
+  // Supporting documents
+  "Proof of Income",                 // AN
+  // Tenant insurance
+  "Has Tenant Insurance",            // AO
+  "Tenant Insurance Agreement",      // AP
+  "Proof Insurance Before Move-in",  // AQ
+  // Additional info
+  "Reason for Moving",               // AR
+  "Parking Request",                 // AS
+  "Additional Notes",                // AT
+  // Admin (managed by backend only)
+  "PDF URL",                         // AU
+  "Review Status",                   // AV
+  "Internal Notes",                  // AW
+  "Updated At",                      // AX
+];
 
 // ── Column reference — actual "01 Listings" header row ────────────────────────
 //
@@ -85,9 +154,10 @@ var LISTING_HEADERS = [
 function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
-    if (action === "getListings")      return ok(getListings_());
-    if (action === "getListingFolder") return ok(getListingFolderFiles_(e.parameter.folderId));
-    if (action === "ping")             return ok({ status: "connected" });
+    if (action === "getListings")        return ok(getListings_());
+    if (action === "getListingFolder")   return ok(getListingFolderFiles_(e.parameter.folderId));
+    if (action === "getApplicationById") return ok(getApplicationById_(e.parameter.applicationId));
+    if (action === "ping")               return ok({ status: "connected" });
     return err("Unknown GET action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -105,7 +175,12 @@ function doPost(e) {
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl));
     if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId));
-    if (action === "syncAllVideoUrls")  return ok(syncAllVideoUrls_());
+    if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
+    if (action === "saveRentalApplication")  return ok(saveRentalApplication_(body.data));
+    if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId));
+    if (action === "getAllApplications")     return ok(getAllApplications_());
+    if (action === "updateApplicationStatus") return ok(updateApplicationStatus_(body.applicationId, body.reviewStatus));
+    if (action === "updateApplicationNotes")  return ok(updateApplicationNotes_(body.applicationId, body.notes));
     return err("Unknown POST action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -170,6 +245,29 @@ function tryParse_(str, fallback) {
   if (!str) return fallback;
   try { return JSON.parse(str) || fallback; }
   catch (_) { return fallback; }
+}
+
+function extractJointEmploymentParts_(rawValue) {
+  var raw = String(rawValue || "").trim();
+  if (!raw) return { status: "", source: "" };
+  var statusMatch = raw.match(/(?:^|\n)Status:\s*(.*?)(?:\n|$)/);
+  var sourceMatch = raw.match(/(?:^|\n)Employer \/ Income Source:\s*(.*?)(?:\n|$)/);
+  if (statusMatch || sourceMatch) {
+    return {
+      status: statusMatch ? String(statusMatch[1] || "").trim() : "",
+      source: sourceMatch ? String(sourceMatch[1] || "").trim() : "",
+    };
+  }
+  return { status: raw, source: "" };
+}
+
+function extractSupportingDocsChoice_(rawValue, label) {
+  var raw = String(rawValue || "").trim();
+  if (!raw) return "";
+  var marker = label + ":";
+  var start = raw.indexOf(marker);
+  if (start === -1) return "";
+  return raw.substring(start + marker.length).split("|")[0].trim();
 }
 
 // Handles both legacy comma-separated strings ("Facebook, WeChat")
@@ -406,6 +504,56 @@ function extractDriveFolderId_(url) {
   return null;
 }
 
+function sanitizePdfFilePart_(value, fallback) {
+  var cleaned = String(value || fallback || "")
+    .replace(/[\\\/:*?"<>|#%\u0000-\u001F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || String(fallback || "Application");
+}
+
+function buildRentalApplicationPdfName_(recordId, listingId, applicantName) {
+  return [
+    "Rental Application",
+    sanitizePdfFilePart_(recordId, "APP"),
+    sanitizePdfFilePart_(listingId, "Listing"),
+    sanitizePdfFilePart_(applicantName, "Applicant")
+  ].join(" - ") + ".pdf";
+}
+
+function isAffirmativeJointApplicant_(value) {
+  var normalized = String(value || "").trim();
+  return normalized === "Yes / 有" ||
+    normalized === "Yes" ||
+    normalized === "有" ||
+    normalized === "是" ||
+    normalized === "Yes / 是";
+}
+
+function getRentalApplicationArchiveFolder_(listingId, listingFolderId) {
+  var parentFolder = listingFolderId
+    ? DriveApp.getFolderById(listingFolderId)
+    : DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var applicationsIter = parentFolder.getFoldersByName("Applications");
+  var applicationsFolder = applicationsIter.hasNext()
+    ? applicationsIter.next()
+    : parentFolder.createFolder("Applications");
+  var listingFolderName = String(listingId || "Unknown Listing");
+  var listingFolderIter = applicationsFolder.getFoldersByName(listingFolderName);
+  return listingFolderIter.hasNext()
+    ? listingFolderIter.next()
+    : applicationsFolder.createFolder(listingFolderName);
+}
+
+function trySetDriveViewSharing_(driveItem, label) {
+  try {
+    driveItem.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    Logger.log("[trySetDriveViewSharing] " + label + " sharing skipped: " + e.message);
+    if (e && e.stack) Logger.log(e.stack);
+  }
+}
+
 // Sync videoUrl for one listing. Can also be called from the Apps Script editor.
 function syncVideoUrl_(listingId) {
   if (!listingId) throw new Error("syncVideoUrl: listingId required");
@@ -626,6 +774,463 @@ function getListingFolderFiles_(folderId) {
     }
   }
   return files;
+}
+
+// ── Rental Application Intake ─────────────────────────────────────────────────
+
+function rowToApplication_(row, headerMap) {
+  function col(name) { return colVal_(row, headerMap, name); }
+  var legacySupportingDocs = col("Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).");
+  return {
+    // System
+    recordId:        col("Record ID"),
+    listingId:       col("Listing ID"),
+    submittedAt:     col("Submitted At"),
+    // Applicant info
+    applicantName:   col("Applicant Name"),
+    email:           col("Email"),
+    phone:           col("Phone"),
+    dateOfBirth:     col("Date of Birth"),
+    currentAddress:  col("Current Address"),
+    wechat:          col("WeChat"),
+    // Employment
+    employmentStatus: col("Employment Status"),
+    employer:        col("Employer"),
+    monthlyIncome:   col("Monthly Income"),
+    // Reference & credit
+    landlordReference: col("Landlord Reference"),
+    creditHistory:   col("Credit History"),
+    // Occupancy
+    moveInDate:      col("Move-in Date"),
+    leaseTerm:       col("Lease Term Requested"),
+    occupants:       col("Occupants"),
+    adults:          col("Adults"),
+    minors:          col("Minors"),
+    occupantNamesAges: col("Occupant Names Ages"),
+    // Joint applicant
+    hasJointApplicant:      col("Has Joint Applicant") || col("Joint Applicant / Co-Applicant Information"),
+    jointName:              col("Joint Name") || col("Joint Applicant Full Legal Name"),
+    jointPhone:             col("Joint Phone") || col("Joint Applicant Phone Number"),
+    jointEmail:             col("Joint Email") || col("Joint Applicant Email Address"),
+    jointDob:               col("Joint DOB") || col("Joint Applicant's Date of Birth (DD/MM/YYYY)"),
+    jointAddress:           col("Joint Address") || col("Joint Applicant Current Address"),
+    jointEmployment:        col("Joint Employment") || col("Joint Applicant Employment / Income Source"),
+    jointIncome:            col("Joint Income") || col("Joint Applicant Monthly Income"),
+    jointEmployerContact:   col("Joint Employer Contact") || col("Joint Applicant Employer Contact ") || col("Joint Applicant Employer Contact"),
+    jointLandlordReference: col("Joint Landlord Reference") || col("Joint Applicant Current Landlord Reference"),
+    jointCreditInfo:        col("Joint Credit Info") || col("Joint Applicant Credit Information"),
+    jointProofOfIncome:     col("Joint Proof of Income") || extractSupportingDocsChoice_(legacySupportingDocs, "Joint Applicant"),
+    // Deposit
+    depositFundsAvailable: col("Deposit Funds Available"),
+    depositAgreement:      col("Deposit Agreement"),
+    // Pets
+    hasPets:         col("Has Pets"),
+    petDepositFunds: col("Pet Deposit Funds"),
+    petDetails:      col("Pet Details"),
+    // Tenancy history
+    evictionHistory: col("Eviction History"),
+    // Smoking
+    smokesVapesCannabis: col("Smokes Vapes Cannabis"),
+    noSmokingAgreement:  col("No Smoking Agreement"),
+    // Documents
+    proofOfIncome:   col("Proof of Income") || extractSupportingDocsChoice_(legacySupportingDocs, "Applicant"),
+    // Insurance
+    hasTenantInsurance:        col("Has Tenant Insurance"),
+    tenantInsuranceAgreement:  col("Tenant Insurance Agreement"),
+    proofInsuranceBeforeMoveIn: col("Proof Insurance Before Move-in"),
+    // Additional
+    reasonForMoving: col("Reason for Moving"),
+    parkingRequest:  col("Parking Request"),
+    additionalNotes: col("Additional Notes"),
+    // Admin
+    pdfUrl:        col("PDF URL"),
+    reviewStatus:  col("Review Status") || "Pending",
+    internalNotes: col("Internal Notes"),
+    updatedAt:     col("Updated At"),
+  };
+}
+
+function saveRentalApplication_(body) {
+  if (!body.listingId) throw new Error("saveRentalApplication: listingId required");
+
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var headerMap = getHeaderMap_(sheet);
+
+  // Generate Record ID based on total existing rows (not just for this listing).
+  var last = sheet.getLastRow();
+  var existingCount = last >= 2 ? last - 1 : 0;
+  var year = new Date().getFullYear();
+  var num  = String(existingCount + 1).padStart(3, "0");
+  var recordId = "APP-" + year + "-" + num;
+  var submittedAt = new Date().toISOString();
+  var supportingDocsValue = [
+    body.proofOfIncome ? "Applicant: " + body.proofOfIncome : "",
+    body.jointProofOfIncome ? "Joint Applicant: " + body.jointProofOfIncome : ""
+  ].filter(Boolean).join(" | ");
+
+  // Build data map.
+  var dataMap = {
+    // System
+    "Record ID":    recordId,
+    "Listing ID":   body.listingId,
+    "Submitted At": submittedAt,
+    // Applicant info
+    "Applicant Name":  body.applicantName   || "",
+    "Email":           body.email           || "",
+    "Phone":           body.phone           || "",
+    "Date of Birth":   body.dateOfBirth     || "",
+    "Current Address": body.currentAddress  || "",
+    "WeChat":          body.wechat          || "",
+    // Employment
+    "Employment Status": body.employmentStatus || "",
+    "Employer":          body.employer         || "",
+    "Monthly Income":    body.monthlyIncome    || "",
+    // Reference & Credit
+    "Landlord Reference": body.landlordReference || "",
+    "Credit History":     body.creditHistory     || "",
+    // Occupancy
+    "Move-in Date":        body.moveInDate        || "",
+    "Lease Term Requested": body.leaseTerm        || "",
+    "Occupants":           body.occupants         || "",
+    "Adults":              body.adults            || "",
+    "Minors":              body.minors            || "",
+    "Occupant Names Ages": body.occupantNamesAges || "",
+    // Joint applicant
+    "Has Joint Applicant":      body.hasJointApplicant      || "",
+    "Joint Name":               body.jointName              || "",
+    "Joint Phone":              body.jointPhone             || "",
+    "Joint Email":              body.jointEmail             || "",
+    "Joint DOB":                body.jointDob               || "",
+    "Joint Address":            body.jointAddress           || "",
+    "Joint Employment":         body.jointEmployment        || "",
+    "Joint Income":             body.jointIncome            || "",
+    "Joint Employer Contact":   body.jointEmployerContact   || "",
+    "Joint Landlord Reference": body.jointLandlordReference || "",
+    "Joint Credit Info":        body.jointCreditInfo        || "",
+    "Joint Proof of Income":    body.jointProofOfIncome     || "",
+    // Legacy joint applicant columns kept for sheet compatibility
+    "Joint Applicant / Co-Applicant Information": body.hasJointApplicant || "",
+    "Joint Applicant Full Legal Name": body.jointName || "",
+    "Joint Applicant Phone Number": body.jointPhone || "",
+    "Joint Applicant Email Address": body.jointEmail || "",
+    "Joint Applicant's Date of Birth (DD/MM/YYYY)": body.jointDob || "",
+    "Joint Applicant Current Address": body.jointAddress || "",
+    "Joint Applicant Employment / Income Source": body.jointEmployment || "",
+    "Joint Applicant Monthly Income": body.jointIncome || "",
+    "Joint Applicant Employer Contact ": body.jointEmployerContact || "",
+    "Joint Applicant Current Landlord Reference": body.jointLandlordReference || "",
+    "Joint Applicant Credit Information": body.jointCreditInfo || "",
+    // Deposit
+    "Deposit Funds Available": body.depositFundsAvailable || "",
+    "Deposit Agreement":       body.depositAgreement      || "",
+    // Pets
+    "Has Pets":         body.hasPets         || "",
+    "Pet Deposit Funds": body.petDepositFunds || "",
+    "Pet Details":      body.petDetails      || "",
+    // Tenancy history
+    "Eviction History": body.evictionHistory || "",
+    // Smoking
+    "Smokes Vapes Cannabis": body.smokesVapesCannabis || "",
+    "No Smoking Agreement":  body.noSmokingAgreement  || "",
+    // Documents
+    "Proof of Income": body.proofOfIncome || "",
+    "Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).": supportingDocsValue,
+    // Insurance
+    "Has Tenant Insurance":        body.hasTenantInsurance        || "",
+    "Tenant Insurance Agreement":  body.tenantInsuranceAgreement  || "",
+    "Proof Insurance Before Move-in": body.proofInsuranceBeforeMoveIn || "",
+    // Additional
+    "Reason for Moving": body.reasonForMoving || "",
+    "Parking Request":   body.parkingRequest  || "",
+    "Additional Notes":  body.additionalNotes || "",
+    // Admin
+    "PDF URL":       "",
+    "Review Status": "Pending",
+    "Internal Notes": "",
+    "Updated At":    submittedAt,
+  };
+
+  // Append initial row (without PDF URL yet).
+  var numCols = Math.max(sheet.getLastColumn(), INTAKE_HEADERS.length);
+  var row = new Array(numCols).fill("");
+  for (var key in dataMap) {
+    var idx = headerMap[key];
+    if (idx !== undefined) row[idx] = dataMap[key];
+  }
+  sheet.appendRow(row);
+  SpreadsheetApp.flush();
+  var newRowNumber = sheet.getLastRow();
+
+  // Look up listing's Drive folder (Apps Script side, avoids passing folderId from client).
+  var folderId = null;
+  try {
+    var listingsSheet = getSheet_(LISTINGS_SHEET);
+    var lNumCols  = listingsSheet.getLastColumn();
+    var lHeaderMap = getHeaderMap_(listingsSheet);
+    var lLast = listingsSheet.getLastRow();
+    if (lLast >= 2) {
+      var lIds = listingsSheet.getRange(2, 1, lLast - 1, 1).getValues();
+      for (var i = 0; i < lIds.length; i++) {
+        if (lIds[i][0] === body.listingId) {
+          var lRow = listingsSheet.getRange(i + 2, 1, 1, lNumCols).getValues()[0];
+          var dfl  = colVal_(lRow, lHeaderMap, "Drive Folder Link");
+          folderId = extractDriveFolderId_(dfl);
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log("[saveRentalApplication] Could not look up folderId: " + e.message);
+  }
+
+  // Generate PDF and upload to the listing's Applications archive folder.
+  var pdfUrl = "";
+  var pdfError = "";
+  var subfolderUrl = "";
+  try {
+    var appFolder = getRentalApplicationArchiveFolder_(body.listingId, folderId);
+    trySetDriveViewSharing_(appFolder, "archive folder");
+    subfolderUrl = appFolder.getUrl();
+
+    var pdfBlob = generateApplicationPdf_(dataMap, recordId);
+    var pdfFileName = buildRentalApplicationPdfName_(
+      recordId,
+      body.listingId,
+      body.applicantName || body.applicantFullName || "Applicant"
+    );
+    var existingPdf = appFolder.getFilesByName(pdfFileName);
+    while (existingPdf.hasNext()) { existingPdf.next().setTrashed(true); }
+    var pdfFile = appFolder.createFile(pdfBlob.setName(pdfFileName));
+    trySetDriveViewSharing_(pdfFile, "pdf file");
+    pdfUrl = pdfFile.getUrl();
+
+    // Write PDF URL back to row.
+    var pdfColIdx       = headerMap["PDF URL"];
+    var updatedAtColIdx = headerMap["Updated At"];
+    if (pdfColIdx !== undefined) {
+      sheet.getRange(newRowNumber, pdfColIdx + 1).setValue(pdfUrl);
+    }
+    if (updatedAtColIdx !== undefined) {
+      sheet.getRange(newRowNumber, updatedAtColIdx + 1).setValue(new Date().toISOString());
+    }
+    SpreadsheetApp.flush();
+  } catch (e) {
+    pdfError = e && e.message ? e.message : String(e);
+    Logger.log("[saveRentalApplication] PDF/upload error: " + e.message);
+    if (e && e.stack) Logger.log(e.stack);
+  }
+
+  return {
+    success:      true,
+    recordId:     recordId,
+    pdfUrl:       pdfUrl,
+    pdfError:     pdfError,
+    subfolderUrl: subfolderUrl,
+    submittedAt:  submittedAt,
+  };
+}
+
+function generateApplicationPdf_(data, recordId) {
+  var doc  = DocumentApp.create("temp_application_" + recordId);
+  var body = doc.getBody();
+  var hasJointApplicant = isAffirmativeJointApplicant_(
+    data["Has Joint Applicant"] || data["Joint Applicant / Co-Applicant Information"] || ""
+  );
+  var jointEmployment = extractJointEmploymentParts_(data["Joint Employment"] || data["Joint Applicant Employment / Income Source"]);
+  var jointProofOfIncome = data["Joint Proof of Income"] || extractSupportingDocsChoice_(
+    data["Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report)."],
+    "Joint Applicant"
+  );
+
+  function field(label, key) {
+    body.appendParagraph(label + ": " + (data[key] || "—"));
+  }
+  function fieldValue(label, value) {
+    body.appendParagraph(label + ": " + (value || "—"));
+  }
+  function section(title) {
+    body.appendParagraph("");
+    body.appendParagraph(title).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  }
+
+  body.appendParagraph("RESIDENTIAL TENANCY APPLICATION").setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  body.appendParagraph("");
+  body.appendParagraph("Record ID:    " + (data["Record ID"] || recordId));
+  body.appendParagraph("Listing ID:   " + (data["Listing ID"] || ""));
+  body.appendParagraph("Submitted At: " + (data["Submitted At"] || ""));
+
+  section("APPLICANT INFORMATION");
+  field("Name",             "Applicant Name");
+  field("Email",            "Email");
+  field("Phone",            "Phone");
+  field("Date of Birth",    "Date of Birth");
+  field("Current Address",  "Current Address");
+  field("WeChat",           "WeChat");
+
+  section("EMPLOYMENT / INCOME");
+  field("Employment Status", "Employment Status");
+  field("Employer",          "Employer");
+  field("Monthly Income",    "Monthly Income");
+
+  section("LANDLORD REFERENCE & CREDIT");
+  field("Landlord Reference", "Landlord Reference");
+  field("Credit History",     "Credit History");
+
+  section("MOVE-IN & OCCUPANCY");
+  field("Preferred Move-in Date", "Move-in Date");
+  field("Lease Term",             "Lease Term Requested");
+  field("Total Occupants",        "Occupants");
+  field("Adults",                 "Adults");
+  field("Minors",                 "Minors");
+  field("Occupant Names & Ages",  "Occupant Names Ages");
+
+  if (hasJointApplicant) {
+    section("JOINT APPLICANT");
+    field("Joint Applicant Name",             "Joint Name");
+    field("Joint Applicant Phone",            "Joint Phone");
+    field("Joint Applicant Email",            "Joint Email");
+    field("Joint Applicant DOB",              "Joint DOB");
+    field("Joint Applicant Address",          "Joint Address");
+    fieldValue("Joint Applicant Employment Status", jointEmployment.status);
+    fieldValue("Joint Applicant Employer / Income Source", jointEmployment.source);
+    field("Joint Applicant Monthly Income",   "Joint Income");
+    field("Joint Applicant Employer Contact", "Joint Employer Contact");
+    field("Joint Applicant Landlord Ref",     "Joint Landlord Reference");
+    field("Joint Applicant Credit History",   "Joint Credit Info");
+    fieldValue("Joint Applicant Proof of Income", jointProofOfIncome);
+  }
+
+  section("LEASE & DEPOSIT");
+  field("Deposit Funds Available", "Deposit Funds Available");
+  field("Deposit Agreement",       "Deposit Agreement");
+
+  section("PETS");
+  field("Has Pets",         "Has Pets");
+  field("Pet Deposit Funds", "Pet Deposit Funds");
+  field("Pet Details",       "Pet Details");
+
+  section("TENANCY HISTORY");
+  field("Eviction History", "Eviction History");
+
+  section("SMOKING / VAPING / CANNABIS");
+  field("Smokes/Vapes/Cannabis", "Smokes Vapes Cannabis");
+  field("No Smoking Agreement",  "No Smoking Agreement");
+
+  section("SUPPORTING DOCUMENTS");
+  field("Can Provide Proof of Income", "Proof of Income");
+
+  section("TENANT INSURANCE");
+  field("Has Tenant Insurance",          "Has Tenant Insurance");
+  field("Insurance Agreement",           "Tenant Insurance Agreement");
+  field("Proof of Insurance Before Move-in", "Proof Insurance Before Move-in");
+
+  section("ADDITIONAL INFORMATION");
+  field("Reason for Moving", "Reason for Moving");
+  field("Parking Request",   "Parking Request");
+  field("Additional Notes",  "Additional Notes");
+
+  doc.saveAndClose();
+  var docFile = DriveApp.getFileById(doc.getId());
+  var pdfBlob = docFile.getAs("application/pdf");
+  docFile.setTrashed(true);
+  return pdfBlob;
+}
+
+function getApplicationsByListing_(listingId) {
+  if (!listingId) throw new Error("getApplicationsByListing: listingId required");
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  return rows
+    .filter(function(row) { return colVal_(row, headerMap, "Listing ID") === listingId; })
+    .map(function(row) { return rowToApplication_(row, headerMap); });
+}
+
+function getAllApplications_() {
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  return rows
+    .filter(function(row) { return !!colVal_(row, headerMap, "Record ID"); })
+    .map(function(row) { return rowToApplication_(row, headerMap); });
+}
+
+function getApplicationById_(applicationId) {
+  if (!applicationId) throw new Error("getApplicationById: applicationId required");
+  var sheet = getSheet_(INTAKE_SHEET);
+  var last  = sheet.getLastRow();
+  if (last < 2) throw new Error("No application records found");
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (colVal_(rows[i], headerMap, "Record ID") === applicationId) {
+      return rowToApplication_(rows[i], headerMap);
+    }
+  }
+  throw new Error("Application not found: " + applicationId);
+}
+
+function updateApplicationStatus_(applicationId, reviewStatus) {
+  if (!applicationId) throw new Error("updateApplicationStatus: applicationId required");
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) throw new Error("No records found");
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var ids       = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === applicationId) {
+      var rowNumber = i + 2;
+      var statusColIdx    = headerMap["Review Status"];
+      var updatedAtColIdx = headerMap["Updated At"];
+      if (statusColIdx !== undefined) {
+        sheet.getRange(rowNumber, statusColIdx + 1).setValue(reviewStatus);
+      }
+      if (updatedAtColIdx !== undefined) {
+        sheet.getRange(rowNumber, updatedAtColIdx + 1).setValue(new Date().toISOString());
+      }
+      SpreadsheetApp.flush();
+      return { success: true, recordId: applicationId, reviewStatus: reviewStatus };
+    }
+  }
+  throw new Error("Application not found: " + applicationId);
+}
+
+function updateApplicationNotes_(applicationId, notes) {
+  if (!applicationId) throw new Error("updateApplicationNotes: applicationId required");
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) throw new Error("No records found");
+  var headerMap = getHeaderMap_(sheet);
+  var ids       = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === applicationId) {
+      var rowNumber       = i + 2;
+      var notesColIdx     = headerMap["Internal Notes"];
+      var updatedAtColIdx = headerMap["Updated At"];
+      if (notesColIdx !== undefined) {
+        sheet.getRange(rowNumber, notesColIdx + 1).setValue(notes || "");
+      }
+      if (updatedAtColIdx !== undefined) {
+        sheet.getRange(rowNumber, updatedAtColIdx + 1).setValue(new Date().toISOString());
+      }
+      SpreadsheetApp.flush();
+      return { success: true, recordId: applicationId };
+    }
+  }
+  throw new Error("Application not found: " + applicationId);
 }
 
 // ── Upload into a subfolder of the listing's own Drive folder ─────────────────

@@ -2,15 +2,17 @@ import { useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 
-const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
-const FORM_READY = RENTAL_FORM_URL && !RENTAL_FORM_URL.startsWith("PASTE");
+// Keep env var available (used elsewhere), but Apply Now now uses the in-app route.
+// eslint-disable-next-line no-unused-vars
+const _RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
 
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
   return (
     pathname === "/examples" ||
     pathname === "/tenant-contact" ||
-    pathname.startsWith("/listings/")
+    pathname.startsWith("/listings/") ||
+    pathname.startsWith("/apply/")
   );
 }
 
@@ -18,6 +20,11 @@ export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const tenant = isTenantRoute(pathname);
+  // When on a specific listing or apply page, route Apply Now to the in-app form for that listing.
+  const listingId = pathname.startsWith("/listings/") ? pathname.replace("/listings/", "")
+    : pathname.startsWith("/apply/") ? pathname.replace("/apply/", "")
+    : null;
+  const applyTo = listingId ? `/apply/${listingId}` : "/examples";
 
   // ── Tenant top nav ─────────────────────────────────────────────────────────
   if (tenant) {
@@ -34,19 +41,15 @@ export default function Navbar({ lang, setLang }) {
               <li><Link to="/" onClick={() => setOpen(false)}>Home</Link></li>
               <li><Link to="/examples" onClick={() => setOpen(false)}>Rental Listings</Link></li>
               <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>Contact</Link></li>
-              {FORM_READY && (
-                <li>
-                  <a
-                    href={RENTAL_FORM_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="tenant-apply-link"
-                    onClick={() => setOpen(false)}
-                  >
-                    Apply Now
-                  </a>
-                </li>
-              )}
+              <li>
+                <Link
+                  to={applyTo}
+                  className="tenant-apply-link"
+                  onClick={() => setOpen(false)}
+                >
+                  Apply Now
+                </Link>
+              </li>
             </ul>
           </div>
         </nav>
@@ -65,22 +68,10 @@ export default function Navbar({ lang, setLang }) {
             <span className="mobile-bottom-nav__icon">📞</span>
             <span className="mobile-bottom-nav__label">Contact</span>
           </Link>
-          {FORM_READY ? (
-            <a
-              href={RENTAL_FORM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mobile-bottom-nav__item mobile-bottom-nav__item--apply"
-            >
-              <span className="mobile-bottom-nav__icon">📋</span>
-              <span className="mobile-bottom-nav__label">Apply</span>
-            </a>
-          ) : (
-            <Link to="/examples" className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
-              <span className="mobile-bottom-nav__icon">📋</span>
-              <span className="mobile-bottom-nav__label">Apply</span>
-            </Link>
-          )}
+          <Link to={applyTo} className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
+            <span className="mobile-bottom-nav__icon">📋</span>
+            <span className="mobile-bottom-nav__label">Apply</span>
+          </Link>
         </nav>
       </>
     );

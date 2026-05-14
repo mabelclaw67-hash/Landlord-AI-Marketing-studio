@@ -30,6 +30,8 @@ import HomeSaleCoverImage from "./pages/admin/HomeSaleCoverImage";
 import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
 import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
 import HomeSaleBuyerInquiries from "./pages/admin/HomeSaleBuyerInquiries";
+import ApplicationReview from "./pages/admin/ApplicationReview";
+import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
 
@@ -70,7 +72,9 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/open-house/:listingId" element={<HomeSaleOpenHouse />} />
           <Route path="home-sale/buyer-inquiry/:listingId" element={<HomeSaleBuyerInquiry />} />
           <Route path="home-sale/review/:listingId" element={<HomeSaleReviewPublish />} />
+          <Route path="application/:applicationId" element={<ApplicationReview />} />
         </Route>
+        <Route path="/apply/:listingId" element={<RentalApplication />} />
         <Route path="/listings/:id" element={<PublicListing />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />

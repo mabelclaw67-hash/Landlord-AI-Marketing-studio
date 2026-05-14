@@ -140,6 +140,48 @@ function fileToBase64(file) {
   });
 }
 
+// ── Rental Application Intake ──────────────────────────────────────────────────
+
+export async function saveRentalApplication(data) {
+  if (isApiConnected()) {
+    return apiPost({ action: "saveRentalApplication", data });
+  }
+  // localStorage fallback: generate a fake record ID so the UI can show success
+  const year = new Date().getFullYear();
+  const num  = String(Math.floor(Math.random() * 999) + 1).padStart(3, "0");
+  console.info("[localStorage mode] saveRentalApplication (not persisted):", data);
+  return { success: true, recordId: `APP-${year}-${num}`, pdfUrl: "", submittedAt: new Date().toISOString() };
+}
+
+export async function getApplicationsByListing(listingId) {
+  if (!isApiConnected() || !listingId) return [];
+  return apiPost({ action: "getApplicationsByListing", listingId });
+}
+
+export async function getAllApplications() {
+  if (!isApiConnected()) return [];
+  return apiPost({ action: "getAllApplications" });
+}
+
+export async function getApplicationById(applicationId) {
+  if (!isApiConnected() || !applicationId) return null;
+  return apiGet({ action: "getApplicationById", applicationId });
+}
+
+export async function updateApplicationStatus(applicationId, reviewStatus) {
+  if (isApiConnected()) {
+    return apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus });
+  }
+  console.info("[localStorage mode] updateApplicationStatus (not persisted):", applicationId, reviewStatus);
+}
+
+export async function updateApplicationNotes(applicationId, notes) {
+  if (isApiConnected()) {
+    return apiPost({ action: "updateApplicationNotes", applicationId, notes });
+  }
+  console.info("[localStorage mode] updateApplicationNotes (not persisted):", applicationId);
+}
+
 // v0.3+ swap surface — replace these with API calls without touching components.
 export const storageAdapter = {
   getListings,

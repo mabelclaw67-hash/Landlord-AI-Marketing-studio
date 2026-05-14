@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { t } from "../translations";
 import ShareKit from "../components/ShareKit";
+
+const PRODUCTION_URL = "https://landlord-ai-marketing-studio.netlify.app/";
 
 const RENTAL_OUTPUTS = [
   {
@@ -19,7 +22,25 @@ const RENTAL_OUTPUTS = [
     icon: "📋",
     title: "Online Rental Application",
     ch: "在线租客申请",
-    desc: "连接在线 Rental Application 入口与手机申请流程，减少人工往返。 / Connect tenants to the online application workflow.",
+    desc: "租客可通过专属链接在线提交租房申请，申请资料自动保存，无需打印或邮件往返。 / Tenants submit applications via a dedicated link — no printing or email back-and-forth.",
+  },
+  {
+    icon: "📄",
+    title: "Application PDF Archive",
+    ch: "申请表 PDF 自动归档",
+    desc: "每份申请自动生成 PDF 并存入对应房源的 Drive 文件夹，资料整洁有序便于回查。 / Each application auto-generates a PDF saved to the listing's Drive folder for clean record-keeping.",
+  },
+  {
+    icon: "🔍",
+    title: "AI Application Screening",
+    ch: "AI 租客申请初筛",
+    desc: "系统自动整理申请内容摘要、标注缺失信息，协助房东快速了解每份申请的基本情况。不自动批准或拒绝申请，最终筛选由房东人工决定。 / Summarizes and organizes application data, flags missing fields. No auto-approval or auto-rejection — final review is always manual.",
+  },
+  {
+    icon: "✅",
+    title: "Human Review Workflow",
+    ch: "人工精选审核",
+    desc: "所有申请经初步整理后，由房东在管理后台逐份审核，保持对租客选择的完整掌控。 / All applications are reviewed manually by the landlord in the admin dashboard — full control stays with the owner.",
   },
   {
     icon: "📱",
@@ -81,7 +102,7 @@ const HOME_SALE_OUTPUTS = [
 ];
 
 const RENTAL_PRIMARY_OUTPUTS = RENTAL_OUTPUTS.slice(0, 4);
-const RENTAL_SECONDARY_OUTPUTS = RENTAL_OUTPUTS.slice(4);
+const RENTAL_SECONDARY_OUTPUTS = RENTAL_OUTPUTS.slice(4);   // AI Screening, Human Review, Share Kit, Short Video
 const HOME_SALE_PRIMARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(0, 4);
 const HOME_SALE_SECONDARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(4);
 
@@ -287,6 +308,79 @@ export default function Home({ lang }) {
               </div>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Platform QR Promotion */}
+      <section className="lh-section lh-qr-section" id="qr-access">
+        <div className="lh-qr-inner">
+          <div className="lh-qr-text">
+            <div className="lh-eyebrow" style={{ marginBottom: 10 }}>
+              扫码即刻访问 / Scan to Access the Platform
+            </div>
+            <h2 style={{ fontSize: "1.45rem", fontWeight: 800, lineHeight: 1.3, marginBottom: 10 }}>
+              Vanisland AI Marketing Studio
+            </h2>
+            <p style={{ fontSize: "1rem", fontWeight: 600, color: "var(--color-primary)", marginBottom: 16 }}>
+              房源 AI 营销工作台
+            </p>
+            <p style={{ lineHeight: 1.8, color: "var(--color-text)", marginBottom: 14 }}>
+              专为温哥华岛本地房东、屋主、FSBO 卖家、物业管理和地产经纪设计的一站式房源 AI 营销平台。
+              扫描二维码即可在手机上直接访问，方便随时分享给客户和合作伙伴。
+            </p>
+            <p style={{ lineHeight: 1.8, color: "var(--color-text)", marginBottom: 20 }}>
+              Built for Vancouver Island landlords, home sellers, FSBO owners, property managers, and realtors.
+              Scan the QR code to open the platform on any device — easy to share with clients and partners.
+            </p>
+            <ul className="lh-qr-features">
+              <li>📋 Rental Studio — bilingual ads, listing pages, photo management</li>
+              <li>🔍 Online rental application intake + AI initial screening</li>
+              <li>📄 Auto PDF archive — every application saved to Drive</li>
+              <li>🏡 Home Sale Studio — sale pages, marketing copy, cover images</li>
+              <li>🎬 Short video generator — auto-create MP4 with music and smooth photo motion</li>
+              <li>📱 QR share kits — one-click copy for WeChat, Facebook, and social posts</li>
+              <li>🌐 Bilingual (English + 中文) across all outputs</li>
+            </ul>
+            <ul className="lh-qr-features lh-qr-features--ch">
+              <li>📋 出租工作台 — 双语广告、房源展示页、照片管理</li>
+              <li>🔍 在线租房申请 + AI 初步筛查，整理摘要与缺失信息</li>
+              <li>📄 申请 PDF 自动归档，保存至对应房源 Drive 文件夹</li>
+              <li>🏡 出售工作台 — 售房展示页、营销文案、封面图</li>
+              <li>🎬 短视频自动生成 —— 自动生成带音乐和照片动态效果的 MP4</li>
+              <li>📱 二维码分享素材包 — 一键复制微信、Facebook 推广文案</li>
+              <li>🌐 全平台中英双语输出</li>
+            </ul>
+          </div>
+
+          <div className="lh-qr-code-wrap">
+            <div className="lh-qr-card">
+              <div className="lh-qr-badge">扫码体验 / Scan to Try</div>
+              <div className="lh-qr-code-box">
+                <QRCodeSVG
+                  value={PRODUCTION_URL}
+                  size={180}
+                  bgColor="#ffffff"
+                  fgColor="#1a3a2e"
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+              <p className="lh-qr-url">Vanisland AI Marketing Studio</p>
+              <p className="lh-qr-caption">
+                Scan to open the platform<br />
+                房东、屋主、经纪适用
+              </p>
+              <a
+                href={PRODUCTION_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="lh-btn lh-btn--sand"
+                style={{ marginTop: 14, display: "block", textAlign: "center", fontSize: "0.85rem" }}
+              >
+                Open Platform →
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
