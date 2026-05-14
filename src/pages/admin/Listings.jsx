@@ -26,10 +26,10 @@ export default function Listings({ lang }) {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{t(lang, "adminNav.listings")}</h1>
-          <p className="text-muted text-sm">All saved listings / 所有已保存房源</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Rental Listings / 出租房源列表</h1>
+          <p className="text-muted text-sm">All saved rental listings / 所有已保存出租房源</p>
         </div>
-        <Link to="/admin/new" className="btn btn--primary">+ {t(lang, "admin.newListing")}</Link>
+        <Link to="/admin/new" className="btn btn--primary">+ New Rental Listing / 新增出租房源</Link>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -46,7 +46,7 @@ export default function Listings({ lang }) {
           <div style={{ padding: "48px 24px", textAlign: "center" }}>
             <p className="text-muted">{t(lang, "admin.noListings")}</p>
             <Link to="/admin/new" className="btn btn--primary" style={{ marginTop: 16, display: "inline-block" }}>
-              + {t(lang, "admin.newListing")}
+              + New Rental Listing / 新增出租房源
             </Link>
           </div>
         ) : (

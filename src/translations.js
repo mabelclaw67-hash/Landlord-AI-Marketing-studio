@@ -15,12 +15,12 @@ export const translations = {
       listings: "Listings",
     },
     home: {
-      heroTitle: "AI Rental Listing Marketing Studio",
+      heroTitle: "Vanisland AI Marketing Studio",
       heroSubtitle:
-        "Create bilingual rental ads, listing cover text, and short video scripts — built for BC landlords.",
-      heroChTitle: "AI 房源广告工作台",
-      heroChSubtitle: "快速生成中英文出租广告、封面文案和短视频素材，专为不列颠哥伦比亚省华人房东设计。",
-      ctaStart: "Request Access",
+        "Create marketing packages for rental and home sale listings.",
+      heroChTitle: "房源 AI 营销工作台",
+      heroChSubtitle: "出租与出售房源推广素材一站式生成",
+      ctaStart: "Request Access / 申请使用",
       ctaLearn: "Learn More",
       servicesTitle: "What We Generate",
       servicesCh: "我们能生成什么",
@@ -110,9 +110,9 @@ export const translations = {
       title: "Contact / Private Beta",
       chTitle: "联系我们 / 内部测试申请",
       betaNotice:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request access and we will prepare your rental listing marketing package.",
+        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request Rental Listing Studio, Home Sale Studio, or both modules.",
       betaNoticeCh:
-        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用，我们将为您准备房源广告素材包。",
+        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用出租房源推广、出售房源推广，或同时开通两套模块。",
       name: "Name",
       email: "Email",
       phone: "Phone",
@@ -212,12 +212,12 @@ export const translations = {
       listings: "房源列表",
     },
     home: {
-      heroTitle: "AI 房源广告工作台",
-      heroSubtitle: "快速生成中英文出租广告、封面文案和短视频素材，专为 BC 省华人房东设计。",
-      heroChTitle: "AI Rental Listing Marketing Studio",
+      heroTitle: "房源 AI 营销工作台",
+      heroSubtitle: "出租与出售房源推广素材一站式生成",
+      heroChTitle: "Vanisland AI Marketing Studio",
       heroChSubtitle:
-        "Create bilingual rental ads, listing cover text, and short video scripts — built for BC landlords.",
-      ctaStart: "申请使用",
+        "Create marketing packages for rental and home sale listings.",
+      ctaStart: "申请使用 / Request Access",
       ctaLearn: "了解更多",
       servicesTitle: "我们能生成什么",
       servicesCh: "What We Generate",
@@ -232,9 +232,9 @@ export const translations = {
       s3Desc: "可直接录制的房源介绍视频脚本，适合社交媒体分享。",
       betaTitle: "内部测试通知",
       betaNotice:
-        "目前为内部测试版本，如需生成房源广告，请联系 Vanisland Property Management。",
+        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用出租房源推广、出售房源推广，或同时开通两套模块。",
       betaCh:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to prepare your rental listing.",
+        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request Rental Listing Studio, Home Sale Studio, or both modules.",
       complianceTitle: "内容合规声明",
       complianceEn:
         "所有 AI 生成内容发布前必须人工审核。若使用 AI 美化或虚拟布置，必须明确标注，避免误导租客。",

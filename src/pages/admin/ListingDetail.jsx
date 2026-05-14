@@ -519,7 +519,7 @@ export default function ListingDetail({ lang }) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <p>{error || "Listing not found."}</p>
-        <Link to="/admin" className="btn btn--ghost btn--sm" style={{ marginTop: 12 }}>← Dashboard</Link>
+        <Link to="/admin/rental" className="btn btn--ghost btn--sm" style={{ marginTop: 12 }}>← Rental Dashboard</Link>
       </div>
     );
   }
@@ -1179,9 +1179,9 @@ export default function ListingDetail({ lang }) {
             className="btn btn--ghost btn--sm" style={{ whiteSpace: "nowrap" }}>
             🔗 Open Public Listing Preview
           </a>
-          <Link to="/admin" className="btn btn--ghost btn--sm"
+          <Link to="/admin/rental" className="btn btn--ghost btn--sm"
             style={saving ? { pointerEvents: "none", opacity: 0.5 } : {}}>
-            ← Dashboard
+            ← Rental Dashboard
           </Link>
         </div>
       </div>

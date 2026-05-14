@@ -129,8 +129,8 @@ export default function NewListing({ lang }) {
       <PrototypeBanner lang={lang} />
 
       <div className="mb-24">
-        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{t(lang, "newListing.title")}</h1>
-        <p className="text-muted text-sm">{t(lang, "newListing.chTitle")} — Fill in the property details to generate your marketing package.</p>
+        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>New Rental Listing / 新增出租房源</h1>
+        <p className="text-muted text-sm">Fill in the rental property details to generate your marketing package. / 填写出租房源资料以生成营销素材包。</p>
       </div>
 
       <form onSubmit={handleSubmit}>

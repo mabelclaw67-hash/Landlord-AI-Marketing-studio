@@ -6,8 +6,8 @@ export default function Leads() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Application Leads</h1>
-          <p className="text-muted text-sm">租房申请线索 / tenant application leads</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Rental Leads / 租客申请</h1>
+          <p className="text-muted text-sm">Rental application leads / 出租房源申请线索</p>
         </div>
       </div>
 

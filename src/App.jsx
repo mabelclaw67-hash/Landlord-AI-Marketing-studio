@@ -29,6 +29,7 @@ import HomeSalePhotoEnhance from "./pages/admin/HomeSalePhotoEnhance";
 import HomeSaleCoverImage from "./pages/admin/HomeSaleCoverImage";
 import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
 import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
+import HomeSaleBuyerInquiries from "./pages/admin/HomeSaleBuyerInquiries";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
 
@@ -49,6 +50,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
+          <Route path="rental" element={<Dashboard lang={lang} mode="rental" />} />
           <Route path="new" element={<NewListing lang={lang} />} />
           <Route path="listings" element={<Listings lang={lang} />} />
           <Route path="leads" element={<Leads />} />
@@ -58,6 +60,7 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/listings/new" element={<HomeSaleListingForm mode="new" />} />
           <Route path="home-sale/listings/:listingId" element={<HomeSaleListingDetailAdmin />} />
           <Route path="home-sale/listings/:listingId/edit" element={<HomeSaleListingForm mode="edit" />} />
+          <Route path="home-sale/buyer-inquiries" element={<HomeSaleBuyerInquiries />} />
           <Route path="home-sale/media/:listingId" element={<HomeSaleMedia />} />
           <Route path="home-sale/enhance/:listingId" element={<HomeSalePhotoEnhance />} />
           <Route path="home-sale/cover/:listingId" element={<HomeSaleCoverImage />} />

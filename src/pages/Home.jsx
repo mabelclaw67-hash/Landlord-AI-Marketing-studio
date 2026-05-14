@@ -2,26 +2,88 @@ import { Link } from "react-router-dom";
 import { t } from "../translations";
 import ShareKit from "../components/ShareKit";
 
-const FEATURES = [
+const RENTAL_OUTPUTS = [
   {
     icon: "📝",
     title: "Rental Ad Package",
-    ch: "中英文广告文案包",
-    desc: "中英双语 Facebook、Craigslist、微信推广文案，可直接审阅后发布。 / Bilingual Facebook, Craigslist, and WeChat copy ready to review and post.",
+    ch: "出租广告文案包",
+    desc: "中英双语出租广告文案，适合 Facebook、Craigslist、微信等渠道直接整理发布。 / Bilingual rental copy prepared for direct posting and review.",
   },
   {
     icon: "🖼️",
     title: "Photo Listing Page",
-    ch: "在线图片房源页面",
-    desc: "可分享的房源照片网页，包含房屋信息与在线申请链接。 / A shareable listing page with photos, property details, and an application link.",
+    ch: "房源照片展示页",
+    desc: "可分享的出租房源照片展示页，方便租客在线查看房屋图片与房源资料。 / A shareable rental photo page with listing details.",
   },
   {
     icon: "📋",
-    title: "Online Application",
-    ch: "在线申请表链接",
-    desc: "连接在线 Rental Application 申请入口与手机扫码申请，无需进入后台。 / Connect tenants to the existing rental application flow without entering Admin Studio.",
+    title: "Online Rental Application",
+    ch: "在线租客申请",
+    desc: "连接在线 Rental Application 入口与手机申请流程，减少人工往返。 / Connect tenants to the online application workflow.",
+  },
+  {
+    icon: "📱",
+    title: "Rental Share Kit & QR Code",
+    ch: "出租分享素材与二维码",
+    desc: "整理出租分享文案、公开页链接和二维码，方便微信群、朋友圈和转介绍。 / Package rental sharing text, links, and QR access.",
+  },
+  {
+    icon: "🎬",
+    title: "Rental Short Video",
+    ch: "出租短视频",
+    desc: "支持出租房源短视频素材与脚本，便于社交平台快速推广。 / Prepare short-form rental video materials and scripts.",
   },
 ];
+
+const HOME_SALE_OUTPUTS = [
+  {
+    icon: "🏡",
+    title: "Sale Listing Page",
+    ch: "出售房源展示页",
+    desc: "公开出售房源页面，集中展示房屋资料、照片、视频与公开链接。 / A public home sale page for listing details and media.",
+  },
+  {
+    icon: "✍️",
+    title: "Bilingual Sale Marketing Copy",
+    ch: "中英售房营销文案",
+    desc: "自动整理 Website、微信、小红书、Facebook 等中英文售房文案。 / Bilingual sale marketing copy for major sharing channels.",
+  },
+  {
+    icon: "🖼️",
+    title: "Photo Gallery & Cover Image",
+    ch: "照片图库与封面图",
+    desc: "支持原始照片整理、封面图选择与公开图库展示。 / Organize gallery assets and choose a sale cover image.",
+  },
+  {
+    icon: "📱",
+    title: "Sale Share Kit & QR Code",
+    ch: "售房分享素材与二维码",
+    desc: "集中整理售房分享文案、二维码和公开页面链接，方便即时复制。 / Share-ready sale copy blocks, QR code, and public links.",
+  },
+  {
+    icon: "💬",
+    title: "Buyer Inquiry Link",
+    ch: "买家咨询入口",
+    desc: "公开页可提供买家咨询入口，方便潜在买家进一步联系。 / A buyer inquiry path connected from the public sale page.",
+  },
+  {
+    icon: "🏷️",
+    title: "Open House Support",
+    ch: "开放日支持",
+    desc: "可整理开放日信息与公开分享素材，辅助线下看房推广。 / Support open house details and related share materials.",
+  },
+  {
+    icon: "🎥",
+    title: "Sale Short Video",
+    ch: "售房短视频",
+    desc: "支持售房短视频、脚本、音乐与展示素材的一站式整理。 / Prepare short home sale videos and related media assets.",
+  },
+];
+
+const RENTAL_PRIMARY_OUTPUTS = RENTAL_OUTPUTS.slice(0, 4);
+const RENTAL_SECONDARY_OUTPUTS = RENTAL_OUTPUTS.slice(4);
+const HOME_SALE_PRIMARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(0, 4);
+const HOME_SALE_SECONDARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(4);
 
 const LANDLORD_SHARE_MESSAGES = [
   {
@@ -57,11 +119,11 @@ const LANDLORD_SHARE_MESSAGES = [
 export default function Home({ lang }) {
   return (
     <>
-      <section className="lh-platform-hub">
+      <section className="lh-platform-hub" id="studio-modules">
         <div className="lh-platform-hub__inner">
           <div className="lh-section-title lh-section-title--left">
             <h2>选择您的营销模块 / Choose Your Studio</h2>
-            <p>保留现有 rental workflow，同时为后续模块扩展预留第二个入口。</p>
+            <p>出租与出售房源都可以从首页直接进入对应工作台，保持同一套清晰入口。</p>
           </div>
 
           <div className="lh-platform-grid">
@@ -74,9 +136,9 @@ export default function Home({ lang }) {
                 <br />Create bilingual rental ads, listing pages, QR codes, online rental application links,
                 and social sharing packages.
               </p>
-              <a href="#rental-studio-home" className="lh-btn lh-btn--sand">
+              <Link to="/examples" className="lh-btn lh-btn--sand">
                 进入 Rental Studio / Enter Rental Studio
-              </a>
+              </Link>
             </article>
 
             <article className="lh-platform-card lh-platform-card--soft">
@@ -89,7 +151,7 @@ export default function Home({ lang }) {
                 QR codes, and buyer inquiry links.
               </p>
               <Link to="/home-sale-studio" className="lh-btn lh-btn--white">
-                查看 Home Sale Studio / Explore Home Sale Studio
+                进入 Home Sale Studio / Enter Home Sale Studio
               </Link>
             </article>
           </div>
@@ -97,19 +159,23 @@ export default function Home({ lang }) {
       </section>
 
       {/* Hero */}
-      <section className="lh-hero" id="rental-studio-home">
+      <section className="lh-hero">
         <div className="lh-hero__inner">
           <div>
-            <div className="lh-eyebrow">🇨🇦 温哥华岛 · BC 房东服务 / Vancouver Island · BC Landlords</div>
+            <div className="lh-eyebrow">🇨🇦 温哥华岛 · 房源营销平台 / Vancouver Island · Listing Marketing Platform</div>
             <h1 className="lh-hero__title">{t(lang, "home.heroTitle")}</h1>
             <p className="lh-hero__desc">{t(lang, "home.heroSubtitle")}</p>
             <p className="lh-hero__desc-ch">{t(lang, "home.heroChSubtitle")}</p>
+            <p className="lh-hero__desc-ch">
+              可申请 Rental Studio、Home Sale Studio，或两个模块一起使用。
+              {" "}Request access for Rental Studio, Home Sale Studio, or both modules.
+            </p>
             <div className="lh-hero__actions">
               <Link to="/contact" className="lh-btn lh-btn--sand">
                 {t(lang, "home.ctaStart")}
               </Link>
-              <Link to="/examples" className="lh-btn lh-btn--white">
-                查看当前房源 / View Current Listing
+              <Link to="/home-sale-studio" className="lh-btn lh-btn--white">
+                进入 Home Sale Studio / Enter Home Sale Studio
               </Link>
             </div>
             <div className="lh-share-kit-wrap">
@@ -123,35 +189,30 @@ export default function Home({ lang }) {
             </div>
           </div>
 
-          {/* BC Rental Update card */}
+          {/* Platform overview card */}
           <div className="lh-hero__card">
             <div className="lh-rtb-card">
               <div className="lh-rtb-card__header">
-                <div className="lh-rtb-card__badge">⚖️ BC RTB</div>
-                <h3>BC Rental Update</h3>
-                <p>BC租赁法规提醒</p>
+                <div className="lh-rtb-card__badge">🏠 Platform</div>
+                <h3>One Platform, Two Studios</h3>
+                <p>一个平台，两套房源营销模块</p>
               </div>
 
               <ul className="lh-rtb-card__list">
-                <li>Rent increase and RTB rule changes should be verified before publishing notices.</li>
-                <li>Review notice periods, pet policy wording, and tenant screening requirements before listing.</li>
-                <li>Always confirm the latest official RTB guidance before sending legal notices.</li>
+                <li>Rental Studio organizes listing copy, photo pages, applications, and share kits.</li>
+                <li>Home Sale Studio organizes sale pages, bilingual copy, cover images, and QR-ready sharing.</li>
+                <li>Both modules stay in one simple workflow with public links and mobile-friendly access.</li>
               </ul>
 
               <ul className="lh-rtb-card__list lh-rtb-card__list--ch">
-                <li>发布出租广告或通知前，请先核对最新租金涨幅和 RTB 规则。</li>
-                <li>上市前请检查通知期限、宠物政策和租客筛选要求。</li>
-                <li>发送法律通知前，应以 BC 官方 RTB 信息为准。</li>
+                <li>Rental Studio 负责整理出租广告、照片页、申请入口与分享素材。</li>
+                <li>Home Sale Studio 负责整理卖房展示页、中英文文案、封面图与二维码分享。</li>
+                <li>两个模块共用同一平台，方便统一管理公开链接与手机访问体验。</li>
               </ul>
 
-              <a
-                href="https://www2.gov.bc.ca/gov/content/housing-tenancy/residential-tenancies"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="lh-rtb-card__btn"
-              >
-                查看 RTB 资料 / View RTB Resources →
-              </a>
+              <Link to="/contact" className="lh-rtb-card__btn">
+                Request Access / 申请使用 →
+              </Link>
             </div>
           </div>
         </div>
@@ -161,17 +222,71 @@ export default function Home({ lang }) {
       <section className="lh-section">
         <div className="lh-section-title">
           <h2>我们能生成什么 / What We Generate</h2>
-          <p>房东推广素材一站式整理</p>
+          <p>出租与出售房源推广素材一站式整理 / One workflow for rental and home sale marketing materials</p>
         </div>
-        <div className="lh-feature-grid">
-          {FEATURES.map(({ icon, title, ch, desc }) => (
-            <article key={title} className="lh-feature-card">
-              <div className="lh-feature-icon">{icon}</div>
-              <h3>{title}</h3>
-              <small>{ch}</small>
-              <p>{desc}</p>
-            </article>
-          ))}
+
+        <div className="lh-output-group">
+          <div className="lh-output-group__head">
+            <h3>出租房源生成内容 / Rental Listing Outputs</h3>
+            <p>适合房东、业主和物业管理的出租推广素材。</p>
+          </div>
+          <div className="lh-feature-grid lh-feature-grid--primary">
+            {RENTAL_PRIMARY_OUTPUTS.map(({ icon, title, ch, desc }) => (
+              <article key={title} className="lh-feature-card">
+                <div className="lh-feature-icon">{icon}</div>
+                <h3>{title}</h3>
+                <small>{ch}</small>
+                <p>{desc}</p>
+              </article>
+            ))}
+          </div>
+          {RENTAL_SECONDARY_OUTPUTS.length > 0 && (
+            <div className="lh-output-group__secondary">
+              <div className="lh-output-group__secondary-label">辅助内容 / Secondary outputs</div>
+              <div className="lh-feature-grid lh-feature-grid--secondary">
+                {RENTAL_SECONDARY_OUTPUTS.map(({ icon, title, ch, desc }) => (
+                  <article key={title} className="lh-feature-card lh-feature-card--secondary">
+                    <div className="lh-feature-icon">{icon}</div>
+                    <h3>{title}</h3>
+                    <small>{ch}</small>
+                    <p>{desc}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="lh-output-group">
+          <div className="lh-output-group__head">
+            <h3>出售房源生成内容 / Home Sale Outputs</h3>
+            <p>面向屋主、FSBO 和地产经纪的售房推广资料整理。</p>
+          </div>
+          <div className="lh-feature-grid lh-feature-grid--primary">
+            {HOME_SALE_PRIMARY_OUTPUTS.map(({ icon, title, ch, desc }) => (
+              <article key={title} className="lh-feature-card">
+                <div className="lh-feature-icon">{icon}</div>
+                <h3>{title}</h3>
+                <small>{ch}</small>
+                <p>{desc}</p>
+              </article>
+            ))}
+          </div>
+          {HOME_SALE_SECONDARY_OUTPUTS.length > 0 && (
+            <div className="lh-output-group__secondary">
+              <div className="lh-output-group__secondary-label">辅助内容 / Secondary outputs</div>
+              <div className="lh-feature-grid lh-feature-grid--secondary">
+                {HOME_SALE_SECONDARY_OUTPUTS.map(({ icon, title, ch, desc }) => (
+                  <article key={title} className="lh-feature-card lh-feature-card--secondary">
+                    <div className="lh-feature-icon">{icon}</div>
+                    <h3>{title}</h3>
+                    <small>{ch}</small>
+                    <p>{desc}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -179,10 +294,10 @@ export default function Home({ lang }) {
       <section className="lh-cta-band">
         <div className="lh-cta-inner">
           <div>
-            <h2>准备推广您的出租房源吗？ / Ready to list your rental?</h2>
+            <h2>准备推广您的出租或出售房源吗？ / Ready to market your rental or sale listing?</h2>
             <p>
-              联系 Mabel，快速准备您的中英文房源广告包。
-              {" "}Contact Mabel to get your bilingual rental package ready.
+              可申请 Rental Studio、Home Sale Studio，或两个模块一起使用。
+              {" "}Request access for Rental Studio, Home Sale Studio, or both modules.
             </p>
           </div>
           <Link to="/contact" className="lh-btn lh-btn--sand">

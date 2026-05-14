@@ -5,11 +5,9 @@ import { saveContact } from "../utils/storage";
 import { isApiConnected } from "../utils/api";
 
 const SERVICE_OPTIONS = [
-  "中英文广告 / Bilingual Rental Ad",
-  "平台发帖 / Facebook / Craigslist Post",
-  "封面文案 / Listing Cover Text",
-  "短视频脚本 / Short Video Script",
-  "全套服务 / Full Package",
+  "Rental Listing Studio / 出租房源推广",
+  "Home Sale Studio / 出售房源推广",
+  "Both / 两者都需要",
 ];
 
 export default function Contact({ lang }) {
@@ -58,20 +56,24 @@ export default function Contact({ lang }) {
                 <h4>🔒 Private Beta / 内部测试</h4>
                 <p>{t(lang, "contact.betaNotice")}</p>
                 <p style={{ marginTop: 6, opacity: 0.8 }}>{t(lang, "contact.betaNoticeCh")}</p>
+                <p style={{ marginTop: 6 }}>
+                  可申请使用 Rental Listing Studio、Home Sale Studio，或同时申请两套模块。
+                  {" "}You can request Rental Listing Studio, Home Sale Studio, or both.
+                </p>
               </div>
 
               <div className="card" style={{ marginBottom: 16, borderColor: "#e5dfd6" }}>
                 <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>我们可为您准备 / What we prepare for you:</h3>
                 <ul style={{ paddingLeft: 16, fontSize: "0.88rem", lineHeight: 2 }}>
-                  <li>📝 中英文出租广告文案 / Bilingual rental ad copy</li>
-                  <li>💬 平台发帖文案 / Facebook & Craigslist posts</li>
-                  <li>📲 微信分享文案 / WeChat post content</li>
-                  <li>🖼️ 社交封面标题文案 / Listing cover text for social images</li>
-                  <li>🎬 短视频旁白脚本 / Short video narration script</li>
+                  <li>🏘️ 出租房源推广 / Rental listing promotion workflow</li>
+                  <li>🏡 出售房源推广 / Home sale marketing workflow</li>
+                  <li>📝 中英文营销文案 / Bilingual marketing copy</li>
+                  <li>📲 分享素材与二维码 / Share kit and QR code</li>
+                  <li>🎬 短视频与展示素材 / Short video and media support</li>
                 </ul>
                 <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 12, paddingTop: 10 }}>
                   <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                    为您准备：中英文广告 · 平台发帖 · 微信文案 · 封面标题 · 视频脚本
+                    可申请：出租房源推广 · 出售房源推广 · 或两套模块一起开通
                   </p>
                 </div>
               </div>
@@ -156,7 +158,7 @@ export default function Contact({ lang }) {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>{t(lang, "contact.serviceInterest")}</label>
+                    <label>Interested Module / {t(lang, "contact.serviceInterest")}</label>
                     <select className="form-control" value={form.service} onChange={set("service")}>
                       <option value="">— Select / 请选择 —</option>
                       {SERVICE_OPTIONS.map((o) => (

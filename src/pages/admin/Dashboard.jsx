@@ -1,23 +1,23 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { t } from "../../translations";
 import { getListings } from "../../utils/storage";
+import { getHomeSaleListings } from "../../utils/homeSaleSheet";
 import PrototypeBanner from "../../components/PrototypeBanner";
 
 function statusBadge(status) {
   const map = {
-    Draft:              "badge--draft",
-    "In Review":        "badge--review",
+    Draft: "badge--draft",
+    "In Review": "badge--review",
     "Ready to Publish": "badge--ready",
-    Published:          "badge--published",
+    Published: "badge--published",
   };
   return <span className={`badge ${map[status] || "badge--draft"}`}>{status}</span>;
 }
 
-export default function Dashboard({ lang }) {
+function RentalDashboardView({ lang }) {
   const [listings, setListings] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -27,16 +27,18 @@ export default function Dashboard({ lang }) {
       .then(setListings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [location.key]); // re-fetch every time user navigates to this page
+  }, [location.key]);
 
   const counts = { Draft: 0, "In Review": 0, "Ready to Publish": 0, Published: 0 };
-  listings.forEach((l) => { if (counts[l.status] !== undefined) counts[l.status]++; });
+  listings.forEach((l) => {
+    if (counts[l.status] !== undefined) counts[l.status]++;
+  });
 
   const kpis = [
-    { key: "totalDraft",     label: t(lang, "admin.totalDraft"),     val: counts["Draft"] },
-    { key: "totalReview",    label: t(lang, "admin.totalReview"),    val: counts["In Review"] },
-    { key: "totalReady",     label: t(lang, "admin.totalReady"),     val: counts["Ready to Publish"] },
-    { key: "totalPublished", label: t(lang, "admin.totalPublished"), val: counts["Published"] },
+    { key: "draft", label: "Draft / 草稿", val: counts.Draft },
+    { key: "review", label: "In Review / 审核中", val: counts["In Review"] },
+    { key: "ready", label: "Ready / 待发布", val: counts["Ready to Publish"] },
+    { key: "published", label: "Published / 已发布", val: counts.Published },
   ];
 
   return (
@@ -45,13 +47,15 @@ export default function Dashboard({ lang }) {
 
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{t(lang, "admin.dashboard")}</h1>
-          <p className="text-muted text-sm">管理你的所有房源广告包 / Manage all your listing marketing packages</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Rental Dashboard / 出租后台</h1>
+          <p className="text-muted text-sm">管理出租房源营销工作流 / Manage the rental listing marketing workflow</p>
         </div>
-        <Link to="/admin/new" className="btn btn--primary">+ {t(lang, "admin.newListing")}</Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link to="/admin/new" className="btn btn--primary">+ New Rental Listing / 新增出租房源</Link>
+          <Link to="/admin/listings" className="btn btn--ghost">Rental Listings / 出租房源列表</Link>
+        </div>
       </div>
 
-      {/* KPIs */}
       <div className="kpi-grid">
         {kpis.map(({ key, label, val }) => (
           <div key={key} className="kpi-card">
@@ -61,23 +65,22 @@ export default function Dashboard({ lang }) {
         ))}
       </div>
 
-      {/* Listings table */}
       <div className="card" style={{ padding: 0 }}>
         {loading ? (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--color-text-muted)" }}>
-            Loading listings…
+            Loading rental listings…
           </div>
         ) : error ? (
           <div className="notice notice--error" style={{ margin: 16 }}>
-            <h4>Failed to load listings</h4>
+            <h4>Failed to load rental listings</h4>
             <p>{error}</p>
           </div>
         ) : listings.length === 0 ? (
           <div style={{ padding: "48px 24px", textAlign: "center" }}>
-            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>📋</div>
-            <p style={{ color: "var(--color-text-muted)" }}>{t(lang, "admin.noListings")}</p>
+            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏘️</div>
+            <p style={{ color: "var(--color-text-muted)" }}>No rental listings yet / 暂无出租房源</p>
             <Link to="/admin/new" className="btn btn--primary" style={{ marginTop: 16, display: "inline-block" }}>
-              + {t(lang, "admin.newListing")}
+              + New Rental Listing / 新增出租房源
             </Link>
           </div>
         ) : (
@@ -85,13 +88,13 @@ export default function Dashboard({ lang }) {
             <table>
               <thead>
                 <tr>
-                  <th>{t(lang, "admin.listingId")}</th>
-                  <th>{t(lang, "admin.address")}</th>
-                  <th>{t(lang, "admin.city")}</th>
-                  <th>{t(lang, "admin.rent")}</th>
-                  <th>{t(lang, "admin.status")}</th>
-                  <th>{t(lang, "admin.created")}</th>
-                  <th>{t(lang, "admin.action")}</th>
+                  <th>Listing ID</th>
+                  <th>Address</th>
+                  <th>City</th>
+                  <th>Rent</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,9 +107,7 @@ export default function Dashboard({ lang }) {
                     <td>{statusBadge(l.status)}</td>
                     <td style={{ color: "var(--color-text-muted)", fontSize: "0.82rem" }}>{l.createdDate}</td>
                     <td>
-                      <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
-                        {t(lang, "admin.view")}
-                      </Link>
+                      <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">View</Link>
                     </td>
                   </tr>
                 ))}
@@ -114,6 +115,120 @@ export default function Dashboard({ lang }) {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard({ lang, mode = "platform" }) {
+  const [rentalListings, setRentalListings] = useState([]);
+  const [saleListings, setSaleListings] = useState([]);
+  const [loading, setLoading] = useState(mode === "platform");
+  const [error, setError] = useState(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (mode !== "platform") return;
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+
+    Promise.all([getListings().catch(() => []), getHomeSaleListings().catch(() => [])])
+      .then(([rentals, sales]) => {
+        if (!mounted) return;
+        setRentalListings(Array.isArray(rentals) ? rentals : []);
+        setSaleListings(Array.isArray(sales) ? sales : []);
+      })
+      .catch((e) => {
+        if (!mounted) return;
+        setError(e.message || "Failed to load platform dashboard.");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [mode, location.key]);
+
+  if (mode === "rental") {
+    return <RentalDashboardView lang={lang} />;
+  }
+
+  const rentalPublished = rentalListings.filter((item) => item.status === "Published").length;
+  const saleDraft = saleListings.filter((item) => !item.status || String(item.status).toLowerCase() === "draft").length;
+
+  return (
+    <div>
+      <PrototypeBanner lang={lang} />
+
+      <div className="mb-24">
+        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Admin Dashboard / 管理后台</h1>
+        <p className="text-muted text-sm">
+          Manage Rental Studio and Home Sale Studio from one place.
+          <br />
+          统一管理出租房源与出售房源营销工作流。
+        </p>
+      </div>
+
+      {error && (
+        <div className="notice notice--error" style={{ marginBottom: 16 }}>
+          <h4>Dashboard data warning</h4>
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div className="admin-module-grid">
+        <section className="card admin-module-card">
+          <div className="admin-module-card__eyebrow">RENTAL STUDIO / 出租房源</div>
+          <h2>Rental Listing Studio / 出租房源工作台</h2>
+          <p>
+            Manage rental listings, rental applications, marketing copy, photos, videos, QR codes, and publish workflow.
+            <br />
+            管理出租房源、租客申请、营销文案、照片、视频、二维码和发布流程。
+          </p>
+          <div className="admin-module-card__stats">
+            <div className="admin-module-card__stat">
+              <strong>{loading ? "—" : rentalListings.length}</strong>
+              <span>Rental Listings / 出租房源</span>
+            </div>
+            <div className="admin-module-card__stat">
+              <strong>{loading ? "—" : rentalPublished}</strong>
+              <span>Published / 已发布</span>
+            </div>
+          </div>
+          <div className="admin-module-card__actions">
+            <Link to="/admin/rental" className="btn btn--primary">Open Rental Dashboard / 打开出租后台</Link>
+            <Link to="/admin/new" className="btn btn--ghost">New Rental Listing / 新增出租房源</Link>
+            <Link to="/admin/listings" className="btn btn--ghost">Rental Listings / 出租房源列表</Link>
+          </div>
+        </section>
+
+        <section className="card admin-module-card admin-module-card--soft">
+          <div className="admin-module-card__eyebrow">HOME SALE STUDIO / 出售房源</div>
+          <h2>Home Sale Studio / 出售房源工作台</h2>
+          <p>
+            Manage sale listings, buyer inquiries, marketing copy, photos, videos, QR codes, open house, and publish workflow.
+            <br />
+            管理出售房源、买家咨询、营销文案、照片、视频、二维码、开放日和发布流程。
+          </p>
+          <div className="admin-module-card__stats">
+            <div className="admin-module-card__stat">
+              <strong>{loading ? "—" : saleListings.length}</strong>
+              <span>Sale Listings / 出售房源</span>
+            </div>
+            <div className="admin-module-card__stat">
+              <strong>{loading ? "—" : saleDraft}</strong>
+              <span>Draft / 草稿</span>
+            </div>
+          </div>
+          <div className="admin-module-card__actions">
+            <Link to="/admin/home-sale" className="btn btn--primary">Open Home Sale Dashboard / 打开出售后台</Link>
+            <Link to="/admin/home-sale/listings/new" className="btn btn--ghost">New Sale Listing / 新增出售房源</Link>
+            <Link to="/admin/home-sale/listings" className="btn btn--ghost">Sale Listings / 出售房源列表</Link>
+          </div>
+        </section>
       </div>
     </div>
   );
