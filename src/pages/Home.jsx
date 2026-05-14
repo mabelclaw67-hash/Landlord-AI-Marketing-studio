@@ -57,8 +57,47 @@ const LANDLORD_SHARE_MESSAGES = [
 export default function Home({ lang }) {
   return (
     <>
+      <section className="lh-platform-hub">
+        <div className="lh-platform-hub__inner">
+          <div className="lh-section-title lh-section-title--left">
+            <h2>选择您的营销模块 / Choose Your Studio</h2>
+            <p>保留现有 rental workflow，同时为后续模块扩展预留第二个入口。</p>
+          </div>
+
+          <div className="lh-platform-grid">
+            <article className="lh-platform-card">
+              <div className="lh-platform-card__eyebrow">房东与物业管理使用 / For landlords and property managers</div>
+              <h3>Rental Listing Marketing Studio</h3>
+              <small>租赁房源 AI 营销工作台</small>
+              <p>
+                生成中英双语出租广告、房源展示页、二维码、在线租房申请链接与社交分享素材。
+                <br />Create bilingual rental ads, listing pages, QR codes, online rental application links,
+                and social sharing packages.
+              </p>
+              <a href="#rental-studio-home" className="lh-btn lh-btn--sand">
+                进入 Rental Studio / Enter Rental Studio
+              </a>
+            </article>
+
+            <article className="lh-platform-card lh-platform-card--soft">
+              <div className="lh-platform-card__eyebrow">屋主、FSBO 与地产经纪使用 / For home sellers, FSBO owners, and realtors</div>
+              <h3>AI Home Sale Marketing Studio</h3>
+              <small>房屋出售 AI 营销工作台</small>
+              <p>
+                生成卖房展示页、双语营销文案、照片与视频推广素材、二维码与买家咨询入口。
+                <br />Create home sale listing pages, bilingual marketing copy, photo/video promotion materials,
+                QR codes, and buyer inquiry links.
+              </p>
+              <Link to="/home-sale-studio" className="lh-btn lh-btn--white">
+                查看 Home Sale Studio / Explore Home Sale Studio
+              </Link>
+            </article>
+          </div>
+        </div>
+      </section>
+
       {/* Hero */}
-      <section className="lh-hero">
+      <section className="lh-hero" id="rental-studio-home">
         <div className="lh-hero__inner">
           <div>
             <div className="lh-eyebrow">🇨🇦 温哥华岛 · BC 房东服务 / Vancouver Island · BC Landlords</div>

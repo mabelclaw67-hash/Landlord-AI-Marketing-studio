@@ -31,6 +31,12 @@ export default function AdminSidebar({ lang }) {
       >
         🗂️ Leads / 申请
       </NavLink>
+      <NavLink
+        to="/admin/home-sale"
+        className={({ isActive }) => (isActive ? "active" : "")}
+      >
+        🏡 Home Sale / 出售房源
+      </NavLink>
 
       <button className="admin-lock-btn" onClick={lockAdmin}>
         🔒 Lock Admin / 锁定

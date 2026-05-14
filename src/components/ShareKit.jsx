@@ -6,6 +6,7 @@ export default function ShareKit({
   subtitle,
   messages,
   linkLabel,
+  linkValue,
 }) {
   const [open, setOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState("");
@@ -69,7 +70,7 @@ export default function ShareKit({
           <button
             type="button"
             className="share-kit__link"
-            onClick={() => copyText("page-link", window.location.href)}
+            onClick={() => copyText("page-link", linkValue || window.location.href)}
           >
             {copiedKey === "page-link" ? "已复制链接 / Link Copied" : linkLabel}
           </button>

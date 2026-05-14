@@ -54,8 +54,9 @@ function detectCoverPhoto(files) {
 // Simple thumbnail + "Open in Drive" card — read-only display.
 function DrivePhoto({ file }) {
   const [failed, setFailed] = useState(false);
-  // Prefer thumbUrlLg (w1600) for the large cover display, fall back to thumbUrl, then build from fileId.
-  const src = file.thumbUrlLg
+  // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
+  const src = file.dataUrl
+    || file.thumbUrlLg
     || file.thumbUrl
     || `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w1600`;
   return (
@@ -86,8 +87,9 @@ function DrivePhoto({ file }) {
 function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManual,
   onMoveUp, onMoveDown, onExclude, onSetCover }) {
   const [failed, setFailed] = useState(false);
-  // Prefer thumbUrl (w800) for grid cards; fall back to building from fileId.
-  const src = file.thumbUrl
+  // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
+  const src = file.dataUrl
+    || file.thumbUrl
     || `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w800`;
   const btnStyle = {
     fontSize: "0.62rem", padding: "2px 6px",

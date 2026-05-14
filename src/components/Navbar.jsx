@@ -109,6 +109,7 @@ export default function Navbar({ lang, setLang }) {
             ["home", "/"],
             ["services", "/services"],
             ["examples", "/examples"],
+            ["saleListing", "/home-sale-studio"],
             ["resources", "/resources"],
             ["contact", "/contact"],
           ].map(([key, path]) => (

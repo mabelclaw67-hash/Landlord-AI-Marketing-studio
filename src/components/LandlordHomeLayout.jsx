@@ -25,6 +25,9 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           <NavLink to="/examples" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             🏘️ Rental Listings
           </NavLink>
+          <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+            🏡 {lang === "zh" ? "出售房源" : "Sale Listings"}
+          </NavLink>
           <NavLink to="/resources" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             📚 Resources
           </NavLink>
@@ -78,7 +81,11 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         </NavLink>
         <NavLink to="/examples" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>🏘️</span>
-          <span>Listings</span>
+          <span>{lang === "zh" ? "出租" : "Rentals"}</span>
+        </NavLink>
+        <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+          <span>🏡</span>
+          <span>{lang === "zh" ? "出售" : "Sale"}</span>
         </NavLink>
         <NavLink to="/contact" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>✉️</span>

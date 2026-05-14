@@ -8,12 +8,27 @@ import Services from "./pages/Services";
 import Examples from "./pages/Examples";
 import Resources from "./pages/Resources";
 import Contact from "./pages/Contact";
+import HomeSaleStudio from "./pages/HomeSaleStudio";
+import HomeSaleListingDetail from "./pages/HomeSaleListingDetail";
+import HomeSaleAdmin from "./pages/HomeSaleAdmin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import NewListing from "./pages/admin/NewListing";
 import ListingDetail from "./pages/admin/ListingDetail";
 import Listings from "./pages/admin/Listings";
 import Leads from "./pages/admin/Leads";
+import HomeSaleListings from "./pages/admin/HomeSaleListings";
+import HomeSaleListingDetailAdmin from "./pages/admin/HomeSaleListingDetailAdmin";
+import HomeSaleListingForm from "./pages/admin/HomeSaleListingForm";
+import HomeSaleMedia from "./pages/admin/HomeSaleMedia";
+import HomeSaleMarketing from "./pages/admin/HomeSaleMarketing";
+import HomeSaleShare from "./pages/admin/HomeSaleShare";
+import HomeSaleVideo from "./pages/admin/HomeSaleVideo";
+import HomeSaleOpenHouse from "./pages/admin/HomeSaleOpenHouse";
+import HomeSalePhotoEnhance from "./pages/admin/HomeSalePhotoEnhance";
+import HomeSaleCoverImage from "./pages/admin/HomeSaleCoverImage";
+import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
+import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
 
@@ -30,12 +45,28 @@ function AppInner({ lang, setLang }) {
         <Route path="/examples" element={<Examples lang={lang} />} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
+        <Route path="/home-sale-studio" element={<HomeSaleStudio />} />
+        <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="new" element={<NewListing lang={lang} />} />
           <Route path="listings" element={<Listings lang={lang} />} />
           <Route path="leads" element={<Leads />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />
+          <Route path="home-sale" element={<HomeSaleAdmin />} />
+          <Route path="home-sale/listings" element={<HomeSaleListings />} />
+          <Route path="home-sale/listings/new" element={<HomeSaleListingForm mode="new" />} />
+          <Route path="home-sale/listings/:listingId" element={<HomeSaleListingDetailAdmin />} />
+          <Route path="home-sale/listings/:listingId/edit" element={<HomeSaleListingForm mode="edit" />} />
+          <Route path="home-sale/media/:listingId" element={<HomeSaleMedia />} />
+          <Route path="home-sale/enhance/:listingId" element={<HomeSalePhotoEnhance />} />
+          <Route path="home-sale/cover/:listingId" element={<HomeSaleCoverImage />} />
+          <Route path="home-sale/marketing/:listingId" element={<HomeSaleMarketing />} />
+          <Route path="home-sale/video/:listingId" element={<HomeSaleVideo />} />
+          <Route path="home-sale/share/:listingId" element={<HomeSaleShare />} />
+          <Route path="home-sale/open-house/:listingId" element={<HomeSaleOpenHouse />} />
+          <Route path="home-sale/buyer-inquiry/:listingId" element={<HomeSaleBuyerInquiry />} />
+          <Route path="home-sale/review/:listingId" element={<HomeSaleReviewPublish />} />
         </Route>
         <Route path="/listings/:id" element={<PublicListing />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
