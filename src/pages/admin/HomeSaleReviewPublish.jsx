@@ -64,11 +64,13 @@ export default function HomeSaleReviewPublish() {
     }
   };
 
+  const hasCoverImage = !!(listing?.primaryPhotoUrl || mediaRows.some((m) => m.assetRole === "Cover"));
+
   const checks = listing
     ? [
         { label: "Listing Info", ok: !!(listing.address && listing.askingPrice), detail: listing.address || "—" },
         { label: "Original Photos", ok: mediaRows.some((m) => m.assetType === "Photo"), detail: `${mediaRows.filter((m) => m.assetType === "Photo").length} photo(s)` },
-        { label: "Cover Image", ok: mediaRows.some((m) => m.assetRole === "Cover"), detail: mediaRows.some((m) => m.assetRole === "Cover") ? "✅ Set" : "⏳ Not set" },
+        { label: "Cover Image", ok: hasCoverImage, detail: hasCoverImage ? "✅ Set" : "⏳ Not set" },
         { label: "Marketing Copy", ok: marketingRows.length > 0, detail: `${marketingRows.length} row(s)` },
         { label: "Video / Script", ok: videoRows.length > 0, detail: `${videoRows.length} script(s)` },
         { label: "Share Kit", ok: true, detail: "QR code auto-generated" },

@@ -6,6 +6,7 @@ import {
   HOME_SALE_MARKETING_CHANNELS,
   HOME_SALE_MARKETING_STATUS_OPTIONS,
   createOrUpdateMarketingCopy,
+  generateHomeSaleMarketingCopy,
   getHomeSaleListing,
   getMarketingCopyByListingId,
 } from "../../utils/homeSaleSheet";
@@ -33,7 +34,19 @@ export default function HomeSaleMarketing() {
   const [form, setForm] = useState(emptyMarketingForm(listingId));
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const displayOrder = [
+    "Website-English",
+    "Website-Chinese",
+    "WeChat-Chinese",
+    "Xiaohongshu-Chinese",
+    "Facebook-English",
+    "Realtor version-English",
+    "FSBO owner version-English",
+  ];
 
   async function refresh() {
     const [listingRow, marketingRows] = await Promise.all([
@@ -41,7 +54,18 @@ export default function HomeSaleMarketing() {
       getMarketingCopyByListingId(listingId),
     ]);
     setListing(listingRow);
-    setRows(marketingRows);
+    setRows(
+      [...marketingRows].sort((a, b) => {
+        const keyA = `${a.channel || ""}-${a.language || ""}`;
+        const keyB = `${b.channel || ""}-${b.language || ""}`;
+        const idxA = displayOrder.indexOf(keyA);
+        const idxB = displayOrder.indexOf(keyB);
+        if (idxA !== -1 || idxB !== -1) {
+          return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        }
+        return `${a.channel || ""}${a.language || ""}`.localeCompare(`${b.channel || ""}${b.language || ""}`);
+      })
+    );
   }
 
   useEffect(() => {
@@ -53,12 +77,14 @@ export default function HomeSaleMarketing() {
   const updateField = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
     setError("");
+    setSuccessMessage("");
   };
 
   async function handleSubmit(event) {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    setSuccessMessage("");
     try {
       await createOrUpdateMarketingCopy({
         ...form,
@@ -66,10 +92,26 @@ export default function HomeSaleMarketing() {
       });
       setForm(emptyMarketingForm(listingId));
       await refresh();
+      setSuccessMessage("Marketing copy saved / 文案已保存");
     } catch (err) {
       setError(err.message || "Failed to save marketing copy.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      await generateHomeSaleMarketingCopy(listingId);
+      await refresh();
+      setSuccessMessage("Bilingual marketing copy generated / 中英文营销文案已生成");
+    } catch (err) {
+      setError(err.message || "Failed to generate marketing copy.");
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -81,7 +123,9 @@ export default function HomeSaleMarketing() {
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
-          <button type="button" className="btn btn--ghost" disabled>Generate AI Copy / 生成AI文案</button>
+          <button type="button" className="btn btn--ghost" onClick={handleGenerate} disabled={generating || loading}>
+            {generating ? "Generating... / 生成中..." : "Generate AI Copy / 生成AI文案"}
+          </button>
           <Link to={`/admin/home-sale/share/${listingId}`} className="btn btn--ghost">Share Kit</Link>
           <Link to={`/admin/home-sale/listings/${listingId}/edit`} className="btn btn--ghost">Edit Listing</Link>
         </div>
@@ -91,13 +135,20 @@ export default function HomeSaleMarketing() {
 
       <div className="notice notice--warning">
         <h4>AI Copy Generation / AI 文案生成</h4>
-        <p>Coming next. 当前 v1 先支持手动维护 Website / WeChat / Xiaohongshu / Facebook / Realtor / FSBO 文案。</p>
+        <p>当前 v1 使用模板式生成，不调用外部 AI API。文案来源只读取 Home Sale Google Sheet 当前房源数据。</p>
       </div>
 
       {error && (
         <div className="notice notice--error">
           <h4>Marketing workflow error</h4>
           <p>{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="notice notice--sage">
+          <h4>Success</h4>
+          <p>{successMessage}</p>
         </div>
       )}
 
@@ -168,7 +219,8 @@ export default function HomeSaleMarketing() {
                       <th>Copy ID</th>
                       <th>Channel</th>
                       <th>Language</th>
-                      <th>Headline</th>
+                  <th>Headline</th>
+                      <th>Version</th>
                       <th>Status</th>
                       <th>Action</th>
                     </tr>
@@ -180,6 +232,7 @@ export default function HomeSaleMarketing() {
                         <td>{item.channel}</td>
                         <td>{item.language}</td>
                         <td>{item.headline || "—"}</td>
+                        <td>{item.version || "v1"}</td>
                         <td>{item.status || "Draft"}</td>
                         <td>
                           <button
@@ -209,6 +262,68 @@ export default function HomeSaleMarketing() {
               </div>
             )}
           </div>
+
+          {rows.length > 0 && (
+            <div className="card" style={{ marginTop: 24 }}>
+              <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>Generated / Editable Copy Preview</h2>
+              <div style={{ display: "grid", gap: 14 }}>
+                {rows.map((item) => (
+                  <div
+                    key={`preview-${item.copyId || `${item.channel}-${item.language}`}`}
+                    style={{ border: "1px solid var(--color-border)", borderRadius: 10, padding: 16, background: "#fff" }}
+                  >
+                    <div className="flex-between" style={{ gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: "var(--color-primary)" }}>
+                          {item.channel} / {item.language}
+                        </div>
+                        <div className="text-muted text-sm">
+                          {item.copyId || "Pending"} · {item.version || "v1"} · {item.status || "Draft"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => setForm({
+                          copyId: item.copyId || "",
+                          listingId,
+                          channel: item.channel || "Website",
+                          language: item.language || "Chinese",
+                          headline: item.headline || "",
+                          bodyCopy: item.bodyCopy || "",
+                          callToAction: item.callToAction || "",
+                          hashtags: item.hashtags || "",
+                          publicUrl: item.publicUrl || listing?.publicListingUrl || "",
+                          version: item.version || "v1",
+                          status: item.status || "Draft",
+                        })}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>Headline</div>
+                        <div>{item.headline || "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>Body Copy</div>
+                        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{item.bodyCopy || "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>Call To Action</div>
+                        <div>{item.callToAction || "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>Hashtags</div>
+                        <div>{item.hashtags || "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

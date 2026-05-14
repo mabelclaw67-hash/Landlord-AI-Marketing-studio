@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import ShareKit from "../../components/ShareKit";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { buildQrCodeSvg } from "../../utils/qrCodeSvg";
-import { buildHomeSalePublicUrl, formatSalePrice, getHomeSaleListing } from "../../utils/homeSaleSheet";
+import {
+  buildHomeSalePublicUrl,
+  getHomeSaleListing,
+  getMarketingCopyByListingId,
+} from "../../utils/homeSaleSheet";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -17,11 +20,19 @@ function escapeHtml(value) {
 export default function HomeSaleShare() {
   const { listingId } = useParams();
   const [listing, setListing] = useState(null);
+  const [marketingRows, setMarketingRows] = useState([]);
   const [error, setError] = useState("");
+  const [copiedKey, setCopiedKey] = useState("");
 
   useEffect(() => {
-    getHomeSaleListing(listingId)
-      .then(setListing)
+    Promise.all([
+      getHomeSaleListing(listingId),
+      getMarketingCopyByListingId(listingId),
+    ])
+      .then(([listingRow, marketingCopyRows]) => {
+        setListing(listingRow);
+        setMarketingRows(marketingCopyRows);
+      })
       .catch((err) => setError(err.message || "Failed to load listing for Share Kit."));
   }, [listingId]);
 
@@ -33,41 +44,43 @@ export default function HomeSaleShare() {
     background: "#ffffff",
   }), [publicUrl]);
 
-  const messages = useMemo(() => {
-    const address = listing?.address || "房屋出售房源";
-    const city = listing?.city ? `${listing.city}, ${listing.province || ""}`.replace(/,\s*$/, "") : "";
-    const price = formatSalePrice(listing?.askingPrice);
-    const propertyType = listing?.propertyType || "房产";
-    const shortLine = [address, city].filter(Boolean).join(" · ");
-    const publicLine = listing?.publicListingUrl || publicUrl;
-
-    return [
-      {
-        id: "wechat-sale",
-        label: "微信房源分享 / WeChat Sale Sharing",
-        rows: 6,
-        text: `房屋出售推荐：${shortLine}\n售价：${price}\n类型：${propertyType}\n欢迎扫码或打开链接查看房源详情。\n${publicLine}\n\nEnglish:\nHome for sale: ${shortLine}\nPrice: ${price}\nView the listing here: ${publicLine}`,
-      },
-      {
-        id: "xiaohongshu-sale",
-        label: "小红书分享 / Xiaohongshu Sharing",
-        rows: 6,
-        text: `今日房屋出售推荐：${shortLine}\n售价 ${price}，适合关注温哥华岛房产的买家参考。\n欢迎查看详情、保存链接、预约咨询。\n${publicLine}\n\n#温哥华岛房产 #房屋出售 #自住房推荐`,
-      },
-      {
-        id: "facebook-sale",
-        label: "Facebook 社区分享 / Facebook Community Sharing",
-        rows: 6,
-        text: `新出售房源分享：${shortLine}\nAsking Price: ${price}\nProperty Type: ${propertyType}\nSee the listing page and buyer inquiry details here:\n${publicLine}`,
-      },
-      {
-        id: "realtor-fsbo",
-        label: "Realtor / FSBO 版本 / Realtor / FSBO Version",
-        rows: 7,
-        text: `房屋出售推广链接：${shortLine}\n售价：${price}\n可用于 Realtor / FSBO 分享、朋友圈、社区群组与二维码海报。\n链接：${publicLine}\n\nEnglish:\nHome sale marketing link for Realtor / FSBO sharing:\n${publicLine}`,
-      },
+  const copyBlocks = useMemo(() => {
+    const displayOrder = [
+      "Website-English",
+      "Website-Chinese",
+      "WeChat-Chinese",
+      "Xiaohongshu-Chinese",
+      "Facebook-English",
+      "Realtor version-English",
+      "FSBO owner version-English",
     ];
-  }, [listing, publicUrl]);
+
+    return [...marketingRows]
+      .sort((a, b) => {
+        const keyA = `${a.channel || ""}-${a.language || ""}`;
+        const keyB = `${b.channel || ""}-${b.language || ""}`;
+        const idxA = displayOrder.indexOf(keyA);
+        const idxB = displayOrder.indexOf(keyB);
+        if (idxA !== -1 || idxB !== -1) {
+          return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        }
+        return `${a.channel || ""}${a.language || ""}`.localeCompare(`${b.channel || ""}${b.language || ""}`);
+      })
+      .map((row, index) => ({
+        ...row,
+        id: row.copyId || `${row.channel || "copy"}-${row.language || "lang"}-${index}`,
+        shareText: [
+          `Channel / 渠道: ${row.channel || "—"}`,
+          `Language / 语言: ${row.language || "—"}`,
+          `Headline / 标题: ${row.headline || "—"}`,
+          "",
+          `Body Copy / 正文:\n${row.bodyCopy || "—"}`,
+          "",
+          `Call To Action / 行动引导: ${row.callToAction || "—"}`,
+          `Hashtags / 标签: ${row.hashtags || "—"}`,
+        ].join("\n"),
+      }));
+  }, [marketingRows]);
 
   function handlePrintQr() {
     const win = window.open("", "_blank", "width=560,height=760");
@@ -98,6 +111,18 @@ export default function HomeSaleShare() {
 </body>
 </html>`);
     win.document.close();
+  }
+
+  async function handleCopy(key, value) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => {
+        setCopiedKey((current) => (current === key ? "" : current));
+      }, 1800);
+    } catch {
+      setCopiedKey("");
+    }
   }
 
   return (
@@ -136,14 +161,85 @@ export default function HomeSaleShare() {
         </div>
       </div>
 
-      <ShareKit
-        buttonLabel="Sale Share Kit / 出售房源分享素材"
-        title="Sale Share Kit / 出售房源分享素材"
-        subtitle="面向屋主、Realtor、FSBO 和买家社区分享。 / For owners, realtors, FSBO, and buyer-facing sharing."
-        messages={messages}
-        linkLabel="复制当前公开页面链接 / Copy Public Listing Link"
-        linkValue={publicUrl}
-      />
+      <div className="card">
+        <div className="flex-between mb-16" style={{ alignItems: "flex-start", gap: 12 }}>
+          <div>
+            <h2 style={{ color: "#213128", fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
+              Marketing Copy Share Blocks / 营销文案分享块
+            </h2>
+            <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
+              直接读取已生成的 Home Sale 营销文案，方便复制到微信、小红书、Facebook 等渠道。
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => handleCopy("public-link", publicUrl)}
+          >
+            {copiedKey === "public-link" ? "已复制链接 / Link Copied" : "复制公开页链接 / Copy Public Link"}
+          </button>
+        </div>
+
+        {copyBlocks.length === 0 ? (
+          <div className="notice notice--warning" style={{ marginBottom: 0 }}>
+            <h4>Please generate Marketing Copy first / 请先生成营销文案</h4>
+            <p style={{ marginBottom: 0 }}>
+              <Link to={`/admin/home-sale/marketing/${listingId}`}>Go to Marketing Copy / 前往营销文案页面</Link>
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 16 }}>
+            {copyBlocks.map((block) => (
+              <article
+                key={block.id}
+                style={{
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 18,
+                  padding: 18,
+                  background: "#fffdf9",
+                }}
+              >
+                <div className="flex-between mb-16" style={{ alignItems: "flex-start", gap: 12 }}>
+                  <div>
+                    <h3 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 4 }}>
+                      {block.channel || "Channel"} / {block.language || "Language"}
+                    </h3>
+                    <p className="text-muted text-sm" style={{ margin: 0 }}>
+                      {block.copyId || "Pending"}{block.version ? ` · ${block.version}` : ""}{block.status ? ` · ${block.status}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => handleCopy(block.id, block.shareText)}
+                  >
+                    {copiedKey === block.id ? "已复制 / Copied" : "复制文案 / Copy"}
+                  </button>
+                </div>
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Headline / 标题</p>
+                    <div style={{ fontWeight: 700 }}>{block.headline || "—"}</div>
+                  </div>
+                  <div>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Body Copy / 正文</p>
+                    <textarea className="form-control" value={block.bodyCopy || ""} readOnly rows={6} />
+                  </div>
+                  <div>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Call To Action / 行动引导</p>
+                    <div>{block.callToAction || "—"}</div>
+                  </div>
+                  <div>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Hashtags / 标签</p>
+                    <div>{block.hashtags || "—"}</div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

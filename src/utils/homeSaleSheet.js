@@ -306,6 +306,15 @@ export async function createOrUpdateMarketingCopy(values) {
   });
 }
 
+export async function generateHomeSaleMarketingCopy(listingId) {
+  ensureHomeSaleApiConnected();
+  if (!listingId) throw new Error("Missing Listing ID for marketing copy generation.");
+  return homeSaleApiPost({
+    action: "generateHomeSaleMarketingCopy",
+    listingId,
+  });
+}
+
 export async function getVideoScriptsByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for video workflow lookup.");

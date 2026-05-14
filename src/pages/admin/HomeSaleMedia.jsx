@@ -43,17 +43,28 @@ function buildPreviewSrc(item) {
   return "";
 }
 
-function SalePhotoCard({ item }) {
+function normalizeAssetRef(url) {
+  const fileId = extractDriveFileId(url);
+  if (fileId) return fileId;
+  return String(url || "").trim();
+}
+
+function assetMatchesPrimaryPhoto(item, primaryPhotoUrl) {
+  const target = normalizeAssetRef(primaryPhotoUrl);
+  if (!target) return false;
+  return target === normalizeAssetRef(item?.driveUrl) || target === normalizeAssetRef(item?.publicUrl);
+}
+
+function SalePhotoCard({ item, isCurrentCover }) {
   const [failed, setFailed] = useState(false);
   const src = buildPreviewSrc(item);
-  const isCover = item.assetRole === "Cover";
 
   return (
     <div style={{
-      border: `1.5px solid ${isCover ? "var(--color-primary)" : "var(--color-border)"}`,
+      border: `1.5px solid ${isCurrentCover ? "var(--color-primary)" : "var(--color-border)"}`,
       borderRadius: 7, overflow: "hidden", width: 140, flexShrink: 0, position: "relative",
     }}>
-      {isCover && (
+      {isCurrentCover && (
         <div style={{
           position: "absolute", top: 4, left: 4, zIndex: 1,
           background: "var(--color-primary)", color: "#fff",
@@ -135,6 +146,10 @@ export default function HomeSaleMedia() {
 
   const orderedMediaRows = useMemo(() => {
     return [...mediaRows].sort((a, b) => {
+      const aIsCurrentCover = assetMatchesPrimaryPhoto(a, listing?.primaryPhotoUrl);
+      const bIsCurrentCover = assetMatchesPrimaryPhoto(b, listing?.primaryPhotoUrl);
+      if (aIsCurrentCover && !bIsCurrentCover) return -1;
+      if (!aIsCurrentCover && bIsCurrentCover) return 1;
       if (a.assetRole === "Cover" && b.assetRole !== "Cover") return -1;
       if (a.assetRole !== "Cover" && b.assetRole === "Cover") return 1;
       const sortA = Number(a.sortOrder || 9999);
@@ -142,10 +157,11 @@ export default function HomeSaleMedia() {
       if (sortA !== sortB) return sortA - sortB;
       return String(a.fileName || "").localeCompare(String(b.fileName || ""));
     });
-  }, [mediaRows]);
+  }, [listing?.primaryPhotoUrl, mediaRows]);
 
-  const coverPhoto = orderedMediaRows.find((m) => m.assetRole === "Cover");
-  const activePhotos = orderedMediaRows.filter((m) => m.assetRole !== "Cover");
+  const coverPhoto = orderedMediaRows.find((item) => assetMatchesPrimaryPhoto(item, listing?.primaryPhotoUrl))
+    || orderedMediaRows.find((m) => m.assetRole === "Cover");
+  const activePhotos = orderedMediaRows.filter((item) => !coverPhoto || item.assetId !== coverPhoto.assetId);
 
   async function refresh() {
     const [listingRow, media] = await Promise.all([
@@ -357,7 +373,11 @@ export default function HomeSaleMedia() {
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {orderedMediaRows.map((item) => (
-              <SalePhotoCard key={item.assetId || item.driveUrl || item.publicUrl} item={item} />
+              <SalePhotoCard
+                key={item.assetId || item.driveUrl || item.publicUrl}
+                item={item}
+                isCurrentCover={coverPhoto ? item.assetId === coverPhoto.assetId : false}
+              />
             ))}
           </div>
         )}
@@ -534,9 +554,11 @@ export default function HomeSaleMedia() {
                     <td>
                       <span style={{
                         fontSize: "0.75rem", fontWeight: 600,
-                        color: item.assetRole === "Cover" ? "var(--color-primary)" : "var(--color-text)",
+                        color: assetMatchesPrimaryPhoto(item, listing?.primaryPhotoUrl) || item.assetRole === "Cover"
+                          ? "var(--color-primary)"
+                          : "var(--color-text)",
                       }}>
-                        {item.assetRole === "Cover" ? "⭐ " : ""}{item.assetRole}
+                        {assetMatchesPrimaryPhoto(item, listing?.primaryPhotoUrl) ? "⭐ Current Cover" : item.assetRole === "Cover" ? "⭐ Cover" : item.assetRole}
                       </span>
                     </td>
                     <td>{item.assetType}</td>

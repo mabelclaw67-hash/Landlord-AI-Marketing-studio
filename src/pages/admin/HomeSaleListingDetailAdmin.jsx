@@ -74,7 +74,7 @@ export default function HomeSaleListingDetailAdmin() {
       setVideoRows(video);
 
       const hasPhotos = media.length > 0;
-      const hasCover = media.some((m) => m.assetRole === "Cover");
+      const hasCover = !!(listingData?.primaryPhotoUrl || media.some((m) => m.assetRole === "Cover"));
       const hasCopy = marketing.some((m) => m.bodyCopy || m.headline);
       const hasVideo = video.some((v) => v.voiceoverScript || v.outputMp4Url);
       const s = String(listingData?.status || "").toLowerCase();
@@ -105,6 +105,8 @@ export default function HomeSaleListingDetailAdmin() {
       setSaving(false);
     }
   };
+
+  const hasCover = !!(listing?.primaryPhotoUrl || mediaRows.some((m) => m.assetRole === "Cover"));
 
   const channels = [...new Set(marketingRows.map((r) => r.channel))].filter(Boolean);
   const currentTab = activeTab || channels[0];
@@ -410,8 +412,8 @@ export default function HomeSaleListingDetailAdmin() {
             },
             {
               label: "Cover Photo",
-              value: mediaRows.some((m) => m.assetRole === "Cover") ? "✅ Set" : "⏳ Not set",
-              ok: mediaRows.some((m) => m.assetRole === "Cover"),
+              value: hasCover ? "✅ Set" : "⏳ Not set",
+              ok: hasCover,
             },
             {
               label: "Marketing Copy",
