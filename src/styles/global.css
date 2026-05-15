@@ -2693,6 +2693,26 @@ tr:hover td { background: #F8FAFC; }
     color: #6b7280;
   }
 
+  .lh-mobile-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .lh-mobile-admin {
+    color: #5f7467;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .lh-mobile-admin:hover {
+    color: #3e5b4b;
+    text-decoration: none;
+  }
+
   .lh-mobile-lang {
     display: flex;
     align-items: center;

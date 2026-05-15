@@ -111,31 +111,31 @@ const PLATFORM_REASONS = [
     icon: "🛡️",
     title: "Why Vanisland AI Studio?",
     ch: "为什么选择我们？",
-    desc: "Built for rental listing marketing and home sale marketing in one platform.",
+    desc: "一个平台整合出租与卖房推广。 / Built for rental listing marketing and home sale marketing in one platform.",
   },
   {
     icon: "✨",
     title: "AI-Powered Marketing",
     ch: "AI 驱动内容生成",
-    desc: "Generate high-quality copy, pages, and materials in minutes.",
+    desc: "几分钟内生成高质量文案与页面。 / Generate high-quality copy, pages, and materials in minutes.",
   },
   {
     icon: "🌐",
     title: "Bilingual Ready",
     ch: "中英双语支持",
-    desc: "All content and pages are ready for Chinese and English.",
+    desc: "页面与内容都可稳定展示中英文。 / All content and pages are ready for Chinese and English.",
   },
   {
     icon: "🔗",
     title: "Share Anywhere",
     ch: "一键分享",
-    desc: "QR codes, share links, and mobile-friendly pages.",
+    desc: "二维码、分享链接与手机端页面一次整理。 / QR codes, share links, and mobile-friendly pages.",
   },
   {
     icon: "👥",
     title: "Built for Real Estate",
     ch: "专为房地产打造",
-    desc: "Designed for landlords, sellers, FSBO owners, and realtors.",
+    desc: "服务房东、屋主、FSBO 与地产经纪。 / Designed for landlords, sellers, FSBO owners, and realtors.",
   },
 ];
 
@@ -144,25 +144,25 @@ const PLATFORM_TRUST_POINTS = [
     icon: "🛡️",
     title: "Secure & Private",
     ch: "安全私密",
-    desc: "Your data is encrypted and protected.",
+    desc: "数据受保护，访问权限隔离。 / Your data is encrypted and protected.",
   },
   {
     icon: "☁️",
     title: "Cloud-Based",
     ch: "云端平台",
-    desc: "Access anywhere, anytime.",
+    desc: "可在不同设备随时访问。 / Access anywhere, anytime.",
   },
   {
     icon: "⏱️",
     title: "Save Time",
     ch: "节省时间",
-    desc: "Automate repetitive marketing tasks.",
+    desc: "减少重复整理与发布工作。 / Automate repetitive marketing tasks.",
   },
   {
     icon: "🎧",
     title: "Support",
     ch: "专业支持",
-    desc: "We're here to help you succeed.",
+    desc: "需要帮助时可直接联系。 / We're here to help you succeed.",
   },
 ];
 
@@ -217,6 +217,7 @@ export default function Home({ lang }) {
             <p className="lh-hero__desc-ch">{t(lang, "home.heroChSubtitle")}</p>
             <p className="lh-hero__desc-ch">
               一个平台，满足租赁房源与房屋出售的营销需求，服务房东、物业管理者、屋主、FSBO 业主和房地产经纪人。
+              <br />One platform for rental and home sale marketing across public pages, applications, and sharing.
             </p>
             <div className="lh-hero__actions">
               <Link to="/contact" className="lh-btn lh-btn--sand">
@@ -263,37 +264,37 @@ export default function Home({ lang }) {
           <div className="lh-section-title">
             <div className="lh-section-kicker">SECTION 2 / 第二部分</div>
             <h2>选择您的营销模块 / Choose Your Studio</h2>
-            <p>Select the studio that fits your needs. You can switch anytime.</p>
+            <p>选择适合您的工作台，可按需求切换。 / Select the studio that fits your needs. You can switch anytime.</p>
           </div>
 
           <div className="lh-platform-grid">
             <article className="lh-platform-card">
               <div className="lh-platform-card__icon">🏢</div>
               <div className="lh-platform-card__eyebrow">房东与物业管理使用 / For landlords and property managers</div>
-              <h3>Rental Listing Marketing Studio</h3>
-              <small>租赁房源 AI 营销工作台</small>
+              <h3>Rental Studio</h3>
+              <small>租赁工作台</small>
               <p>
                 生成中英双语出租广告、房源展示页、二维码、在线租房申请链接与社交分享素材。
                 <br />Create bilingual rental ads, listing pages, QR codes, online rental application links,
                 and social sharing packages.
               </p>
               <Link to="/examples" className="lh-btn lh-btn--sand">
-                进入 Rental Studio / Enter Rental Studio
+                Rental Studio / 租赁工作台
               </Link>
             </article>
 
             <article className="lh-platform-card lh-platform-card--soft">
               <div className="lh-platform-card__icon lh-platform-card__icon--sale">🏠</div>
               <div className="lh-platform-card__eyebrow">屋主、FSBO 与地产经纪使用 / For home sellers, FSBO owners, and realtors</div>
-              <h3>AI Home Sale Marketing Studio</h3>
-              <small>房屋出售 AI 营销工作台</small>
+              <h3>Home Sale Studio</h3>
+              <small>售房工作台</small>
               <p>
                 生成卖房展示页、双语营销文案、照片与视频推广素材、二维码与买家咨询入口。
                 <br />Create home sale listing pages, bilingual marketing copy, photo/video promotion materials,
                 QR codes, and buyer inquiry links.
               </p>
               <Link to="/home-sale-studio" className="lh-btn lh-btn--white">
-                进入 Home Sale Studio / Enter Home Sale Studio
+                Home Sale Studio / 售房工作台
               </Link>
             </article>
           </div>

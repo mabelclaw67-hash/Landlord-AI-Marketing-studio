@@ -44,7 +44,7 @@ function formatDate(val) {
   return s;
 }
 
-export default function Examples({ lang }) {
+export default function Examples() {
   const [listings, setListings] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
@@ -66,11 +66,11 @@ export default function Examples({ lang }) {
 
       {/* Hero */}
       <section className="tenant-hero">
-        <h1 className="tenant-hero__title">Rental Listings</h1>
-        <p className="tenant-hero__sub">当前可租房源</p>
+        <h1 className="tenant-hero__title">Public Rental Listings / 公开出租房源</h1>
+        <p className="tenant-hero__sub">Rental Studio / 租赁工作台</p>
         <p className="tenant-hero__desc">
           Browse current rentals and apply online.
-          <br />查看可租房源，在线提交申请。
+          <br />查看当前可租房源，并在线提交申请。
         </p>
         <div className="tenant-share-kit-wrap">
           <ShareKit
@@ -138,25 +138,25 @@ export default function Examples({ lang }) {
                   <div className="rental-card__facts">
                     {listing.rent && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Rent</span>
+                        <span className="rental-card__fact-label">Rent / 租金</span>
                         <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
                       </div>
                     )}
                     {listing.bedrooms && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Beds</span>
+                        <span className="rental-card__fact-label">Beds / 卧室</span>
                         <span className="rental-card__fact-value">{listing.bedrooms}</span>
                       </div>
                     )}
                     {listing.bathrooms && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Baths</span>
+                        <span className="rental-card__fact-label">Baths / 卫浴</span>
                         <span className="rental-card__fact-value">{listing.bathrooms}</span>
                       </div>
                     )}
                     {avail && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Available</span>
+                        <span className="rental-card__fact-label">Available / 可入住</span>
                         <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
                       </div>
                     )}
@@ -179,8 +179,8 @@ export default function Examples({ lang }) {
                     className="rental-card__cta"
                   >
                     {statusMeta.applicationsClosed
-                      ? (lang === "zh" ? "查看详情 / 状态 →" : "View Details / Status →")
-                      : (lang === "zh" ? "查看详情 / 申请 →" : "View Details / Apply →")}
+                      ? "View Details / Status / 查看详情 / 状态 →"
+                      : "View Details / Apply / 查看详情 / 申请 →"}
                   </Link>
                   <ShareButton
                     title={listing.address}

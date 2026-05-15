@@ -107,8 +107,8 @@ export default function HomeSaleListingDetail() {
   return (
     <div className="pub-page">
       <section className="pub-hero">
-        <h1 className="pub-hero__title">出售房源详情</h1>
-        <p className="pub-hero__sub">Home Sale Listing Detail</p>
+        <h1 className="pub-hero__title">Home Sale Listing / 出售房源详情</h1>
+        <p className="pub-hero__sub">Public Sale Listing Detail / 公开出售页</p>
       </section>
 
       <section className="section">
@@ -153,21 +153,21 @@ export default function HomeSaleListingDetail() {
 
                 <div className="rental-card__facts" style={{ marginBottom: 18 }}>
                   <div className="rental-card__fact">
-                    <span className="rental-card__fact-label">Asking Price</span>
+                    <span className="rental-card__fact-label">Asking Price / 售价</span>
                     <span className="rental-card__fact-value">{formatPrice(listing.askingPrice)}</span>
                   </div>
                   <div className="rental-card__fact">
-                    <span className="rental-card__fact-label">Beds / Baths</span>
+                    <span className="rental-card__fact-label">Beds / Baths / 卧室 / 卫浴</span>
                     <span className="rental-card__fact-value">
                       {listing.bedrooms || "—"} / {listing.bathrooms || "—"}
                     </span>
                   </div>
                   <div className="rental-card__fact">
-                    <span className="rental-card__fact-label">Property Type</span>
+                    <span className="rental-card__fact-label">Property Type / 房源类型</span>
                     <span className="rental-card__fact-value">{listing.propertyType || "待填写 / Pending"}</span>
                   </div>
                   <div className="rental-card__fact">
-                    <span className="rental-card__fact-label">Status</span>
+                    <span className="rental-card__fact-label">Status / 状态</span>
                     <span className="rental-card__fact-value">{listing.status || "Draft"}</span>
                   </div>
                 </div>
@@ -220,7 +220,7 @@ export default function HomeSaleListingDetail() {
                 <div className="flex" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
                   <button type="button" className="btn btn--ghost" onClick={handlePrintQrCode}>Print QR Code / 打印二维码</button>
                   <a href={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)} target="_blank" rel="noreferrer" className="btn btn--ghost">
-                    Open Public Page
+                    Open Public Page / 打开公开页
                   </a>
                 </div>
               </div>
@@ -243,7 +243,7 @@ export default function HomeSaleListingDetail() {
                     placeholder="留言 / Message"
                   />
                   <button type="button" className="btn btn--ghost" disabled>
-                    local test only
+                    Local Test Only / 仅本地测试
                   </button>
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function HomeSaleListingDetail() {
           )}
 
           <Link to="/home-sale-studio" className="btn btn--ghost">
-            返回出售工作台 / Back to Home Sale Studio
+            Back to Home Sale Studio / 返回售房工作台
           </Link>
         </div>
       </section>

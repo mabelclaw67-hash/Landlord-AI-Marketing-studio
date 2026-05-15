@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import "./styles/global.css";
 
@@ -38,6 +38,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
+import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 
 function AppInner({ lang, setLang }) {
   const { pathname } = useLocation();
@@ -52,9 +53,9 @@ function AppInner({ lang, setLang }) {
         <Route path="/examples" element={<TrialAccessGate module="rental"><Examples lang={lang} /></TrialAccessGate>} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
-        <Route path="/trial-access" element={<TrialAccess />} />
-        <Route path="/home-sale-studio" element={<TrialAccessGate module="sale"><HomeSaleStudio /></TrialAccessGate>} />
-        <Route path="/home-sale-studio/listings/:listingId" element={<TrialAccessGate module="sale"><HomeSaleListingDetail /></TrialAccessGate>} />
+        <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
+        <Route path="/home-sale-studio" element={<TrialAccessGate module="sale"><HomeSaleStudio lang={lang} /></TrialAccessGate>} />
+        <Route path="/home-sale-studio/listings/:listingId" element={<TrialAccessGate module="sale"><HomeSaleListingDetail lang={lang} /></TrialAccessGate>} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="rental" element={<Dashboard lang={lang} mode="rental" />} />
@@ -82,7 +83,7 @@ function AppInner({ lang, setLang }) {
           <Route path="settings" element={<AdminSettings />} />
         </Route>
         <Route path="/apply/:listingId" element={<TrialAccessGate module="rental"><RentalApplication /></TrialAccessGate>} />
-        <Route path="/listings/:id" element={<TrialAccessGate module="rental"><PublicListing /></TrialAccessGate>} />
+        <Route path="/listings/:id" element={<TrialAccessGate module="rental"><PublicListing lang={lang} /></TrialAccessGate>} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -91,11 +92,16 @@ function AppInner({ lang, setLang }) {
 }
 
 export default function App() {
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState(readPreferredLang);
+
+  useEffect(() => {
+    applyDocumentLang(lang);
+    persistLang(lang);
+  }, [lang]);
 
   return (
     <BrowserRouter>
-      <AppInner lang={lang} setLang={setLang} />
+      <AppInner lang={lang} setLang={(value) => setLang(normalizeLang(value, readPreferredLang()))} />
     </BrowserRouter>
   );
 }

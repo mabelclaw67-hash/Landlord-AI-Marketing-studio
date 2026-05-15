@@ -151,8 +151,8 @@ export default function PublicListing() {
   if (error || !listing) {
     return (
       <div className="page-wrapper" style={{ padding: "60px 20px", textAlign: "center" }}>
-        <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>{error || "Listing not found."}</p>
-        <Link to="/" className="btn btn--ghost btn--sm">← Back to Home</Link>
+        <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>{error || "Listing not found / 未找到房源。"}</p>
+        <Link to="/" className="btn btn--ghost btn--sm">← Back to Home / 返回首页</Link>
       </div>
     );
   }
@@ -168,14 +168,14 @@ export default function PublicListing() {
     : photos;
 
   const detailRows = [
-    ["Monthly Rent",   listing.rent ? `$${Number(listing.rent).toLocaleString()} / month` : null],
-    ["Available",      formatDate(listing.available)],
-    ["Lease Term",     listing.leaseTerm],
-    ["Utilities",      listing.utilities],
-    ["Pets",           listing.pets],
-    ["Parking",        listing.parking],
-    ["Laundry",        listing.laundry],
-    ["Smoking Policy", listing.smoking],
+    ["Monthly Rent / 月租",   listing.rent ? `$${Number(listing.rent).toLocaleString()} / month` : null],
+    ["Available / 可入住",    formatDate(listing.available)],
+    ["Lease Term / 租期",     listing.leaseTerm],
+    ["Utilities / 水电",      listing.utilities],
+    ["Pets / 宠物",           listing.pets],
+    ["Parking / 停车",        listing.parking],
+    ["Laundry / 洗衣",        listing.laundry],
+    ["Smoking Policy / 吸烟", listing.smoking],
   ].filter(([, v]) => v);
 
   const featureList = (listing.features || "")
@@ -457,7 +457,7 @@ export default function PublicListing() {
       }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
           <p style={{ fontSize: "0.75rem", color: "#62796b", marginBottom: 8, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
-            Vanisland Residential · Rental Listing
+            Vanisland Residential · Public Rental Listing / 公开出租房源
           </p>
           <div style={{ marginBottom: 12 }}>
             <span
@@ -490,10 +490,10 @@ export default function PublicListing() {
       <div style={{ background: "#fff", borderBottom: "1px solid #e5dfd6" }}>
         <div className="listing-facts-strip" style={{ maxWidth: 800, margin: "0 auto", display: "flex", flexWrap: "wrap" }}>
           {[
-            ["Rent",      listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
-            ["Available", formatDate(listing.available)],
-            ["Bedrooms",  String(listing.bedrooms || "—")],
-            ["Bathrooms", String(listing.bathrooms || "—")],
+            ["Rent / 租金",         listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
+            ["Available / 可入住",  formatDate(listing.available)],
+            ["Bedrooms / 卧室",     String(listing.bedrooms || "—")],
+            ["Bathrooms / 卫浴",    String(listing.bathrooms || "—")],
           ].map(([label, val], i, arr) => (
             <div key={label} style={{
               flex: "1 1 120px", padding: "16px 16px 14px",
@@ -511,7 +511,7 @@ export default function PublicListing() {
 
         {/* ── Photos ──────────────────────────────────────────────────────── */}
         {photosLoading && (
-          <p style={{ marginTop: 24, color: "var(--color-text-muted)", fontSize: "0.88rem" }}>Loading photos…</p>
+          <p style={{ marginTop: 24, color: "var(--color-text-muted)", fontSize: "0.88rem" }}>Loading photos… / 正在读取照片…</p>
         )}
         {!photosLoading && orderedPhotos.length > 0 && (
           <div style={{ marginTop: 24 }}>
@@ -529,7 +529,7 @@ export default function PublicListing() {
         {/* ── Property details ────────────────────────────────────────────── */}
         <div style={{ ...sectionCard, marginTop: 24 }}>
           <h2 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 16, color: "#3e5b4b" }}>
-            Property Details
+            Property Details / 房源详情
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "14px 24px" }}>
             {detailRows.map(([label, val]) => (
@@ -542,7 +542,7 @@ export default function PublicListing() {
 
           {featureList.length > 0 && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--color-border)" }}>
-              <div style={{ ...labelStyle, marginBottom: 10 }}>Key Features</div>
+              <div style={{ ...labelStyle, marginBottom: 10 }}>Key Features / 房源亮点</div>
               <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 {featureList.map((f, i) => (
                   <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.9rem", lineHeight: 1.55 }}>
@@ -561,18 +561,18 @@ export default function PublicListing() {
           border: "2px solid #3e5b4b", padding: "28px 20px",
         }}>
           <h2 style={{ fontWeight: 800, fontSize: "1.15rem", marginBottom: 10, color: "#3e5b4b" }}>
-            Apply for This Rental
+            Apply for This Rental / 申请此房源
           </h2>
           <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75, marginBottom: 20 }}>
             Interested applicants may apply online using the rental application form.
-            Please prepare income/employment proof, credit information, references, and tenant insurance information.
+            <br />请准备收入或工作证明、信用信息、推荐人资料，以及租客保险信息。
           </p>
 
           {/* Listing context */}
           <div style={{ background: "#edf3ee", borderRadius: 8, padding: "12px 16px", marginBottom: 22, fontSize: "0.88rem", lineHeight: 1.9 }}>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Applying for: </span><strong>{title}</strong></div>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing ID: </span><code style={{ fontSize: "0.84rem" }}>{listing.id}</code></div>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing status: </span><strong>{statusMeta.label}</strong></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Applying for / 申请房源: </span><strong>{title}</strong></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing ID / 房源编号: </span><code style={{ fontSize: "0.84rem" }}>{listing.id}</code></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing Status / 当前状态: </span><strong>{statusMeta.label}</strong></div>
           </div>
 
           {/* Primary CTA */}
@@ -594,6 +594,7 @@ export default function PublicListing() {
               </button>
               <p style={{ fontSize: "0.82rem", color: statusMeta.color, textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
                 This listing remains visible, but it is not currently accepting new applications.
+                <br />该房源仍可查看，但目前暂停接收新申请。
               </p>
             </div>
           ) : (
@@ -609,7 +610,7 @@ export default function PublicListing() {
                 boxShadow: "0 3px 10px rgba(62,91,75,0.3)",
               }}
             >
-              Apply Now →
+              Apply Now / 立即申请 →
             </Link>
           )}
 
@@ -623,24 +624,24 @@ export default function PublicListing() {
               padding: "16px 14px",
             }}>
               <h3 style={{ fontSize: "1rem", fontWeight: 800, color: "#8a4b16", marginBottom: 10 }}>
-                Open House
+                Open House / 看房信息
               </h3>
               <div style={{ display: "grid", gap: 10 }}>
                 {openHouseInfo.dateTime && (
                   <div>
-                    <div style={labelStyle}>Open House Date / Time</div>
+                    <div style={labelStyle}>Open House Date / Time / 看房时间</div>
                     <div style={{ fontSize: "0.92rem", lineHeight: 1.55 }}>{openHouseInfo.dateTime}</div>
                   </div>
                 )}
                 {openHouseInfo.viewingInstructions && (
                   <div>
-                    <div style={labelStyle}>Viewing Instructions</div>
+                    <div style={labelStyle}>Viewing Instructions / 看房说明</div>
                     <div style={{ fontSize: "0.92rem", lineHeight: 1.6 }}>{openHouseInfo.viewingInstructions}</div>
                   </div>
                 )}
                 {openHouseInfo.parkingAccessNotes && (
                   <div>
-                    <div style={labelStyle}>Parking / Access Notes</div>
+                    <div style={labelStyle}>Parking / Access Notes / 停车与出入说明</div>
                     <div style={{ fontSize: "0.92rem", lineHeight: 1.6 }}>{openHouseInfo.parkingAccessNotes}</div>
                   </div>
                 )}
@@ -734,10 +735,11 @@ export default function PublicListing() {
               fontFamily: "var(--font)",
             }}
           >
-            {pdfBusy ? "Generating Rental Application PDF..." : "📄 Download Rental Application Form (PDF)"}
+            {pdfBusy ? "Generating Rental Application PDF... / 正在生成申请 PDF..." : "📄 Download Rental Application Form (PDF) / 下载租房申请表"}
           </button>
           <p style={{ fontSize: "0.73rem", color: "var(--color-text-muted)", marginTop: 8, textAlign: "center", lineHeight: 1.6 }}>
             Generates a printable PDF with this listing information. Online form is still preferred.
+            <br />会生成带本房源信息的可打印 PDF，但仍建议优先使用在线申请表。
           </p>
           {/* Watch Video — only shown when videoUrl exists in listing data */}
           {listing.videoUrl && (
@@ -769,18 +771,19 @@ export default function PublicListing() {
         {/* ── Application Requirements ─────────────────────────────────────── */}
         <div style={{ ...sectionCard, marginTop: 16, background: "#f8fafc" }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: 14, color: "var(--color-text)" }}>
-            Application Requirements
+            Application Requirements / 申请要求
           </h3>
           <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.6 }}>
             Qualified applicants must provide the following:
+            <br />申请人通常需要准备以下资料：
           </p>
           <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              "A completed rental application for each adult occupant",
-              "Proof of income and/or employment",
-              "Credit score report, or written consent for the landlord/property manager to obtain a credit report",
-              "References",
-              "Tenant insurance with a minimum of $1 million third-party liability coverage",
+              "A completed rental application for each adult occupant / 每位成年入住者都需填写完整申请表",
+              "Proof of income and/or employment / 收入或工作证明",
+              "Credit score report, or written consent for the landlord/property manager to obtain a credit report / 信用分数报告，或书面同意房东或物业管理获取信用报告",
+              "References / 推荐人资料",
+              "Tenant insurance with a minimum of $1 million third-party liability coverage / 至少 100 万加元第三方责任保额的租客保险",
             ].map((req, i) => (
               <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: "0.875rem", lineHeight: 1.6 }}>
                 <span style={{ color: "#3e5b4b", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>✓</span>
@@ -793,10 +796,11 @@ export default function PublicListing() {
         {/* ── Contact Information ──────────────────────────────────────────── */}
         <div style={{ ...sectionCard, marginTop: 16 }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", marginBottom: 10, color: "var(--color-text)" }}>
-            Contact Information
+            Contact Information / 联系方式
           </h3>
           <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
             If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
+            <br />如有兴趣，请联系 <strong>Mabel</strong>，并简单介绍您的基本情况。
           </p>
           {!statusMeta.applicationsClosed && (
             <Link
@@ -809,7 +813,7 @@ export default function PublicListing() {
                 fontSize: "1rem", textDecoration: "none", textAlign: "center",
               }}
             >
-              Apply Now →
+              Apply Now / 立即申请 →
             </Link>
           )}
         </div>

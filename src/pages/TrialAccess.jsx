@@ -72,7 +72,7 @@ export default function TrialAccess() {
   return (
     <div className="pub-page">
       <section className="pub-hero">
-        <h1 className="pub-hero__title">Trial Access / 试用访问</h1>
+        <h1 className="pub-hero__title">Trial Access / 试用入口</h1>
         <p className="pub-hero__sub">Enter your email and access code to open your approved module.</p>
         <p className="pub-hero__desc">
           当前入口对应：{moduleLabel}

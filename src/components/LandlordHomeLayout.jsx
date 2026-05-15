@@ -1,9 +1,9 @@
 import { NavLink, Link } from "react-router-dom";
 import Home from "../pages/Home";
-import { readTrialAccess } from "../utils/trialAccess";
+import { normalizeLang } from "../utils/lang";
 
 export default function LandlordHomeLayout({ lang, setLang }) {
-  const trialSession = readTrialAccess();
+  const safeLang = normalizeLang(lang);
   return (
     <div className="landlord-app">
       {/* Desktop Sidebar */}
@@ -24,7 +24,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           </NavLink>
           <NavLink to="/services" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏷️</span>
-            <span><strong>Pricing</strong><small>价格</small></span>
+            <span><strong>Services</strong><small>服务</small></span>
           </NavLink>
           <NavLink to="/examples" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏢</span>
@@ -46,17 +46,15 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">Workspace</div>
-          {!trialSession && (
-            <Link to="/admin" className="lh-nav-item lh-nav-item--admin">
-              <span className="lh-nav-item__icon">⚙️</span>
-              <span><strong>Admin Studio</strong><small>管理后台</small></span>
-            </Link>
-          )}
+          <Link to="/admin" className="lh-nav-item lh-nav-item--admin">
+            <span className="lh-nav-item__icon">⚙️</span>
+            <span><strong>Admin Studio</strong><small>管理后台</small></span>
+          </Link>
           <div className="lh-nav-item lh-lang-row">
             🌐
-            <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
+            <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
             <span>/</span>
-            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中</button>
+            <button className={safeLang === "zh" ? "active" : ""} onClick={() => setLang("zh")} translate="no" lang="zh-CN">中文</button>
           </div>
         </nav>
 
@@ -93,10 +91,15 @@ export default function LandlordHomeLayout({ lang, setLang }) {
             <strong>🏠 Vanisland AI Studio</strong>
             <span>房东广告工作台</span>
           </div>
-          <div className="lh-mobile-lang">
-            <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
-            <span>/</span>
-            <button className={lang === "zh" ? "active" : ""} onClick={() => setLang("zh")}>中</button>
+          <div className="lh-mobile-actions">
+            <Link to="/admin" className="lh-mobile-admin">
+              ⚙️ Admin / 管理后台
+            </Link>
+            <div className="lh-mobile-lang">
+              <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
+              <span>/</span>
+              <button className={safeLang === "zh" ? "active" : ""} onClick={() => setLang("zh")} translate="no" lang="zh-CN">中文</button>
+            </div>
           </div>
         </div>
 
@@ -111,22 +114,20 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         </NavLink>
         <NavLink to="/examples" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>🏘️</span>
-          <span>{lang === "zh" ? "出租" : "Rentals"}</span>
+          <span>Rentals</span>
         </NavLink>
         <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>🏡</span>
-          <span>{lang === "zh" ? "出售" : "Sale"}</span>
+          <span>Sale</span>
+        </NavLink>
+        <NavLink to="/trial-access" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+          <span>🗝️</span>
+          <span>Trial</span>
         </NavLink>
         <NavLink to="/contact" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>✉️</span>
           <span>Contact</span>
         </NavLink>
-        {!trialSession && (
-          <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
-            <span>⚙️</span>
-            <span>Admin</span>
-          </NavLink>
-        )}
       </nav>
     </div>
   );

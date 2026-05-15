@@ -46,8 +46,8 @@ export default function HomeSaleStudio() {
   return (
     <div className="pub-page">
       <section className="pub-hero">
-        <h1 className="pub-hero__title">房屋出售 AI 营销工作台</h1>
-        <p className="pub-hero__sub">AI Home Sale Marketing Studio</p>
+        <h1 className="pub-hero__title">Home Sale Studio / 售房工作台</h1>
+        <p className="pub-hero__sub">Public Sale Listings / 公开出售房源</p>
         <p className="pub-hero__desc">
           面向屋主、FSBO 自售屋主与地产经纪的双语房屋出售营销模块。
           <br />Bilingual home sale marketing tools for sellers, FSBO owners, and realtors.
@@ -60,13 +60,13 @@ export default function HomeSaleStudio() {
             <div className="card home-sale-admin-entry" style={{ marginBottom: 24 }}>
               <div>
                 <div className="home-sale-admin-entry__eyebrow">Home Sale Admin Studio / 房屋出售后台管理</div>
-                <h2>本地后台入口 / Manage the Home Sale Workflow</h2>
+                <h2>Manage the Home Sale Studio / 管理售房工作台</h2>
                 <p>
                   从这里进入 Home Sale Admin，打开出售数据库、测试公开页与测试详情页。
                 </p>
               </div>
               <Link to="/admin/home-sale" className="btn btn--sage">
-                Manage Home Sale Listings / 管理出售房源
+                Home Sale Admin / 售房后台
               </Link>
             </div>
           )}
@@ -132,17 +132,17 @@ export default function HomeSaleStudio() {
 
                   <div className="rental-card__facts">
                     <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Asking Price</span>
+                      <span className="rental-card__fact-label">Asking Price / 售价</span>
                       <span className="rental-card__fact-value">{formatPrice(listing.askingPrice)}</span>
                     </div>
                     <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Beds / Baths</span>
+                      <span className="rental-card__fact-label">Beds / Baths / 卧室 / 卫浴</span>
                       <span className="rental-card__fact-value">
                         {listing.bedrooms || "—"} / {listing.bathrooms || "—"}
                       </span>
                     </div>
                     <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Property Type</span>
+                      <span className="rental-card__fact-label">Property Type / 房源类型</span>
                       <span className="rental-card__fact-value">{listing.propertyType || "待填写 / Pending"}</span>
                     </div>
                   </div>
@@ -167,7 +167,7 @@ export default function HomeSaleStudio() {
                   </div>
 
                   <Link to={`/home-sale-studio/listings/${listing.id || ""}`} className="rental-card__cta">
-                    查看详情 / View Listing →
+                    View Listing / 查看详情 →
                   </Link>
                   <ShareButton
                     title={listing.address || "Home Sale Listing"}
@@ -181,7 +181,7 @@ export default function HomeSaleStudio() {
 
           <div style={{ marginTop: 24 }}>
             <Link to="/" className="btn btn--ghost">
-              返回首页 / Back to Homepage
+              Back to Homepage / 返回首页
             </Link>
           </div>
         </div>
