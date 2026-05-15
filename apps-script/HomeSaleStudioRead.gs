@@ -8,6 +8,7 @@ var HOME_SALE_LISTINGS_SHEET = "01 Sale Listings";
 var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
 var HOME_SALE_VIDEO_SHEET = "05 Video Scripts";
+var HOME_SALE_BUYER_INQUIRIES_SHEET = "04 Buyer Inquiries";
 var HOME_SALE_ADMIN_ACCESS_CODE = "246810"; // local security test only
 var HOME_SALE_LISTING_ACCESS_HEADERS = [
   "Created By Email",
@@ -18,7 +19,7 @@ var HOME_SALE_LISTING_ACCESS_HEADERS = [
 function doGet(e) {
   try {
     var action = homeSaleParam_(e, "action");
-    var publicGetActions = ["getSaleListings", "getSaleListingById"];
+    var publicGetActions = ["getSaleListings", "getSaleListingById", "getMarketingCopyByListingId"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale", isPublicGet);
 
@@ -38,7 +39,7 @@ function doPost(e) {
   try {
     var body = JSON.parse((e.postData && e.postData.contents) || "{}");
     var action = body.action || "";
-    var publicPostActions = ["getSaleListings", "getSaleListingById"];
+    var publicPostActions = ["getSaleListings", "getSaleListingById", "submitBuyerInquiry"];
     var isPublicPost = publicPostActions.indexOf(action) >= 0;
     var auth = homeSaleResolveAccess_(body || {}, "sale", isPublicPost);
 
@@ -54,6 +55,9 @@ function doPost(e) {
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
     if (action === "getVideoScriptsByListingId") return homeSaleOk_(getVideoScriptsByListingId_(body.listingId, auth));
     if (action === "createOrUpdateVideoScript") return homeSaleOk_(createOrUpdateVideoScript_(body.scriptId, body.record || {}, auth));
+    if (action === "submitBuyerInquiry") return homeSaleOk_(submitBuyerInquiry_(body, auth));
+    if (action === "getBuyerInquiries") return homeSaleOk_(getBuyerInquiries_(body, auth));
+    if (action === "updateBuyerInquiry") return homeSaleOk_(updateBuyerInquiry_(body, auth));
 
     return homeSaleErr_("Unknown POST action: " + action);
   } catch (err) {
@@ -246,6 +250,7 @@ function updateSaleListing_(listingId, record, auth) {
   if (!targetId) throw new Error("Missing Listing ID for update.");
 
   homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), HOME_SALE_LISTING_ACCESS_HEADERS);
+  homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), ["Showing Availability"]);
   var match = homeSaleAssertListingAccess_(targetId, auth);
   if (auth.mode === "trial") {
     record["Created By Email"] = auth.email;
@@ -823,6 +828,265 @@ function createOrUpdateVideoScript_(scriptId, record, auth) {
   return { success: true, scriptId: finalScriptId };
 }
 
+function submitBuyerInquiry_(body, auth) {
+  var listingId = String(body.listingId || "").trim();
+  var buyerFirstName = String(body.buyerFirstName || "").trim();
+  var buyerLastName = String(body.buyerLastName || "").trim();
+  var phone = String(body.phone || "").trim();
+  var email = String(body.email || "").trim();
+  var preferredShowingDate = String(body.preferredShowingDate || "").trim();
+  var preferredTimeWindow = String(body.preferredTimeWindow || "").trim();
+  var message = String(body.message || "").trim();
+
+  if (!listingId) throw new Error("Missing listingId.");
+  if (!buyerFirstName) throw new Error("First name is required.");
+  if (!email) throw new Error("Email is required.");
+
+  // Fetch listing title — skip access guard, public submission
+  var listingTitle = String(body.listingTitle || "").trim();
+  if (!listingTitle) {
+    try {
+      var match = homeSaleFindByValue_(HOME_SALE_LISTINGS_SHEET, "Listing ID", listingId);
+      if (match) listingTitle = match.record["Property Address"] || listingId;
+    } catch (_) { listingTitle = listingId; }
+  }
+
+  var sheet = homeSaleGetSheet_(HOME_SALE_BUYER_INQUIRIES_SHEET);
+  var requiredHeaders = [
+    "Timestamp", "Inquiry ID", "Listing ID", "Listing Title",
+    "Buyer First Name", "Buyer Last Name", "Email", "Phone",
+    "Preferred Showing Date", "Preferred Time Window", "Message",
+    "Source Page", "Status", "Seller Approval", "Seller Notes",
+    "Confirmed Showing Time", "Notes"
+  ];
+  homeSaleAddMissingHeaders_(sheet, requiredHeaders);
+  var headers = homeSaleGetHeaders_(sheet);
+
+  var inquiryId = homeSaleGenerateNextId_(sheet, "Inquiry ID", "BI");
+  var record = {
+    "Timestamp": new Date(),
+    "Inquiry ID": inquiryId,
+    "Listing ID": listingId,
+    "Listing Title": listingTitle,
+    "Buyer First Name": buyerFirstName,
+    "Buyer Last Name": buyerLastName,
+    "Email": email,
+    "Phone": phone,
+    "Preferred Showing Date": preferredShowingDate,
+    "Preferred Time Window": preferredTimeWindow,
+    "Message": message,
+    "Source Page": "Home Sale Public Page",
+    "Status": "New",
+    "Seller Approval": "Pending",
+    "Seller Notes": "",
+    "Confirmed Showing Time": "",
+    "Notes": ""
+  };
+
+  homeSaleAppendRecord_(sheet, headers, record, {});
+  return { success: true, inquiryId: inquiryId };
+}
+
+function getBuyerInquiries_(body, auth) {
+  if (auth.mode !== "admin") throw new Error("Admin access required to view buyer inquiries.");
+  var sheet = homeSaleGetSheet_(HOME_SALE_BUYER_INQUIRIES_SHEET);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var headers = homeSaleGetHeaders_(sheet);
+  var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  var result = [];
+  for (var i = 0; i < rows.length; i++) {
+    var record = homeSaleObjectFromRow_(headers, rows[i]);
+    if (!record["Inquiry ID"]) continue;
+    result.push({
+      inquiryId: String(record["Inquiry ID"] || ""),
+      listingId: String(record["Listing ID"] || ""),
+      listingTitle: String(record["Listing Title"] || ""),
+      buyerFirstName: String(record["Buyer First Name"] || ""),
+      buyerLastName: String(record["Buyer Last Name"] || ""),
+      email: String(record["Email"] || ""),
+      phone: String(record["Phone"] || ""),
+      preferredShowingDate: record["Preferred Showing Date"] ? String(record["Preferred Showing Date"]) : "",
+      preferredTimeWindow: String(record["Preferred Time Window"] || ""),
+      message: String(record["Message"] || ""),
+      sourcePage: String(record["Source Page"] || ""),
+      status: String(record["Status"] || "New"),
+      sellerApproval: String(record["Seller Approval"] || "Pending"),
+      sellerNotes: String(record["Seller Notes"] || ""),
+      confirmedShowingTime: String(record["Confirmed Showing Time"] || ""),
+      timestamp: record["Timestamp"] ? String(record["Timestamp"]) : "",
+    });
+  }
+  return result;
+}
+
+function updateBuyerInquiry_(body, auth) {
+  if (auth.mode !== "admin") throw new Error("Admin access required to update buyer inquiries.");
+  var inquiryId = String(body.inquiryId || "").trim();
+  if (!inquiryId) throw new Error("Missing inquiryId.");
+
+  var sheet = homeSaleGetSheet_(HOME_SALE_BUYER_INQUIRIES_SHEET);
+  var requiredHeaders = [
+    "Timestamp", "Inquiry ID", "Listing ID", "Listing Title",
+    "Buyer First Name", "Buyer Last Name", "Email", "Phone",
+    "Preferred Showing Date", "Preferred Time Window", "Message",
+    "Source Page", "Status", "Seller Approval", "Seller Notes",
+    "Confirmed Showing Time", "Notes", "Email Sent At"
+  ];
+  homeSaleAddMissingHeaders_(sheet, requiredHeaders);
+  var headers = homeSaleGetHeaders_(sheet);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) throw new Error("No buyer inquiries found.");
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  var idIndex = headers.indexOf("Inquiry ID");
+  if (idIndex === -1) throw new Error("Inquiry ID column not found.");
+
+  var targetRow = -1;
+  var existingRecord = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][idIndex] || "").trim() === inquiryId) {
+      targetRow = i + 2;
+      existingRecord = homeSaleObjectFromRow_(headers, rows[i]);
+      break;
+    }
+  }
+  if (targetRow === -1) throw new Error("Buyer inquiry not found: " + inquiryId);
+
+  var emailSentAt = "";
+  var emailResult = { sent: false };
+
+  if (body.sendNotification) {
+    emailResult = homeSaleSendBuyerNotification_(existingRecord, body);
+    if (emailResult.sent) emailSentAt = new Date().toString();
+  }
+
+  var allowedFields = {
+    "Status": body.status,
+    "Seller Approval": body.sellerApproval,
+    "Seller Notes": body.sellerNotes,
+    "Confirmed Showing Time": body.confirmedShowingTime,
+  };
+  if (emailSentAt) allowedFields["Email Sent At"] = emailSentAt;
+
+  var current = sheet.getRange(targetRow, 1, 1, headers.length).getValues()[0];
+  var updated = current.slice();
+  for (var col = 0; col < headers.length; col++) {
+    var header = headers[col];
+    if (allowedFields.hasOwnProperty(header) && allowedFields[header] !== undefined) {
+      updated[col] = allowedFields[header];
+    }
+  }
+  sheet.getRange(targetRow, 1, 1, headers.length).setValues([updated]);
+  return { success: true, inquiryId: inquiryId, emailSent: emailResult.sent };
+}
+
+function homeSaleSendBuyerNotification_(record, body) {
+  var buyerEmail = String(record["Email"] || "").trim();
+  if (!buyerEmail) return { sent: false, reason: "No buyer email on record." };
+
+  var firstName = String(record["Buyer First Name"] || "").trim() || "Buyer";
+  var listingTitle = String(record["Listing Title"] || "").trim() || "the property";
+  var showingDate = String(record["Preferred Showing Date"] || "").trim();
+  var timeWindow = String(record["Preferred Time Window"] || "").trim();
+  var confirmedTime = String(body.confirmedShowingTime || record["Confirmed Showing Time"] || "").trim();
+  var sellerApproval = String(body.sellerApproval || "").trim();
+
+  var subject = "";
+  var bodyText = "";
+
+  if (sellerApproval === "Approved") {
+    subject = "Your Showing Request is Confirmed / 您的看房申请已确认 — " + listingTitle;
+    bodyText = [
+      "Dear " + firstName + ",",
+      "",
+      "Great news! Your showing request has been confirmed.",
+      "",
+      "Property / 房源: " + listingTitle,
+      confirmedTime
+        ? "Confirmed Showing Time / 确认看房时间: " + confirmedTime
+        : "Showing Date / 看房日期: " + showingDate + (timeWindow ? "  " + timeWindow : ""),
+      "",
+      "Please arrive on time. If you need to make any changes, please reply to this email.",
+      "",
+      "---",
+      "",
+      "亲爱的 " + firstName + "，",
+      "",
+      "好消息！您的看房申请已确认。",
+      "",
+      "房源：" + listingTitle,
+      confirmedTime
+        ? "确认看房时间：" + confirmedTime
+        : "看房日期：" + showingDate + (timeWindow ? "  " + timeWindow : ""),
+      "",
+      "请准时到场。如需更改，请回复本邮件。",
+      "",
+      "— Vanisland Property Management"
+    ].join("\n");
+
+  } else if (sellerApproval === "Reschedule") {
+    subject = "Showing Request — Reschedule Needed / 看房申请 — 需要重新安排时间 — " + listingTitle;
+    bodyText = [
+      "Dear " + firstName + ",",
+      "",
+      "Thank you for your interest in " + listingTitle + ".",
+      "",
+      "Unfortunately, the requested showing time (" + (showingDate || "your selected date") + (timeWindow ? " " + timeWindow : "") + ") is not available.",
+      "Please contact us to arrange a new time.",
+      "",
+      "---",
+      "",
+      "亲爱的 " + firstName + "，",
+      "",
+      "感谢您对 " + listingTitle + " 的关注。",
+      "",
+      "很遗憾，您申请的看房时间（" + (showingDate || "所选日期") + (timeWindow ? " " + timeWindow : "") + "）暂时无法安排。",
+      "请联系我们重新选择合适的时间。",
+      "",
+      "— Vanisland Property Management"
+    ].join("\n");
+
+  } else if (sellerApproval === "Declined") {
+    subject = "Regarding Your Showing Request / 关于您的看房申请 — " + listingTitle;
+    bodyText = [
+      "Dear " + firstName + ",",
+      "",
+      "Thank you for your interest in " + listingTitle + ".",
+      "",
+      "We appreciate your inquiry. Unfortunately, we are unable to accommodate a showing at this time.",
+      "We wish you the best in your property search.",
+      "",
+      "---",
+      "",
+      "亲爱的 " + firstName + "，",
+      "",
+      "感谢您对 " + listingTitle + " 的关注。",
+      "",
+      "非常感谢您的咨询。很遗憾，我们目前无法安排此次看房。",
+      "祝您早日找到心仪的房源。",
+      "",
+      "— Vanisland Property Management"
+    ].join("\n");
+
+  } else {
+    return { sent: false, reason: "No notification template for approval: " + sellerApproval };
+  }
+
+  try {
+    MailApp.sendEmail({
+      to: buyerEmail,
+      subject: subject,
+      body: bodyText,
+      replyTo: "mabelclaw67@gmail.com",
+      name: "Vanisland Property Management"
+    });
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, reason: err.message };
+  }
+}
+
 function homeSaleGetDataRows_(sheetName) {
   var sheet = homeSaleGetSheet_(sheetName);
   var lastRow = sheet.getLastRow();
@@ -974,6 +1238,7 @@ function homeSaleListingFromRecord_(record, auth) {
     videoUrl: record["Video URL"] || "",
     mlsNumber: record["MLS Number"] || "",
     listingSource: record["Listing Source"] || "",
+    showingAvailability: record["Showing Availability"] || "",
     notes: record.Notes || "",
     internalStatus: record["Internal Status"] || "",
     createdAt: record["Created At"] || "",

@@ -16,7 +16,7 @@ export default function HomeSaleWorkflowNav({ listingId = "" }) {
       { to: `/admin/home-sale/video/${listingId}`,            label: "Video Script · Music · Voiceover · AI Video" },
       { to: `/admin/home-sale/share/${listingId}`,            label: "Share Kit / QR / 分享素材" },
       { to: `/admin/home-sale/open-house/${listingId}`,       label: "Open House / 开放日" },
-      { to: `/admin/home-sale/buyer-inquiry/${listingId}`,    label: "Buyer Inquiry / 买家咨询" },
+      { to: `/admin/home-sale/buyer-inquiry/${listingId}`,    label: "Showing Availability / 看房时间管理" },
       { to: `/admin/home-sale/review/${listingId}`,           label: "Review & Publish / 审核发布" },
     );
   }

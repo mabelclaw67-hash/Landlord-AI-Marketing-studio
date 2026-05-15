@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
@@ -7,6 +7,8 @@ import {
   buildHomeSalePublicUrl,
   getHomeSaleListing,
   getSaleMediaByListingId,
+  getPublicSaleMarketingCopy,
+  submitHomeSaleBuyerInquiry,
 } from "../utils/homeSaleSheet";
 
 function extractDriveFileId(url) {
@@ -34,22 +36,50 @@ function formatPrice(value) {
   return `$${amount.toLocaleString()}`;
 }
 
+const EMPTY_INQUIRY = {
+  buyerFirstName: "",
+  buyerLastName: "",
+  phone: "",
+  email: "",
+  preferredShowingDate: "",
+  preferredTimeWindow: "",
+  message: "",
+};
+
 // v2 — cover photo fallback from media sheet
 export default function HomeSaleListingDetail() {
   const { listingId } = useParams();
   const [listing, setListing] = useState(null);
   const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
+  const [marketing, setMarketing] = useState({ en: "", zh: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [inquiry, setInquiry] = useState(EMPTY_INQUIRY);
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState("");
+  const [inquiryError, setInquiryError] = useState("");
+  const formRef = useRef(null);
+
   useEffect(() => {
     async function load() {
-      const [row, media] = await Promise.all([
+      const [row, media, copy] = await Promise.all([
         getHomeSaleListing(listingId),
         getSaleMediaByListingId(listingId).catch(() => []),
+        getPublicSaleMarketingCopy(listingId),
       ]);
       if (!row) throw new Error("Sale listing not found in 01 Sale Listings.");
       setListing(row);
+
+      // Extract Website channel body copy for public display
+      const websiteEn = copy.find(c => c.channel === "Website" && c.language === "English");
+      const websiteZh = copy.find(c => c.channel === "Website" && c.language === "Chinese");
+      setMarketing({
+        en: websiteEn?.bodyCopy || row.descriptionEn || "",
+        zh: websiteZh?.bodyCopy || row.descriptionCn || "",
+        headlineEn: websiteEn?.headline || "",
+        headlineZh: websiteZh?.headline || "",
+      });
 
       // Resolve cover photo: primaryPhotoUrl first, else Cover asset from media sheet
       // Always convert to lh3 CDN URL — uc?export=view fails as img src without auth
@@ -65,6 +95,32 @@ export default function HomeSaleListingDetail() {
       .catch((err) => setError(err.message || "Unable to load sale listing right now."))
       .finally(() => setLoading(false));
   }, [listingId]);
+
+  async function handleInquirySubmit(e) {
+    e.preventDefault();
+    setInquiryError("");
+    setInquirySuccess("");
+    setInquirySubmitting(true);
+    try {
+      const result = await submitHomeSaleBuyerInquiry({
+        listingId,
+        listingTitle: listing?.address || listingId,
+        buyerFirstName: inquiry.buyerFirstName,
+        buyerLastName: inquiry.buyerLastName,
+        phone: inquiry.phone,
+        email: inquiry.email,
+        preferredShowingDate: inquiry.preferredShowingDate,
+        preferredTimeWindow: inquiry.preferredTimeWindow,
+        message: inquiry.message,
+      });
+      setInquirySuccess(`Thank you! Your showing request has been received. We will be in touch to confirm. / 感谢您的看房申请，我们将联系您确认时间。 (${result.inquiryId})`);
+      setInquiry(EMPTY_INQUIRY);
+    } catch (err) {
+      setInquiryError(err.message || "Submission failed. Please try again. / 提交失败，请稍后重试。");
+    } finally {
+      setInquirySubmitting(false);
+    }
+  }
 
   function handlePrintQrCode() {
     const listingUrl = buildHomeSalePublicUrl(listingId);
@@ -172,24 +228,44 @@ export default function HomeSaleListingDetail() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
-                      中文简介 / Description CN
+                <div style={{ display: "grid", gap: 20 }}>
+                  {(marketing.zh || marketing.headlineZh) && (
+                    <div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
+                        中文简介
+                      </div>
+                      {marketing.headlineZh && (
+                        <p style={{ fontWeight: 700, color: "#213128", marginBottom: 6, lineHeight: 1.6 }}>
+                          {marketing.headlineZh}
+                        </p>
+                      )}
+                      <p style={{ lineHeight: 1.9, whiteSpace: "pre-line" }}>
+                        {marketing.zh}
+                      </p>
                     </div>
-                    <p style={{ lineHeight: 1.8 }}>
-                      {listing.descriptionCn || "暂未提供中文简介。"}
-                    </p>
-                  </div>
+                  )}
 
-                  <div>
-                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
-                      English Description / Description EN
+                  {(marketing.en || marketing.headlineEn) && (
+                    <div style={{ borderTop: marketing.zh ? "1px solid #f0ede8" : "none", paddingTop: marketing.zh ? 16 : 0 }}>
+                      <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
+                        English Description
+                      </div>
+                      {marketing.headlineEn && (
+                        <p style={{ fontWeight: 700, color: "#213128", marginBottom: 6, lineHeight: 1.6 }}>
+                          {marketing.headlineEn}
+                        </p>
+                      )}
+                      <p style={{ lineHeight: 1.9, color: "var(--color-text-muted)", whiteSpace: "pre-line" }}>
+                        {marketing.en}
+                      </p>
                     </div>
-                    <p style={{ lineHeight: 1.8, color: "var(--color-text-muted)" }}>
-                      {listing.descriptionEn || "English description is not available yet."}
+                  )}
+
+                  {!marketing.zh && !marketing.en && (
+                    <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>
+                      房源简介即将更新。/ Property description coming soon.
                     </p>
-                  </div>
+                  )}
                 </div>
 
                 <div style={{ marginTop: 18 }}>
@@ -226,26 +302,136 @@ export default function HomeSaleListingDetail() {
               </div>
 
               <div className="card" style={{ marginBottom: 20, borderColor: "#e5dfd6" }}>
-                <h3 style={{ color: "#3e5b4b", marginBottom: 10 }}>买家咨询 / Buyer Inquiry</h3>
-                <p style={{ fontSize: "0.88rem", color: "var(--color-text-muted)", marginBottom: 16 }}>
-                  买家咨询入口即将开放。
-                  <br />Buyer inquiry will be available soon.
+                <h3 style={{ color: "#3e5b4b", marginBottom: 6 }}>预约看房 / Request a Showing</h3>
+
+                {/* Showing availability */}
+                <div style={{ marginBottom: 14 }}>
+                  {listing.showingAvailability ? (
+                    <div style={{ background: "#edf7f0", border: "1px solid #b6dfc7", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#276745", marginBottom: 4 }}>
+                        🗓 Available Showing Times / 可看房时间
+                      </div>
+                      <pre style={{ margin: 0, fontFamily: "inherit", fontSize: "0.88rem", color: "#213128", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+                        {listing.showingAvailability}
+                      </pre>
+                    </div>
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fdf3e7", color: "#8a5a22", border: "1px solid #e7cda7", borderRadius: 20, padding: "4px 12px", fontSize: "0.82rem", fontWeight: 700 }}>
+                      Showing times: contact us to arrange / 看房时间：请联系安排
+                    </span>
+                  )}
+                </div>
+
+                <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 6 }}>
+                  对这套房源感兴趣？提交看房申请，我们会联系您确认时间。
+                </p>
+                <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 16 }}>
+                  Interested in this property? Submit a showing request and we will contact you to confirm.
+                </p>
+                <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 16, fontStyle: "italic" }}>
+                  看房时间需经卖家确认。/ Showing requests are subject to seller approval.
                 </p>
 
-                <div style={{ display: "grid", gap: 14 }}>
-                  <input className="form-control" placeholder="姓名 / Name" />
-                  <input className="form-control" placeholder="电话 / Phone" />
-                  <input className="form-control" placeholder="邮箱 / Email" />
-                  <input className="form-control" placeholder="希望看房时间 / Preferred showing time" />
-                  <textarea
-                    className="form-control"
-                    rows={4}
-                    placeholder="留言 / Message"
-                  />
-                  <button type="button" className="btn btn--ghost" disabled>
-                    Local Test Only / 仅本地测试
-                  </button>
-                </div>
+                {inquirySuccess && (
+                  <div className="notice notice--success" style={{ marginBottom: 16 }}>
+                    {inquirySuccess}
+                  </div>
+                )}
+                {inquiryError && (
+                  <div className="notice notice--warm" style={{ marginBottom: 16 }}>
+                    {inquiryError}
+                  </div>
+                )}
+
+                {!inquirySuccess && (
+                  <form ref={formRef} onSubmit={handleInquirySubmit}>
+                    <div style={{ display: "grid", gap: 14 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                        <input
+                          className="form-control"
+                          placeholder="名字 / First Name *"
+                          value={inquiry.buyerFirstName}
+                          onChange={(e) => setInquiry((p) => ({ ...p, buyerFirstName: e.target.value }))}
+                          required
+                          disabled={inquirySubmitting}
+                        />
+                        <input
+                          className="form-control"
+                          placeholder="姓氏 / Last Name *"
+                          value={inquiry.buyerLastName}
+                          onChange={(e) => setInquiry((p) => ({ ...p, buyerLastName: e.target.value }))}
+                          required
+                          disabled={inquirySubmitting}
+                        />
+                      </div>
+                      <input
+                        className="form-control"
+                        type="email"
+                        placeholder="邮箱 / Email *"
+                        value={inquiry.email}
+                        onChange={(e) => setInquiry((p) => ({ ...p, email: e.target.value }))}
+                        required
+                        disabled={inquirySubmitting}
+                      />
+                      <input
+                        className="form-control"
+                        placeholder="电话 / Phone"
+                        value={inquiry.phone}
+                        onChange={(e) => setInquiry((p) => ({ ...p, phone: e.target.value }))}
+                        disabled={inquirySubmitting}
+                      />
+                      <div>
+                        <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, display: "block", marginBottom: 4 }}>
+                          希望看房日期 / Preferred Showing Date
+                        </label>
+                        <input
+                          className="form-control"
+                          type="date"
+                          value={inquiry.preferredShowingDate}
+                          onChange={(e) => setInquiry((p) => ({ ...p, preferredShowingDate: e.target.value }))}
+                          disabled={inquirySubmitting}
+                          min={new Date().toISOString().split("T")[0]}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, display: "block", marginBottom: 4 }}>
+                          希望看房时段 / Preferred Time Window
+                        </label>
+                        <select
+                          className="form-control"
+                          value={inquiry.preferredTimeWindow}
+                          onChange={(e) => setInquiry((p) => ({ ...p, preferredTimeWindow: e.target.value }))}
+                          disabled={inquirySubmitting}
+                        >
+                          <option value="">-- 请选择时段 / Select a time window --</option>
+                          <option value="9:00 AM - 11:00 AM">9:00 AM – 11:00 AM</option>
+                          <option value="10:00 AM - 12:00 PM">10:00 AM – 12:00 PM</option>
+                          <option value="11:00 AM - 1:00 PM">11:00 AM – 1:00 PM</option>
+                          <option value="12:00 PM - 2:00 PM">12:00 PM – 2:00 PM</option>
+                          <option value="1:00 PM - 3:00 PM">1:00 PM – 3:00 PM</option>
+                          <option value="2:00 PM - 4:00 PM">2:00 PM – 4:00 PM</option>
+                          <option value="3:00 PM - 5:00 PM">3:00 PM – 5:00 PM</option>
+                          <option value="Flexible / 时间灵活">Flexible / 时间灵活</option>
+                        </select>
+                      </div>
+                      <textarea
+                        className="form-control"
+                        rows={4}
+                        placeholder="留言或其他要求 / Message or additional requests"
+                        value={inquiry.message}
+                        onChange={(e) => setInquiry((p) => ({ ...p, message: e.target.value }))}
+                        disabled={inquirySubmitting}
+                      />
+                      <button
+                        type="submit"
+                        className="btn btn--primary"
+                        disabled={inquirySubmitting}
+                      >
+                        {inquirySubmitting ? "提交中… / Submitting…" : "Submit Buyer Inquiry / 提交买家咨询"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </>
           )}

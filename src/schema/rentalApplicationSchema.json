@@ -1,0 +1,269 @@
+{
+  "source": "Google Sheets API",
+  "spreadsheet_id": "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4",
+  "spreadsheet_url": "https://docs.google.com/spreadsheets/d/1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4",
+  "tab_name": "07 Intake Records",
+  "tab_gid": 2000000005,
+  "read_at": "2026-05-15",
+  "columns": [
+    {
+      "index": 0,
+      "name": "Record ID"
+    },
+    {
+      "index": 1,
+      "name": "Listing ID"
+    },
+    {
+      "index": 2,
+      "name": "Submitted At"
+    },
+    {
+      "index": 3,
+      "name": "Applicant Name"
+    },
+    {
+      "index": 4,
+      "name": "Email"
+    },
+    {
+      "index": 5,
+      "name": "Phone"
+    },
+    {
+      "index": 6,
+      "name": "Date of Birth"
+    },
+    {
+      "index": 7,
+      "name": "Current Address"
+    },
+    {
+      "index": 8,
+      "name": "WeChat"
+    },
+    {
+      "index": 9,
+      "name": "Employment Status"
+    },
+    {
+      "index": 10,
+      "name": "Employer"
+    },
+    {
+      "index": 11,
+      "name": "Monthly Income"
+    },
+    {
+      "index": 12,
+      "name": "Landlord Reference"
+    },
+    {
+      "index": 13,
+      "name": "Credit History"
+    },
+    {
+      "index": 14,
+      "name": "Move-in Date"
+    },
+    {
+      "index": 15,
+      "name": "Lease Term Requested"
+    },
+    {
+      "index": 16,
+      "name": "Occupants"
+    },
+    {
+      "index": 17,
+      "name": "Adults"
+    },
+    {
+      "index": 18,
+      "name": "Minors"
+    },
+    {
+      "index": 19,
+      "name": "Occupant Names Ages"
+    },
+    {
+      "index": 20,
+      "name": "Has Joint Applicant"
+    },
+    {
+      "index": 21,
+      "name": "Joint Name"
+    },
+    {
+      "index": 22,
+      "name": "Joint Phone"
+    },
+    {
+      "index": 23,
+      "name": "Joint Email"
+    },
+    {
+      "index": 24,
+      "name": "Joint DOB"
+    },
+    {
+      "index": 25,
+      "name": "Joint Address"
+    },
+    {
+      "index": 26,
+      "name": "Joint Employment"
+    },
+    {
+      "index": 27,
+      "name": "Joint Income"
+    },
+    {
+      "index": 28,
+      "name": "Joint Employer Contact"
+    },
+    {
+      "index": 29,
+      "name": "Joint Landlord Reference"
+    },
+    {
+      "index": 30,
+      "name": "Joint Credit Info"
+    },
+    {
+      "index": 31,
+      "name": "Joint Proof of Income"
+    },
+    {
+      "index": 32,
+      "name": "Deposit Funds Available"
+    },
+    {
+      "index": 33,
+      "name": "Deposit Agreement"
+    },
+    {
+      "index": 34,
+      "name": "Has Pets"
+    },
+    {
+      "index": 35,
+      "name": "Pet Deposit Funds"
+    },
+    {
+      "index": 36,
+      "name": "Pet Details"
+    },
+    {
+      "index": 37,
+      "name": "Eviction History"
+    },
+    {
+      "index": 38,
+      "name": "Smokes Vapes Cannabis"
+    },
+    {
+      "index": 39,
+      "name": "No Smoking Agreement"
+    },
+    {
+      "index": 40,
+      "name": "Proof of Income"
+    },
+    {
+      "index": 41,
+      "name": "Has Tenant Insurance"
+    },
+    {
+      "index": 42,
+      "name": "Tenant Insurance Agreement"
+    },
+    {
+      "index": 43,
+      "name": "Proof Insurance Before Move-in"
+    },
+    {
+      "index": 44,
+      "name": "Reason for Moving"
+    },
+    {
+      "index": 45,
+      "name": "Parking Request"
+    },
+    {
+      "index": 46,
+      "name": "Additional Notes"
+    },
+    {
+      "index": 47,
+      "name": "PDF URL"
+    },
+    {
+      "index": 48,
+      "name": "Review Status"
+    },
+    {
+      "index": 49,
+      "name": "Internal Notes"
+    },
+    {
+      "index": 50,
+      "name": "Updated At"
+    }
+  ],
+  "data_columns": [
+    "Applicant Name",
+    "Email",
+    "Phone",
+    "Date of Birth",
+    "Current Address",
+    "WeChat",
+    "Employment Status",
+    "Employer",
+    "Monthly Income",
+    "Landlord Reference",
+    "Credit History",
+    "Move-in Date",
+    "Lease Term Requested",
+    "Occupants",
+    "Adults",
+    "Minors",
+    "Occupant Names Ages",
+    "Has Joint Applicant",
+    "Joint Name",
+    "Joint Phone",
+    "Joint Email",
+    "Joint DOB",
+    "Joint Address",
+    "Joint Employment",
+    "Joint Income",
+    "Joint Employer Contact",
+    "Joint Landlord Reference",
+    "Joint Credit Info",
+    "Joint Proof of Income",
+    "Deposit Funds Available",
+    "Deposit Agreement",
+    "Has Pets",
+    "Pet Deposit Funds",
+    "Pet Details",
+    "Eviction History",
+    "Smokes Vapes Cannabis",
+    "No Smoking Agreement",
+    "Proof of Income",
+    "Has Tenant Insurance",
+    "Tenant Insurance Agreement",
+    "Proof Insurance Before Move-in",
+    "Reason for Moving",
+    "Parking Request",
+    "Additional Notes"
+  ],
+  "system_columns": [
+    "Record ID",
+    "Listing ID",
+    "Submitted At",
+    "PDF URL",
+    "Review Status",
+    "Internal Notes",
+    "Updated At"
+  ]
+}

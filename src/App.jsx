@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import "./styles/global.css";
 
 import Navbar from "./components/Navbar";
-import TrialAccessGate from "./components/TrialAccessGate";
 import LandlordHomeLayout from "./components/LandlordHomeLayout";
 import Services from "./pages/Services";
 import Examples from "./pages/Examples";
@@ -82,7 +81,7 @@ function AppInner({ lang, setLang }) {
           <Route path="application/:applicationId" element={<ApplicationReview />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
-        <Route path="/apply/:listingId" element={<TrialAccessGate module="rental"><RentalApplication /></TrialAccessGate>} />
+        <Route path="/apply/:listingId" element={<RentalApplication />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -299,6 +299,14 @@ export async function syncSaleMediaFromDriveFolder(values) {
   });
 }
 
+export async function getPublicSaleMarketingCopy(listingId) {
+  if (!HOME_SALE_EXEC_URL || !listingId) return [];
+  try {
+    const data = await homeSaleApiGet({ action: "getMarketingCopyByListingId", listingId });
+    return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MARKETING_HEADER_MAP)) : [];
+  } catch (_) { return []; }
+}
+
 export async function getMarketingCopyByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for marketing lookup.");
@@ -466,6 +474,51 @@ function buildVideoScriptRecord(values) {
     "Output MP4 URL": values.outputMp4Url || "",
     Notes: values.notes || "",
   };
+}
+
+export async function saveHomeSaleShowingAvailability(listingId, showingAvailability) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({
+    action: "updateSaleListing",
+    listingId,
+    record: { "Showing Availability": showingAvailability },
+    ...getStudioRequestAuth("sale"),
+  });
+}
+
+export async function getHomeSaleBuyerInquiries() {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({ action: "getBuyerInquiries", ...getStudioRequestAuth("sale") });
+}
+
+export async function updateHomeSaleBuyerInquiry(inquiryId, { status, sellerApproval, sellerNotes, confirmedShowingTime, sendNotification = false }) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({
+    action: "updateBuyerInquiry",
+    inquiryId,
+    status,
+    sellerApproval,
+    sellerNotes,
+    confirmedShowingTime,
+    sendNotification,
+    ...getStudioRequestAuth("sale"),
+  });
+}
+
+export async function submitHomeSaleBuyerInquiry({ listingId, listingTitle, buyerFirstName, buyerLastName, phone, email, preferredShowingDate, preferredTimeWindow, message }) {
+  if (!HOME_SALE_EXEC_URL) throw new Error("Home Sale API endpoint is not configured.");
+  return homeSaleApiPost({
+    action: "submitBuyerInquiry",
+    listingId,
+    listingTitle,
+    buyerFirstName,
+    buyerLastName,
+    phone,
+    email,
+    preferredShowingDate,
+    preferredTimeWindow,
+    message,
+  });
 }
 
 function ensureHomeSaleApiConnected() {
