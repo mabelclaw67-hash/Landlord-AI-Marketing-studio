@@ -50,12 +50,12 @@ function AppInner({ lang, setLang }) {
       <Routes>
         <Route path="/" element={<LandlordHomeLayout lang={lang} setLang={setLang} />} />
         <Route path="/services" element={<Services lang={lang} />} />
-        <Route path="/examples" element={<TrialAccessGate module="rental"><Examples lang={lang} /></TrialAccessGate>} />
+        <Route path="/examples" element={<Examples lang={lang} />} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
         <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
-        <Route path="/home-sale-studio" element={<TrialAccessGate module="sale"><HomeSaleStudio lang={lang} /></TrialAccessGate>} />
-        <Route path="/home-sale-studio/listings/:listingId" element={<TrialAccessGate module="sale"><HomeSaleListingDetail lang={lang} /></TrialAccessGate>} />
+        <Route path="/home-sale-studio" element={<HomeSaleStudio lang={lang} />} />
+        <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail lang={lang} />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="rental" element={<Dashboard lang={lang} mode="rental" />} />
@@ -83,7 +83,7 @@ function AppInner({ lang, setLang }) {
           <Route path="settings" element={<AdminSettings />} />
         </Route>
         <Route path="/apply/:listingId" element={<TrialAccessGate module="rental"><RentalApplication /></TrialAccessGate>} />
-        <Route path="/listings/:id" element={<TrialAccessGate module="rental"><PublicListing lang={lang} /></TrialAccessGate>} />
+        <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
