@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getListing, saveRentalApplication } from "../utils/storage";
+import { getListing, getListings, saveRentalApplication } from "../utils/storage";
 
-// ── Option lists ───────────────────────────────────────────────────────────────
 const LEASE_TERM_OPTIONS = [
   "Month-to-Month / 月租",
   "6 Months / 半年",
@@ -10,6 +9,7 @@ const LEASE_TERM_OPTIONS = [
   "2 Years / 两年",
   "Flexible / 灵活",
 ];
+
 const EMPLOYMENT_OPTIONS = [
   "Employed Full-Time / 全职",
   "Employed Part-Time / 兼职",
@@ -18,6 +18,7 @@ const EMPLOYMENT_OPTIONS = [
   "Retired / 退休",
   "Other / 其他",
 ];
+
 const CREDIT_OPTIONS = [
   "Excellent / 优秀",
   "Good / 良好",
@@ -25,6 +26,10 @@ const CREDIT_OPTIONS = [
   "Poor / 较差",
   "No Credit History / 无信用记录",
 ];
+
+const YES_NO_OPTIONS = ["Yes / 是", "No / 否"];
+const JOINT_APPLICANT_OPTIONS = ["No / 否", "Yes / 是"];
+const PET_OPTIONS = ["No / 无宠物", "Yes / 有宠物"];
 const DEPOSIT_OPTIONS = ["Yes / 是", "No / 否", "Partially / 部分准备好"];
 const PROOF_INCOME_OPTIONS = ["Yes / 是", "No / 否", "Will obtain / 将获取"];
 const INSURANCE_STATUS_OPTIONS = [
@@ -33,6 +38,7 @@ const INSURANCE_STATUS_OPTIONS = [
   "No / 否",
 ];
 const PROOF_INSURANCE_OPTIONS = ["Yes / 是", "No / 否", "In progress / 办理中"];
+
 const EMPTY_JOINT_APPLICANT = {
   jointName: "",
   jointPhone: "",
@@ -48,24 +54,111 @@ const EMPTY_JOINT_APPLICANT = {
   jointProofOfIncome: "",
 };
 
-// ── Tiny style helpers ─────────────────────────────────────────────────────────
+const EMPTY_PET_FIELDS = {
+  petDepositFunds: "",
+  petDetails: "",
+};
+
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 };
 const sTitle = {
-  fontWeight: 700, fontSize: "0.95rem",
-  color: "var(--color-primary)", marginBottom: 16,
+  fontWeight: 700,
+  fontSize: "0.95rem",
+  color: "var(--color-primary)",
+  marginBottom: 16,
 };
 const NOTICE = {
-  background: "#fdf6e3", border: "1px solid #e8d5a3",
-  borderRadius: 8, padding: "12px 14px",
-  fontSize: "0.82rem", color: "#7a5a2f", lineHeight: 1.65, marginBottom: 12,
+  background: "#fdf6e3",
+  border: "1px solid #e8d5a3",
+  borderRadius: 8,
+  padding: "12px 14px",
+  fontSize: "0.82rem",
+  color: "#7a5a2f",
+  lineHeight: 1.65,
+  marginBottom: 12,
+};
+
+const INITIAL_FORM = {
+  applicantName: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  wechat: "",
+  currentResidenceAddress: "",
+  currentResidenceSince: "",
+  currentResidenceLandlordName: "",
+  currentResidenceLandlordContact: "",
+  currentResidenceMonthlyRent: "",
+  currentResidenceReasonForLeaving: "",
+  previousResidenceAddress: "",
+  previousResidenceDates: "",
+  previousResidenceLandlordName: "",
+  previousResidenceLandlordContact: "",
+  previousResidenceMonthlyRent: "",
+  employmentStatus: "",
+  employer: "",
+  employmentLength: "",
+  employerContact: "",
+  otherIncome: "",
+  monthlyIncome: "",
+  moveInDate: "",
+  leaseTerm: "",
+  totalOccupants: "",
+  adults: "",
+  minors: "",
+  occupantNamesAges: "",
+  hasJointApplicant: "No / 否",
+  ...EMPTY_JOINT_APPLICANT,
+  hasPets: "No / 无宠物",
+  ...EMPTY_PET_FIELDS,
+  vehicleCount: "",
+  vehicleDetails: "",
+  smokesVapesCannabis: "",
+  noSmokingAgreement: false,
+  referenceOneName: "",
+  referenceOneRelationship: "",
+  referenceOneContact: "",
+  referenceTwoName: "",
+  referenceTwoRelationship: "",
+  referenceTwoContact: "",
+  emergencyName: "",
+  emergencyRelationship: "",
+  emergencyPhone: "",
+  emergencyEmail: "",
+  creditHistory: "",
+  evictionHistory: "",
+  backgroundNotes: "",
+  proofOfIncome: "",
+  supportingDocsNotes: "",
+  hasTenantInsurance: "",
+  tenantInsuranceAgreement: false,
+  proofInsuranceBeforeMoveIn: "",
+  depositFundsAvailable: "",
+  depositAgreement: false,
+  additionalNotes: "",
+  agreed: false,
 };
 
 function RadioGroup({ name, options, value, onChange }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", marginTop: 4 }}>
       {options.map((opt) => (
-        <label key={opt} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: "0.88rem" }}>
-          <input type="radio" name={name} value={opt} checked={value === opt} onChange={() => onChange(opt)} />
+        <label
+          key={opt}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: "0.88rem",
+          }}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={opt}
+            checked={value === opt}
+            onChange={() => onChange(opt)}
+          />
           {opt}
         </label>
       ))}
@@ -73,9 +166,31 @@ function RadioGroup({ name, options, value, onChange }) {
   );
 }
 
+function clean(value) {
+  return String(value || "").trim();
+}
+
+function formatSection(title, lines) {
+  const normalized = lines.map(clean).filter(Boolean);
+  if (!normalized.length) return "";
+  return `${title}\n${normalized.join("\n")}`;
+}
+
+function joinSections(sections) {
+  return sections.filter(Boolean).join("\n\n");
+}
+
+function formatReference(label, name, relationship, contact) {
+  const parts = [];
+  if (clean(name)) parts.push(clean(name));
+  if (clean(relationship)) parts.push(`Relationship: ${clean(relationship)}`);
+  if (clean(contact)) parts.push(`Contact: ${clean(contact)}`);
+  return parts.length ? `${label}: ${parts.join(" | ")}` : "";
+}
+
 function serializeJointEmployment(status, source) {
-  const cleanStatus = status.trim();
-  const cleanSource = source.trim();
+  const cleanStatus = clean(status);
+  const cleanSource = clean(source);
   if (!cleanStatus && !cleanSource) return "";
   if (cleanStatus && cleanSource) {
     return `Status: ${cleanStatus}\nEmployer / Income Source: ${cleanSource}`;
@@ -84,82 +199,44 @@ function serializeJointEmployment(status, source) {
   return `Employer / Income Source: ${cleanSource}`;
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
 export default function RentalApplication() {
   const { listingId } = useParams();
-  const [listing, setListing]     = useState(null);
-  const [loading, setLoading]     = useState(true);
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(null);
-  const [error, setError]         = useState("");
-
-  const [form, setForm] = useState({
-    // Applicant info
-    applicantName:     "",
-    email:             "",
-    phone:             "",
-    dateOfBirth:       "",
-    currentAddress:    "",
-    wechat:            "",
-    // Employment / Income
-    employmentStatus:  "",
-    employer:          "",
-    monthlyIncome:     "",
-    // Landlord reference & credit
-    landlordReference: "",
-    creditHistory:     "",
-    // Move-in / Occupancy
-    moveInDate:        "",
-    leaseTerm:         "",
-    totalOccupants:    "",
-    adults:            "",
-    minors:            "",
-    occupantNamesAges: "",
-    // Joint applicant
-    hasJointApplicant:      "No / 没有",
-    jointName:              "",
-    jointPhone:             "",
-    jointEmail:             "",
-    jointDob:               "",
-    jointAddress:           "",
-    jointEmploymentStatus:  "",
-    jointEmployerIncomeSource: "",
-    jointIncome:            "",
-    jointEmployerContact:   "",
-    jointLandlordReference: "",
-    jointCreditInfo:        "",
-    jointProofOfIncome:     "",
-    // Lease / Deposit
-    depositFundsAvailable: "",
-    depositAgreement:      false,
-    // Pets
-    hasPets:         "No",
-    petDepositFunds: "",
-    petDetails:      "",
-    // Tenancy history
-    evictionHistory: "",
-    // Smoking / Vaping / Cannabis
-    smokesVapesCannabis: "",
-    noSmokingAgreement:  false,
-    // Supporting documents
-    proofOfIncome: "",
-    // Tenant insurance
-    hasTenantInsurance:        "",
-    tenantInsuranceAgreement:  false,
-    proofInsuranceBeforeMoveIn: "",
-    // Additional info
-    reasonForMoving: "",
-    parkingRequest:  "",
-    additionalNotes: "",
-    // Declaration
-    agreed: false,
-  });
+  const [error, setError] = useState("");
+  const [form, setForm] = useState(INITIAL_FORM);
 
   useEffect(() => {
-    getListing(listingId)
-      .then(setListing)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    async function loadListing() {
+      try {
+        const result = await Promise.race([
+          getListing(listingId),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("listing_lookup_timeout")), 3000)
+          ),
+        ]);
+        if (!cancelled) setListing(result);
+      } catch {
+        try {
+          const all = await getListings();
+          const fallback = all.find((item) => item.id === listingId) || null;
+          if (!cancelled) setListing(fallback);
+        } catch {
+          if (!cancelled) setListing(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadListing();
+    return () => {
+      cancelled = true;
+    };
   }, [listingId]);
 
   function set(field, value) {
@@ -167,100 +244,207 @@ export default function RentalApplication() {
   }
 
   function handleJointApplicantChange(value) {
-    setForm((prev) => (
-      value === "Yes / 有"
+    setForm((prev) =>
+      value === "Yes / 是"
         ? { ...prev, hasJointApplicant: value }
         : { ...prev, hasJointApplicant: value, ...EMPTY_JOINT_APPLICANT }
-    ));
+    );
+  }
+
+  function handlePetsChange(value) {
+    setForm((prev) =>
+      value === "Yes / 有宠物"
+        ? { ...prev, hasPets: value }
+        : { ...prev, hasPets: value, ...EMPTY_PET_FIELDS }
+    );
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!form.applicantName.trim()) { setError("Applicant name is required. / 申请人姓名为必填项。"); return; }
-    if (!form.email.trim())         { setError("Email is required. / 邮箱为必填项。"); return; }
-    if (!form.moveInDate)           { setError("Preferred move-in date is required. / 期望入住日期为必填项。"); return; }
-    if (!form.agreed)               { setError("Please confirm the declaration at the bottom. / 请确认底部声明。"); return; }
+
+    if (!clean(form.applicantName)) {
+      setError("Applicant name is required. / 申请人姓名为必填项。");
+      return;
+    }
+    if (!clean(form.email)) {
+      setError("Email is required. / 邮箱为必填项。");
+      return;
+    }
+    if (!form.moveInDate) {
+      setError("Preferred move-in date is required. / 期望入住日期为必填项。");
+      return;
+    }
+    if (!form.agreed) {
+      setError("Please confirm the declaration at the bottom. / 请确认底部声明。");
+      return;
+    }
+
+    const landlordReference = joinSections([
+      formatSection("Current Residence", [
+        clean(form.currentResidenceLandlordName) &&
+          `Landlord / Manager: ${clean(form.currentResidenceLandlordName)}`,
+        clean(form.currentResidenceLandlordContact) &&
+          `Landlord Contact: ${clean(form.currentResidenceLandlordContact)}`,
+        clean(form.currentResidenceMonthlyRent) &&
+          `Current Monthly Rent: ${clean(form.currentResidenceMonthlyRent)}`,
+        clean(form.currentResidenceSince) &&
+          `Residence Period: ${clean(form.currentResidenceSince)}`,
+      ]),
+      formatSection("Previous Residence", [
+        clean(form.previousResidenceAddress) &&
+          `Address: ${clean(form.previousResidenceAddress)}`,
+        clean(form.previousResidenceDates) &&
+          `Residence Period: ${clean(form.previousResidenceDates)}`,
+        clean(form.previousResidenceMonthlyRent) &&
+          `Monthly Rent: ${clean(form.previousResidenceMonthlyRent)}`,
+        clean(form.previousResidenceLandlordName) &&
+          `Landlord / Manager: ${clean(form.previousResidenceLandlordName)}`,
+        clean(form.previousResidenceLandlordContact) &&
+          `Landlord Contact: ${clean(form.previousResidenceLandlordContact)}`,
+      ]),
+      formatSection("References", [
+        formatReference(
+          "Reference 1",
+          form.referenceOneName,
+          form.referenceOneRelationship,
+          form.referenceOneContact
+        ),
+        formatReference(
+          "Reference 2",
+          form.referenceTwoName,
+          form.referenceTwoRelationship,
+          form.referenceTwoContact
+        ),
+      ]),
+    ]);
+
+    const employerSummary = joinSections([
+      formatSection("Employment & Income", [
+        clean(form.employer) &&
+          `Employer / Income Source: ${clean(form.employer)}`,
+        clean(form.employmentLength) &&
+          `Length of Employment: ${clean(form.employmentLength)}`,
+        clean(form.employerContact) &&
+          `Employer Contact: ${clean(form.employerContact)}`,
+        clean(form.otherIncome) &&
+          `Other Income: ${clean(form.otherIncome)}`,
+      ]),
+    ]);
+
+    const backgroundSummary = formatSection("Background / Credit", [
+      clean(form.evictionHistory) &&
+        `Evictions / tenancy breaches: ${clean(form.evictionHistory)}`,
+      clean(form.backgroundNotes) &&
+        `Additional background or credit notes: ${clean(form.backgroundNotes)}`,
+    ]);
+
+    const emergencySummary = formatSection("Emergency Contact", [
+      clean(form.emergencyName) && `Name: ${clean(form.emergencyName)}`,
+      clean(form.emergencyRelationship) &&
+        `Relationship: ${clean(form.emergencyRelationship)}`,
+      clean(form.emergencyPhone) && `Phone: ${clean(form.emergencyPhone)}`,
+      clean(form.emergencyEmail) && `Email: ${clean(form.emergencyEmail)}`,
+    ]);
+
+    const supportingSummary = formatSection("Supporting Documents", [
+      clean(form.supportingDocsNotes) &&
+        `Available documents / notes: ${clean(form.supportingDocsNotes)}`,
+    ]);
+
+    const vehicleSummary = [
+      clean(form.vehicleCount) && `Vehicles: ${clean(form.vehicleCount)}`,
+      clean(form.vehicleDetails) &&
+        `Vehicle details: ${clean(form.vehicleDetails)}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const additionalNotes = joinSections([
+      emergencySummary,
+      supportingSummary,
+      clean(form.additionalNotes) &&
+        formatSection("Other Notes", [clean(form.additionalNotes)]),
+    ]);
 
     setSubmitting(true);
     try {
       const result = await saveRentalApplication({
         listingId,
-        // Applicant
-        applicantName:    form.applicantName.trim(),
-        email:            form.email.trim(),
-        phone:            form.phone.trim(),
-        dateOfBirth:      form.dateOfBirth,
-        currentAddress:   form.currentAddress.trim(),
-        wechat:           form.wechat.trim(),
-        // Employment
+        applicantName: clean(form.applicantName),
+        email: clean(form.email),
+        phone: clean(form.phone),
+        dateOfBirth: form.dateOfBirth,
+        currentAddress: clean(form.currentResidenceAddress),
+        wechat: clean(form.wechat),
         employmentStatus: form.employmentStatus,
-        employer:         form.employer.trim(),
-        monthlyIncome:    form.monthlyIncome.trim(),
-        // Reference / credit
-        landlordReference: form.landlordReference.trim(),
-        creditHistory:     form.creditHistory,
-        // Occupancy
-        moveInDate:        form.moveInDate,
-        leaseTerm:         form.leaseTerm,
-        occupants:         form.totalOccupants,
-        adults:            form.adults,
-        minors:            form.minors,
-        occupantNamesAges: form.occupantNamesAges.trim(),
-        // Joint applicant
-        hasJointApplicant:      form.hasJointApplicant,
-        jointName:              form.jointName.trim(),
-        jointProofOfIncome:     form.jointProofOfIncome,
-        jointPhone:             form.jointPhone.trim(),
-        jointEmail:             form.jointEmail.trim(),
-        jointDob:               form.jointDob,
-        jointAddress:           form.jointAddress.trim(),
-        jointEmployment:        serializeJointEmployment(form.jointEmploymentStatus, form.jointEmployerIncomeSource),
-        jointIncome:            form.jointIncome.trim(),
-        jointEmployerContact:   form.jointEmployerContact.trim(),
-        jointLandlordReference: form.jointLandlordReference.trim(),
-        jointCreditInfo:        form.jointCreditInfo,
-        // Deposit
+        employer: employerSummary || clean(form.employer),
+        monthlyIncome: clean(form.monthlyIncome),
+        landlordReference,
+        creditHistory: form.creditHistory,
+        moveInDate: form.moveInDate,
+        leaseTerm: form.leaseTerm,
+        occupants: form.totalOccupants,
+        adults: form.adults,
+        minors: form.minors,
+        occupantNamesAges: clean(form.occupantNamesAges),
+        hasJointApplicant: form.hasJointApplicant,
+        jointName: clean(form.jointName),
+        jointProofOfIncome: form.jointProofOfIncome,
+        jointPhone: clean(form.jointPhone),
+        jointEmail: clean(form.jointEmail),
+        jointDob: form.jointDob,
+        jointAddress: clean(form.jointAddress),
+        jointEmployment: serializeJointEmployment(
+          form.jointEmploymentStatus,
+          form.jointEmployerIncomeSource
+        ),
+        jointIncome: clean(form.jointIncome),
+        jointEmployerContact: clean(form.jointEmployerContact),
+        jointLandlordReference: clean(form.jointLandlordReference),
+        jointCreditInfo: form.jointCreditInfo,
         depositFundsAvailable: form.depositFundsAvailable,
-        depositAgreement:      form.depositAgreement ? "Agreed" : "Not confirmed",
-        // Pets
-        hasPets:         form.hasPets,
+        depositAgreement: form.depositAgreement ? "Agreed" : "Not confirmed",
+        hasPets: form.hasPets,
         petDepositFunds: form.petDepositFunds,
-        petDetails:      form.petDetails.trim(),
-        // Tenancy history
-        evictionHistory: form.evictionHistory.trim(),
-        // Smoking
+        petDetails: clean(form.petDetails),
+        evictionHistory: backgroundSummary,
         smokesVapesCannabis: form.smokesVapesCannabis,
-        noSmokingAgreement:  form.noSmokingAgreement ? "Agreed" : "Not confirmed",
-        // Documents
+        noSmokingAgreement: form.noSmokingAgreement ? "Agreed" : "Not confirmed",
         proofOfIncome: form.proofOfIncome,
-        // Insurance
-        hasTenantInsurance:        form.hasTenantInsurance,
-        tenantInsuranceAgreement:  form.tenantInsuranceAgreement ? "Agreed" : "Not confirmed",
+        hasTenantInsurance: form.hasTenantInsurance,
+        tenantInsuranceAgreement: form.tenantInsuranceAgreement
+          ? "Agreed"
+          : "Not confirmed",
         proofInsuranceBeforeMoveIn: form.proofInsuranceBeforeMoveIn,
-        // Additional
-        reasonForMoving: form.reasonForMoving.trim(),
-        parkingRequest:  form.parkingRequest.trim(),
-        additionalNotes: form.additionalNotes.trim(),
+        reasonForMoving: clean(form.currentResidenceReasonForLeaving),
+        parkingRequest: vehicleSummary,
+        additionalNotes,
       });
       setSubmitted(result);
     } catch (err) {
-      setError(err.message || "Submission failed. Please try again. / 提交失败，请重试。");
+      setError(
+        err.message || "Submission failed. Please try again. / 提交失败，请重试。"
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>
+      <div
+        style={{
+          padding: 40,
+          textAlign: "center",
+          color: "var(--color-text-muted)",
+        }}
+      >
         Loading…
       </div>
     );
   }
 
-  // ── Success screen ───────────────────────────────────────────────────────────
   if (submitted) {
     return (
       <div style={{ maxWidth: 600, margin: "60px auto", padding: "0 20px" }}>
@@ -269,58 +453,107 @@ export default function RentalApplication() {
           <h1 style={{ fontWeight: 800, fontSize: "1.4rem", marginBottom: 8 }}>
             Application Submitted / 申请已提交
           </h1>
-          <p style={{ color: "var(--color-text-muted)", marginBottom: 20, lineHeight: 1.7 }}>
+          <p
+            style={{
+              color: "var(--color-text-muted)",
+              marginBottom: 20,
+              lineHeight: 1.7,
+            }}
+          >
             Thank you! Your application has been received and will be reviewed shortly.
-            <br />感谢您的申请！我们将尽快审核并与您联系。
+            <br />
+            感谢您的申请！我们将尽快审核并与您联系。
           </p>
-          <div style={{ background: "#f5f8f5", borderRadius: 10, padding: "16px 20px", marginBottom: 20, textAlign: "left" }}>
-            <p style={{ fontSize: "0.88rem", color: "var(--color-text-muted)", marginBottom: 4 }}>
+          <div
+            style={{
+              background: "#f5f8f5",
+              borderRadius: 10,
+              padding: "16px 20px",
+              marginBottom: 20,
+              textAlign: "left",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.88rem",
+                color: "var(--color-text-muted)",
+                marginBottom: 4,
+              }}
+            >
               Reference Number / 参考编号
             </p>
-            <p style={{ fontWeight: 700, fontSize: "1.1rem", fontFamily: "monospace" }}>
+            <p
+              style={{
+                fontWeight: 700,
+                fontSize: "1.1rem",
+                fontFamily: "monospace",
+              }}
+            >
               {submitted.recordId}
             </p>
           </div>
           {submitted.pdfUrl && (
-            <a href={submitted.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--primary">
+            <a
+              href={submitted.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn--primary"
+            >
               Download PDF Copy / 下载 PDF 副本
             </a>
           )}
-          <p style={{ marginTop: 20, fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+          <p
+            style={{
+              marginTop: 20,
+              fontSize: "0.82rem",
+              color: "var(--color-text-muted)",
+            }}
+          >
             Please keep your reference number for follow-up inquiries.
-            <br />请保存您的参考编号以便后续联系。
+            <br />
+            请保存您的参考编号以便后续联系。
           </p>
         </div>
       </div>
     );
   }
 
-  // ── Form ─────────────────────────────────────────────────────────────────────
   const title = listing
-    ? [listing.bedrooms && `${listing.bedrooms} Bed`, listing.bathrooms && `${listing.bathrooms} Bath`, listing.address].filter(Boolean).join(" / ")
+    ? [
+        listing.bedrooms && `${listing.bedrooms} Bed`,
+        listing.bathrooms && `${listing.bathrooms} Bath`,
+        listing.address,
+      ]
+        .filter(Boolean)
+        .join(" / ")
     : listingId;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 80px" }}>
-
-      {/* ── Header ────────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontWeight: 800, fontSize: "1.5rem", marginBottom: 6 }}>
           Residential Tenancy Application / 住宅租赁申请表
         </h1>
         {listing && (
           <p style={{ color: "var(--color-text-muted)", fontSize: "0.92rem" }}>
-            {title}{listing.city ? `, ${listing.city}` : ""}
+            {title}
+            {listing.city ? `, ${listing.city}` : ""}
             {listing.rent ? ` · $${Number(listing.rent).toLocaleString()}/mo` : ""}
           </p>
         )}
-        <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginTop: 4 }}>
+        <p
+          style={{
+            fontSize: "0.82rem",
+            color: "var(--color-text-muted)",
+            marginTop: 4,
+          }}
+        >
           Listing ID: <strong>{listingId}</strong>
         </p>
         <div style={NOTICE}>
-          Please complete this application if you are interested in renting this property.
-          All adult occupants may be required to provide supporting documents before move-in.
-          Submitting this form does not guarantee approval.
+          Please complete this application if you are interested in renting this
+          property. All adult occupants may be required to provide supporting
+          documents before move-in. Submitting this form does not guarantee approval.
           <br />
           请如实填写此申请表。所有成年入住人员在入住前可能需提供支持文件。提交申请不代表获得批准。
         </div>
@@ -333,42 +566,73 @@ export default function RentalApplication() {
       )}
 
       <form onSubmit={handleSubmit}>
-
-        {/* ── Section 1: Property Applied For ─────────────────────────────────── */}
         <div className="card mb-24">
           <h3 style={sTitle}>1. Property Applied For / 申请房源</h3>
-          <div style={{ background: "#edf3ee", borderRadius: 8, padding: "12px 16px", fontSize: "0.88rem", lineHeight: 2 }}>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing ID / 房源编号：</span> <code>{listingId}</code></div>
-            {listing?.address && <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Address / 地址：</span> {listing.address}{listing.city ? `, ${listing.city}` : ""}</div>}
-            {listing?.rent && <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Rent / 月租：</span> ${Number(listing.rent).toLocaleString()}/mo</div>}
+          <div
+            style={{
+              background: "#edf3ee",
+              borderRadius: 8,
+              padding: "12px 16px",
+              fontSize: "0.88rem",
+              lineHeight: 2,
+            }}
+          >
+            <div>
+              <span
+                style={{
+                  color: "var(--color-text-muted)",
+                  fontWeight: 600,
+                }}
+              >
+                Listing ID / 房源编号：
+              </span>{" "}
+              <code>{listingId}</code>
+            </div>
+            {listing?.address && (
+              <div>
+                <span
+                  style={{
+                    color: "var(--color-text-muted)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Address / 地址：
+                </span>{" "}
+                {listing.address}
+                {listing.city ? `, ${listing.city}` : ""}
+              </div>
+            )}
+            {listing?.rent && (
+              <div>
+                <span
+                  style={{
+                    color: "var(--color-text-muted)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Rent / 月租：
+                </span>{" "}
+                ${Number(listing.rent).toLocaleString()}/mo
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Section 2: Applicant Information ────────────────────────────────── */}
         <div className="card mb-24">
           <h3 style={sTitle}>2. Applicant Information / 申请人信息</h3>
           <div className="form-group">
-            <label className="form-label">Applicant Full Name(s) / 申请人全名 *</label>
+            <label className="form-label">Full Legal Name / 法定全名 *</label>
             <input
               className="form-control"
               value={form.applicantName}
               onChange={(e) => set("applicantName", e.target.value)}
-              placeholder="Legal name(s) as on government-issued ID / 与政府证件一致的全名"
+              placeholder="Legal name as shown on ID / 与证件一致的姓名"
               required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Current Mailing Address / 现居住地址</label>
-            <input
-              className="form-control"
-              value={form.currentAddress}
-              onChange={(e) => set("currentAddress", e.target.value)}
-              placeholder="Street, City, Province, Postal Code"
             />
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Primary Phone Number / 主要联系电话 *</label>
+              <label className="form-label">Phone Number / 电话 *</label>
               <input
                 className="form-control"
                 type="tel"
@@ -378,13 +642,13 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Primary Email Address / 主要邮箱 *</label>
+              <label className="form-label">Email Address / 邮箱 *</label>
               <input
                 className="form-control"
                 type="email"
                 value={form.email}
                 onChange={(e) => set("email", e.target.value)}
-                placeholder="your@email.com"
+                placeholder="name@email.com"
                 required
               />
             </div>
@@ -400,7 +664,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">WeChat ID / 微信号 <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}>(Optional)</span></label>
+              <label className="form-label">WeChat ID / 微信号</label>
               <input
                 className="form-control"
                 value={form.wechat}
@@ -411,71 +675,193 @@ export default function RentalApplication() {
           </div>
         </div>
 
-        {/* ── Section 3: Employment / Income ──────────────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>3. Employment / Income / 就业与收入</h3>
+          <h3 style={sTitle}>3. Current Residence / 现居住信息</h3>
           <div className="form-group">
-            <label className="form-label">Current Employment Status / 当前就业状态</label>
-            <select className="select-control" value={form.employmentStatus} onChange={(e) => set("employmentStatus", e.target.value)}>
-              <option value="">Select… / 请选择</option>
-              {EMPLOYMENT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-            </select>
+            <label className="form-label">Current Address / 当前住址</label>
+            <input
+              className="form-control"
+              value={form.currentResidenceAddress}
+              onChange={(e) => set("currentResidenceAddress", e.target.value)}
+              placeholder="Street, City, Province, Postal Code"
+            />
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Current Employer / Source of Income / 雇主或收入来源</label>
+              <label className="form-label">How long have you lived there? / 现住址居住时间</label>
               <input
                 className="form-control"
-                value={form.employer}
-                onChange={(e) => set("employer", e.target.value)}
-                placeholder="Employer name, business, or income source"
+                value={form.currentResidenceSince}
+                onChange={(e) => set("currentResidenceSince", e.target.value)}
+                placeholder="e.g. Mar 2024 - Present"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Monthly Household Income / 月收入 (CAD)</label>
+              <label className="form-label">Current Monthly Rent / 当前月租</label>
               <input
                 className="form-control"
-                value={form.monthlyIncome}
-                onChange={(e) => set("monthlyIncome", e.target.value)}
-                placeholder="e.g. $5,000"
+                value={form.currentResidenceMonthlyRent}
+                onChange={(e) => set("currentResidenceMonthlyRent", e.target.value)}
+                placeholder="e.g. $2,100"
               />
             </div>
           </div>
-        </div>
-
-        {/* ── Section 4: Current Landlord / Reference ──────────────────────────── */}
-        <div className="card mb-24">
-          <h3 style={sTitle}>4. Current Landlord / Reference / 现任房东参考信息</h3>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Current Landlord / Property Manager / 现任房东或物业</label>
+              <input
+                className="form-control"
+                value={form.currentResidenceLandlordName}
+                onChange={(e) => set("currentResidenceLandlordName", e.target.value)}
+                placeholder="Name / 姓名"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Landlord Contact / 房东联系方式</label>
+              <input
+                className="form-control"
+                value={form.currentResidenceLandlordContact}
+                onChange={(e) => set("currentResidenceLandlordContact", e.target.value)}
+                placeholder="Phone or email / 电话或邮箱"
+              />
+            </div>
+          </div>
           <div className="form-group">
-            <label className="form-label">Current Landlord or Property Manager Reference / 现任房东或物业管理公司联系方式</label>
+            <label className="form-label">Reason for Leaving / 搬离原因</label>
             <textarea
               className="form-control"
               rows={3}
-              value={form.landlordReference}
-              onChange={(e) => set("landlordReference", e.target.value)}
-              placeholder="Name, phone/email, relationship (e.g. John Smith, 250-555-0100, current landlord) / 姓名、联系方式、关系"
+              value={form.currentResidenceReasonForLeaving}
+              onChange={(e) => set("currentResidenceReasonForLeaving", e.target.value)}
+              placeholder="Why are you moving from your current residence? / 为什么准备搬离现住址？"
               style={{ resize: "vertical" }}
             />
           </div>
         </div>
 
-        {/* ── Section 5: Credit Information ────────────────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>5. Credit Information / 信用记录</h3>
+          <h3 style={sTitle}>4. Previous Residence / 前居住信息</h3>
           <div className="form-group">
-            <label className="form-label">How would you rate your current credit history? / 如何描述您目前的信用记录？</label>
-            <RadioGroup
-              name="creditHistory"
-              options={CREDIT_OPTIONS}
-              value={form.creditHistory}
-              onChange={(v) => set("creditHistory", v)}
+            <label className="form-label">Previous Address / 之前住址</label>
+            <input
+              className="form-control"
+              value={form.previousResidenceAddress}
+              onChange={(e) => set("previousResidenceAddress", e.target.value)}
+              placeholder="Street, City, Province, Postal Code"
+            />
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Residence Dates / 居住时间</label>
+              <input
+                className="form-control"
+                value={form.previousResidenceDates}
+                onChange={(e) => set("previousResidenceDates", e.target.value)}
+                placeholder="e.g. Jan 2022 - Feb 2024"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Previous Monthly Rent / 之前月租</label>
+              <input
+                className="form-control"
+                value={form.previousResidenceMonthlyRent}
+                onChange={(e) => set("previousResidenceMonthlyRent", e.target.value)}
+                placeholder="e.g. $1,950"
+              />
+            </div>
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Previous Landlord / Property Manager / 之前房东或物业</label>
+              <input
+                className="form-control"
+                value={form.previousResidenceLandlordName}
+                onChange={(e) => set("previousResidenceLandlordName", e.target.value)}
+                placeholder="Name / 姓名"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Landlord Contact / 房东联系方式</label>
+              <input
+                className="form-control"
+                value={form.previousResidenceLandlordContact}
+                onChange={(e) => set("previousResidenceLandlordContact", e.target.value)}
+                placeholder="Phone or email / 电话或邮箱"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card mb-24">
+          <h3 style={sTitle}>5. Employment &amp; Income / 工作与收入</h3>
+          <div className="form-group">
+            <label className="form-label">Employment Status / 就业状态</label>
+            <select
+              className="select-control"
+              value={form.employmentStatus}
+              onChange={(e) => set("employmentStatus", e.target.value)}
+            >
+              <option value="">Select… / 请选择</option>
+              {EMPLOYMENT_OPTIONS.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Employer / Income Source / 雇主或收入来源</label>
+              <input
+                className="form-control"
+                value={form.employer}
+                onChange={(e) => set("employer", e.target.value)}
+                placeholder="Employer, business, pension, student funding, etc."
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Monthly Income / 月收入 (CAD)</label>
+              <input
+                className="form-control"
+                value={form.monthlyIncome}
+                onChange={(e) => set("monthlyIncome", e.target.value)}
+                placeholder="e.g. $5,500"
+              />
+            </div>
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Length of Employment / 工作时长</label>
+              <input
+                className="form-control"
+                value={form.employmentLength}
+                onChange={(e) => set("employmentLength", e.target.value)}
+                placeholder="e.g. 2 years 4 months"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Employer Contact / 雇主联系方式</label>
+              <input
+                className="form-control"
+                value={form.employerContact}
+                onChange={(e) => set("employerContact", e.target.value)}
+                placeholder="Manager name, phone, email"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Other Income / Additional Notes / 其他收入说明</label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={form.otherIncome}
+              onChange={(e) => set("otherIncome", e.target.value)}
+              placeholder="Benefits, savings, support, freelance income, etc."
+              style={{ resize: "vertical" }}
             />
           </div>
         </div>
 
-        {/* ── Section 6: Move-in / Occupancy ───────────────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>6. Move-in &amp; Occupancy / 入住日期与居住人数</h3>
+          <h3 style={sTitle}>6. Occupants / 入住人员</h3>
           <div style={grid2}>
             <div className="form-group">
               <label className="form-label">Preferred Move-in Date / 期望入住日期 *</label>
@@ -488,7 +874,22 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Total Number of People (incl. applicant) / 入住总人数（含申请人）</label>
+              <label className="form-label">Desired Lease Term / 期望租期</label>
+              <select
+                className="select-control"
+                value={form.leaseTerm}
+                onChange={(e) => set("leaseTerm", e.target.value)}
+              >
+                <option value="">Select… / 请选择</option>
+                {LEASE_TERM_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Total Occupants / 入住总人数</label>
               <input
                 className="form-control"
                 type="number"
@@ -499,10 +900,8 @@ export default function RentalApplication() {
                 placeholder="e.g. 3"
               />
             </div>
-          </div>
-          <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Number of Adults (18+) / 成年人数量（18岁及以上）</label>
+              <label className="form-label">Adults / 成年人数</label>
               <input
                 className="form-control"
                 type="number"
@@ -513,8 +912,10 @@ export default function RentalApplication() {
                 placeholder="e.g. 2"
               />
             </div>
+          </div>
+          <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Number of Minors (under 18) / 未成年人数量（18岁以下）</label>
+              <label className="form-label">Minors / 未成年人数量</label>
               <input
                 className="form-control"
                 type="number"
@@ -525,194 +926,204 @@ export default function RentalApplication() {
                 placeholder="e.g. 1"
               />
             </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Names and Ages of All Occupants / 所有入住人员姓名及年龄</label>
-            <textarea
-              className="form-control"
-              rows={3}
-              value={form.occupantNamesAges}
-              onChange={(e) => set("occupantNamesAges", e.target.value)}
-              placeholder="e.g. Jane Doe (32), John Doe (34), Emily Doe (8) / 例：张三（32岁）、李四（30岁）"
-              style={{ resize: "vertical" }}
-            />
+            <div className="form-group">
+              <label className="form-label">Occupant Summary / 入住人员说明</label>
+              <input
+                className="form-control"
+                value={form.occupantNamesAges}
+                onChange={(e) => set("occupantNamesAges", e.target.value)}
+                placeholder="Names, ages, and relationship"
+              />
+            </div>
           </div>
         </div>
 
-        {/* ── Section 7: Joint Applicant / Co-Applicant ────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>7. Joint Applicant / Co-Applicant / 联名申请人</h3>
+          <h3 style={sTitle}>7. Joint Applicant / Co-applicant / 共同申请人</h3>
           <div className="form-group">
-            <label className="form-label">Will there be a joint applicant? / 是否有联名申请人？</label>
+            <label className="form-label">
+              Do you have a joint applicant / co-applicant? / 是否有共同申请人？
+            </label>
             <RadioGroup
               name="hasJointApplicant"
-              options={["Yes / 有", "No / 没有"]}
+              options={JOINT_APPLICANT_OPTIONS}
               value={form.hasJointApplicant}
               onChange={handleJointApplicantChange}
             />
           </div>
 
-          {form.hasJointApplicant === "Yes / 有" && (
-            <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginTop: 8 }}>
+          {form.hasJointApplicant === "Yes / 是" && (
+            <div
+              style={{
+                borderTop: "1px solid var(--color-border)",
+                paddingTop: 16,
+                marginTop: 8,
+              }}
+            >
               <div className="form-group">
-                <label className="form-label">Joint Applicant Full Legal Name / 联名申请人全名</label>
+                <label className="form-label">Full Legal Name / 法定全名</label>
                 <input
                   className="form-control"
                   value={form.jointName}
                   onChange={(e) => set("jointName", e.target.value)}
-                  placeholder="Legal name as on government-issued ID / 与政府证件一致的全名"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Joint Applicant Current Address / 联名申请人现居地址</label>
-                <input
-                  className="form-control"
-                  value={form.jointAddress}
-                  onChange={(e) => set("jointAddress", e.target.value)}
-                  placeholder="Street, City, Province, Postal Code"
+                  placeholder="Legal name as shown on ID"
                 />
               </div>
               <div style={grid2}>
                 <div className="form-group">
-                  <label className="form-label">Joint Applicant Phone / 联名申请人电话</label>
-                  <input className="form-control" type="tel" value={form.jointPhone} onChange={(e) => set("jointPhone", e.target.value)} placeholder="+1 (250) 000-0000" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Joint Applicant Email / 联名申请人邮箱</label>
-                  <input className="form-control" type="email" value={form.jointEmail} onChange={(e) => set("jointEmail", e.target.value)} placeholder="email@example.com" />
-                </div>
-              </div>
-              <div style={grid2}>
-                <div className="form-group">
-                  <label className="form-label">Joint Applicant Date of Birth / 出生日期</label>
-                  <input className="form-control" type="date" value={form.jointDob} onChange={(e) => set("jointDob", e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Joint Applicant Employment Status / 联名申请人当前就业状态</label>
-                  <select className="select-control" value={form.jointEmploymentStatus} onChange={(e) => set("jointEmploymentStatus", e.target.value)}>
-                    <option value="">Select… / 请选择</option>
-                    {EMPLOYMENT_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={grid2}>
-                <div className="form-group">
-                  <label className="form-label">Joint Applicant Employer / Income Source / 联名申请人雇主或收入来源</label>
+                  <label className="form-label">Date of Birth / 出生日期</label>
                   <input
                     className="form-control"
-                    value={form.jointEmployerIncomeSource}
-                    onChange={(e) => set("jointEmployerIncomeSource", e.target.value)}
-                    placeholder="Employer name, business, pension, student funding, or other income source"
+                    type="date"
+                    value={form.jointDob}
+                    onChange={(e) => set("jointDob", e.target.value)}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Joint Applicant Monthly Income / 月收入 (CAD)</label>
-                  <input className="form-control" value={form.jointIncome} onChange={(e) => set("jointIncome", e.target.value)} placeholder="e.g. $4,000" />
+                  <label className="form-label">Phone Number / 电话</label>
+                  <input
+                    className="form-control"
+                    type="tel"
+                    value={form.jointPhone}
+                    onChange={(e) => set("jointPhone", e.target.value)}
+                    placeholder="+1 (250) 000-0000"
+                  />
+                </div>
+              </div>
+              <div style={grid2}>
+                <div className="form-group">
+                  <label className="form-label">Email Address / 邮箱</label>
+                  <input
+                    className="form-control"
+                    type="email"
+                    value={form.jointEmail}
+                    onChange={(e) => set("jointEmail", e.target.value)}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Current Address / 当前住址</label>
+                  <input
+                    className="form-control"
+                    value={form.jointAddress}
+                    onChange={(e) => set("jointAddress", e.target.value)}
+                    placeholder="Street, City, Province, Postal Code"
+                  />
+                </div>
+              </div>
+              <div style={grid2}>
+                <div className="form-group">
+                  <label className="form-label">Employment Status / 就业状态</label>
+                  <select
+                    className="select-control"
+                    value={form.jointEmploymentStatus}
+                    onChange={(e) => set("jointEmploymentStatus", e.target.value)}
+                  >
+                    <option value="">Select… / 请选择</option>
+                    {EMPLOYMENT_OPTIONS.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Monthly Income / 月收入 (CAD)</label>
+                  <input
+                    className="form-control"
+                    value={form.jointIncome}
+                    onChange={(e) => set("jointIncome", e.target.value)}
+                    placeholder="e.g. $4,200"
+                  />
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Joint Applicant Employer Contact / 雇主联系方式</label>
-                <input className="form-control" value={form.jointEmployerContact} onChange={(e) => set("jointEmployerContact", e.target.value)} placeholder="Name, phone, email / 姓名、电话、邮箱" />
+                <label className="form-label">Employer / Income Source / 雇主或收入来源</label>
+                <input
+                  className="form-control"
+                  value={form.jointEmployerIncomeSource}
+                  onChange={(e) => set("jointEmployerIncomeSource", e.target.value)}
+                  placeholder="Employer, business, pension, student funding, etc."
+                />
               </div>
               <div className="form-group">
-                <label className="form-label">Joint Applicant Current Landlord Reference / 联名申请人当前房东参考</label>
-                <textarea className="form-control" rows={3} value={form.jointLandlordReference} onChange={(e) => set("jointLandlordReference", e.target.value)} placeholder="Name, phone/email, relationship (e.g. current landlord) / 姓名、联系方式、关系" style={{ resize: "vertical" }} />
+                <label className="form-label">Employer Contact / 雇主联系方式</label>
+                <input
+                  className="form-control"
+                  value={form.jointEmployerContact}
+                  onChange={(e) => set("jointEmployerContact", e.target.value)}
+                  placeholder="Manager name, phone, email"
+                />
               </div>
               <div className="form-group">
-                <label className="form-label">Joint Applicant Credit Information / 联名申请人信用信息</label>
-                <RadioGroup name="jointCreditInfo" options={CREDIT_OPTIONS} value={form.jointCreditInfo} onChange={(v) => set("jointCreditInfo", v)} />
+                <label className="form-label">Current Landlord Reference / 当前房东参考</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={form.jointLandlordReference}
+                  onChange={(e) => set("jointLandlordReference", e.target.value)}
+                  placeholder="Name, contact, relationship"
+                  style={{ resize: "vertical" }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Credit Information / 信用信息</label>
+                <RadioGroup
+                  name="jointCreditInfo"
+                  options={CREDIT_OPTIONS}
+                  value={form.jointCreditInfo}
+                  onChange={(value) => set("jointCreditInfo", value)}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">
-                  Joint Applicant: willing to provide proof of income and/or credit report? /
-                  联名申请人：是否愿意提供收入证明和/或信用报告？
+                  Willing to provide proof of income / credit report / 是否愿意提供收入证明或信用报告
                 </label>
                 <RadioGroup
                   name="jointProofOfIncome"
                   options={PROOF_INCOME_OPTIONS}
                   value={form.jointProofOfIncome}
-                  onChange={(v) => set("jointProofOfIncome", v)}
+                  onChange={(value) => set("jointProofOfIncome", value)}
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Section 8: Lease / Deposit ───────────────────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>8. Lease &amp; Deposit / 租期与押金</h3>
+          <h3 style={sTitle}>8. Pets / 宠物</h3>
           <div className="form-group">
-            <label className="form-label">Desired Lease Term / 期望租期</label>
-            <select className="select-control" value={form.leaseTerm} onChange={(e) => set("leaseTerm", e.target.value)}>
-              <option value="">Select… / 请选择</option>
-              {LEASE_TERM_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">
-              Do you have funds available for the security deposit and first month's rent? / 是否已准备好押金和首月租金？
-            </label>
-            <RadioGroup
-              name="depositFundsAvailable"
-              options={DEPOSIT_OPTIONS}
-              value={form.depositFundsAvailable}
-              onChange={(v) => set("depositFundsAvailable", v)}
-            />
-          </div>
-          <div style={NOTICE}>
-            Under the BC Residential Tenancy Act, the security deposit is a maximum of half one month's rent.
-            If you have pets, an additional pet deposit (max half one month's rent) may also be required.
-            All deposits and first month's rent must be paid before move-in.
-            <br />
-            根据卑诗省住宅租赁法，押金最高为半个月租金。如有宠物，可能需额外支付宠物押金（最高半个月租金）。所有款项须在入住前支付。
-          </div>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: "0.87rem", lineHeight: 1.6 }}>
-            <input
-              type="checkbox"
-              checked={form.depositAgreement}
-              onChange={(e) => set("depositAgreement", e.target.checked)}
-              style={{ marginTop: 3, flexShrink: 0 }}
-            />
-            I understand and agree to the security deposit, first month's rent, and pet deposit requirements. /
-            本人了解并同意押金、首月租金及宠物押金的相关规定。
-          </label>
-        </div>
-
-        {/* ── Section 9: Pets ──────────────────────────────────────────────────── */}
-        <div className="card mb-24">
-          <h3 style={sTitle}>9. Pets / 宠物</h3>
-          <div className="form-group">
-            <label className="form-label">Do you have pets? / 您是否有宠物？</label>
+            <label className="form-label">Do you have pets? / 是否有宠物？</label>
             <RadioGroup
               name="hasPets"
-              options={["No / 无宠物", "Yes / 有宠物"]}
+              options={PET_OPTIONS}
               value={form.hasPets}
-              onChange={(v) => set("hasPets", v)}
+              onChange={handlePetsChange}
             />
           </div>
           {form.hasPets === "Yes / 有宠物" && (
-            <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginTop: 8 }}>
+            <div
+              style={{
+                borderTop: "1px solid var(--color-border)",
+                paddingTop: 16,
+                marginTop: 8,
+              }}
+            >
               <div className="form-group">
-                <label className="form-label">
-                  Do you have funds available for a pet deposit? / 是否已准备好宠物押金？
-                </label>
+                <label className="form-label">Pet Deposit Ready / 是否已准备宠物押金</label>
                 <RadioGroup
                   name="petDepositFunds"
-                  options={["Yes / 是", "No / 否"]}
+                  options={YES_NO_OPTIONS}
                   value={form.petDepositFunds}
-                  onChange={(v) => set("petDepositFunds", v)}
+                  onChange={(value) => set("petDepositFunds", value)}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">
-                  Pet Details: Type, Breed, Weight, Name / 宠物详情：种类、品种、体重、名字
-                </label>
+                <label className="form-label">Pet Details / 宠物详情</label>
                 <textarea
                   className="form-control"
                   rows={3}
                   value={form.petDetails}
                   onChange={(e) => set("petDetails", e.target.value)}
-                  placeholder="e.g. Dog, Golden Retriever, 30 lbs, Max / 例：狗，金毛，30磅，Max"
+                  placeholder="Type, breed, age, weight, name"
                   style={{ resize: "vertical" }}
                 />
               </div>
@@ -720,167 +1131,370 @@ export default function RentalApplication() {
           )}
         </div>
 
-        {/* ── Section 10: Tenancy History ──────────────────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>10. Tenancy History / 租赁历史</h3>
+          <h3 style={sTitle}>9. Vehicles / 车辆</h3>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Number of Vehicles / 车辆数量</label>
+              <input
+                className="form-control"
+                value={form.vehicleCount}
+                onChange={(e) => set("vehicleCount", e.target.value)}
+                placeholder="e.g. 1"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vehicle Details / 车辆详情</label>
+              <input
+                className="form-control"
+                value={form.vehicleDetails}
+                onChange={(e) => set("vehicleDetails", e.target.value)}
+                placeholder="Make, model, colour, plate if available"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card mb-24">
+          <h3 style={sTitle}>10. Smoking / Vaping / 吸烟或电子烟</h3>
           <div className="form-group">
             <label className="form-label">
-              Have you or any co-applicant ever been evicted or found in breach of a tenancy agreement? /
-              您或联名申请人是否曾被驱逐或违反过租赁协议？
+              Do you or any occupant smoke, vape, or use cannabis? / 您或任何入住人员是否吸烟、使用电子烟或大麻？
+            </label>
+            <RadioGroup
+              name="smokesVapesCannabis"
+              options={YES_NO_OPTIONS}
+              value={form.smokesVapesCannabis}
+              onChange={(value) => set("smokesVapesCannabis", value)}
+            />
+          </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+              fontSize: "0.87rem",
+              lineHeight: 1.6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.noSmokingAgreement}
+              onChange={(e) => set("noSmokingAgreement", e.target.checked)}
+              style={{ marginTop: 3, flexShrink: 0 }}
+            />
+            I agree that no smoking, vaping, or cannabis use is permitted on the
+            property. / 本人同意在物业内禁止吸烟、电子烟或大麻使用。
+          </label>
+        </div>
+
+        <div className="card mb-24">
+          <h3 style={sTitle}>11. References / 推荐人</h3>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Reference 1 Name / 推荐人 1 姓名</label>
+              <input
+                className="form-control"
+                value={form.referenceOneName}
+                onChange={(e) => set("referenceOneName", e.target.value)}
+                placeholder="Name / 姓名"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Reference 1 Relationship / 关系</label>
+              <input
+                className="form-control"
+                value={form.referenceOneRelationship}
+                onChange={(e) => set("referenceOneRelationship", e.target.value)}
+                placeholder="Employer, landlord, colleague, etc."
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Reference 1 Contact / 联系方式</label>
+            <input
+              className="form-control"
+              value={form.referenceOneContact}
+              onChange={(e) => set("referenceOneContact", e.target.value)}
+              placeholder="Phone and/or email"
+            />
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Reference 2 Name / 推荐人 2 姓名</label>
+              <input
+                className="form-control"
+                value={form.referenceTwoName}
+                onChange={(e) => set("referenceTwoName", e.target.value)}
+                placeholder="Name / 姓名"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Reference 2 Relationship / 关系</label>
+              <input
+                className="form-control"
+                value={form.referenceTwoRelationship}
+                onChange={(e) => set("referenceTwoRelationship", e.target.value)}
+                placeholder="Employer, landlord, colleague, etc."
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Reference 2 Contact / 联系方式</label>
+            <input
+              className="form-control"
+              value={form.referenceTwoContact}
+              onChange={(e) => set("referenceTwoContact", e.target.value)}
+              placeholder="Phone and/or email"
+            />
+          </div>
+        </div>
+
+        <div className="card mb-24">
+          <h3 style={sTitle}>12. Emergency Contact / 紧急联系人</h3>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Name / 姓名</label>
+              <input
+                className="form-control"
+                value={form.emergencyName}
+                onChange={(e) => set("emergencyName", e.target.value)}
+                placeholder="Name / 姓名"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Relationship / 关系</label>
+              <input
+                className="form-control"
+                value={form.emergencyRelationship}
+                onChange={(e) => set("emergencyRelationship", e.target.value)}
+                placeholder="Family, friend, coworker, etc."
+              />
+            </div>
+          </div>
+          <div style={grid2}>
+            <div className="form-group">
+              <label className="form-label">Phone Number / 电话</label>
+              <input
+                className="form-control"
+                value={form.emergencyPhone}
+                onChange={(e) => set("emergencyPhone", e.target.value)}
+                placeholder="+1 (250) 000-0000"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email Address / 邮箱</label>
+              <input
+                className="form-control"
+                type="email"
+                value={form.emergencyEmail}
+                onChange={(e) => set("emergencyEmail", e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="card mb-24">
+          <h3 style={sTitle}>13. Background / Credit / 租赁背景与信用</h3>
+          <div className="form-group">
+            <label className="form-label">Current Credit Profile / 当前信用情况</label>
+            <RadioGroup
+              name="creditHistory"
+              options={CREDIT_OPTIONS}
+              value={form.creditHistory}
+              onChange={(value) => set("creditHistory", value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">
+              Have you or any co-applicant ever been evicted or found in breach of a
+              tenancy agreement? / 您或共同申请人是否曾被驱逐或违反租约？
             </label>
             <textarea
               className="form-control"
               rows={3}
               value={form.evictionHistory}
               onChange={(e) => set("evictionHistory", e.target.value)}
-              placeholder={'If yes, please explain. If no, write "No". / 如有，请说明。如无，请填写"否"。'}
+              placeholder='If no, write "No". / 如无，请填写 "No"。'
+              style={{ resize: "vertical" }}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">
+              Additional Background / Credit Notes / 其他背景或信用说明
+            </label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={form.backgroundNotes}
+              onChange={(e) => set("backgroundNotes", e.target.value)}
+              placeholder="Outstanding rent, collections, bankruptcy, or anything you want reviewed."
               style={{ resize: "vertical" }}
             />
           </div>
         </div>
 
-        {/* ── Section 11: Smoking / Vaping / Cannabis ──────────────────────────── */}
         <div className="card mb-24">
-          <h3 style={sTitle}>11. Smoking / Vaping / Cannabis / 吸烟·电子烟·大麻</h3>
+          <h3 style={sTitle}>14. Supporting Documents / 支持文件说明</h3>
           <div className="form-group">
             <label className="form-label">
-              Do you or any occupant smoke, vape, use cannabis, or use recreational drugs? /
-              您或任何入住人员是否吸烟、使用电子烟、大麻或娱乐性药物？
-            </label>
-            <RadioGroup
-              name="smokesVapesCannabis"
-              options={["No / 否", "Yes / 是"]}
-              value={form.smokesVapesCannabis}
-              onChange={(v) => set("smokesVapesCannabis", v)}
-            />
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: "0.87rem", lineHeight: 1.6 }}>
-              <input
-                type="checkbox"
-                checked={form.noSmokingAgreement}
-                onChange={(e) => set("noSmokingAgreement", e.target.checked)}
-                style={{ marginTop: 3, flexShrink: 0 }}
-              />
-              I agree that no smoking, vaping, cannabis use, or recreational drug use is permitted on the property. /
-              本人同意在物业内禁止吸烟、使用电子烟、大麻或娱乐性药物。
-            </label>
-          </div>
-        </div>
-
-        {/* ── Section 12: Supporting Documents ─────────────────────────────────── */}
-        <div className="card mb-24">
-          <h3 style={sTitle}>12. Supporting Documents / 支持文件</h3>
-          <div className="form-group">
-            <label className="form-label">
-              Are you able to provide proof of income and/or a recent credit report if requested? /
-              如被要求，您是否能提供收入证明和/或近期信用报告？
+              Can you provide proof of income and/or a recent credit report if
+              requested? / 如被要求，您能否提供收入证明或近期信用报告？
             </label>
             <RadioGroup
               name="proofOfIncome"
               options={PROOF_INCOME_OPTIONS}
               value={form.proofOfIncome}
-              onChange={(v) => set("proofOfIncome", v)}
+              onChange={(value) => set("proofOfIncome", value)}
             />
           </div>
-          <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}>
-            Proof of income may include: pay stubs, employment letter, T4, bank statements, or NOA.
-            Do not upload documents at this stage — they will be requested separately if needed.
-            <br />
-            收入证明可包括：工资单、雇主证明信、T4、银行流水或税务评估通知书。请勿在此上传文件，如需要将单独联系。
-          </p>
-        </div>
-
-        {/* ── Section 13: Tenant Insurance ─────────────────────────────────────── */}
-        <div className="card mb-24">
-          <h3 style={sTitle}>13. Tenant Insurance / 租客保险</h3>
+          <div className="form-group">
+            <label className="form-label">Supporting Document Notes / 支持文件说明</label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={form.supportingDocsNotes}
+              onChange={(e) => set("supportingDocsNotes", e.target.value)}
+              placeholder="Pay stubs, employment letter, bank statements, ID, credit report, etc."
+              style={{ resize: "vertical" }}
+            />
+          </div>
           <div className="form-group">
             <label className="form-label">
-              Do you currently have tenant insurance? / 您目前是否持有租客保险？
+              Do you currently have tenant insurance? / 您目前是否有租客保险？
             </label>
             <RadioGroup
               name="hasTenantInsurance"
               options={INSURANCE_STATUS_OPTIONS}
               value={form.hasTenantInsurance}
-              onChange={(v) => set("hasTenantInsurance", v)}
+              onChange={(value) => set("hasTenantInsurance", value)}
             />
           </div>
-          <div style={{ ...NOTICE, marginTop: 12 }}>
-            Tenant insurance with a minimum $1,000,000 third-party liability coverage is required before move-in. /
-            入住前须持有最低 $1,000,000 第三方责任险的租客保险。
+          <div className="form-group">
+            <label className="form-label">
+              Can you provide proof of tenant insurance before move-in? /
+              能否在入住前提供租客保险证明？
+            </label>
+            <RadioGroup
+              name="proofInsuranceBeforeMoveIn"
+              options={PROOF_INSURANCE_OPTIONS}
+              value={form.proofInsuranceBeforeMoveIn}
+              onChange={(value) => set("proofInsuranceBeforeMoveIn", value)}
+            />
           </div>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: "0.87rem", lineHeight: 1.6, marginBottom: 12 }}>
+          <p
+            style={{
+              fontSize: "0.82rem",
+              color: "var(--color-text-muted)",
+              lineHeight: 1.6,
+            }}
+          >
+            Do not upload files on this page. Documents can be requested separately
+            after review. / 此页无需上传文件，审核后如有需要会再单独联系。
+          </p>
+        </div>
+
+        <div
+          className="card mb-24"
+          style={{ background: "#f5f8f5", border: "2px solid var(--color-border)" }}
+        >
+          <h3 style={sTitle}>15. Consent &amp; Declaration / 同意与声明</h3>
+          <div className="form-group">
+            <label className="form-label">
+              Do you have funds available for the security deposit and first month's
+              rent? / 是否已准备好押金和首月租金？
+            </label>
+            <RadioGroup
+              name="depositFundsAvailable"
+              options={DEPOSIT_OPTIONS}
+              value={form.depositFundsAvailable}
+              onChange={(value) => set("depositFundsAvailable", value)}
+            />
+          </div>
+          <div style={NOTICE}>
+            Under the BC Residential Tenancy Act, the security deposit is a maximum
+            of half one month's rent. If you have pets, an additional pet deposit may
+            be required. Tenant insurance with at least $1,000,000 third-party
+            liability is required before move-in.
+            <br />
+            根据卑诗省住宅租赁法，押金最高为半个月租金。如有宠物，可能需要额外宠物押金。入住前须持有至少
+            $1,000,000 第三方责任险的租客保险。
+          </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+              fontSize: "0.87rem",
+              lineHeight: 1.6,
+              marginBottom: 12,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.depositAgreement}
+              onChange={(e) => set("depositAgreement", e.target.checked)}
+              style={{ marginTop: 3, flexShrink: 0 }}
+            />
+            I understand and agree to the deposit requirements. /
+            本人了解并同意押金相关要求。
+          </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+              fontSize: "0.87rem",
+              lineHeight: 1.6,
+              marginBottom: 16,
+            }}
+          >
             <input
               type="checkbox"
               checked={form.tenantInsuranceAgreement}
               onChange={(e) => set("tenantInsuranceAgreement", e.target.checked)}
               style={{ marginTop: 3, flexShrink: 0 }}
             />
-            I understand that tenant insurance with minimum $1M third-party liability is required before move-in. /
-            本人了解入住前须持有最低 $1,000,000 第三方责任险的租客保险。
+            I understand that tenant insurance is required before move-in. /
+            本人了解入住前必须提供租客保险。
           </label>
           <div className="form-group">
-            <label className="form-label">
-              Can you provide proof of tenant insurance before move-in? / 能否在入住前提供租客保险证明？
-            </label>
-            <RadioGroup
-              name="proofInsuranceBeforeMoveIn"
-              options={PROOF_INSURANCE_OPTIONS}
-              value={form.proofInsuranceBeforeMoveIn}
-              onChange={(v) => set("proofInsuranceBeforeMoveIn", v)}
-            />
-          </div>
-        </div>
-
-        {/* ── Section 14: Additional Information ───────────────────────────────── */}
-        <div className="card mb-24">
-          <h3 style={sTitle}>14. Additional Information / 其他信息</h3>
-          <div className="form-group">
-            <label className="form-label">Reason for Moving / 搬迁原因</label>
-            <textarea
-              className="form-control"
-              rows={2}
-              value={form.reasonForMoving}
-              onChange={(e) => set("reasonForMoving", e.target.value)}
-              placeholder="Why are you looking to move? / 您搬迁的原因是什么？"
-              style={{ resize: "vertical" }}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Parking Request / 停车需求</label>
-            <input
-              className="form-control"
-              value={form.parkingRequest}
-              onChange={(e) => set("parkingRequest", e.target.value)}
-              placeholder="Number of vehicles, type, special needs / 车辆数量、类型、特殊需求"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Other Special Requests / 其他特殊需求</label>
+            <label className="form-label">Additional Notes / 其他补充说明</label>
             <textarea
               className="form-control"
               rows={3}
               value={form.additionalNotes}
               onChange={(e) => set("additionalNotes", e.target.value)}
-              placeholder="References, special circumstances, questions, etc. / 参考人、特殊情况、问题等"
+              placeholder="Anything else you would like the reviewer to know."
               style={{ resize: "vertical" }}
             />
           </div>
-        </div>
-
-        {/* ── Section 15: Declaration ───────────────────────────────────────────── */}
-        <div className="card mb-24" style={{ background: "#f5f8f5", border: "2px solid var(--color-border)" }}>
-          <h3 style={sTitle}>15. Declaration / 申请人声明</h3>
-          <p style={{ fontSize: "0.85rem", lineHeight: 1.75, color: "var(--color-text)", marginBottom: 16 }}>
-            By submitting this application, you confirm that: / 提交此申请，即代表您确认：
-          </p>
-          <ul style={{ fontSize: "0.84rem", lineHeight: 1.9, paddingLeft: 20, color: "var(--color-text)", marginBottom: 16 }}>
-            <li>All information provided is true, accurate, and complete to the best of your knowledge. / 所提供的所有信息均属实、准确且完整。</li>
-            <li>You understand that submitting this application does not guarantee approval. / 您了解提交申请并不保证获得批准。</li>
-            <li>You authorize the landlord / property manager to contact the references provided. / 您授权房东或物业管理公司联系您提供的参考人。</li>
-            <li>You consent to your information being used for tenancy screening purposes only. / 您同意将相关信息仅用于租赁审核目的。</li>
+          <ul
+            style={{
+              fontSize: "0.84rem",
+              lineHeight: 1.9,
+              paddingLeft: 20,
+              color: "var(--color-text)",
+              marginBottom: 16,
+            }}
+          >
+            <li>All information provided is true and complete. / 所有信息真实且完整。</li>
+            <li>Submitting this application does not guarantee approval. / 提交申请不代表必然获批。</li>
+            <li>You authorize reference and tenancy screening checks. / 您授权进行推荐人和租赁背景核查。</li>
+            <li>Your information will be used only for tenancy review. / 您的信息仅用于租赁审核。</li>
           </ul>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              cursor: "pointer",
+            }}
+          >
             <input
               type="checkbox"
               checked={form.agreed}
@@ -889,8 +1503,8 @@ export default function RentalApplication() {
               required
             />
             <span style={{ fontSize: "0.88rem", lineHeight: 1.6, fontWeight: 600 }}>
-              I confirm the above declaration and agree to the terms. /
-              本人确认以上声明并同意相关条款。 *
+              I confirm the declaration above and consent to the review of this
+              application. / 本人确认以上声明，并同意本申请进入审核。 *
             </span>
           </label>
         </div>
@@ -904,9 +1518,17 @@ export default function RentalApplication() {
           {submitting ? "Submitting… / 提交中…" : "Submit Application / 提交申请"}
         </button>
 
-        <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 12, lineHeight: 1.6 }}>
-          By submitting, you agree that your information will be used for tenancy screening. /
-          提交即表示同意将信息用于租赁审核。
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "0.78rem",
+            color: "var(--color-text-muted)",
+            marginTop: 12,
+            lineHeight: 1.6,
+          }}
+        >
+          By submitting, you agree that your information will be used for tenancy
+          screening. / 提交即表示同意将信息用于租赁审核。
         </p>
       </form>
     </div>
