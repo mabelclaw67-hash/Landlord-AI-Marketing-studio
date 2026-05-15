@@ -18,7 +18,9 @@ var HOME_SALE_LISTING_ACCESS_HEADERS = [
 function doGet(e) {
   try {
     var action = homeSaleParam_(e, "action");
-    var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale");
+    var publicGetActions = ["getSaleListings", "getSaleListingById"];
+    var isPublicGet = publicGetActions.indexOf(action) >= 0;
+    var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale", isPublicGet);
 
     if (action === "getSaleListings") return homeSaleOk_(getSaleListings_(auth));
     if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(homeSaleParam_(e, "listingId"), auth));
@@ -36,7 +38,9 @@ function doPost(e) {
   try {
     var body = JSON.parse((e.postData && e.postData.contents) || "{}");
     var action = body.action || "";
-    var auth = homeSaleResolveAccess_(body || {}, "sale");
+    var publicPostActions = ["getSaleListings", "getSaleListingById"];
+    var isPublicPost = publicPostActions.indexOf(action) >= 0;
+    var auth = homeSaleResolveAccess_(body || {}, "sale", isPublicPost);
 
     if (action === "getSaleListings") return homeSaleOk_(getSaleListings_(auth));
     if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(body.listingId, auth));
@@ -57,7 +61,7 @@ function doPost(e) {
   }
 }
 
-function homeSaleResolveAccess_(payload, moduleName) {
+function homeSaleResolveAccess_(payload, moduleName, allowPublic) {
   payload = payload || {};
   var adminAccessCode = String(payload.adminAccessCode || "").trim();
   var expectedAdminCode = homeSaleGetAdminAccessCode_();
@@ -79,6 +83,7 @@ function homeSaleResolveAccess_(payload, moduleName) {
     };
   }
 
+  if (allowPublic) return { mode: "public", module: moduleName || "" };
   throw new Error("Access denied. Please sign in with an approved trial access code.");
 }
 
@@ -175,6 +180,10 @@ function homeSaleCanAccessListing_(record, auth) {
   if (!record) return false;
   if (!auth) return false;
   if (auth.mode === "admin") return true;
+  if (auth.mode === "public") {
+    var status = String(record["Status"] || "").trim();
+    return status === "Published" || status === "Active";
+  }
   return homeSaleNormalizeEmail_(record["Created By Email"]) === homeSaleNormalizeEmail_(auth.email);
 }
 

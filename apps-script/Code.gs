@@ -180,7 +180,9 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: false });
+    var publicGetActions = ["getListings", "getListingById"];
+    var isPublicGet = publicGetActions.indexOf(action) >= 0;
+    var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
     if (action === "getListingById")      return ok(getListingById_(e.parameter.listingId, auth));
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
@@ -198,7 +200,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode"];
+    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -534,8 +536,9 @@ function findListingByIdForEmail_(listingId, email) {
 function canAccessListingRecord_(listing, auth) {
   if (!listing) return false;
   if (!auth) return true;
-  if (auth && auth.mode === "admin") return true;
-  if (auth && auth.mode === "trial") {
+  if (auth.mode === "admin") return true;
+  if (auth.mode === "public") return listing.status === "Published";
+  if (auth.mode === "trial") {
     return normalizeEmail_(listing.createdByEmail) === normalizeEmail_(auth.email);
   }
   return false;
