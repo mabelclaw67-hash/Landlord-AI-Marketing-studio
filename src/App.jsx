@@ -3,11 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import "./styles/global.css";
 
 import Navbar from "./components/Navbar";
+import TrialAccessGate from "./components/TrialAccessGate";
 import LandlordHomeLayout from "./components/LandlordHomeLayout";
 import Services from "./pages/Services";
 import Examples from "./pages/Examples";
 import Resources from "./pages/Resources";
 import Contact from "./pages/Contact";
+import TrialAccess from "./pages/TrialAccess";
 import HomeSaleStudio from "./pages/HomeSaleStudio";
 import HomeSaleListingDetail from "./pages/HomeSaleListingDetail";
 import HomeSaleAdmin from "./pages/HomeSaleAdmin";
@@ -17,6 +19,7 @@ import NewListing from "./pages/admin/NewListing";
 import ListingDetail from "./pages/admin/ListingDetail";
 import Listings from "./pages/admin/Listings";
 import Leads from "./pages/admin/Leads";
+import TrialRequests from "./pages/admin/TrialRequests";
 import HomeSaleListings from "./pages/admin/HomeSaleListings";
 import HomeSaleListingDetailAdmin from "./pages/admin/HomeSaleListingDetailAdmin";
 import HomeSaleListingForm from "./pages/admin/HomeSaleListingForm";
@@ -31,6 +34,7 @@ import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
 import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
 import HomeSaleBuyerInquiries from "./pages/admin/HomeSaleBuyerInquiries";
 import ApplicationReview from "./pages/admin/ApplicationReview";
+import AdminSettings from "./pages/admin/AdminSettings";
 import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
@@ -45,17 +49,19 @@ function AppInner({ lang, setLang }) {
       <Routes>
         <Route path="/" element={<LandlordHomeLayout lang={lang} setLang={setLang} />} />
         <Route path="/services" element={<Services lang={lang} />} />
-        <Route path="/examples" element={<Examples lang={lang} />} />
+        <Route path="/examples" element={<TrialAccessGate module="rental"><Examples lang={lang} /></TrialAccessGate>} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
-        <Route path="/home-sale-studio" element={<HomeSaleStudio />} />
-        <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail />} />
+        <Route path="/trial-access" element={<TrialAccess />} />
+        <Route path="/home-sale-studio" element={<TrialAccessGate module="sale"><HomeSaleStudio /></TrialAccessGate>} />
+        <Route path="/home-sale-studio/listings/:listingId" element={<TrialAccessGate module="sale"><HomeSaleListingDetail /></TrialAccessGate>} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="rental" element={<Dashboard lang={lang} mode="rental" />} />
           <Route path="new" element={<NewListing lang={lang} />} />
           <Route path="listings" element={<Listings lang={lang} />} />
           <Route path="leads" element={<Leads />} />
+          <Route path="trial-requests" element={<TrialRequests />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />
           <Route path="home-sale" element={<HomeSaleAdmin />} />
           <Route path="home-sale/listings" element={<HomeSaleListings />} />
@@ -73,9 +79,10 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/buyer-inquiry/:listingId" element={<HomeSaleBuyerInquiry />} />
           <Route path="home-sale/review/:listingId" element={<HomeSaleReviewPublish />} />
           <Route path="application/:applicationId" element={<ApplicationReview />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
-        <Route path="/apply/:listingId" element={<RentalApplication />} />
-        <Route path="/listings/:id" element={<PublicListing />} />
+        <Route path="/apply/:listingId" element={<TrialAccessGate module="rental"><RentalApplication /></TrialAccessGate>} />
+        <Route path="/listings/:id" element={<TrialAccessGate module="rental"><PublicListing /></TrialAccessGate>} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -4,6 +4,7 @@ import { t } from "../../translations";
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
+import { getStudioRequestAuth } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../utils/listingPublicMeta";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
@@ -300,7 +301,7 @@ export default function ListingDetail({ lang }) {
   const loadFolderFiles = async (folderId) => {
     setFolderLoading(true);
     try {
-      const files = await getListingFolderFiles(folderId);
+      const files = await getListingFolderFiles(folderId, id);
       const resolved = files || [];
       setFolderFiles(resolved);
       setPhotoOrder(resolved.map((f) => f.fileId));
@@ -490,7 +491,7 @@ export default function ListingDetail({ lang }) {
     for (let i = 0; i < files.length; i++) {
       setUploadProgress(`Uploading ${i + 1} of ${files.length}…`);
       try {
-        await uploadToSubfolder(folderId, "", files[i]);
+        await uploadToSubfolder(folderId, "", files[i], id);
         succeeded++;
       } catch (err) {
         errors.push(`${files[i].name}: ${err.message}`);
@@ -558,7 +559,7 @@ export default function ListingDetail({ lang }) {
     if (!subfolderId) return;
     setEnhancedLoading(true);
     try {
-      const files = await getListingFolderFiles(subfolderId);
+      const files = await getListingFolderFiles(subfolderId, id);
       const seen = new Map();
       for (const f of (files || [])) seen.set(f.name, f);
       setEnhancedPhotos(Array.from(seen.values()));
@@ -615,6 +616,7 @@ export default function ListingDetail({ lang }) {
           fileName,
           mimeType:      "image/jpeg",
           data:          base64,
+          ...getStudioRequestAuth("rental"),
         });
         if (res?.subfolderUrl  && !capturedFolderUrl)  capturedFolderUrl = res.subfolderUrl;
         if (res?.subfolderFolderId && !capturedFolderId) capturedFolderId = res.subfolderFolderId;
@@ -1086,6 +1088,7 @@ export default function ListingDetail({ lang }) {
         fileName,
         mimeType:      "video/mp4",
         data:          base64,
+        ...getStudioRequestAuth("rental"),
       });
       if (result?.subfolderUrl) setVideoFolderUrl(result.subfolderUrl);
       if (result?.url)          setVideoFileUrl(result.url);

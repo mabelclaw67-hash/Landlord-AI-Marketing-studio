@@ -1,3 +1,5 @@
+import { getStudioRequestAuth } from "./trialAccess";
+
 const HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
 const HOME_SALE_EXEC_URL = import.meta.env.VITE_HOME_SALE_EXEC_URL || "";
 
@@ -95,6 +97,9 @@ const LISTING_HEADER_MAP = {
   "Internal Status": "internalStatus",
   "Created At": "createdAt",
   "Updated At": "updatedAt",
+  "Created By Email": "createdByEmail",
+  "Created By Access Code": "createdByAccessCode",
+  "Created By Role": "createdByRole",
 };
 
 const MEDIA_HEADER_MAP = {
@@ -233,14 +238,14 @@ export function createEmptySaleListingForm(overrides = {}) {
 
 export async function getHomeSaleListings() {
   ensureHomeSaleApiConnected();
-  const data = await homeSaleApiGet({ action: "getSaleListings" });
+  const data = await homeSaleApiGet({ action: "getSaleListings", ...getStudioRequestAuth("sale") });
   return Array.isArray(data) ? data.map(normalizeSaleListing) : [];
 }
 
 export async function getHomeSaleListing(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing sale listing ID.");
-  const data = await homeSaleApiGet({ action: "getSaleListingById", listingId });
+  const data = await homeSaleApiGet({ action: "getSaleListingById", listingId, ...getStudioRequestAuth("sale") });
   return normalizeSaleListing(data);
 }
 
@@ -249,6 +254,7 @@ export async function createSaleListing(values) {
   return homeSaleApiPost({
     action: "createSaleListing",
     record: buildSaleListingRecord(values),
+    ...getStudioRequestAuth("sale"),
   });
 }
 
@@ -260,13 +266,14 @@ export async function updateSaleListing(values) {
     action: "updateSaleListing",
     listingId,
     record: buildSaleListingRecord(values),
+    ...getStudioRequestAuth("sale"),
   });
 }
 
 export async function getSaleMediaByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for media lookup.");
-  const data = await homeSaleApiGet({ action: "getSaleMediaByListingId", listingId });
+  const data = await homeSaleApiGet({ action: "getSaleMediaByListingId", listingId, ...getStudioRequestAuth("sale") });
   return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MEDIA_HEADER_MAP)) : [];
 }
 
@@ -275,6 +282,7 @@ export async function createSaleMediaAsset(values) {
   return homeSaleApiPost({
     action: "createSaleMediaAsset",
     record: buildSaleMediaRecord(values),
+    ...getStudioRequestAuth("sale"),
   });
 }
 
@@ -287,13 +295,14 @@ export async function syncSaleMediaFromDriveFolder(values) {
     startingSortOrder: values.startingSortOrder || 1,
     defaultAssetType: values.defaultAssetType || "Photo",
     defaultAssetRole: values.defaultAssetRole || "Other",
+    ...getStudioRequestAuth("sale"),
   });
 }
 
 export async function getMarketingCopyByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for marketing lookup.");
-  const data = await homeSaleApiGet({ action: "getMarketingCopyByListingId", listingId });
+  const data = await homeSaleApiGet({ action: "getMarketingCopyByListingId", listingId, ...getStudioRequestAuth("sale") });
   return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MARKETING_HEADER_MAP)) : [];
 }
 
@@ -303,6 +312,7 @@ export async function createOrUpdateMarketingCopy(values) {
     action: "createOrUpdateMarketingCopy",
     copyId: values.copyId || "",
     record: buildMarketingCopyRecord(values),
+    ...getStudioRequestAuth("sale"),
   });
 }
 
@@ -312,13 +322,14 @@ export async function generateHomeSaleMarketingCopy(listingId) {
   return homeSaleApiPost({
     action: "generateHomeSaleMarketingCopy",
     listingId,
+    ...getStudioRequestAuth("sale"),
   });
 }
 
 export async function getVideoScriptsByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for video workflow lookup.");
-  const data = await homeSaleApiGet({ action: "getVideoScriptsByListingId", listingId });
+  const data = await homeSaleApiGet({ action: "getVideoScriptsByListingId", listingId, ...getStudioRequestAuth("sale") });
   return Array.isArray(data) ? data.map((item) => normalizeRecord(item, VIDEO_HEADER_MAP)) : [];
 }
 
@@ -328,6 +339,7 @@ export async function createOrUpdateVideoScript(values) {
     action: "createOrUpdateVideoScript",
     scriptId: values.scriptId || "",
     record: buildVideoScriptRecord(values),
+    ...getStudioRequestAuth("sale"),
   });
 }
 

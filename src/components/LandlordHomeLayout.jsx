@@ -1,7 +1,9 @@
 import { NavLink, Link } from "react-router-dom";
 import Home from "../pages/Home";
+import { readTrialAccess } from "../utils/trialAccess";
 
 export default function LandlordHomeLayout({ lang, setLang }) {
+  const trialSession = readTrialAccess();
   return (
     <div className="landlord-app">
       {/* Desktop Sidebar */}
@@ -17,30 +19,39 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         <nav className="lh-nav-group">
           <div className="lh-nav-label">Main</div>
           <NavLink to="/" end className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            🏠 Home
+            <span className="lh-nav-item__icon">🏠</span>
+            <span><strong>Home</strong><small>首页</small></span>
           </NavLink>
           <NavLink to="/services" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            🧰 Services
+            <span className="lh-nav-item__icon">🏷️</span>
+            <span><strong>Pricing</strong><small>价格</small></span>
           </NavLink>
           <NavLink to="/examples" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            🏘️ Rental Listings
+            <span className="lh-nav-item__icon">🏢</span>
+            <span><strong>Rental Studio</strong><small>租赁工作台</small></span>
           </NavLink>
           <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            🏡 {lang === "zh" ? "出售房源" : "Sale Listings"}
+            <span className="lh-nav-item__icon">🏠</span>
+            <span><strong>Home Sale Studio</strong><small>售房工作台</small></span>
           </NavLink>
           <NavLink to="/resources" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            📚 Resources
+            <span className="lh-nav-item__icon">📚</span>
+            <span><strong>Resources</strong><small>资源</small></span>
           </NavLink>
           <NavLink to="/contact" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
-            ✉️ Contact / Beta
+            <span className="lh-nav-item__icon">🎧</span>
+            <span><strong>Contact / Beta</strong><small>联系 / 内测申请</small></span>
           </NavLink>
         </nav>
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">Workspace</div>
-          <Link to="/admin" className="lh-nav-item lh-nav-item--admin">
-            ⚙️ Admin Studio
-          </Link>
+          {!trialSession && (
+            <Link to="/admin" className="lh-nav-item lh-nav-item--admin">
+              <span className="lh-nav-item__icon">⚙️</span>
+              <span><strong>Admin Studio</strong><small>管理后台</small></span>
+            </Link>
+          )}
           <div className="lh-nav-item lh-lang-row">
             🌐
             <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
@@ -49,9 +60,28 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           </div>
         </nav>
 
+        <div className="lh-sidebar-cta">
+          <Link to="/contact" className="lh-sidebar-cta__btn">
+            <span className="lh-sidebar-cta__icon">🔐</span>
+            <span>
+              <strong>Request Access</strong>
+              <small>申请使用</small>
+            </span>
+          </Link>
+          <Link to="/trial-access" className="lh-sidebar-cta__btn lh-sidebar-cta__btn--secondary">
+            <span className="lh-sidebar-cta__icon">🗝️</span>
+            <span>
+              <strong>Trial Access</strong>
+              <small>已批准用户入口</small>
+            </span>
+          </Link>
+        </div>
+
         <div className="lh-sidebar-footer">
-          <strong>Client-facing home</strong>
-          This page is for landlords and property clients. Tenant rental pages stay separate.
+          <strong>Mobile Experience / 移动端体验</strong>
+          On mobile, the sidebar becomes a bottom navigation bar for seamless access across devices.
+          <br />
+          在移动端，侧边栏会变为底部导航栏，方便快速访问。
         </div>
       </aside>
 
@@ -91,10 +121,12 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           <span>✉️</span>
           <span>Contact</span>
         </NavLink>
-        <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
-          <span>⚙️</span>
-          <span>Admin</span>
-        </NavLink>
+        {!trialSession && (
+          <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+            <span>⚙️</span>
+            <span>Admin</span>
+          </NavLink>
+        )}
       </nav>
     </div>
   );

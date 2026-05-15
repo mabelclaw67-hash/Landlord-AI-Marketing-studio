@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
+import { readTrialAccess } from "../utils/trialAccess";
 import {
   buildHomeSalePublicUrl,
   getHomeSaleListings,
-  getHomeSaleSetupMessage,
-  homeSaleSheetConfig,
 } from "../utils/homeSaleSheet";
 
 function extractDriveFileId(url) {
@@ -32,6 +31,7 @@ function formatPrice(value) {
 }
 
 export default function HomeSaleStudio() {
+  const trialSession = readTrialAccess();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,7 +39,7 @@ export default function HomeSaleStudio() {
   useEffect(() => {
     getHomeSaleListings()
       .then((rows) => setListings(rows))
-      .catch((err) => setError(err.message || getHomeSaleSetupMessage()))
+      .catch((err) => setError(err.message || "Unable to load sale listings right now."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -56,18 +56,20 @@ export default function HomeSaleStudio() {
 
       <section className="section">
         <div className="container">
-          <div className="card home-sale-admin-entry" style={{ marginBottom: 24 }}>
-            <div>
-              <div className="home-sale-admin-entry__eyebrow">Home Sale Admin Studio / 房屋出售后台管理</div>
-              <h2>本地后台入口 / Manage the Home Sale Workflow</h2>
-              <p>
-                从这里进入 Home Sale Admin，打开出售数据库、测试公开页与测试详情页。
-              </p>
+          {!trialSession && (
+            <div className="card home-sale-admin-entry" style={{ marginBottom: 24 }}>
+              <div>
+                <div className="home-sale-admin-entry__eyebrow">Home Sale Admin Studio / 房屋出售后台管理</div>
+                <h2>本地后台入口 / Manage the Home Sale Workflow</h2>
+                <p>
+                  从这里进入 Home Sale Admin，打开出售数据库、测试公开页与测试详情页。
+                </p>
+              </div>
+              <Link to="/admin/home-sale" className="btn btn--sage">
+                Manage Home Sale Listings / 管理出售房源
+              </Link>
             </div>
-            <Link to="/admin/home-sale" className="btn btn--sage">
-              Manage Home Sale Listings / 管理出售房源
-            </Link>
-          </div>
+          )}
 
           <div className="notice notice--sage" style={{ marginBottom: 24 }}>
             <h4>Coming Soon / Beta</h4>
@@ -80,30 +82,16 @@ export default function HomeSaleStudio() {
             </p>
           </div>
 
-          <div className="card" style={{ marginBottom: 24, borderColor: "#e5dfd6" }}>
-            <h3 style={{ color: "#3e5b4b", marginBottom: 10 }}>数据来源 / Sheet Source</h3>
-            <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
-              当前本地页面会通过独立的 Home Sale Apps Script 读接口读取 Google Sheet：
-              <br />
-              <strong>{homeSaleSheetConfig.tabs.listings}</strong>
-              <br />
-              如果 `VITE_HOME_SALE_EXEC_URL` 尚未配置，页面会显示 setup message，而不会生成假房源。
-            </p>
-          </div>
-
           {loading && (
             <div className="card" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-              正在读取出售房源表格… / Loading sale listings from Google Sheet…
+              正在读取出售房源… / Loading sale listings…
             </div>
           )}
 
           {!loading && error && (
             <div className="notice notice--warm" style={{ marginBottom: 24 }}>
-              <h4>本地连接提示 / Local Setup Message</h4>
+              <h4>暂时无法读取房源 / Unable to Load Listings</h4>
               <p>{error}</p>
-              <p style={{ marginTop: 6, opacity: 0.86 }}>
-                Local test only. The page attempted to read `01 Sale Listings` through the Home Sale Apps Script endpoint.
-              </p>
             </div>
           )}
 

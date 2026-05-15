@@ -12,12 +12,6 @@ const FORM_URL_READY  = RENTAL_FORM_URL &&
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
-function extractFolderId(link) {
-  if (!link) return null;
-  const m = link.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  return m ? m[1] : null;
-}
-
 // Build a prefilled Google Form URL for the given listing.
 // Entry 1083146033 = "Property Applied For / Listing ID"
 const PREFILL_ENTRY = "entry.1083146033";
@@ -134,14 +128,11 @@ export default function PublicListing() {
       .then((l) => {
         if (!l) { setError("Listing not found."); return; }
         setListing(l);
-        const folderId = extractFolderId(l.driveFolderLink);
-        if (folderId) {
-          setPhotosLoading(true);
-          getListingFolderFiles(folderId)
-            .then((files) => setPhotos(files || []))
-            .catch(() => {})
-            .finally(() => setPhotosLoading(false));
-        }
+        setPhotosLoading(true);
+        getListingFolderFiles("", id)
+          .then((files) => setPhotos(files || []))
+          .catch(() => {})
+          .finally(() => setPhotosLoading(false));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

@@ -6,9 +6,11 @@
 
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1RNF_WZWsDECSnIqnaZuXWsbUy-xtmE2r";
+var ADMIN_ACCESS_CODE = "246810"; // bootstrap fallback only — real code lives in 08 System Settings
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
 var INTAKE_SHEET    = "07 Intake Records";
+var SYSTEM_SETTINGS_SHEET = "08 System Settings";
 
 var INTAKE_HEADERS = [
   // System
@@ -76,6 +78,26 @@ var INTAKE_HEADERS = [
   "Review Status",                   // AV
   "Internal Notes",                  // AW
   "Updated At",                      // AX
+];
+
+var CONTACT_HEADERS = [
+  "Name",
+  "Email",
+  "Phone",
+  "WeChat ID",
+  "City",
+  "Service Interest",
+  "Message",
+  "Submitted At",
+  "Approval Status",
+  "Approved Module",
+  "Access Type",
+  "Payment Status",
+  "Access Code",
+  "Approved At",
+  "Access Expires At",
+  "Approval Email Sent At",
+  "Admin Notes",
 ];
 
 // ── Column reference — actual "01 Listings" header row ────────────────────────
@@ -147,6 +169,9 @@ var LISTING_HEADERS = [
   "Drive Files",          // AB 27 JSON
   "Enhanced Folder ID",   // AC 28 — 02_AI_Enhanced_Photos subfolder Drive ID
   "videoUrl",             // AD 29 — generated MP4 video URL (Google Drive link)
+  "Created By Email",
+  "Created By Access Code",
+  "Created By Role",
 ];
 
 // ── Router ───────────────────────────────────────────────────────────────────
@@ -154,10 +179,14 @@ var LISTING_HEADERS = [
 function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
-    if (action === "getListings")        return ok(getListings_());
-    if (action === "getListingFolder")   return ok(getListingFolderFiles_(e.parameter.folderId));
-    if (action === "getApplicationById") return ok(getApplicationById_(e.parameter.applicationId));
     if (action === "ping")               return ok({ status: "connected" });
+    var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: false });
+    if (action === "getListings")         return ok(getListings_(auth));
+    if (action === "getListingById")      return ok(getListingById_(e.parameter.listingId, auth));
+    if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
+    if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
+    if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
+    if (action === "getContactRequests")  return ok(getContactRequests_(auth));
     return err("Unknown GET action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -168,19 +197,35 @@ function doPost(e) {
   try {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
-    if (action === "getListings")       return ok(getListings_());        // POST avoids GET cache
-    if (action === "saveListing")       return ok(saveListing_(body.data));
+    // Actions that do not require any session (login/public endpoints)
+    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode"];
+    var isNoAuth = noAuthActions.indexOf(action) >= 0;
+    var auth = resolveAccessContext_(body || {}, "rental", {
+      allowAdmin: true,
+      allowTrial: !isNoAuth,
+      allowNoAccess: isNoAuth,
+    });
+    if (action === "getListings")       return ok(getListings_(auth));        // POST avoids GET cache
+    if (action === "getListingById")    return ok(getListingById_(body.listingId, auth));
+    if (action === "generateListingId") return ok({ listingId: generateListingId_() });
+    if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
-    if (action === "uploadFile")        return ok(uploadFile_(body));
-    if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body));
-    if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl));
-    if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId));
+    if (action === "uploadFile")        return ok(uploadFile_(body, auth));
+    if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
+    if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
+    if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId, auth));
     if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
     if (action === "saveRentalApplication")  return ok(saveRentalApplication_(body.data));
-    if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId));
-    if (action === "getAllApplications")     return ok(getAllApplications_());
-    if (action === "updateApplicationStatus") return ok(updateApplicationStatus_(body.applicationId, body.reviewStatus));
-    if (action === "updateApplicationNotes")  return ok(updateApplicationNotes_(body.applicationId, body.notes));
+    if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId, auth));
+    if (action === "getAllApplications")     return ok(getAllApplications_(auth));
+    if (action === "updateApplicationStatus") return ok(updateApplicationStatus_(body.applicationId, body.reviewStatus, auth));
+    if (action === "updateApplicationNotes")  return ok(updateApplicationNotes_(body.applicationId, body.notes, auth));
+    if (action === "approveContactRequest")   return ok(approveContactRequest_(body, auth));
+    if (action === "updateContactRequestNotes") return ok(updateContactRequestNotes_(body.rowNumber, body.notes, auth));
+    if (action === "validateAccessCode")      return ok(validateAccessCode_(body.email, body.accessCode));
+    if (action === "validateAdminAccessCode") return ok(validateAdminAccessCode_(body.code));
+    if (action === "updateAdminAccessCode")   return ok(updateAdminAccessCode_(body, auth));
+    if (action === "getAdminSettings")        return ok(getAdminSettings_(auth));
     return err("Unknown POST action: " + action);
   } catch (ex) {
     return err(ex.message);
@@ -241,6 +286,157 @@ function colVal_(row, headerMap, name) {
   return (idx !== undefined && idx < row.length) ? (row[idx] || "") : "";
 }
 
+// ── System Settings helpers ───────────────────────────────────────────────────
+
+function getSystemSetting_(key) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(SYSTEM_SETTINGS_SHEET);
+    if (!sheet) return null;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return null;
+    var rows = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === key) {
+        var val = String(rows[i][1] || "").trim();
+        return val || null;
+      }
+    }
+    return null;
+  } catch (_) { return null; }
+}
+
+function setSystemSetting_(key, value, updatedBy) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(SYSTEM_SETTINGS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(SYSTEM_SETTINGS_SHEET);
+    var hdr = sheet.getRange(1, 1, 1, 4);
+    hdr.setValues([["Setting Key", "Setting Value", "Updated At", "Updated By"]]);
+    hdr.setFontWeight("bold").setBackground("#E8F0FE");
+  }
+  var lastRow = sheet.getLastRow();
+  var now = new Date().toISOString();
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === key) {
+        sheet.getRange(i + 2, 2, 1, 3).setValues([[value, now, updatedBy || ""]]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow([key, value, now, updatedBy || ""]);
+}
+
+function getAdminAccessCode_() {
+  try {
+    // 1. Sheet is the authoritative source of truth (set by Admin Settings UI)
+    var fromSheet = getSystemSetting_("admin_access_code");
+    if (fromSheet) {
+      // Keep PropertiesService in sync so updateAdminAccessCode_ cache-busts correctly
+      PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", fromSheet);
+      return fromSheet;
+    }
+    // 2. Hardcoded bootstrap value — used until Mabel sets a real code via Admin Settings
+    //    Intentionally skip PropertiesService here to avoid stale cached values
+    //    from previous deployments overriding the hardcoded bootstrap.
+    var bootstrap = ADMIN_ACCESS_CODE || "";
+    if (bootstrap) PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", bootstrap);
+    return bootstrap;
+  } catch (_) {
+    return ADMIN_ACCESS_CODE || "";
+  }
+}
+
+// ── Admin Settings action handlers ───────────────────────────────────────────
+
+function validateAdminAccessCode_(code) {
+  var entered = String(code || "").trim();
+  if (!entered) return { valid: false };
+  return { valid: entered === getAdminAccessCode_() };
+}
+
+function updateAdminAccessCode_(body, auth) {
+  assertAdmin_(auth);
+  var newCode    = String(body.newCode     || "").trim();
+  var confirmCode = String(body.confirmCode || "").trim();
+  if (newCode.length < 10) throw new Error("New code must be at least 10 characters.");
+  if (newCode !== confirmCode) throw new Error("New code and confirm code do not match.");
+  setSystemSetting_("admin_access_code", newCode, "admin");
+  PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", newCode);
+  return { success: true, updatedAt: new Date().toISOString() };
+}
+
+function getAdminSettings_(auth) {
+  assertAdmin_(auth);
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(SYSTEM_SETTINGS_SHEET);
+    if (!sheet) return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
+    var rows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === "admin_access_code") {
+        return {
+          codeMasked: "••••••••",
+          updatedAt:  rows[i][2] ? new Date(rows[i][2]).toISOString() : null,
+          updatedBy:  rows[i][3] || null,
+        };
+      }
+    }
+  } catch (_) {}
+  return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
+}
+
+function resolveAccessContext_(payload, moduleName, options) {
+  payload = payload || {};
+  options = options || {};
+  var adminAccessCode = String(payload.adminAccessCode || "").trim();
+  var expectedAdminCode = getAdminAccessCode_();
+  if (options.allowAdmin !== false && adminAccessCode && expectedAdminCode && adminAccessCode === expectedAdminCode) {
+    return { mode: "admin", module: moduleName || "" };
+  }
+
+  var accessEmail = normalizeEmail_(payload.accessEmail || payload.email || "");
+  var accessCode = String(payload.accessCode || "").trim().toUpperCase();
+  if (options.allowTrial !== false && accessEmail && accessCode) {
+    var validated = validateAccessCode_(accessEmail, accessCode);
+    if (!validated.valid) throw new Error(validated.message || "Trial access denied.");
+    if (moduleName && !approvedModuleAllows_(validated.approvedModule, moduleName)) {
+      throw new Error("Access denied for this module.");
+    }
+    return {
+      mode: "trial",
+      module: moduleName || "",
+      email: validated.email,
+      accessCode: validated.accessCode,
+      approvedModule: validated.approvedModule,
+      accessExpiresAt: validated.accessExpiresAt,
+    };
+  }
+
+  if (options.allowNoAccess) {
+    return { mode: "public", module: moduleName || "" };
+  }
+
+  throw new Error("Access denied. Please sign in with an approved trial access code.");
+}
+
+function approvedModuleAllows_(approvedModule, moduleName) {
+  var text = String(approvedModule || "").toLowerCase();
+  var module = String(moduleName || "").toLowerCase();
+  if (text.indexOf("both") >= 0) return true;
+  if (module === "rental") return text.indexOf("rental") >= 0;
+  if (module === "sale") return text.indexOf("sale") >= 0;
+  return false;
+}
+
+function assertAdmin_(auth) {
+  if (!auth || auth.mode !== "admin") throw new Error("Admin access required.");
+}
+
 function tryParse_(str, fallback) {
   if (!str) return fallback;
   try { return JSON.parse(str) || fallback; }
@@ -283,7 +479,7 @@ function parsePlatforms_(val) {
 
 // ── Listings ──────────────────────────────────────────────────────────────────
 
-function getListings_() {
+function getListings_(auth) {
   var sheet = getSheet_(LISTINGS_SHEET);
   ensureHeaders_(sheet, LISTING_HEADERS);
   var last = sheet.getLastRow();
@@ -295,7 +491,76 @@ function getListings_() {
 
   return data
     .map(function(row) { return rowToListing_(row, headerMap); })
+    .filter(function(l) { return canAccessListingRecord_(l, auth); })
+    .map(function(l) { return sanitizeListingForAccess_(l, auth); })
     .filter(function(l) { return !!l.id; });
+}
+
+function getListingById_(listingId, auth) {
+  if (!listingId) throw new Error("Missing listingId.");
+  var listing = findListingById_(listingId);
+  if (!listing) throw new Error("Listing not found: " + listingId);
+  if (!canAccessListingRecord_(listing, auth)) {
+    throw new Error("Access denied for this listing.");
+  }
+  return sanitizeListingForAccess_(listing, auth);
+}
+
+function findListingById_(listingId) {
+  var sheet = getSheet_(LISTINGS_SHEET);
+  ensureHeaders_(sheet, LISTING_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return null;
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === String(listingId).trim()) {
+      var row = sheet.getRange(i + 2, 1, 1, numCols).getValues()[0];
+      var listing = rowToListing_(row, headerMap);
+      listing._rowNumber = i + 2;
+      return listing;
+    }
+  }
+  return null;
+}
+
+function findListingByIdForEmail_(listingId, email) {
+  var listing = findListingById_(listingId);
+  if (!listing) return null;
+  return normalizeEmail_(listing.createdByEmail) === normalizeEmail_(email) ? listing : null;
+}
+
+function canAccessListingRecord_(listing, auth) {
+  if (!listing) return false;
+  if (!auth) return true;
+  if (auth && auth.mode === "admin") return true;
+  if (auth && auth.mode === "trial") {
+    return normalizeEmail_(listing.createdByEmail) === normalizeEmail_(auth.email);
+  }
+  return false;
+}
+
+function sanitizeListingForAccess_(listing, auth) {
+  if (!listing) return null;
+  if (!auth || auth.mode === "admin") return listing;
+
+  var safe = {};
+  for (var key in listing) {
+    if (!Object.prototype.hasOwnProperty.call(listing, key)) continue;
+    safe[key] = listing[key];
+  }
+
+  delete safe.driveFolderLink;
+  delete safe.driveFiles;
+  delete safe.enhancedFolderId;
+  delete safe.reviewStatus;
+  delete safe.complianceFlag;
+  delete safe.mediaChecklist;
+  delete safe.createdByEmail;
+  delete safe.createdByAccessCode;
+  delete safe.createdByRole;
+  return safe;
 }
 
 // Convert a sheet row to a listing object using header-name lookup.
@@ -340,6 +605,9 @@ function rowToListing_(row, headerMap) {
     driveFiles:      tryParse_(col("Drive Files"),     []),
     enhancedFolderId: col("Enhanced Folder ID") || null,
     videoUrl:         col("videoUrl")           || null,
+    createdByEmail:   col("Created By Email")   || "",
+    createdByAccessCode: col("Created By Access Code") || "",
+    createdByRole:    col("Created By Role")    || "",
   };
 }
 
@@ -382,6 +650,9 @@ function makeDataMap_(d) {
   m["Drive Files"]          = JSON.stringify(d.driveFiles     || []);
   m["Enhanced Folder ID"]   = d.enhancedFolderId || "";
   m["videoUrl"]             = d.videoUrl        || "";
+  m["Created By Email"]     = d.createdByEmail || "";
+  m["Created By Access Code"] = d.createdByAccessCode || "";
+  m["Created By Role"]      = d.createdByRole || "";
   return m;
 }
 
@@ -407,8 +678,9 @@ function addMissingHeaders_(sheet, headers) {
 // Targeted write: update only the videoUrl cell for one listing.
 // Creates the "videoUrl" column header if it doesn't exist yet.
 // Returns sheetName, rowNumber, colName, colIndex so the caller can log them.
-function updateVideoUrl_(listingId, videoUrl) {
+function updateVideoUrl_(listingId, videoUrl, auth) {
   if (!listingId) throw new Error("updateVideoUrl: listingId required");
+  getListingById_(listingId, auth);
   var sheet = getSheet_(LISTINGS_SHEET);
 
   Logger.log("[updateVideoUrl] listingId: " + listingId);
@@ -447,7 +719,7 @@ function updateVideoUrl_(listingId, videoUrl) {
   throw new Error("Listing not found in sheet \"" + LISTINGS_SHEET + "\": " + listingId);
 }
 
-function saveListing_(data) {
+function saveListing_(data, auth) {
   if (!data || !data.id) throw new Error("Listing data missing id");
   var sheet = getSheet_(LISTINGS_SHEET);
   addMissingHeaders_(sheet, LISTING_HEADERS);
@@ -466,7 +738,19 @@ function saveListing_(data) {
   }
 
   if (existingRow > 0) {
+    var existingListing = findListingById_(data.id);
+    if (!canAccessListingRecord_(existingListing, auth)) {
+      throw new Error("Access denied for this listing.");
+    }
     // Update only the columns that exist in the header row (safe for partial schemas).
+    if (auth && auth.mode === "trial") {
+      dataMap["Created By Email"] = auth.email;
+      dataMap["Created By Access Code"] = auth.accessCode;
+      dataMap["Created By Role"] = "Trial User";
+    }
+    if (auth && auth.mode === "admin" && !existingListing.createdByRole) {
+      dataMap["Created By Role"] = "Admin";
+    }
     for (var name in dataMap) {
       var colIdx = headerMap[name];
       if (colIdx !== undefined) {
@@ -477,6 +761,13 @@ function saveListing_(data) {
     }
   } else {
     // New row: build array sized to the current last column.
+    if (auth && auth.mode === "trial") {
+      dataMap["Created By Email"] = auth.email;
+      dataMap["Created By Access Code"] = auth.accessCode;
+      dataMap["Created By Role"] = "Trial User";
+    } else if (auth && auth.mode === "admin") {
+      dataMap["Created By Role"] = "Admin";
+    }
     var numCols = sheet.getLastColumn();
     var row = new Array(numCols).fill("");
     for (var name in dataMap) {
@@ -488,6 +779,25 @@ function saveListing_(data) {
 
   SpreadsheetApp.flush(); // commit writes before returning response
   return { success: true, id: data.id };
+}
+
+function generateListingId_() {
+  var sheet = getSheet_(LISTINGS_SHEET);
+  addMissingHeaders_(sheet, LISTING_HEADERS);
+  var last = sheet.getLastRow();
+  var year = new Date().getFullYear();
+  var maxNum = 0;
+  if (last >= 2) {
+    var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      var value = String(ids[i][0] || "").trim();
+      var prefix = "LST-" + year + "-";
+      if (value.indexOf(prefix) !== 0) continue;
+      var num = Number(value.slice(prefix.length));
+      if (!isNaN(num)) maxNum = Math.max(maxNum, num);
+    }
+  }
+  return "LST-" + year + "-" + String(maxNum + 1).padStart(3, "0");
 }
 
 // ── Video URL sync ────────────────────────────────────────────────────────────
@@ -555,8 +865,9 @@ function trySetDriveViewSharing_(driveItem, label) {
 }
 
 // Sync videoUrl for one listing. Can also be called from the Apps Script editor.
-function syncVideoUrl_(listingId) {
+function syncVideoUrl_(listingId, auth) {
   if (!listingId) throw new Error("syncVideoUrl: listingId required");
+  getListingById_(listingId, auth);
 
   var sheet     = getSheet_(LISTINGS_SHEET);
   var numCols   = sheet.getLastColumn();
@@ -662,25 +973,36 @@ function syncAllVideoUrls() {
 // ── Contact form ──────────────────────────────────────────────────────────────
 
 function saveContact_(data) {
-  var sheet   = getSheet_(CONTACTS_SHEET);
-  var headers = ["Name", "Email", "Phone", "WeChat ID", "City", "Service Interest", "Message", "Submitted At"];
-  ensureHeaders_(sheet, headers);
+  var sheet = getSheet_(CONTACTS_SHEET);
+  addMissingHeaders_(sheet, CONTACT_HEADERS);
+  var headerMap = getHeaderMap_(sheet);
   var submittedAt = new Date().toISOString();
-  sheet.appendRow([
-    data.name    || "",
-    data.email   || "",
-    data.phone   || "",
-    data.wechat  || "",
-    data.city    || "",
-    data.service || "",
-    data.message || "",
-    submittedAt,
-  ]);
+  var numCols = Math.max(sheet.getLastColumn(), CONTACT_HEADERS.length);
+  var row = new Array(numCols).fill("");
+  row[headerMap["Name"]]             = data.name    || "";
+  row[headerMap["Email"]]            = data.email   || "";
+  row[headerMap["Phone"]]            = data.phone   || "";
+  row[headerMap["WeChat ID"]]        = data.wechat  || "";
+  row[headerMap["City"]]             = data.city    || "";
+  row[headerMap["Service Interest"]] = data.service || "";
+  row[headerMap["Message"]]          = data.message || "";
+  row[headerMap["Submitted At"]]     = submittedAt;
+  row[headerMap["Approval Status"]]  = "Pending";
+  row[headerMap["Approved Module"]]  = "";
+  row[headerMap["Access Type"]]      = "";
+  row[headerMap["Payment Status"]]   = "";
+  row[headerMap["Access Code"]]      = "";
+  row[headerMap["Approved At"]]      = "";
+  row[headerMap["Access Expires At"]] = "";
+  row[headerMap["Admin Notes"]]      = "";
+  sheet.appendRow(row);
+  SpreadsheetApp.flush();
+  var rowNumber = sheet.getLastRow();
 
   var emailWarning = null;
   try {
     var body =
-      "New service inquiry submitted via Vanisland AI Marketing Studio.\n\n" +
+      "New trial request submitted via Vanisland AI Marketing Studio.\n\n" +
       "Name:             " + (data.name    || "—") + "\n" +
       "Email:            " + (data.email   || "—") + "\n" +
       "Phone:            " + (data.phone   || "—") + "\n" +
@@ -688,24 +1010,304 @@ function saveContact_(data) {
       "City:             " + (data.city    || "—") + "\n" +
       "Service Interest: " + (data.service || "—") + "\n" +
       "Message:\n" + (data.message || "—") + "\n\n" +
-      "Submitted At: " + submittedAt;
+      "Submitted At: " + submittedAt + "\n\n" +
+      "Please review this request in the Admin backend.";
     MailApp.sendEmail({
       to:      "mabelclaw67@gmail.com",
-      subject: "New AI Marketing Studio Service Inquiry",
+      subject: "New Trial Request - Vanisland AI Marketing Studio",
       body:    body,
     });
   } catch (emailErr) {
     emailWarning = emailErr.message;
   }
 
-  return emailWarning ? { success: true, emailWarning: emailWarning } : { success: true };
+  var result = rowToContactRequest_(sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0], headerMap, rowNumber);
+  result.success = true;
+  if (emailWarning) result.emailWarning = emailWarning;
+  return result;
+}
+
+function rowToContactRequest_(row, headerMap, rowNumber) {
+  function col(name) { return colVal_(row, headerMap, name); }
+  return {
+    rowNumber: rowNumber,
+    name: col("Name"),
+    email: col("Email"),
+    phone: col("Phone"),
+    wechat: col("WeChat ID"),
+    city: col("City"),
+    serviceInterest: col("Service Interest"),
+    message: col("Message"),
+    submittedAt: col("Submitted At"),
+    approvalStatus: col("Approval Status") || "Pending",
+    approvedModule: col("Approved Module"),
+    accessType: col("Access Type"),
+    paymentStatus: col("Payment Status"),
+    accessCode: col("Access Code"),
+    approvedAt: col("Approved At"),
+    accessExpiresAt: col("Access Expires At"),
+    approvalEmailSentAt: col("Approval Email Sent At"),
+    adminNotes: col("Admin Notes"),
+  };
+}
+
+function getContactRequests_(auth) {
+  assertAdmin_(auth);
+  var sheet = getSheet_(CONTACTS_SHEET);
+  addMissingHeaders_(sheet, CONTACT_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  var results = [];
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var item = rowToContactRequest_(rows[i], headerMap, i + 2);
+    if (!item.name && !item.email && !item.submittedAt) continue;
+    results.push(item);
+  }
+  return results;
+}
+
+function approveContactRequest_(body, auth) {
+  assertAdmin_(auth);
+  var rowNumber = Number(body.rowNumber || 0);
+  if (!rowNumber || rowNumber < 2) throw new Error("approveContactRequest: valid rowNumber required");
+
+  var sheet = getSheet_(CONTACTS_SHEET);
+  addMissingHeaders_(sheet, CONTACT_HEADERS);
+  var headerMap = getHeaderMap_(sheet);
+  if (rowNumber > sheet.getLastRow()) throw new Error("approveContactRequest: row not found");
+
+  var approvalStatus = String(body.approvalStatus || "").trim();
+  var approvedModule = String(body.approvedModule || "").trim();
+  var accessType = normalizeAccessType_(body.accessType || "");
+  var paymentStatus = normalizePaymentStatus_(body.paymentStatus || "");
+  var durationDays = normalizeDurationDays_(body.durationDays, accessType);
+  var isApproved = approvalStatus === "Approved" || (!approvalStatus && approvedModule);
+  var nowIso = new Date().toISOString();
+
+  if (isApproved && !approvedModule) {
+    throw new Error("approveContactRequest: approvedModule required when approving");
+  }
+  if (isApproved && !accessType) {
+    accessType = "Trial";
+  }
+  if (isApproved && !paymentStatus) {
+    paymentStatus = defaultPaymentStatusForAccessType_(accessType);
+  }
+
+  setContactField_(sheet, headerMap, rowNumber, "Approval Status", isApproved ? "Approved" : (approvalStatus || "Rejected / Not Now"));
+  setContactField_(sheet, headerMap, rowNumber, "Approved Module", isApproved ? approvedModule : "");
+  setContactField_(sheet, headerMap, rowNumber, "Access Type", isApproved ? accessType : "");
+  setContactField_(sheet, headerMap, rowNumber, "Payment Status", isApproved ? paymentStatus : "");
+  setContactField_(sheet, headerMap, rowNumber, "Access Code", isApproved ? generateAccessCode_(sheet, headerMap) : "");
+  setContactField_(sheet, headerMap, rowNumber, "Approved At", isApproved ? nowIso : "");
+  setContactField_(sheet, headerMap, rowNumber, "Access Expires At", isApproved ? addDaysIso_(durationDays) : "");
+  setContactField_(sheet, headerMap, rowNumber, "Approval Email Sent At", "");
+  if (body.adminNotes !== undefined) {
+    setContactField_(sheet, headerMap, rowNumber, "Admin Notes", body.adminNotes || "");
+  }
+  SpreadsheetApp.flush();
+
+  var approvalEmailSent = false;
+  var approvalEmailWarning = "";
+  if (isApproved) {
+    var approvedRow = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var approvedRequest = rowToContactRequest_(approvedRow, headerMap, rowNumber);
+    try {
+      sendTrialApprovalEmail_(approvedRequest);
+      approvalEmailSent = true;
+      setContactField_(sheet, headerMap, rowNumber, "Approval Email Sent At", new Date().toISOString());
+      SpreadsheetApp.flush();
+    } catch (emailErr) {
+      approvalEmailWarning = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown approval email error");
+      Logger.log("[approveContactRequest] approval email error: " + approvalEmailWarning);
+      if (emailErr && emailErr.stack) Logger.log(emailErr.stack);
+    }
+  }
+
+  var row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var result = rowToContactRequest_(row, headerMap, rowNumber);
+  result.approvalEmailSent = approvalEmailSent;
+  if (approvalEmailWarning) result.approvalEmailWarning = approvalEmailWarning;
+  return result;
+}
+
+function sendTrialApprovalEmail_(request) {
+  var recipient = String(request && request.email || "").trim();
+  if (!recipient) throw new Error("Approval email recipient is missing");
+
+  var name = String(request && request.name || "").trim();
+  var greetingName = name || "there";
+  var body =
+    "Hi " + greetingName + ",\n\n" +
+    "Your trial access for Vanisland AI Marketing Studio has been approved.\n\n" +
+    "Website:\n" +
+    "https://landlord-ai-marketing-studio.netlify.app/\n\n" +
+    "Login Email:\n" +
+    (request.email || "") + "\n\n" +
+    "Access Code:\n" +
+    (request.accessCode || "") + "\n\n" +
+    "Approved Module:\n" +
+    (request.approvedModule || "") + "\n\n" +
+    "Access Type:\n" +
+    (request.accessType || "") + "\n\n" +
+    "Expiry Date:\n" +
+    (request.accessExpiresAt || "") + "\n\n" +
+    "Please note: this access code is temporary and will automatically expire on the expiry date above.\n\n" +
+    "If you have any questions or feedback during testing, please contact Mabel.\n\n" +
+    "Thank you,\n" +
+    "Mabel\n" +
+    "Vanisland AI Marketing Studio";
+
+  MailApp.sendEmail({
+    to: recipient,
+    subject: "Your Vanisland AI Studio Trial Access Has Been Approved",
+    body: body,
+  });
+}
+
+function updateContactRequestNotes_(rowNumber, notes, auth) {
+  assertAdmin_(auth);
+  rowNumber = Number(rowNumber || 0);
+  if (!rowNumber || rowNumber < 2) throw new Error("updateContactRequestNotes: valid rowNumber required");
+
+  var sheet = getSheet_(CONTACTS_SHEET);
+  addMissingHeaders_(sheet, CONTACT_HEADERS);
+  var headerMap = getHeaderMap_(sheet);
+  if (rowNumber > sheet.getLastRow()) throw new Error("updateContactRequestNotes: row not found");
+
+  setContactField_(sheet, headerMap, rowNumber, "Admin Notes", notes || "");
+  SpreadsheetApp.flush();
+
+  var row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  return rowToContactRequest_(row, headerMap, rowNumber);
+}
+
+function validateAccessCode_(email, accessCode) {
+  var normalizedEmail = normalizeEmail_(email);
+  var normalizedCode = String(accessCode || "").trim().toUpperCase();
+  if (!normalizedEmail || !normalizedCode) {
+    return invalidAccessResult_();
+  }
+
+  var sheet = getSheet_(CONTACTS_SHEET);
+  addMissingHeaders_(sheet, CONTACT_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return invalidAccessResult_();
+
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var row = rows[i];
+    var item = rowToContactRequest_(row, headerMap, i + 2);
+    if (normalizeEmail_(item.email) !== normalizedEmail) continue;
+    if (String(item.accessCode || "").trim().toUpperCase() !== normalizedCode) continue;
+    if (String(item.approvalStatus || "").trim() !== "Approved") return invalidAccessResult_();
+    if (isAccessExpired_(item.accessExpiresAt)) return invalidAccessResult_();
+    return {
+      valid: true,
+      email: item.email,
+      name: item.name,
+      approvedModule: item.approvedModule,
+      accessType: item.accessType,
+      paymentStatus: item.paymentStatus,
+      accessCode: item.accessCode,
+      approvedAt: item.approvedAt,
+      accessExpiresAt: item.accessExpiresAt,
+    };
+  }
+
+  return invalidAccessResult_();
+}
+
+function invalidAccessResult_() {
+  return {
+    valid: false,
+    message: "Access code not found, expired, or not approved. Please contact Mabel.",
+  };
+}
+
+function setContactField_(sheet, headerMap, rowNumber, fieldName, value) {
+  var colIdx = headerMap[fieldName];
+  if (colIdx === undefined) throw new Error("Missing Contacts column: " + fieldName);
+  sheet.getRange(rowNumber, colIdx + 1).setValue(value);
+}
+
+function normalizeEmail_(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeAccessType_(value) {
+  var text = String(value || "").trim().toLowerCase();
+  if (text === "trial") return "Trial";
+  if (text === "paid") return "Paid";
+  if (text === "manual" || text.indexOf("complimentary") >= 0) return "Manual";
+  return "";
+}
+
+function normalizePaymentStatus_(value) {
+  var text = String(value || "").trim().toLowerCase();
+  if (text === "paid") return "Paid";
+  if (text === "unpaid") return "Unpaid";
+  if (text === "manual") return "Manual";
+  if (text === "not required" || text === "notrequired") return "Not Required";
+  return "";
+}
+
+function normalizeDurationDays_(value, accessType) {
+  var num = Number(value || 0);
+  if (num === 7 || num === 10 || num === 30 || num === 90) return num;
+  if (String(accessType || "") === "Trial") return 10;
+  if (String(accessType || "") === "Paid") return 30;
+  if (String(accessType || "") === "Manual") return 30;
+  return 30;
+}
+
+function defaultPaymentStatusForAccessType_(accessType) {
+  if (accessType === "Paid") return "Paid";
+  if (accessType === "Manual") return "Not Required";
+  return "Unpaid";
+}
+
+function isAccessExpired_(expiresAt) {
+  if (!expiresAt) return false;
+  var dt = new Date(expiresAt);
+  if (isNaN(dt.getTime())) return false;
+  return dt.getTime() < Date.now();
+}
+
+function addDaysIso_(days) {
+  var dt = new Date();
+  dt.setDate(dt.getDate() + Number(days || 0));
+  return dt.toISOString();
+}
+
+function generateAccessCode_(sheet, headerMap) {
+  var year = String(new Date().getFullYear());
+  var last = sheet.getLastRow();
+  var maxSeq = 0;
+  if (last >= 2) {
+    var rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var code = String(colVal_(rows[i], headerMap, "Access Code") || "").trim().toUpperCase();
+      var match = code.match(/^VAI-(\d{4})-(\d{4})$/);
+      if (!match || match[1] !== year) continue;
+      maxSeq = Math.max(maxSeq, Number(match[2]) || 0);
+    }
+  }
+  return "VAI-" + year + "-" + String(maxSeq + 1).padStart(4, "0");
 }
 
 // ── File upload → Drive (legacy — kept for backward compat) ──────────────────
 
-function uploadFile_(body) {
+function uploadFile_(body, auth) {
   if (!body.listingId) throw new Error("uploadFile: listingId required");
   if (!body.data)      throw new Error("uploadFile: base64 data required");
+  getListingById_(body.listingId, auth);
 
   var parentFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   var listingFolder;
@@ -749,28 +1351,109 @@ function uploadFile_(body) {
 // Reads the folder via its ID (extracted from the Drive Folder Link on the frontend).
 // Does not modify any files.
 
-function getListingFolderFiles_(folderId) {
-  if (!folderId) throw new Error("getListingFolder: folderId required");
-  var folder = DriveApp.getFolderById(folderId);
+function getListingFolderFiles_(folderId, listingId, auth) {
+  var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
+  var folder = DriveApp.getFolderById(resolvedFolderId);
+  return listDriveMediaFiles_(folder, { includeVideos: false });
+}
+
+function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
+  if (!subfolderName) throw new Error("getListingSubfolder: subfolderName required");
+  var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
+  var parent = DriveApp.getFolderById(resolvedFolderId);
+  var folders = parent.getFoldersByName(subfolderName);
+  if (!folders.hasNext()) {
+    return {
+      subfolderFolderId: "",
+      subfolderUrl: "",
+      files: [],
+    };
+  }
+  var folder = folders.next();
+  return {
+    subfolderFolderId: auth && auth.mode === "admin" ? folder.getId() : "",
+    subfolderUrl: auth && auth.mode === "admin" ? folder.getUrl() : "",
+    files: listDriveMediaFiles_(folder, { includeVideos: true }),
+  };
+}
+
+function resolveListingFolderIdForAccess_(folderId, listingId, auth) {
+  if (folderId) {
+    assertFolderAccess_(folderId, listingId, auth);
+    return folderId;
+  }
+  if (!listingId) throw new Error("Listing media lookup requires listingId.");
+  var listing = findListingById_(listingId);
+  if (!listing || !canAccessListingRecord_(listing, auth)) {
+    throw new Error("Access denied for this listing.");
+  }
+  var resolved = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (!resolved) throw new Error("Drive folder not found for this listing.");
+  return resolved;
+}
+
+function assertFolderAccess_(folderId, listingId, auth) {
+  if (auth && auth.mode === "admin") return;
+  if (!auth || auth.mode !== "trial") {
+    throw new Error("Access denied for this listing folder.");
+  }
+  if (listingId) {
+    var listing = findListingById_(listingId);
+    if (!listing || !canAccessListingRecord_(listing, auth)) {
+      throw new Error("Access denied for this listing.");
+    }
+    var expected = extractDriveFolderId_(listing.driveFolderLink || "");
+    if (expected && expected === folderId) return;
+  }
+  var ownedListing = findListingByFolderId_(folderId, auth.email);
+  if (!ownedListing) throw new Error("Access denied for this listing folder.");
+}
+
+function findListingByFolderId_(folderId, ownerEmail) {
+  var sheet = getSheet_(LISTINGS_SHEET);
+  ensureHeaders_(sheet, LISTING_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return null;
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  var auth = { mode: "trial", email: ownerEmail };
+  var listings = rows
+    .map(function(row) { return rowToListing_(row, headerMap); })
+    .filter(function(item) { return canAccessListingRecord_(item, auth); });
+  for (var i = 0; i < listings.length; i++) {
+    if (extractDriveFolderId_(listings[i].driveFolderLink || "") === folderId) return listings[i];
+  }
+  return null;
+}
+
+function listDriveMediaFiles_(folder, options) {
+  var includeVideos = !!(options && options.includeVideos);
   var files  = [];
   var it     = folder.getFiles();
   while (it.hasNext()) {
     var file = it.next();
     var mime = file.getMimeType();
-    if (mime === "image/jpeg" || mime === "image/png") {
+    var isImage = mime === "image/jpeg" || mime === "image/png";
+    var isVideo = includeVideos && mime === "video/mp4";
+    if (isImage || isVideo) {
       var fileId = file.getId();
+      var entry = {
+        name:       file.getName(),
+        fileId:     fileId,
+        mimeType:   mime,
+        url:        file.getUrl(),
+        thumbUrl:   "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800",
+        thumbUrlLg: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600",
+      };
+      if (isImage) {
       var blob = file.getBlob();
       var contentType = blob.getContentType();
       var base64 = Utilities.base64Encode(blob.getBytes());
       var dataUrl = "data:" + contentType + ";base64," + base64;
-      files.push({
-        name:       file.getName(),
-        fileId:     fileId,
-        url:        file.getUrl(),
-        thumbUrl:   "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800",
-        thumbUrlLg: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600",
-        dataUrl:    dataUrl,
-      });
+        entry.dataUrl = dataUrl;
+      }
+      files.push(entry);
     }
   }
   return files;
@@ -1137,8 +1820,9 @@ function generateApplicationPdf_(data, recordId) {
   return pdfBlob;
 }
 
-function getApplicationsByListing_(listingId) {
+function getApplicationsByListing_(listingId, auth) {
   if (!listingId) throw new Error("getApplicationsByListing: listingId required");
+  getListingById_(listingId, auth);
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
   var last = sheet.getLastRow();
@@ -1151,7 +1835,7 @@ function getApplicationsByListing_(listingId) {
     .map(function(row) { return rowToApplication_(row, headerMap); });
 }
 
-function getAllApplications_() {
+function getAllApplications_(auth) {
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
   var last = sheet.getLastRow();
@@ -1161,10 +1845,14 @@ function getAllApplications_() {
   var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
   return rows
     .filter(function(row) { return !!colVal_(row, headerMap, "Record ID"); })
-    .map(function(row) { return rowToApplication_(row, headerMap); });
+    .map(function(row) { return rowToApplication_(row, headerMap); })
+    .filter(function(app) {
+      if (!auth || auth.mode === "admin") return true;
+      return !!findListingByIdForEmail_(app.listingId, auth.email);
+    });
 }
 
-function getApplicationById_(applicationId) {
+function getApplicationById_(applicationId, auth) {
   if (!applicationId) throw new Error("getApplicationById: applicationId required");
   var sheet = getSheet_(INTAKE_SHEET);
   var last  = sheet.getLastRow();
@@ -1174,13 +1862,17 @@ function getApplicationById_(applicationId) {
   var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
   for (var i = 0; i < rows.length; i++) {
     if (colVal_(rows[i], headerMap, "Record ID") === applicationId) {
-      return rowToApplication_(rows[i], headerMap);
+      var app = rowToApplication_(rows[i], headerMap);
+      if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
+        throw new Error("Access denied for this listing.");
+      }
+      return app;
     }
   }
   throw new Error("Application not found: " + applicationId);
 }
 
-function updateApplicationStatus_(applicationId, reviewStatus) {
+function updateApplicationStatus_(applicationId, reviewStatus, auth) {
   if (!applicationId) throw new Error("updateApplicationStatus: applicationId required");
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
@@ -1191,6 +1883,11 @@ function updateApplicationStatus_(applicationId, reviewStatus) {
   var ids       = sheet.getRange(2, 1, last - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (ids[i][0] === applicationId) {
+      var row = sheet.getRange(i + 2, 1, 1, numCols).getValues()[0];
+      var app = rowToApplication_(row, headerMap);
+      if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
+        throw new Error("Access denied for this listing.");
+      }
       var rowNumber = i + 2;
       var statusColIdx    = headerMap["Review Status"];
       var updatedAtColIdx = headerMap["Updated At"];
@@ -1207,7 +1904,7 @@ function updateApplicationStatus_(applicationId, reviewStatus) {
   throw new Error("Application not found: " + applicationId);
 }
 
-function updateApplicationNotes_(applicationId, notes) {
+function updateApplicationNotes_(applicationId, notes, auth) {
   if (!applicationId) throw new Error("updateApplicationNotes: applicationId required");
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
@@ -1217,6 +1914,11 @@ function updateApplicationNotes_(applicationId, notes) {
   var ids       = sheet.getRange(2, 1, last - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (ids[i][0] === applicationId) {
+      var row = sheet.getRange(i + 2, 1, 1, sheet.getLastColumn()).getValues()[0];
+      var app = rowToApplication_(row, headerMap);
+      if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
+        throw new Error("Access denied for this listing.");
+      }
       var rowNumber       = i + 2;
       var notesColIdx     = headerMap["Internal Notes"];
       var updatedAtColIdx = headerMap["Updated At"];
@@ -1245,9 +1947,10 @@ function updateApplicationNotes_(applicationId, notes) {
 // Subfolders are created on first use; existing ones are reused.
 // Original photos in the folder root are never moved or modified.
 
-function uploadToSubfolder_(body) {
+function uploadToSubfolder_(body, auth) {
   if (!body.folderId) throw new Error("uploadToSubfolder: folderId required");
   if (!body.data)     throw new Error("uploadToSubfolder: base64 data required");
+  assertFolderAccess_(body.folderId, body.listingId || "", auth);
 
   var parent = DriveApp.getFolderById(body.folderId);
 

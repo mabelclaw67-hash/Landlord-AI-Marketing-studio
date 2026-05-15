@@ -6,9 +6,7 @@ import { buildQrCodeSvg } from "../utils/qrCodeSvg";
 import {
   buildHomeSalePublicUrl,
   getHomeSaleListing,
-  getHomeSaleSetupMessage,
   getSaleMediaByListingId,
-  homeSaleSheetConfig,
 } from "../utils/homeSaleSheet";
 
 function extractDriveFileId(url) {
@@ -64,7 +62,7 @@ export default function HomeSaleListingDetail() {
       }
     }
     load()
-      .catch((err) => setError(err.message || getHomeSaleSetupMessage()))
+      .catch((err) => setError(err.message || "Unable to load sale listing right now."))
       .finally(() => setLoading(false));
   }, [listingId]);
 
@@ -123,11 +121,8 @@ export default function HomeSaleListingDetail() {
 
           {!loading && error && (
             <div className="notice notice--warm" style={{ marginBottom: 24 }}>
-              <h4>本地连接提示 / Local Setup Message</h4>
+              <h4>无法读取出售房源 / Unable to Load Listing</h4>
               <p>{error}</p>
-              <p style={{ marginTop: 6, opacity: 0.86 }}>
-                Local test only. Current source tab: <strong>{homeSaleSheetConfig.tabs.listings}</strong>.
-              </p>
             </div>
           )}
 
@@ -183,7 +178,7 @@ export default function HomeSaleListingDetail() {
                       中文简介 / Description CN
                     </div>
                     <p style={{ lineHeight: 1.8 }}>
-                      {listing.descriptionCn || "请在 Google Sheet 填写 Description CN。"}
+                      {listing.descriptionCn || "暂未提供中文简介。"}
                     </p>
                   </div>
 
@@ -192,7 +187,7 @@ export default function HomeSaleListingDetail() {
                       English Description / Description EN
                     </div>
                     <p style={{ lineHeight: 1.8, color: "var(--color-text-muted)" }}>
-                      {listing.descriptionEn || "Please add Description EN in the Google Sheet."}
+                      {listing.descriptionEn || "English description is not available yet."}
                     </p>
                   </div>
                 </div>
@@ -233,8 +228,8 @@ export default function HomeSaleListingDetail() {
               <div className="card" style={{ marginBottom: 20, borderColor: "#e5dfd6" }}>
                 <h3 style={{ color: "#3e5b4b", marginBottom: 10 }}>买家咨询 / Buyer Inquiry</h3>
                 <p style={{ fontSize: "0.88rem", color: "var(--color-text-muted)", marginBottom: 16 }}>
-                  本区域目前仅供本地测试，不会提交到 Google Sheet。
-                  <br />Local test only. This form does not submit to the sheet yet.
+                  买家咨询入口即将开放。
+                  <br />Buyer inquiry will be available soon.
                 </p>
 
                 <div style={{ display: "grid", gap: 14 }}>

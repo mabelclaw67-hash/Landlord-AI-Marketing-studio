@@ -3,7 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { apiPost, isApiConnected } from "../../utils/api";
-import { getListingFolderFiles } from "../../utils/storage";
+import { getStudioRequestAuth } from "../../utils/trialAccess";
+import { getListingFolderFiles, getListingSubfolderFiles } from "../../utils/storage";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import {
   HOME_SALE_LANGUAGES,
@@ -20,6 +21,30 @@ function extractFolderId(link) {
   if (!link) return null;
   const m = link.match(/\/folders\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
+}
+
+function extractDriveFileId(url) {
+  const text = String(url || "");
+  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return fileMatch[1];
+  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) return idMatch[1];
+  return "";
+}
+
+function buildDriveVideoPreviewUrl(file) {
+  const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
+  return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : "";
+}
+
+function buildDriveVideoStreamUrl(file) {
+  const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
+  return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : "";
+}
+
+function buildDriveVideoDownloadUrl(file) {
+  const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
+  return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : (file?.url || "");
 }
 
 function sortByFilenameNumber(files) {
@@ -61,6 +86,7 @@ export default function HomeSaleVideo() {
   // Photo state (from Drive folder)
   const [folderFiles,    setFolderFiles]    = useState([]);
   const [enhancedPhotos, setEnhancedPhotos] = useState([]);
+  const [videoOutputFiles, setVideoOutputFiles] = useState([]);
 
   // Video generator state
   const [videoFormat,    setVideoFormat]    = useState("landscape");
@@ -71,8 +97,10 @@ export default function HomeSaleVideo() {
   const [videoProgress,  setVideoProgress]  = useState({ slide: 0, total: 0 });
   const [videoBlob,      setVideoBlob]      = useState(null);
   const [videoBlobUrl,   setVideoBlobUrl]   = useState(null);
+  const [driveVideoBlobUrl, setDriveVideoBlobUrl] = useState(null);
   const [videoFolderUrl, setVideoFolderUrl] = useState(null);
   const [videoFileUrl,   setVideoFileUrl]   = useState(null);
+  const [videoFileMeta,  setVideoFileMeta]  = useState(null);
   const [videoSourceType,setVideoSourceType]= useState(null);
   const [videoMusicStatus, setVideoMusicStatus] = useState(null);
 
@@ -92,7 +120,10 @@ export default function HomeSaleVideo() {
       .then((listingRow) => {
         const fid = extractFolderId(listingRow?.googleDriveFolderUrl);
         if (fid) loadFolderFiles(fid);
-        if (listingRow?.enhancedFolderId) loadEnhancedPhotos(listingRow.enhancedFolderId);
+        if (fid) {
+          loadEnhancedPhotos(fid);
+          loadVideoOutputs(fid, listingRow?.videoUrl || "");
+        }
       })
       .catch((err) => setError(err.message || "Failed to load video workflow."))
       .finally(() => setLoading(false));
@@ -112,6 +143,54 @@ export default function HomeSaleVideo() {
       .catch(() => {});
   }, [listingId, videoFormat]);
 
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = null;
+
+    async function loadDriveVideoBlob() {
+      if (!videoFileMeta?.fileId && !videoFileMeta?.url) {
+        setDriveVideoBlobUrl(null);
+        return;
+      }
+
+      const fileId = String(videoFileMeta?.fileId || "").trim() || extractDriveFileId(videoFileMeta?.url || "");
+      if (!fileId) {
+        setDriveVideoBlobUrl(null);
+        return;
+      }
+
+      const candidates = [
+        `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`,
+        `https://drive.google.com/uc?export=download&id=${fileId}`,
+        `https://drive.google.com/uc?export=view&id=${fileId}`,
+      ];
+
+      for (const url of candidates) {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) continue;
+          const blob = await resp.blob();
+          if (!blob || blob.size === 0) continue;
+          if (blob.type && blob.type.includes("html")) continue;
+          objectUrl = URL.createObjectURL(new Blob([blob], { type: blob.type || "video/mp4" }));
+          if (!cancelled) setDriveVideoBlobUrl(objectUrl);
+          return;
+        } catch {
+          // try next URL
+        }
+      }
+
+      if (!cancelled) setDriveVideoBlobUrl(null);
+    }
+
+    loadDriveVideoBlob();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [videoFileMeta]);
+
   // Load music manifest
   useEffect(() => {
     fetch("/music/music-manifest.json")
@@ -126,19 +205,38 @@ export default function HomeSaleVideo() {
 
   async function loadFolderFiles(folderId) {
     try {
-      const files = await getListingFolderFiles(folderId);
+      const files = await getListingFolderFiles(folderId, listingId);
       setFolderFiles(sortByFilenameNumber(files || []));
     } catch { setFolderFiles([]); }
   }
 
-  async function loadEnhancedPhotos(subfolderId) {
-    if (!subfolderId) return;
+  async function loadEnhancedPhotos(folderId) {
+    if (!folderId) return;
     try {
-      const files = await getListingFolderFiles(subfolderId);
+      const result = await getListingSubfolderFiles(folderId, "02_AI_Enhanced_Photos", listingId);
+      const files = result?.files || [];
       const seen = new Map();
       for (const f of (files || [])) seen.set(f.name, f);
       setEnhancedPhotos(Array.from(seen.values()));
     } catch { setEnhancedPhotos([]); }
+  }
+
+  async function loadVideoOutputs(folderId, fallbackVideoUrl = "") {
+    if (!folderId) return;
+    try {
+      const result = await getListingSubfolderFiles(folderId, "04_Video_Output", listingId);
+      const files = result?.files || [];
+      setVideoOutputFiles(files);
+      setVideoFolderUrl(result?.subfolderUrl || null);
+      const preferredFile = files.find((f) => f.name === `video__${listingId}__${videoFormat}.mp4`) || files[0] || null;
+      setVideoFileMeta(preferredFile);
+      setVideoFileUrl(preferredFile?.url || fallbackVideoUrl || null);
+    } catch {
+      setVideoOutputFiles([]);
+      setVideoFolderUrl(null);
+      setVideoFileMeta(null);
+      setVideoFileUrl(fallbackVideoUrl || null);
+    }
   }
 
   // ── Short Video Generator ──────────────────────────────────────────────────
@@ -151,8 +249,10 @@ export default function HomeSaleVideo() {
     setVideoProgress({ slide: 0, total: 0 });
     setVideoFolderUrl(null);
     setVideoFileUrl(null);
+    setVideoFileMeta(null);
     setVideoBlob(null);
     setVideoBlobUrl(null);
+    setDriveVideoBlobUrl(null);
     setVideoSourceType(null);
     setVideoMusicStatus(null);
 
@@ -529,9 +629,11 @@ export default function HomeSaleVideo() {
       const result = await apiPost({
         action: "uploadToSubfolder", folderId: fid,
         subfolderName: "04_Video_Output", fileName, mimeType: "video/mp4", data: base64,
+        ...getStudioRequestAuth("sale"),
       });
       if (result?.subfolderUrl) setVideoFolderUrl(result.subfolderUrl);
       if (result?.url)          setVideoFileUrl(result.url);
+      await loadVideoOutputs(fid, result?.url || "");
       setVideoStatus("done");
       setVideoMsg(`${fileName} saved to 04_Video_Output/`);
       setVideoMusicStatus(musicStatus);
@@ -567,6 +669,10 @@ export default function HomeSaleVideo() {
   const folderId   = extractFolderId(listing?.googleDriveFolderUrl);
   const canGenerate = apiReady && folderId && folderFiles.length > 0
     && videoStatus !== "rendering" && videoStatus !== "uploading" && videoStatus !== "preparing";
+  const driveStreamUrl = buildDriveVideoStreamUrl(videoFileMeta);
+  const drivePreviewUrl = buildDriveVideoPreviewUrl(videoFileMeta);
+  const driveDownloadUrl = buildDriveVideoDownloadUrl(videoFileMeta);
+  const playableVideoUrl = videoBlobUrl || driveVideoBlobUrl || driveStreamUrl || videoFileUrl || "";
 
   return (
     <div>
@@ -634,7 +740,14 @@ export default function HomeSaleVideo() {
               <button
                 key={val}
                 className={`btn btn--sm ${videoFormat === val ? "btn--primary" : "btn--ghost"}`}
-                onClick={() => { setVideoFormat(val); setVideoStatus("idle"); setVideoMsg(null); setVideoBlobUrl(null); setVideoBlob(null); }}
+                onClick={() => {
+                  setVideoFormat(val);
+                  setVideoStatus("idle");
+                  setVideoMsg(null);
+                  setVideoBlobUrl(null);
+                  setVideoBlob(null);
+                  setDriveVideoBlobUrl(null);
+                }}
               >
                 {label}
               </button>
@@ -701,6 +814,68 @@ export default function HomeSaleVideo() {
           </div>
         )}
 
+        <div style={{ marginBottom: 12, padding: "12px 14px", border: "1px solid var(--color-border)", borderRadius: 10, background: "var(--color-bg-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <strong style={{ fontSize: "0.9rem" }}>Drive Video Output / 视频输出预览</strong>
+            {folderId && (
+              <button className="btn btn--ghost btn--sm" onClick={() => loadVideoOutputs(folderId, listing?.videoUrl || "")}>
+                ↺ Refresh Video Output
+              </button>
+            )}
+          </div>
+          {videoOutputFiles.length > 0 && (
+            <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 0, marginBottom: 10 }}>
+              {videoOutputFiles.length} video file{videoOutputFiles.length !== 1 ? "s" : ""} found in <code>04_Video_Output/</code>.
+            </p>
+          )}
+          {videoFileUrl ? (
+            <>
+              {/* Use local blob when available; otherwise embed the Drive /preview iframe */}
+              {(videoBlobUrl || driveVideoBlobUrl) ? (
+                <video
+                  controls
+                  preload="metadata"
+                  playsInline
+                  style={{ width: "100%", maxWidth: 560, borderRadius: 8, background: "#000", marginBottom: 10 }}
+                >
+                  <source src={videoBlobUrl || driveVideoBlobUrl} type="video/mp4" />
+                </video>
+              ) : drivePreviewUrl ? (
+                <iframe
+                  src={drivePreviewUrl}
+                  allow="autoplay"
+                  style={{ width: "100%", maxWidth: 560, height: 320, borderRadius: 8, border: "none", marginBottom: 10, background: "#000" }}
+                  title="Drive Video Preview"
+                />
+              ) : null}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <a
+                  href={driveDownloadUrl}
+                  download={videoFileMeta?.name || `video__${listingId}__${videoFormat}.mp4`}
+                  className="btn btn--ghost btn--sm"
+                >
+                  ⬇️ Download Video
+                </a>
+                {drivePreviewUrl && (
+                  <a href={drivePreviewUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                    ▶ Open Drive Preview
+                  </a>
+                )}
+                {videoFolderUrl && (
+                  <a href={videoFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                    📂 Open 04_Video_Output
+                  </a>
+                )}
+              </div>
+            </>
+          ) : (
+            <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", margin: 0 }}>
+              No video output found yet.
+              <br /><span style={{ fontSize: "0.78rem" }}>暂未找到视频输出。</span>
+            </p>
+          )}
+        </div>
+
         {videoBlobUrl && (
           <div style={{ marginBottom: 12 }}>
             <video src={videoBlobUrl} controls style={{ width: "100%", maxWidth: 560, borderRadius: 8, background: "#000" }} />
@@ -717,12 +892,7 @@ export default function HomeSaleVideo() {
                   📂 Open Drive Output Folder
                 </a>
               )}
-              {videoFileUrl && (
-                <a href={videoFileUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                  🔗 Open Video in Drive
-                </a>
-              )}
-              <button className="btn btn--ghost btn--sm" onClick={() => { setVideoStatus("idle"); setVideoMsg(null); setVideoBlobUrl(null); setVideoBlob(null); setVideoMusicStatus(null); }}>
+              <button className="btn btn--ghost btn--sm" onClick={() => { setVideoStatus("idle"); setVideoMsg(null); setVideoBlobUrl(null); setVideoBlob(null); setDriveVideoBlobUrl(null); setVideoMusicStatus(null); }}>
                 Generate Again
               </button>
             </div>

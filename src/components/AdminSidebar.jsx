@@ -27,6 +27,9 @@ export default function AdminSidebar({ lang }) {
         <NavLink to="/admin/leads" className={({ isActive }) => (isActive ? "active" : "")}>
           🗂️ Rental Leads / 租客申请
         </NavLink>
+        <NavLink to="/admin/trial-requests" className={({ isActive }) => (isActive ? "active" : "")}>
+          📨 Trial Requests / 试用申请
+        </NavLink>
       </div>
 
       <div className="admin-sidebar__group">
@@ -47,6 +50,9 @@ export default function AdminSidebar({ lang }) {
 
       <div className="admin-sidebar__group">
         <div className="admin-sidebar__label">SYSTEM / 系统</div>
+        <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
+          ⚙️ Settings / 系统设置
+        </NavLink>
         <button className="admin-lock-btn" onClick={lockAdmin}>
           🔒 Lock Admin / 锁定
         </button>

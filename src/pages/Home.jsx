@@ -106,6 +106,66 @@ const RENTAL_SECONDARY_OUTPUTS = RENTAL_OUTPUTS.slice(4);   // AI Screening, Hum
 const HOME_SALE_PRIMARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(0, 4);
 const HOME_SALE_SECONDARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(4);
 
+const PLATFORM_REASONS = [
+  {
+    icon: "🛡️",
+    title: "Why Vanisland AI Studio?",
+    ch: "为什么选择我们？",
+    desc: "Built for rental listing marketing and home sale marketing in one platform.",
+  },
+  {
+    icon: "✨",
+    title: "AI-Powered Marketing",
+    ch: "AI 驱动内容生成",
+    desc: "Generate high-quality copy, pages, and materials in minutes.",
+  },
+  {
+    icon: "🌐",
+    title: "Bilingual Ready",
+    ch: "中英双语支持",
+    desc: "All content and pages are ready for Chinese and English.",
+  },
+  {
+    icon: "🔗",
+    title: "Share Anywhere",
+    ch: "一键分享",
+    desc: "QR codes, share links, and mobile-friendly pages.",
+  },
+  {
+    icon: "👥",
+    title: "Built for Real Estate",
+    ch: "专为房地产打造",
+    desc: "Designed for landlords, sellers, FSBO owners, and realtors.",
+  },
+];
+
+const PLATFORM_TRUST_POINTS = [
+  {
+    icon: "🛡️",
+    title: "Secure & Private",
+    ch: "安全私密",
+    desc: "Your data is encrypted and protected.",
+  },
+  {
+    icon: "☁️",
+    title: "Cloud-Based",
+    ch: "云端平台",
+    desc: "Access anywhere, anytime.",
+  },
+  {
+    icon: "⏱️",
+    title: "Save Time",
+    ch: "节省时间",
+    desc: "Automate repetitive marketing tasks.",
+  },
+  {
+    icon: "🎧",
+    title: "Support",
+    ch: "专业支持",
+    desc: "We're here to help you succeed.",
+  },
+];
+
 const LANDLORD_SHARE_MESSAGES = [
   {
     id: "wechat-landlord",
@@ -140,15 +200,75 @@ const LANDLORD_SHARE_MESSAGES = [
 export default function Home({ lang }) {
   return (
     <>
+      <section className="lh-home-topbar">
+        <div className="lh-home-topbar__inner">
+          <div className="lh-home-topbar__spacer" />
+          <div className="lh-home-topbar__lang">🌐 EN / 中文</div>
+        </div>
+      </section>
+
+      {/* Hero */}
+      <section className="lh-hero">
+        <div className="lh-hero__inner">
+          <div className="lh-hero__content">
+            <div className="lh-eyebrow">📚 PLATFORM / 平台</div>
+            <h1 className="lh-hero__title">{t(lang, "home.heroTitle")}</h1>
+            <p className="lh-hero__desc">{t(lang, "home.heroSubtitle")}</p>
+            <p className="lh-hero__desc-ch">{t(lang, "home.heroChSubtitle")}</p>
+            <p className="lh-hero__desc-ch">
+              一个平台，满足租赁房源与房屋出售的营销需求，服务房东、物业管理者、屋主、FSBO 业主和房地产经纪人。
+            </p>
+            <div className="lh-hero__actions">
+              <Link to="/contact" className="lh-btn lh-btn--sand">
+                {t(lang, "home.ctaStart")}
+              </Link>
+              <Link to="/trial-access" className="lh-btn lh-btn--white">
+                Trial Access / 已批准用户入口
+              </Link>
+              <a href="#studio-modules" className="lh-btn lh-btn--white">Learn More / 了解更多</a>
+            </div>
+          </div>
+
+          <div className="lh-hero__showcase">
+            <div className="lh-hero__card lh-hero__card--reasons">
+              <div className="lh-rtb-card">
+                <div className="lh-rtb-card__header">
+                  <h3>Why Vanisland AI Studio?</h3>
+                  <p>为什么选择我们？</p>
+                </div>
+
+                <div className="lh-benefit-list">
+                  {PLATFORM_REASONS.map((item) => (
+                    <div key={item.title} className="lh-benefit-item">
+                      <div className="lh-benefit-item__icon">{item.icon}</div>
+                      <div>
+                        <strong>{item.title} / {item.ch}</strong>
+                        <p>{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="lh-hero-visual" aria-hidden="true">
+              <div className="lh-hero-visual__glow" />
+              <div className="lh-hero-visual__house" />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="lh-platform-hub" id="studio-modules">
         <div className="lh-platform-hub__inner">
-          <div className="lh-section-title lh-section-title--left">
+          <div className="lh-section-title">
+            <div className="lh-section-kicker">SECTION 2 / 第二部分</div>
             <h2>选择您的营销模块 / Choose Your Studio</h2>
-            <p>出租与出售房源都可以从首页直接进入对应工作台，保持同一套清晰入口。</p>
+            <p>Select the studio that fits your needs. You can switch anytime.</p>
           </div>
 
           <div className="lh-platform-grid">
             <article className="lh-platform-card">
+              <div className="lh-platform-card__icon">🏢</div>
               <div className="lh-platform-card__eyebrow">房东与物业管理使用 / For landlords and property managers</div>
               <h3>Rental Listing Marketing Studio</h3>
               <small>租赁房源 AI 营销工作台</small>
@@ -163,6 +283,7 @@ export default function Home({ lang }) {
             </article>
 
             <article className="lh-platform-card lh-platform-card--soft">
+              <div className="lh-platform-card__icon lh-platform-card__icon--sale">🏠</div>
               <div className="lh-platform-card__eyebrow">屋主、FSBO 与地产经纪使用 / For home sellers, FSBO owners, and realtors</div>
               <h3>AI Home Sale Marketing Studio</h3>
               <small>房屋出售 AI 营销工作台</small>
@@ -179,63 +300,29 @@ export default function Home({ lang }) {
         </div>
       </section>
 
-      {/* Hero */}
-      <section className="lh-hero">
-        <div className="lh-hero__inner">
-          <div>
-            <div className="lh-eyebrow">🇨🇦 温哥华岛 · 房源营销平台 / Vancouver Island · Listing Marketing Platform</div>
-            <h1 className="lh-hero__title">{t(lang, "home.heroTitle")}</h1>
-            <p className="lh-hero__desc">{t(lang, "home.heroSubtitle")}</p>
-            <p className="lh-hero__desc-ch">{t(lang, "home.heroChSubtitle")}</p>
-            <p className="lh-hero__desc-ch">
-              可申请 Rental Studio、Home Sale Studio，或两个模块一起使用。
-              {" "}Request access for Rental Studio, Home Sale Studio, or both modules.
-            </p>
-            <div className="lh-hero__actions">
-              <Link to="/contact" className="lh-btn lh-btn--sand">
-                {t(lang, "home.ctaStart")}
-              </Link>
-              <Link to="/home-sale-studio" className="lh-btn lh-btn--white">
-                进入 Home Sale Studio / Enter Home Sale Studio
-              </Link>
-            </div>
-            <div className="lh-share-kit-wrap">
-              <ShareKit
-                buttonLabel="推广素材 / Admin Share Kit"
-                title="房东推广素材 / Landlord Promotion Share Kit"
-                subtitle="供房东、业主和客户转介绍使用。 / For landlords, property owners, and client referrals only."
-                messages={LANDLORD_SHARE_MESSAGES}
-                linkLabel="复制网站链接 / Copy Website Link"
-              />
-            </div>
-          </div>
-
-          {/* Platform overview card */}
-          <div className="lh-hero__card">
-            <div className="lh-rtb-card">
-              <div className="lh-rtb-card__header">
-                <div className="lh-rtb-card__badge">🏠 Platform</div>
-                <h3>One Platform, Two Studios</h3>
-                <p>一个平台，两套房源营销模块</p>
+      <section className="lh-platform-strip">
+        <div className="lh-platform-strip__inner">
+          {PLATFORM_TRUST_POINTS.map((item) => (
+            <article key={item.title} className="lh-platform-strip__item">
+              <div className="lh-platform-strip__icon">{item.icon}</div>
+              <div>
+                <strong>{item.title} / {item.ch}</strong>
+                <p>{item.desc}</p>
               </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
-              <ul className="lh-rtb-card__list">
-                <li>Rental Studio organizes listing copy, photo pages, applications, and share kits.</li>
-                <li>Home Sale Studio organizes sale pages, bilingual copy, cover images, and QR-ready sharing.</li>
-                <li>Both modules stay in one simple workflow with public links and mobile-friendly access.</li>
-              </ul>
-
-              <ul className="lh-rtb-card__list lh-rtb-card__list--ch">
-                <li>Rental Studio 负责整理出租广告、照片页、申请入口与分享素材。</li>
-                <li>Home Sale Studio 负责整理卖房展示页、中英文文案、封面图与二维码分享。</li>
-                <li>两个模块共用同一平台，方便统一管理公开链接与手机访问体验。</li>
-              </ul>
-
-              <Link to="/contact" className="lh-rtb-card__btn">
-                Request Access / 申请使用 →
-              </Link>
-            </div>
-          </div>
+      <section className="lh-section lh-section--tight">
+        <div className="lh-share-kit-wrap">
+          <ShareKit
+            buttonLabel="推广素材 / Admin Share Kit"
+            title="房东推广素材 / Landlord Promotion Share Kit"
+            subtitle="供房东、业主和客户转介绍使用。 / For landlords, property owners, and client referrals only."
+            messages={LANDLORD_SHARE_MESSAGES}
+            linkLabel="复制网站链接 / Copy Website Link"
+          />
         </div>
       </section>
 

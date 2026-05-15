@@ -6,6 +6,7 @@
 // In v0.3+, swap the API layer without touching any component.
 
 import { isApiConnected, apiGet, apiPost } from "./api.js";
+import { getStudioRequestAuth } from "./trialAccess.js";
 
 const LISTINGS_KEY = "vanisland_listings_v1";
 
@@ -28,20 +29,35 @@ function lsSetAll(listings) {
 export async function getListings() {
   // apiGet adds _t=Date.now() and cache:"no-store" to bust GET caching
   if (isApiConnected()) {
-    return apiGet({ action: "getListings" });
+    return apiGet({ action: "getListings", ...getStudioRequestAuth("rental") });
   }
   return lsGetAll();
 }
 
 export async function getListing(id) {
+  if (isApiConnected()) {
+    try {
+      return await apiGet({ action: "getListingById", listingId: id, ...getStudioRequestAuth("rental") });
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (!message.includes("Unknown GET action: getListingById")) {
+        throw error;
+      }
+      const all = await getListings();
+      const match = all.find((l) => l.id === id) || null;
+      if (!match) {
+        throw new Error(`Listing not found: ${id}`);
+      }
+      return match;
+    }
+  }
   const all = await getListings();
   return all.find((l) => l.id === id) || null;
 }
 
 export async function saveListing(listing) {
   if (isApiConnected()) {
-    await apiPost({ action: "saveListing", data: listing });
-    return;
+    return apiPost({ action: "saveListing", data: listing, ...getStudioRequestAuth("rental") });
   }
   const all = lsGetAll();
   const idx = all.findIndex((l) => l.id === listing.id);
@@ -55,7 +71,7 @@ export async function saveListing(listing) {
 // This is the primary post-generation sync path.
 export async function syncVideoUrl(listingId) {
   if (isApiConnected()) {
-    return apiPost({ action: "syncVideoUrl", listingId });
+    return apiPost({ action: "syncVideoUrl", listingId, ...getStudioRequestAuth("rental") });
   }
   console.info("[localStorage mode] syncVideoUrl no-op for", listingId);
 }
@@ -65,7 +81,7 @@ export async function syncVideoUrl(listingId) {
 // also creates the column header if it doesn't yet exist in the sheet.
 export async function updateVideoUrl(listingId, videoUrl) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateVideoUrl", listingId, videoUrl });
+    return apiPost({ action: "updateVideoUrl", listingId, videoUrl, ...getStudioRequestAuth("rental") });
   }
   // localStorage mode: patch the listing object in place
   const all = lsGetAll();
@@ -75,22 +91,67 @@ export async function updateVideoUrl(listingId, videoUrl) {
 
 export async function saveContact(data) {
   if (isApiConnected()) {
-    await apiPost({ action: "saveContact", data });
-    return;
+    return apiPost({ action: "saveContact", data });
   }
   // localStorage mode: contacts are not persisted (no contacts sheet in v0.1).
   console.info("[localStorage mode] Contact submission (not persisted):", data);
+  return { success: true, approvalStatus: "Pending" };
+}
+
+export async function getContactRequests() {
+  if (!isApiConnected()) {
+    throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  }
+  return apiGet({ action: "getContactRequests", ...getStudioRequestAuth("rental") });
+}
+
+export async function approveContactRequest(rowNumber, approvedModule, adminNotes = "", approvalStatus = "Approved", accessType = "Trial", durationDays = 10, paymentStatus = "Unpaid") {
+  if (!isApiConnected()) {
+    throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  }
+  return apiPost({
+    action: "approveContactRequest",
+    rowNumber,
+    approvedModule,
+    adminNotes,
+    approvalStatus,
+    accessType,
+    durationDays,
+    paymentStatus,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function updateContactRequestNotes(rowNumber, notes) {
+  if (!isApiConnected()) {
+    throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  }
+  return apiPost({ action: "updateContactRequestNotes", rowNumber, notes, ...getStudioRequestAuth("rental") });
+}
+
+export async function validateAccessCode(email, accessCode) {
+  if (!isApiConnected()) {
+    throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  }
+  return apiPost({ action: "validateAccessCode", email, accessCode });
 }
 
 // List JPG/PNG files from a listing's own Drive folder (by folder ID).
-export async function getListingFolderFiles(folderId) {
-  if (!isApiConnected() || !folderId) return [];
-  return apiGet({ action: "getListingFolder", folderId });
+export async function getListingFolderFiles(folderId, listingId = "") {
+  if (!isApiConnected() || (!folderId && !listingId)) return [];
+  return apiGet({ action: "getListingFolder", folderId, listingId, ...getStudioRequestAuth("rental") });
+}
+
+export async function getListingSubfolderFiles(folderId, subfolderName, listingId = "") {
+  if (!isApiConnected() || (!folderId && !listingId) || !subfolderName) {
+    return { subfolderFolderId: "", subfolderUrl: "", files: [] };
+  }
+  return apiGet({ action: "getListingSubfolder", folderId, subfolderName, listingId, ...getStudioRequestAuth("rental") });
 }
 
 // Upload a file into a subfolder of the listing's own Drive folder.
 // Pass subfolderName="" to upload to the folder root.
-export async function uploadToSubfolder(folderId, subfolderName, file) {
+export async function uploadToSubfolder(folderId, subfolderName, file, listingId = "") {
   if (!isApiConnected()) {
     throw new Error("Photo upload requires Google Drive integration.");
   }
@@ -98,10 +159,12 @@ export async function uploadToSubfolder(folderId, subfolderName, file) {
   return apiPost({
     action:        "uploadToSubfolder",
     folderId,
+    listingId,
     subfolderName: subfolderName || "",
     fileName:      file.name,
     mimeType:      file.type || "application/octet-stream",
     data:          base64,
+    ...getStudioRequestAuth("rental"),
   });
 }
 
@@ -119,10 +182,15 @@ export async function uploadListingFile(listingId, file) {
     fileName:  file.name,
     mimeType:  file.type || "application/octet-stream",
     data:      base64,
+    ...getStudioRequestAuth("rental"),
   });
 }
 
 export async function generateListingId() {
+  if (isApiConnected()) {
+    const result = await apiPost({ action: "generateListingId", ...getStudioRequestAuth("rental") });
+    return result?.listingId || "";
+  }
   const all  = await getListings();
   const year = new Date().getFullYear();
   const num  = String(all.length + 1).padStart(3, "0");
@@ -155,29 +223,29 @@ export async function saveRentalApplication(data) {
 
 export async function getApplicationsByListing(listingId) {
   if (!isApiConnected() || !listingId) return [];
-  return apiPost({ action: "getApplicationsByListing", listingId });
+  return apiPost({ action: "getApplicationsByListing", listingId, ...getStudioRequestAuth("rental") });
 }
 
 export async function getAllApplications() {
   if (!isApiConnected()) return [];
-  return apiPost({ action: "getAllApplications" });
+  return apiPost({ action: "getAllApplications", ...getStudioRequestAuth("rental") });
 }
 
 export async function getApplicationById(applicationId) {
   if (!isApiConnected() || !applicationId) return null;
-  return apiGet({ action: "getApplicationById", applicationId });
+  return apiGet({ action: "getApplicationById", applicationId, ...getStudioRequestAuth("rental") });
 }
 
 export async function updateApplicationStatus(applicationId, reviewStatus) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus });
+    return apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus, ...getStudioRequestAuth("rental") });
   }
   console.info("[localStorage mode] updateApplicationStatus (not persisted):", applicationId, reviewStatus);
 }
 
 export async function updateApplicationNotes(applicationId, notes) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateApplicationNotes", applicationId, notes });
+    return apiPost({ action: "updateApplicationNotes", applicationId, notes, ...getStudioRequestAuth("rental") });
   }
   console.info("[localStorage mode] updateApplicationNotes (not persisted):", applicationId);
 }

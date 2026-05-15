@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
+import { readTrialAccess } from "../utils/trialAccess";
 
 // Keep env var available (used elsewhere), but Apply Now now uses the in-app route.
 // eslint-disable-next-line no-unused-vars
@@ -19,6 +20,7 @@ function isTenantRoute(pathname) {
 export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const trialSession = readTrialAccess();
   const tenant = isTenantRoute(pathname);
   // When on a specific listing or apply page, route Apply Now to the in-app form for that listing.
   const listingId = pathname.startsWith("/listings/") ? pathname.replace("/listings/", "")
@@ -115,15 +117,17 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
-          <li>
-            <NavLink
-              to="/admin"
-              className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
-              onClick={() => setOpen(false)}
-            >
-              {t(lang, "nav.admin")}
-            </NavLink>
-          </li>
+          {!trialSession && (
+            <li>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
+                onClick={() => setOpen(false)}
+              >
+                {t(lang, "nav.admin")}
+              </NavLink>
+            </li>
+          )}
           <li className="navbar__lang">
             <button
               className={lang === "en" ? "active" : ""}

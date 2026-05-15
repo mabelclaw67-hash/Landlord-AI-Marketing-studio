@@ -8,16 +8,23 @@ var HOME_SALE_LISTINGS_SHEET = "01 Sale Listings";
 var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
 var HOME_SALE_VIDEO_SHEET = "05 Video Scripts";
+var HOME_SALE_ADMIN_ACCESS_CODE = "246810"; // local security test only
+var HOME_SALE_LISTING_ACCESS_HEADERS = [
+  "Created By Email",
+  "Created By Access Code",
+  "Created By Role",
+];
 
 function doGet(e) {
   try {
     var action = homeSaleParam_(e, "action");
+    var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale");
 
-    if (action === "getSaleListings") return homeSaleOk_(getSaleListings_());
-    if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(homeSaleParam_(e, "listingId")));
-    if (action === "getSaleMediaByListingId") return homeSaleOk_(getSaleMediaByListingId_(homeSaleParam_(e, "listingId")));
-    if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(homeSaleParam_(e, "listingId")));
-    if (action === "getVideoScriptsByListingId") return homeSaleOk_(getVideoScriptsByListingId_(homeSaleParam_(e, "listingId")));
+    if (action === "getSaleListings") return homeSaleOk_(getSaleListings_(auth));
+    if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(homeSaleParam_(e, "listingId"), auth));
+    if (action === "getSaleMediaByListingId") return homeSaleOk_(getSaleMediaByListingId_(homeSaleParam_(e, "listingId"), auth));
+    if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(homeSaleParam_(e, "listingId"), auth));
+    if (action === "getVideoScriptsByListingId") return homeSaleOk_(getVideoScriptsByListingId_(homeSaleParam_(e, "listingId"), auth));
 
     return homeSaleErr_("Unknown GET action: " + action);
   } catch (err) {
@@ -29,19 +36,20 @@ function doPost(e) {
   try {
     var body = JSON.parse((e.postData && e.postData.contents) || "{}");
     var action = body.action || "";
+    var auth = homeSaleResolveAccess_(body || {}, "sale");
 
-    if (action === "getSaleListings") return homeSaleOk_(getSaleListings_());
-    if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(body.listingId));
-    if (action === "createSaleListing") return homeSaleOk_(createSaleListing_(body.record || {}));
-    if (action === "updateSaleListing") return homeSaleOk_(updateSaleListing_(body.listingId, body.record || {}));
-    if (action === "getSaleMediaByListingId") return homeSaleOk_(getSaleMediaByListingId_(body.listingId));
-    if (action === "createSaleMediaAsset") return homeSaleOk_(createSaleMediaAsset_(body.record || {}));
-    if (action === "syncSaleMediaFromDriveFolder") return homeSaleOk_(syncSaleMediaFromDriveFolder_(body));
-    if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId));
-    if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId));
-    if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}));
-    if (action === "getVideoScriptsByListingId") return homeSaleOk_(getVideoScriptsByListingId_(body.listingId));
-    if (action === "createOrUpdateVideoScript") return homeSaleOk_(createOrUpdateVideoScript_(body.scriptId, body.record || {}));
+    if (action === "getSaleListings") return homeSaleOk_(getSaleListings_(auth));
+    if (action === "getSaleListingById") return homeSaleOk_(getSaleListingById_(body.listingId, auth));
+    if (action === "createSaleListing") return homeSaleOk_(createSaleListing_(body.record || {}, auth));
+    if (action === "updateSaleListing") return homeSaleOk_(updateSaleListing_(body.listingId, body.record || {}, auth));
+    if (action === "getSaleMediaByListingId") return homeSaleOk_(getSaleMediaByListingId_(body.listingId, auth));
+    if (action === "createSaleMediaAsset") return homeSaleOk_(createSaleMediaAsset_(body.record || {}, auth));
+    if (action === "syncSaleMediaFromDriveFolder") return homeSaleOk_(syncSaleMediaFromDriveFolder_(body, auth));
+    if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
+    if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
+    if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
+    if (action === "getVideoScriptsByListingId") return homeSaleOk_(getVideoScriptsByListingId_(body.listingId, auth));
+    if (action === "createOrUpdateVideoScript") return homeSaleOk_(createOrUpdateVideoScript_(body.scriptId, body.record || {}, auth));
 
     return homeSaleErr_("Unknown POST action: " + action);
   } catch (err) {
@@ -49,22 +57,155 @@ function doPost(e) {
   }
 }
 
-function getSaleListings_() {
+function homeSaleResolveAccess_(payload, moduleName) {
+  payload = payload || {};
+  var adminAccessCode = String(payload.adminAccessCode || "").trim();
+  var expectedAdminCode = homeSaleGetAdminAccessCode_();
+  if (adminAccessCode && expectedAdminCode && adminAccessCode === expectedAdminCode) {
+    return { mode: "admin", module: moduleName || "" };
+  }
+
+  var email = homeSaleNormalizeEmail_(payload.accessEmail || payload.email || "");
+  var accessCode = String(payload.accessCode || "").trim().toUpperCase();
+  if (email && accessCode) {
+    var validated = homeSaleValidateTrialAccess_(email, accessCode, moduleName || "");
+    return {
+      mode: "trial",
+      module: moduleName || "",
+      email: validated.email,
+      accessCode: validated.accessCode,
+      approvedModule: validated.approvedModule,
+      accessExpiresAt: validated.accessExpiresAt,
+    };
+  }
+
+  throw new Error("Access denied. Please sign in with an approved trial access code.");
+}
+
+function homeSaleGetAdminAccessCode_() {
+  // Source of truth: rental spreadsheet's "08 System Settings" sheet.
+  // Sheet is checked first to avoid stale PropertiesService values.
+  try {
+    var RENTAL_SS_ID = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
+    var ss = SpreadsheetApp.openById(RENTAL_SS_ID);
+    var sheet = ss.getSheetByName("08 System Settings");
+    if (sheet && sheet.getLastRow() >= 2) {
+      var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]).trim() === "admin_access_code") {
+          var code = String(rows[i][1] || "").trim();
+          if (code) {
+            PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", code);
+            return code;
+          }
+        }
+      }
+    }
+  } catch (_) {}
+  // Bootstrap fallback — used until a real code is set via Admin Settings
+  var bootstrap = HOME_SALE_ADMIN_ACCESS_CODE || "";
+  if (bootstrap) PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", bootstrap);
+  return bootstrap;
+}
+
+function homeSaleValidateTrialAccess_(email, accessCode, moduleName) {
+  var contactsSheet = homeSaleGetSheetById_("1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4", "Contacts");
+  homeSaleAddMissingHeaders_(contactsSheet, [
+    "Email",
+    "Access Code",
+    "Approval Status",
+    "Approved Module",
+    "Access Expires At",
+  ]);
+  var lastRow = contactsSheet.getLastRow();
+  if (lastRow < 2) throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
+  var headerMap = homeSaleHeaderMap_(contactsSheet);
+  var rows = contactsSheet.getRange(2, 1, lastRow - 1, contactsSheet.getLastColumn()).getValues();
+
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var row = rows[i];
+    var rowEmail = homeSaleNormalizeEmail_(homeSaleColVal_(row, headerMap, "Email"));
+    var rowCode = String(homeSaleColVal_(row, headerMap, "Access Code") || "").trim().toUpperCase();
+    if (rowEmail !== homeSaleNormalizeEmail_(email)) continue;
+    if (rowCode !== String(accessCode || "").trim().toUpperCase()) continue;
+    if (String(homeSaleColVal_(row, headerMap, "Approval Status") || "").trim() !== "Approved") {
+      throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
+    }
+    var approvedModule = homeSaleColVal_(row, headerMap, "Approved Module");
+    if (!homeSaleApprovedModuleAllows_(approvedModule, moduleName)) {
+      throw new Error("Access denied for this module.");
+    }
+    var expiresAt = homeSaleColVal_(row, headerMap, "Access Expires At");
+    if (homeSaleIsExpired_(expiresAt)) {
+      throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
+    }
+    return {
+      valid: true,
+      email: homeSaleColVal_(row, headerMap, "Email"),
+      accessCode: rowCode,
+      approvedModule: approvedModule,
+      accessExpiresAt: expiresAt,
+    };
+  }
+
+  throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
+}
+
+function homeSaleApprovedModuleAllows_(approvedModule, moduleName) {
+  var text = String(approvedModule || "").toLowerCase();
+  var module = String(moduleName || "").toLowerCase();
+  if (text.indexOf("both") >= 0) return true;
+  if (module === "sale") return text.indexOf("sale") >= 0;
+  if (module === "rental") return text.indexOf("rental") >= 0;
+  return false;
+}
+
+function homeSaleNormalizeEmail_(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function homeSaleIsExpired_(expiresAt) {
+  if (!expiresAt) return false;
+  var dt = new Date(expiresAt);
+  if (isNaN(dt.getTime())) return false;
+  return dt.getTime() < Date.now();
+}
+
+function homeSaleCanAccessListing_(record, auth) {
+  if (!record) return false;
+  if (!auth) return false;
+  if (auth.mode === "admin") return true;
+  return homeSaleNormalizeEmail_(record["Created By Email"]) === homeSaleNormalizeEmail_(auth.email);
+}
+
+function homeSaleAssertListingAccess_(listingId, auth) {
+  var match = homeSaleFindByValue_(HOME_SALE_LISTINGS_SHEET, "Listing ID", listingId);
+  if (!match) throw new Error("Sale listing not found: " + listingId);
+  if (!homeSaleCanAccessListing_(match.record, auth)) {
+    throw new Error("Access denied for this listing.");
+  }
+  return match;
+}
+
+function getSaleListings_(auth) {
+  homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), HOME_SALE_LISTING_ACCESS_HEADERS);
   var rows = homeSaleGetDataRows_(HOME_SALE_LISTINGS_SHEET);
   return rows
-    .map(function(item) { return homeSaleListingFromRecord_(item.record); })
+    .filter(function(item) { return homeSaleCanAccessListing_(item.record, auth); })
+    .map(function(item) { return homeSaleListingFromRecord_(item.record, auth); })
     .filter(function(item) { return !!item.id; });
 }
 
-function getSaleListingById_(listingId) {
+function getSaleListingById_(listingId, auth) {
   if (!listingId) throw new Error("Missing listingId.");
-  var match = homeSaleFindByValue_(HOME_SALE_LISTINGS_SHEET, "Listing ID", listingId);
-  if (!match) throw new Error("Sale listing not found: " + listingId);
-  return homeSaleListingFromRecord_(match.record);
+  homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), HOME_SALE_LISTING_ACCESS_HEADERS);
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  return homeSaleListingFromRecord_(match.record, auth);
 }
 
-function createSaleListing_(record) {
+function createSaleListing_(record, auth) {
   var sheet = homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET);
+  homeSaleAddMissingHeaders_(sheet, HOME_SALE_LISTING_ACCESS_HEADERS);
   var headers = homeSaleGetHeaders_(sheet);
   var listingId = record["Listing ID"] || homeSaleGenerateNextId_(sheet, "Listing ID", "SALE");
 
@@ -75,42 +216,56 @@ function createSaleListing_(record) {
   record["Listing ID"] = listingId;
   if (!record.Status) record.Status = "Draft";
   if (!record["Public Listing URL"]) record["Public Listing URL"] = "";
+  if (auth.mode === "trial") {
+    record["Created By Email"] = auth.email;
+    record["Created By Access Code"] = auth.accessCode;
+    record["Created By Role"] = "Trial User";
+  } else {
+    record["Created By Role"] = record["Created By Role"] || "Admin";
+  }
 
   homeSaleAppendRecord_(sheet, headers, record, { setCreatedAt: true, setUpdatedAt: true });
   return {
     success: true,
     listingId: listingId,
-    record: getSaleListingById_(listingId),
+    record: getSaleListingById_(listingId, auth),
   };
 }
 
-function updateSaleListing_(listingId, record) {
+function updateSaleListing_(listingId, record, auth) {
   var targetId = listingId || record["Listing ID"];
   if (!targetId) throw new Error("Missing Listing ID for update.");
 
-  var match = homeSaleFindByValue_(HOME_SALE_LISTINGS_SHEET, "Listing ID", targetId);
-  if (!match) throw new Error("Sale listing not found: " + targetId);
+  homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), HOME_SALE_LISTING_ACCESS_HEADERS);
+  var match = homeSaleAssertListingAccess_(targetId, auth);
+  if (auth.mode === "trial") {
+    record["Created By Email"] = auth.email;
+    record["Created By Access Code"] = auth.accessCode;
+    record["Created By Role"] = "Trial User";
+  }
 
   homeSaleUpdateRecord_(match.sheet, match.headers, match.rowIndex, record, { setUpdatedAt: true });
   return {
     success: true,
     listingId: targetId,
-    record: getSaleListingById_(targetId),
+    record: getSaleListingById_(targetId, auth),
   };
 }
 
-function getSaleMediaByListingId_(listingId) {
+function getSaleMediaByListingId_(listingId, auth) {
   if (!listingId) throw new Error("Missing listingId.");
+  homeSaleAssertListingAccess_(listingId, auth);
   return homeSaleGetDataRows_(HOME_SALE_MEDIA_SHEET)
-    .map(function(item) { return homeSaleMediaFromRecord_(item.record); })
+    .map(function(item) { return homeSaleMediaFromRecord_(item.record, auth); })
     .filter(function(item) { return item.listingId === listingId; });
 }
 
-function createSaleMediaAsset_(record) {
+function createSaleMediaAsset_(record, auth) {
   var sheet = homeSaleGetSheet_(HOME_SALE_MEDIA_SHEET);
   var headers = homeSaleGetHeaders_(sheet);
   var listingId = record["Listing ID"];
   if (!listingId) throw new Error("Missing Listing ID for media asset.");
+  homeSaleAssertListingAccess_(listingId, auth);
 
   var assetId = record["Asset ID"] || homeSaleGenerateNextId_(sheet, "Asset ID", "MEDIA");
   record["Asset ID"] = assetId;
@@ -119,7 +274,7 @@ function createSaleMediaAsset_(record) {
   return { success: true, assetId: assetId };
 }
 
-function syncSaleMediaFromDriveFolder_(payload) {
+function syncSaleMediaFromDriveFolder_(payload, auth) {
   var listingId = payload.listingId || "";
   var folderUrl = payload.folderUrl || "";
   var defaultAssetType = payload.defaultAssetType || "Photo";
@@ -130,8 +285,7 @@ function syncSaleMediaFromDriveFolder_(payload) {
   if (!folderUrl) throw new Error("Missing Google Drive folder URL.");
   if (!Number.isFinite(startingSortOrder) || startingSortOrder < 1) startingSortOrder = 1;
 
-  var listingMatch = homeSaleFindByValue_(HOME_SALE_LISTINGS_SHEET, "Listing ID", listingId);
-  if (!listingMatch) throw new Error("Sale listing not found: " + listingId);
+  var listingMatch = homeSaleAssertListingAccess_(listingId, auth);
 
   var folderId = homeSaleExtractDriveFolderId_(folderUrl);
   if (!folderId) throw new Error("Unable to extract Google Drive folder ID from URL.");
@@ -225,14 +379,15 @@ function syncSaleMediaFromDriveFolder_(payload) {
   };
 }
 
-function getMarketingCopyByListingId_(listingId) {
+function getMarketingCopyByListingId_(listingId, auth) {
   if (!listingId) throw new Error("Missing listingId.");
+  homeSaleAssertListingAccess_(listingId, auth);
   return homeSaleGetDataRows_(HOME_SALE_MARKETING_SHEET)
-    .map(function(item) { return homeSaleMarketingFromRecord_(item.record); })
+    .map(function(item) { return homeSaleMarketingFromRecord_(item.record, auth); })
     .filter(function(item) { return item.listingId === listingId; });
 }
 
-function createOrUpdateMarketingCopy_(copyId, record) {
+function createOrUpdateMarketingCopy_(copyId, record, auth) {
   var sheet = homeSaleGetSheet_(HOME_SALE_MARKETING_SHEET);
   var headers = homeSaleGetHeaders_(sheet);
   var finalCopyId = copyId || record["Copy ID"];
@@ -240,21 +395,23 @@ function createOrUpdateMarketingCopy_(copyId, record) {
   if (finalCopyId) {
     var match = homeSaleFindByValue_(HOME_SALE_MARKETING_SHEET, "Copy ID", finalCopyId);
     if (match) {
+      homeSaleAssertListingAccess_(match.record["Listing ID"], auth);
       homeSaleUpdateRecord_(match.sheet, match.headers, match.rowIndex, record, { setUpdatedAt: true });
       return { success: true, copyId: finalCopyId };
     }
   }
 
+  homeSaleAssertListingAccess_(record["Listing ID"], auth);
   finalCopyId = finalCopyId || homeSaleGenerateNextId_(sheet, "Copy ID", "COPY");
   record["Copy ID"] = finalCopyId;
   homeSaleAppendRecord_(sheet, headers, record, { setCreatedAt: true, setUpdatedAt: true });
   return { success: true, copyId: finalCopyId };
 }
 
-function generateHomeSaleMarketingCopy_(listingId) {
+function generateHomeSaleMarketingCopy_(listingId, auth) {
   if (!listingId) throw new Error("Missing listingId for marketing copy generation.");
 
-  var listing = getSaleListingById_(listingId);
+  var listing = getSaleListingById_(listingId, auth);
   if (!listing || !listing.id) throw new Error("Sale listing not found: " + listingId);
 
   var sheet = homeSaleGetSheet_(HOME_SALE_MARKETING_SHEET);
@@ -276,7 +433,7 @@ function generateHomeSaleMarketingCopy_(listingId) {
     }
   }
 
-  generatedRows = getMarketingCopyByListingId_(listingId)
+  generatedRows = getMarketingCopyByListingId_(listingId, auth)
     .filter(function(item) {
       return item.version === "v1";
     });
@@ -289,10 +446,11 @@ function generateHomeSaleMarketingCopy_(listingId) {
   };
 }
 
-function getVideoScriptsByListingId_(listingId) {
+function getVideoScriptsByListingId_(listingId, auth) {
   if (!listingId) throw new Error("Missing listingId.");
+  homeSaleAssertListingAccess_(listingId, auth);
   return homeSaleGetDataRows_(HOME_SALE_VIDEO_SHEET)
-    .map(function(item) { return homeSaleVideoFromRecord_(item.record); })
+    .map(function(item) { return homeSaleVideoFromRecord_(item.record, auth); })
     .filter(function(item) { return item.listingId === listingId; });
 }
 
@@ -635,7 +793,7 @@ function homeSaleJoinHashtags_(items) {
   return result.join(" ");
 }
 
-function createOrUpdateVideoScript_(scriptId, record) {
+function createOrUpdateVideoScript_(scriptId, record, auth) {
   var sheet = homeSaleGetSheet_(HOME_SALE_VIDEO_SHEET);
   var headers = homeSaleGetHeaders_(sheet);
   var finalScriptId = scriptId || record["Script ID"];
@@ -643,11 +801,13 @@ function createOrUpdateVideoScript_(scriptId, record) {
   if (finalScriptId) {
     var match = homeSaleFindByValue_(HOME_SALE_VIDEO_SHEET, "Script ID", finalScriptId);
     if (match) {
+      homeSaleAssertListingAccess_(match.record["Listing ID"], auth);
       homeSaleUpdateRecord_(match.sheet, match.headers, match.rowIndex, record, {});
       return { success: true, scriptId: finalScriptId };
     }
   }
 
+  homeSaleAssertListingAccess_(record["Listing ID"], auth);
   finalScriptId = finalScriptId || homeSaleGenerateNextId_(sheet, "Script ID", "SCRIPT");
   record["Script ID"] = finalScriptId;
   homeSaleAppendRecord_(sheet, headers, record, { setCreatedAt: true });
@@ -674,6 +834,44 @@ function homeSaleGetDataRows_(sheetName) {
     });
   }
   return result;
+}
+
+function homeSaleGetSheetById_(spreadsheetId, sheetName) {
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error("Sheet not found: " + sheetName);
+  return sheet;
+}
+
+function homeSaleAddMissingHeaders_(sheet, headers) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    return;
+  }
+  var existing = homeSaleHeaderMap_(sheet);
+  var lastCol = sheet.getLastColumn();
+  for (var i = 0; i < headers.length; i++) {
+    if (existing[headers[i]] === undefined) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue(headers[i]);
+    }
+  }
+}
+
+function homeSaleHeaderMap_(sheet) {
+  if (sheet.getLastRow() === 0 || sheet.getLastColumn() === 0) return {};
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var map = {};
+  for (var i = 0; i < headers.length; i++) {
+    var header = String(headers[i] || "").trim();
+    if (header) map[header] = i;
+  }
+  return map;
+}
+
+function homeSaleColVal_(row, headerMap, name) {
+  var idx = headerMap[name];
+  return (idx !== undefined && idx < row.length) ? (row[idx] || "") : "";
 }
 
 function homeSaleFindByValue_(sheetName, headerName, value) {
@@ -738,8 +936,8 @@ function homeSaleGenerateNextId_(sheet, headerName, prefix) {
   return prefixValue + homeSalePad_(maxNum + 1, 3);
 }
 
-function homeSaleListingFromRecord_(record) {
-  return {
+function homeSaleListingFromRecord_(record, auth) {
+  var result = {
     id: record["Listing ID"] || "",
     listingId: record["Listing ID"] || "",
     status: record.Status || "Draft",
@@ -771,11 +969,15 @@ function homeSaleListingFromRecord_(record) {
     internalStatus: record["Internal Status"] || "",
     createdAt: record["Created At"] || "",
     updatedAt: record["Updated At"] || "",
+    createdByEmail: record["Created By Email"] || "",
+    createdByAccessCode: record["Created By Access Code"] || "",
+    createdByRole: record["Created By Role"] || "",
   };
+  return homeSaleSanitizeListingForAccess_(result, auth);
 }
 
-function homeSaleMediaFromRecord_(record) {
-  return {
+function homeSaleMediaFromRecord_(record, auth) {
+  var result = {
     assetId: record["Asset ID"] || "",
     listingId: record["Listing ID"] || "",
     assetType: record["Asset Type"] || "",
@@ -790,10 +992,11 @@ function homeSaleMediaFromRecord_(record) {
     createdAt: record["Created At"] || "",
     notes: record.Notes || "",
   };
+  return homeSaleSanitizeMediaForAccess_(result, auth);
 }
 
-function homeSaleMarketingFromRecord_(record) {
-  return {
+function homeSaleMarketingFromRecord_(record, auth) {
+  var result = {
     copyId: record["Copy ID"] || "",
     listingId: record["Listing ID"] || "",
     channel: record.Channel || "",
@@ -808,10 +1011,11 @@ function homeSaleMarketingFromRecord_(record) {
     createdAt: record["Created At"] || "",
     updatedAt: record["Updated At"] || "",
   };
+  return auth && auth.mode === "admin" ? result : result;
 }
 
-function homeSaleVideoFromRecord_(record) {
-  return {
+function homeSaleVideoFromRecord_(record, auth) {
+  var result = {
     scriptId: record["Script ID"] || "",
     listingId: record["Listing ID"] || "",
     videoType: record["Video Type"] || "",
@@ -825,6 +1029,41 @@ function homeSaleVideoFromRecord_(record) {
     createdAt: record["Created At"] || "",
     notes: record.Notes || "",
   };
+  if (auth && auth.mode !== "admin") delete result.notes;
+  return result;
+}
+
+function homeSaleSanitizeListingForAccess_(listing, auth) {
+  if (!listing) return null;
+  if (!auth || auth.mode === "admin") return listing;
+
+  var safe = {};
+  for (var key in listing) {
+    if (!Object.prototype.hasOwnProperty.call(listing, key)) continue;
+    safe[key] = listing[key];
+  }
+
+  delete safe.googleDriveFolderUrl;
+  delete safe.notes;
+  delete safe.internalStatus;
+  delete safe.createdByEmail;
+  delete safe.createdByAccessCode;
+  delete safe.createdByRole;
+  return safe;
+}
+
+function homeSaleSanitizeMediaForAccess_(media, auth) {
+  if (!media) return null;
+  if (!auth || auth.mode === "admin") return media;
+
+  var safe = {};
+  for (var key in media) {
+    if (!Object.prototype.hasOwnProperty.call(media, key)) continue;
+    safe[key] = media[key];
+  }
+
+  delete safe.notes;
+  return safe;
 }
 
 function homeSaleGetSheet_(sheetName) {

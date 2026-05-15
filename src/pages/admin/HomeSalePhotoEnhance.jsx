@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { apiPost, isApiConnected } from "../../utils/api";
-import { getListingFolderFiles } from "../../utils/storage";
-import { getHomeSaleListing, updateSaleListing } from "../../utils/homeSaleSheet";
+import { getListingFolderFiles, getListingSubfolderFiles } from "../../utils/storage";
+import { getHomeSaleListing } from "../../utils/homeSaleSheet";
+import { getStudioRequestAuth } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
   if (!link) return null;
@@ -64,9 +65,8 @@ export default function HomeSalePhotoEnhance() {
         listingRef.current = row;
         const fid = extractFolderId(row?.googleDriveFolderUrl);
         if (fid) loadFolderFiles(fid);
-        if (row?.enhancedFolderId) {
-          setEnhancedFolderId(row.enhancedFolderId);
-          loadEnhancedPhotos(row.enhancedFolderId);
+        if (fid) {
+          loadEnhancedPhotos(fid);
         }
       })
       .catch((err) => setError(err.message || "Failed to load listing."));
@@ -75,7 +75,7 @@ export default function HomeSalePhotoEnhance() {
   async function loadFolderFiles(folderId) {
     setFolderLoading(true);
     try {
-      const files = await getListingFolderFiles(folderId);
+      const files = await getListingFolderFiles(folderId, listingId);
       setFolderFiles(sortByFilenameNumber(files || []));
     } catch {
       setFolderFiles([]);
@@ -84,16 +84,21 @@ export default function HomeSalePhotoEnhance() {
     }
   }
 
-  async function loadEnhancedPhotos(subfolderId) {
-    if (!subfolderId) return;
+  async function loadEnhancedPhotos(folderId) {
+    if (!folderId) return;
     setEnhancedLoading(true);
     try {
-      const files = await getListingFolderFiles(subfolderId);
+      const result = await getListingSubfolderFiles(folderId, "02_AI_Enhanced_Photos", listingId);
+      const files = result?.files || [];
       const seen = new Map();
       for (const f of (files || [])) seen.set(f.name, f);
       setEnhancedPhotos(Array.from(seen.values()));
+      setEnhancedFolderId(result?.subfolderFolderId || "");
+      setEnhancedFolderUrl(result?.subfolderUrl || "");
     } catch {
       setEnhancedPhotos([]);
+      setEnhancedFolderId("");
+      setEnhancedFolderUrl("");
     } finally {
       setEnhancedLoading(false);
     }
@@ -148,6 +153,7 @@ export default function HomeSalePhotoEnhance() {
           fileName,
           mimeType:      "image/jpeg",
           data:          base64,
+          ...getStudioRequestAuth("rental"),
         });
         if (res?.subfolderUrl      && !capturedFolderUrl) capturedFolderUrl = res.subfolderUrl;
         if (res?.subfolderFolderId && !capturedFolderId)  capturedFolderId  = res.subfolderFolderId;
@@ -162,13 +168,7 @@ export default function HomeSalePhotoEnhance() {
     if (capturedFolderUrl) setEnhancedFolderUrl(capturedFolderUrl);
     if (capturedFolderId) {
       setEnhancedFolderId(capturedFolderId);
-      loadEnhancedPhotos(capturedFolderId);
-      const cur = listingRef.current;
-      if (cur && !cur.enhancedFolderId) {
-        const updated = { ...cur, enhancedFolderId: capturedFolderId };
-        updateSaleListing(updated).catch(() => {});
-        listingRef.current = updated;
-      }
+      loadEnhancedPhotos(folderId);
     }
 
     if (errors.length === 0) {
@@ -367,7 +367,7 @@ export default function HomeSalePhotoEnhance() {
                   )}
                   {enhancedFolderId && (
                     <button className="btn btn--ghost btn--sm" disabled={enhancedLoading}
-                      onClick={() => loadEnhancedPhotos(enhancedFolderId)}>
+                      onClick={() => loadEnhancedPhotos(folderId)}>
                       {enhancedLoading ? "Loading…" : "↺ Refresh Enhanced Photos"}
                     </button>
                   )}
@@ -378,8 +378,8 @@ export default function HomeSalePhotoEnhance() {
               )}
               {!enhancedLoading && enhancedPhotos.length === 0 && (
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                  No enhanced photos yet. Run Light Enhancement Batch first.
-                  <br /><span style={{ fontSize: "0.78rem" }}>暂无美化照片，请先运行轻度美化批次。</span>
+                  No enhanced photos found yet.
+                  <br /><span style={{ fontSize: "0.78rem" }}>暂未找到美化照片。</span>
                 </p>
               )}
               {!enhancedLoading && enhancedPhotos.length > 0 && (

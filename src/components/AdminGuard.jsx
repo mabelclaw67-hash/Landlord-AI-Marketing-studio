@@ -1,48 +1,39 @@
 import { useState } from "react";
-
-const CODE = import.meta.env.VITE_ADMIN_ACCESS_CODE || "";
-const SESSION_KEY = "adminUnlocked";
+import { Navigate } from "react-router-dom";
+import { getTrialAccessHome, readTrialAccess, storeAdminSession, clearAdminSession, isAdminSessionActive } from "../utils/trialAccess";
+import { apiPost } from "../utils/api";
 
 export default function AdminGuard({ children }) {
-  const [unlocked, setUnlocked] = useState(
-    () => sessionStorage.getItem(SESSION_KEY) === "1"
-  );
+  const trialSession = readTrialAccess();
+  const [unlocked, setUnlocked] = useState(() => isAdminSessionActive());
   const [input, setInput] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   if (unlocked) return children;
-
-  // Code not configured — show setup notice instead of a non-functional form
-  if (!CODE) {
-    return (
-      <div className="admin-guard">
-        <div className="admin-guard__card">
-          <div className="admin-guard__brand">
-            <div className="admin-guard__mark">V</div>
-            <div>
-              <strong>Vanisland AI Studio</strong>
-              <span>Admin Studio</span>
-            </div>
-          </div>
-          <h1 className="admin-guard__title">Admin Access</h1>
-          <p className="admin-guard__sub">管理后台访问</p>
-          <div className="admin-guard__unconfigured">
-            <p>⚠️ Admin access code not configured.</p>
-            <p>Set <code>VITE_ADMIN_ACCESS_CODE</code> in your <code>.env.local</code> file and restart the dev server.</p>
-          </div>
-        </div>
-      </div>
-    );
+  if (trialSession) {
+    return <Navigate to={getTrialAccessHome(trialSession.approvedModule)} replace />;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (input === CODE) {
-      sessionStorage.setItem(SESSION_KEY, "1");
-      setUnlocked(true);
-    } else {
-      setError(true);
-      setInput("");
+    const code = input.trim();
+    if (!code) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await apiPost({ action: "validateAdminAccessCode", code });
+      if (res?.valid) {
+        storeAdminSession(code);
+        setUnlocked(true);
+      } else {
+        setError("Invalid access code. / 访问密码不正确。");
+        setInput("");
+      }
+    } catch {
+      setError("Could not reach server. Check connection and try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,28 +53,24 @@ export default function AdminGuard({ children }) {
 
         <form onSubmit={handleSubmit} className="admin-guard__form">
           <label className="admin-guard__label">
-            6-digit Access Code
-            <span>6位访问密码</span>
+            Admin Access Code
+            <span>管理员访问密码</span>
           </label>
           <input
             className={`admin-guard__input${error ? " admin-guard__input--error" : ""}`}
             type="password"
-            inputMode="numeric"
-            maxLength={6}
             value={input}
-            onChange={(e) => { setInput(e.target.value); setError(false); }}
-            placeholder="• • • • • •"
+            onChange={(e) => { setInput(e.target.value); setError(""); }}
+            placeholder="••••••••••"
             autoComplete="off"
             autoFocus
+            disabled={loading}
           />
           {error && (
-            <p className="admin-guard__error">
-              Invalid access code. / 访问密码不正确。
-            </p>
+            <p className="admin-guard__error">{error}</p>
           )}
-          <button type="submit" className="admin-guard__btn">
-            Enter Admin Studio
-            <span>进入管理后台</span>
+          <button type="submit" className="admin-guard__btn" disabled={loading}>
+            {loading ? "Verifying… / 验证中…" : <>Enter Admin Studio<span>进入管理后台</span></>}
           </button>
         </form>
 
@@ -95,8 +82,8 @@ export default function AdminGuard({ children }) {
   );
 }
 
-/** Call this from anywhere inside admin to lock and return to access screen. */
+/** Call this from anywhere inside admin to lock and return to the access screen. */
 export function lockAdmin() {
-  sessionStorage.removeItem(SESSION_KEY);
+  clearAdminSession();
   window.location.reload();
 }
