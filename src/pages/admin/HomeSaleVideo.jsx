@@ -13,6 +13,7 @@ import {
   createOrUpdateVideoScript,
   getHomeSaleListing,
   getVideoScriptsByListingId,
+  updateSaleListing,
 } from "../../utils/homeSaleSheet";
 
 const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
@@ -103,6 +104,8 @@ export default function HomeSaleVideo() {
   const [videoFileMeta,  setVideoFileMeta]  = useState(null);
   const [videoSourceType,setVideoSourceType]= useState(null);
   const [videoMusicStatus, setVideoMusicStatus] = useState(null);
+  const [publishingVideo, setPublishingVideo] = useState(false);
+  const [publishVideoMsg, setPublishVideoMsg] = useState("");
 
   async function refresh() {
     const [listingRow, videoRows] = await Promise.all([
@@ -665,6 +668,21 @@ export default function HomeSaleVideo() {
     }
   }
 
+  async function handlePublishVideoUrl() {
+    const previewUrl = buildDriveVideoPreviewUrl(videoFileMeta);
+    if (!previewUrl) return;
+    setPublishingVideo(true);
+    setPublishVideoMsg("");
+    try {
+      await updateSaleListing({ ...listing, videoUrl: previewUrl });
+      setPublishVideoMsg("已发布 / Published — public page will now show Watch Video button.");
+    } catch (err) {
+      setPublishVideoMsg("Error: " + (err.message || "Failed to save video URL."));
+    } finally {
+      setPublishingVideo(false);
+    }
+  }
+
   const apiReady   = isApiConnected();
   const folderId   = extractFolderId(listing?.googleDriveFolderUrl);
   const canGenerate = apiReady && folderId && folderFiles.length > 0
@@ -866,7 +884,21 @@ export default function HomeSaleVideo() {
                     📂 Open 04_Video_Output
                   </a>
                 )}
+                {drivePreviewUrl && (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    disabled={publishingVideo}
+                    onClick={handlePublishVideoUrl}
+                  >
+                    {publishingVideo ? "Saving…" : "🌐 Publish to Public Page / 发布到公开页"}
+                  </button>
+                )}
               </div>
+              {publishVideoMsg && (
+                <p style={{ marginTop: 8, fontSize: "0.82rem", color: publishVideoMsg.startsWith("Error") ? "#b42b2b" : "#276745" }}>
+                  {publishVideoMsg}
+                </p>
+              )}
             </>
           ) : (
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", margin: 0 }}>

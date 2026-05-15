@@ -19,7 +19,7 @@ var HOME_SALE_LISTING_ACCESS_HEADERS = [
 function doGet(e) {
   try {
     var action = homeSaleParam_(e, "action");
-    var publicGetActions = ["getSaleListings", "getSaleListingById", "getMarketingCopyByListingId"];
+    var publicGetActions = ["getSaleListings", "getSaleListingById", "getMarketingCopyByListingId", "getVideoScriptsByListingId"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale", isPublicGet);
 

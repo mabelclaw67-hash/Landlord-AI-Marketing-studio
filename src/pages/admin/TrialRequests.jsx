@@ -143,7 +143,7 @@ export default function TrialRequests() {
             <div style={{ fontSize: "2rem", marginBottom: 10 }}>📨</div>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 6 }}>No trial requests yet</h2>
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>
-              Contact / Beta form submissions will appear here.
+              Contact / Request form submissions will appear here.
             </p>
           </div>
         </div>

@@ -53,7 +53,7 @@ export default function Contact({ lang }) {
             {/* Left: Info */}
             <div>
               <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-                <h4>🔒 Private Beta / 内部测试</h4>
+                <h4>Request Access / 申请使用</h4>
                 <p>{t(lang, "contact.betaNotice")}</p>
                 <p style={{ marginTop: 6, opacity: 0.8 }}>{t(lang, "contact.betaNoticeCh")}</p>
                 <p style={{ marginTop: 6 }}>

@@ -6,21 +6,8 @@ import { readTrialAccess } from "../utils/trialAccess";
 import {
   buildHomeSalePublicUrl,
   getHomeSaleListings,
+  resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
-
-function extractDriveFileId(url) {
-  const text = String(url || "");
-  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return fileMatch[1];
-  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idMatch) return idMatch[1];
-  return "";
-}
-
-function toImgSrc(url) {
-  const fileId = extractDriveFileId(url);
-  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w1200` : url;
-}
 
 function formatPrice(value) {
   const digits = String(value || "").replace(/[^\d.]/g, "");
@@ -35,6 +22,7 @@ export default function HomeSaleStudio() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [brokenImages, setBrokenImages] = useState({});
 
   useEffect(() => {
     getHomeSaleListings()
@@ -62,7 +50,7 @@ export default function HomeSaleStudio() {
                 <div className="home-sale-admin-entry__eyebrow">Home Sale Admin Studio / 房屋出售后台管理</div>
                 <h2>Manage the Home Sale Studio / 管理售房工作台</h2>
                 <p>
-                  从这里进入 Home Sale Admin，打开出售数据库、测试公开页与测试详情页。
+                  从这里进入 Home Sale Admin，管理出售房源数据库、公开房源页与房源详情。
                 </p>
               </div>
               <Link to="/admin/home-sale" className="btn btn--sage">
@@ -72,13 +60,12 @@ export default function HomeSaleStudio() {
           )}
 
           <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-            <h4>Coming Soon / Beta</h4>
+            <h4>Home Sale Marketing Studio / 售房营销工作台</h4>
             <p>
-              本模块将帮助屋主、FSBO 自售屋主与地产经纪整理双语卖房文案、房源展示页、二维码、买家咨询入口与 AI 视频推广素材。
+              本模块帮助屋主、FSBO 自售屋主与地产经纪整理双语卖房文案、房源展示页、二维码、买家咨询入口与 AI 视频推广素材。
             </p>
             <p style={{ marginTop: 6, opacity: 0.86 }}>
-              This module will help home sellers, FSBO owners, and realtors prepare bilingual home sale marketing packages,
-              listing pages, QR codes, buyer inquiry links, and AI video promotion materials.
+              Prepare bilingual home sale marketing packages, listing pages, QR codes, buyer inquiry links, and AI video promotion materials.
             </p>
           </div>
 
@@ -104,78 +91,107 @@ export default function HomeSaleStudio() {
 
           {!loading && !error && listings.length > 0 && (
             <div className="rental-card-list">
-              {listings.map((listing) => (
-                <article key={listing.id || listing.address} className="rental-card">
-                  {listing.primaryPhotoUrl ? (
+              {listings.map((listing) => {
+                const imageKey = listing.id || listing.address;
+                const imageSrc = resolveHomeSaleImageUrl(listing);
+
+                return (
+                  <article key={imageKey} className="rental-card">
+                    {imageSrc && !brokenImages[imageKey] ? (
                     <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", background: "#eef2f0" }}>
                       <img
-                        src={toImgSrc(listing.primaryPhotoUrl)}
+                        src={imageSrc}
                         alt={listing.address || "Sale listing"}
+                        onError={() =>
+                          setBrokenImages((prev) => ({
+                            ...prev,
+                            [imageKey]: true,
+                          }))
+                        }
                         style={{ width: "100%", aspectRatio: "16 / 10", objectFit: "cover" }}
                       />
                     </div>
-                  ) : null}
+                    ) : (
+                      <div
+                        style={{
+                          marginBottom: 16,
+                          borderRadius: 12,
+                          background: "#eef2f0",
+                          aspectRatio: "16 / 10",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--color-text-muted)",
+                          fontSize: "0.88rem",
+                          textAlign: "center",
+                          padding: 16,
+                        }}
+                      >
+                        No photo available / 暂无房源图片
+                      </div>
+                    )}
 
-                  <div className="rental-card__header">
-                    <div>
-                      <h2 className="rental-card__address">
-                        {listing.address || "待补房产地址 / Property address pending"}
-                      </h2>
-                      <p className="rental-card__city">
-                        📍 {listing.city || "城市待填写"}{listing.province ? `, ${listing.province}` : ""}
-                      </p>
-                    </div>
-                    <span className="rental-card__badge" style={{ background: "#f7efe4", color: "#8a5a22", border: "1px solid #e7cda7" }}>
-                      {listing.status || "Draft"}
-                    </span>
-                  </div>
-
-                  <div className="rental-card__facts">
-                    <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Asking Price / 售价</span>
-                      <span className="rental-card__fact-value">{formatPrice(listing.askingPrice)}</span>
-                    </div>
-                    <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Beds / Baths / 卧室 / 卫浴</span>
-                      <span className="rental-card__fact-value">
-                        {listing.bedrooms || "—"} / {listing.bathrooms || "—"}
+                    <div className="rental-card__header">
+                      <div>
+                        <h2 className="rental-card__address">
+                          {listing.address || "待补房产地址 / Property address pending"}
+                        </h2>
+                        <p className="rental-card__city">
+                          📍 {listing.city || "城市待填写"}{listing.province ? `, ${listing.province}` : ""}
+                        </p>
+                      </div>
+                      <span className="rental-card__badge" style={{ background: "#f7efe4", color: "#8a5a22", border: "1px solid #e7cda7" }}>
+                        {listing.status || "Draft"}
                       </span>
                     </div>
-                    <div className="rental-card__fact">
-                      <span className="rental-card__fact-label">Property Type / 房源类型</span>
-                      <span className="rental-card__fact-value">{listing.propertyType || "待填写 / Pending"}</span>
-                    </div>
-                  </div>
 
-                  <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
-                    <div>
-                      <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>
-                        中文简介 / Description CN
+                    <div className="rental-card__facts">
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Asking Price / 售价</span>
+                        <span className="rental-card__fact-value">{formatPrice(listing.askingPrice)}</span>
                       </div>
-                      <p style={{ fontSize: "0.9rem", lineHeight: 1.7, color: "var(--color-text)" }}>
-                        {listing.descriptionCn || "请在表格填写 Description CN。"}
-                      </p>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>
-                        English Description / Description EN
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Beds / Baths / 卧室 / 卫浴</span>
+                        <span className="rental-card__fact-value">
+                          {listing.bedrooms || "—"} / {listing.bathrooms || "—"}
+                        </span>
                       </div>
-                      <p style={{ fontSize: "0.88rem", lineHeight: 1.7, color: "var(--color-text-muted)" }}>
-                        {listing.descriptionEn || "Please add Description EN in the sheet."}
-                      </p>
+                      <div className="rental-card__fact">
+                        <span className="rental-card__fact-label">Property Type / 房源类型</span>
+                        <span className="rental-card__fact-value">{listing.propertyType || "待填写 / Pending"}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <Link to={`/home-sale-studio/listings/${listing.id || ""}`} className="rental-card__cta">
-                    View Listing / 查看详情 →
-                  </Link>
-                  <ShareButton
-                    title={listing.address || "Home Sale Listing"}
-                    text={`出售房源分享：${listing.address || listing.id} / Home sale listing`}
-                    url={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)}
-                  />
-                </article>
-              ))}
+                    <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>
+                          中文简介 / Description CN
+                        </div>
+                        <p style={{ fontSize: "0.9rem", lineHeight: 1.7, color: "var(--color-text)" }}>
+                          {listing.descriptionCn || "请在表格填写 Description CN。"}
+                        </p>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>
+                          English Description / Description EN
+                        </div>
+                        <p style={{ fontSize: "0.88rem", lineHeight: 1.7, color: "var(--color-text-muted)" }}>
+                          {listing.descriptionEn || "Please add Description EN in the sheet."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Link to={`/home-sale-studio/listings/${listing.id || ""}`} className="rental-card__cta">
+                      View Listing / 查看详情 →
+                    </Link>
+                    <ShareButton
+                      title={listing.address || "Home Sale Listing"}
+                      text={`出售房源分享：${listing.address || listing.id} / Home sale listing`}
+                      url={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)}
+                    />
+                  </article>
+                );
+              })}
             </div>
           )}
 

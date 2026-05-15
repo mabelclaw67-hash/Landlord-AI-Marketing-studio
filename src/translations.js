@@ -6,7 +6,7 @@ export const translations = {
       examples: "Rental Studio",
       saleListing: "Home Sale Studio",
       resources: "Resources",
-      contact: "Contact / Beta",
+      contact: "Contact / Request",
       admin: "Admin Studio",
     },
     adminNav: {
@@ -33,11 +33,11 @@ export const translations = {
       s3Title: "Short Video Script",
       s3Ch: "短视频脚本",
       s3Desc: "Ready-to-record video scripts for property walkthroughs and social sharing.",
-      betaTitle: "Private Beta",
+      betaTitle: "Request Access",
       betaNotice:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to prepare your rental listing.",
+        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
       betaCh:
-        "目前为内部测试版本，如需生成房源广告，请联系 Vanisland Property Management。",
+        "如需使用出租或出售房源推广工作台，请联系 Vanisland Property Management 申请开通。",
       complianceTitle: "Content Compliance Notice",
       complianceEn:
         "All AI-generated content must be reviewed before publishing. AI-enhanced or virtually staged images must be clearly disclosed.",
@@ -107,12 +107,12 @@ export const translations = {
         "房东可要求租客提供：租房申请表、工作/收入证明、前任房东推荐信。不得因受保护特征拒绝申请。建议对所有申请人使用统一审核标准以降低风险。",
     },
     contact: {
-      title: "Contact / Private Beta",
-      chTitle: "联系我们 / 内部测试申请",
+      title: "Contact / Request Access",
+      chTitle: "联系我们 / 申请使用",
       betaNotice:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request Rental Listing Studio, Home Sale Studio, or both modules.",
+        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
       betaNoticeCh:
-        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用出租房源推广、出售房源推广，或同时开通两套模块。",
+        "请联系 Vanisland Property Management 申请使用出租房源推广、出售房源推广，或同时开通两套模块。",
       name: "Name",
       email: "Email",
       phone: "Phone",
@@ -230,11 +230,11 @@ export const translations = {
       s3Title: "短视频脚本",
       s3Ch: "Short Video Script",
       s3Desc: "可直接录制的房源介绍视频脚本，适合社交媒体分享。",
-      betaTitle: "内部测试通知",
+      betaTitle: "申请使用",
       betaNotice:
-        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用出租房源推广、出售房源推广，或同时开通两套模块。",
+        "如需使用出租或出售房源推广工作台，请联系 Vanisland Property Management 申请开通。",
       betaCh:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request Rental Listing Studio, Home Sale Studio, or both modules.",
+        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
       complianceTitle: "内容合规声明",
       complianceEn:
         "所有 AI 生成内容发布前必须人工审核。若使用 AI 美化或虚拟布置，必须明确标注，避免误导租客。",
@@ -300,12 +300,12 @@ export const translations = {
         "You may request: rental application, employment/income verification, references. You may NOT deny tenancy based on protected characteristics.",
     },
     contact: {
-      title: "联系我们 / 内部测试申请",
-      chTitle: "Contact / Private Beta",
+      title: "联系我们 / 申请使用",
+      chTitle: "Contact / Request Access",
       betaNotice:
-        "目前为内部测试版本，请联系 Vanisland Property Management 申请使用，我们将为您准备房源广告素材包。",
+        "请联系 Vanisland Property Management 申请使用，我们将为您准备房源广告素材包。",
       betaNoticeCh:
-        "Private Beta is currently managed by Vanisland Property Management. Please contact us to request access.",
+        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access.",
       name: "姓名",
       email: "邮箱",
       phone: "电话",

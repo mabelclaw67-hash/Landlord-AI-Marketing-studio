@@ -40,7 +40,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           </NavLink>
           <NavLink to="/contact" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🎧</span>
-            <span><strong>Contact / Beta</strong><small>联系 / 内测申请</small></span>
+            <span><strong>Contact / Request</strong><small>联系 / 申请使用</small></span>
           </NavLink>
         </nav>
 

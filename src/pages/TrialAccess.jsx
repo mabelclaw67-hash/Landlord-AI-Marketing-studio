@@ -151,10 +151,10 @@ export default function TrialAccess() {
             <div style={{ marginTop: 18, fontSize: "0.82rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
               <p>
                 If you do not have an access code yet, please submit your request on the{" "}
-                <Link to="/contact">Contact / Beta</Link> page.
+                <Link to="/contact">Contact / Request</Link> page.
               </p>
               <p style={{ marginTop: 6 }}>
-                如果还没有 access code，请先到 <Link to="/contact">Contact / Beta</Link> 页面提交申请。
+                如果还没有 access code，请先到 <Link to="/contact">Contact / Request</Link> 页面提交申请。
               </p>
             </div>
           </div>

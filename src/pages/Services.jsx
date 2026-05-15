@@ -48,7 +48,7 @@ export default function Services({ lang }) {
           </div>
 
           <div className="notice notice--sage" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
-            <h4>🔮 Coming Soon / 即将推出</h4>
+            <h4>More Features / 更多功能</h4>
             <p>{t(lang, "services.futureNote")}</p>
             <p style={{ marginTop: 4, opacity: 0.85 }}>{t(lang, "services.futureNoteCh")}</p>
           </div>

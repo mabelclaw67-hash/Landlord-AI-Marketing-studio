@@ -307,6 +307,14 @@ export async function getPublicSaleMarketingCopy(listingId) {
   } catch (_) { return []; }
 }
 
+export async function getPublicSaleVideoScripts(listingId) {
+  if (!HOME_SALE_EXEC_URL || !listingId) return [];
+  try {
+    const data = await homeSaleApiGet({ action: "getVideoScriptsByListingId", listingId });
+    return Array.isArray(data) ? data.map((item) => normalizeRecord(item, VIDEO_HEADER_MAP)) : [];
+  } catch (_) { return []; }
+}
+
 export async function getMarketingCopyByListingId(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing Listing ID for marketing lookup.");
@@ -369,6 +377,51 @@ export function formatSalePrice(value) {
   const amount = Number(digits);
   if (Number.isNaN(amount)) return String(value || "");
   return `$${amount.toLocaleString()}`;
+}
+
+export function extractHomeSaleDriveFileId(url) {
+  const text = String(url || "").trim();
+  if (!text) return "";
+  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return fileMatch[1];
+  const openMatch = text.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (openMatch) return openMatch[1];
+  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) return idMatch[1];
+  return "";
+}
+
+export function toHomeSaleImageSrc(url, width = 1200) {
+  const cleanUrl = String(url || "").trim();
+  if (!cleanUrl) return "";
+  const fileId = extractHomeSaleDriveFileId(cleanUrl);
+  if (fileId) return `https://lh3.googleusercontent.com/d/${fileId}=w${width}`;
+  return cleanUrl;
+}
+
+export function resolveHomeSaleImageUrl(listing = {}, mediaRows = [], width = 1200) {
+  const listingCandidates = [
+    listing.primaryPhotoUrl,
+    listing.coverImageUrl,
+    listing.photoUrl,
+    listing.imageUrl,
+    listing.thumbnailUrl,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const mediaCandidates = []
+    .concat(
+      mediaRows.filter((item) => item.assetType === "Photo" && item.assetRole === "Cover"),
+      mediaRows.filter((item) => item.assetType === "Photo"),
+      mediaRows
+    )
+    .flatMap((item) => [item?.publicUrl, item?.driveUrl])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const candidate = [...listingCandidates, ...mediaCandidates].find(Boolean) || "";
+  return toHomeSaleImageSrc(candidate, width);
 }
 
 export function normalizeSaleListing(data) {

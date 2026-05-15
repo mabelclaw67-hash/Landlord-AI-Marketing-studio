@@ -8,24 +8,22 @@ import {
   getHomeSaleListing,
   getSaleMediaByListingId,
   getPublicSaleMarketingCopy,
+  getPublicSaleVideoScripts,
+  resolveHomeSaleImageUrl,
   submitHomeSaleBuyerInquiry,
 } from "../utils/homeSaleSheet";
 
 function extractDriveFileId(url) {
-  const text = String(url || "");
-  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return fileMatch[1];
-  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idMatch) return idMatch[1];
-  return "";
+  if (!url) return "";
+  const m = url.match(/\/file\/d\/([^/?#]+)/) || url.match(/[?&]id=([^&]+)/);
+  return m ? m[1] : "";
 }
 
-function buildDriveThumbnailUrl(item) {
-  // Use lh3 CDN directly — avoids SameSite cookie auth redirect on drive.google.com/thumbnail
-  const fileId = extractDriveFileId(item?.driveUrl || "");
-  if (fileId) return `https://lh3.googleusercontent.com/d/${fileId}=w1200`;
-  if (item?.publicUrl) return item.publicUrl;
-  return "";
+function buildSaleVideoWatchUrl(videoUrl) {
+  if (!videoUrl) return "";
+  const fileId = extractDriveFileId(videoUrl);
+  if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
+  return videoUrl;
 }
 
 function formatPrice(value) {
@@ -50,10 +48,13 @@ const EMPTY_INQUIRY = {
 export default function HomeSaleListingDetail() {
   const { listingId } = useParams();
   const [listing, setListing] = useState(null);
+  const [mediaRows, setMediaRows] = useState([]);
   const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
   const [marketing, setMarketing] = useState({ en: "", zh: "" });
+  const [videoWatchUrl, setVideoWatchUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
 
   const [inquiry, setInquiry] = useState(EMPTY_INQUIRY);
   const [inquirySubmitting, setInquirySubmitting] = useState(false);
@@ -63,13 +64,20 @@ export default function HomeSaleListingDetail() {
 
   useEffect(() => {
     async function load() {
-      const [row, media, copy] = await Promise.all([
+      const [row, media, copy, videoScripts] = await Promise.all([
         getHomeSaleListing(listingId),
         getSaleMediaByListingId(listingId).catch(() => []),
         getPublicSaleMarketingCopy(listingId),
+        getPublicSaleVideoScripts(listingId).catch(() => []),
       ]);
       if (!row) throw new Error("Sale listing not found in 01 Sale Listings.");
       setListing(row);
+      setMediaRows(media);
+
+      // Resolve best public video URL: listing field first, then first outputMp4Url from video scripts
+      const rawVideoUrl = row.videoUrl ||
+        (Array.isArray(videoScripts) && videoScripts.find(s => s.outputMp4Url)?.outputMp4Url) || "";
+      setVideoWatchUrl(buildSaleVideoWatchUrl(rawVideoUrl));
 
       // Extract Website channel body copy for public display
       const websiteEn = copy.find(c => c.channel === "Website" && c.language === "English");
@@ -80,16 +88,8 @@ export default function HomeSaleListingDetail() {
         headlineEn: websiteEn?.headline || "",
         headlineZh: websiteZh?.headline || "",
       });
-
-      // Resolve cover photo: primaryPhotoUrl first, else Cover asset from media sheet
-      // Always convert to lh3 CDN URL — uc?export=view fails as img src without auth
-      if (row.primaryPhotoUrl) {
-        const fileId = extractDriveFileId(row.primaryPhotoUrl);
-        setCoverPhotoUrl(fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w1200` : row.primaryPhotoUrl);
-      } else {
-        const cover = media.find((m) => m.assetRole === "Cover");
-        if (cover) setCoverPhotoUrl(buildDriveThumbnailUrl(cover));
-      }
+      setImageFailed(false);
+      setCoverPhotoUrl(resolveHomeSaleImageUrl(row, media));
     }
     load()
       .catch((err) => setError(err.message || "Unable to load sale listing right now."))
@@ -185,15 +185,41 @@ export default function HomeSaleListingDetail() {
           {!loading && listing && (
             <>
               <div className="card" style={{ marginBottom: 20, borderColor: "#e5dfd6" }}>
-                {coverPhotoUrl ? (
+                {coverPhotoUrl && !imageFailed ? (
                   <div style={{ marginBottom: 18, borderRadius: 14, overflow: "hidden", background: "#eef2f0" }}>
                     <img
                       src={coverPhotoUrl}
                       alt={listing.address || "Sale listing"}
+                      onError={() => {
+                        const fallbackFromMedia = resolveHomeSaleImageUrl(listing, mediaRows.filter((item) => item.driveUrl !== coverPhotoUrl && item.publicUrl !== coverPhotoUrl));
+                        if (fallbackFromMedia && fallbackFromMedia !== coverPhotoUrl) {
+                          setCoverPhotoUrl(fallbackFromMedia);
+                          return;
+                        }
+                        setImageFailed(true);
+                      }}
                       style={{ width: "100%", aspectRatio: "16 / 10", objectFit: "cover" }}
                     />
                   </div>
-                ) : null}
+                ) : (
+                  <div
+                    style={{
+                      marginBottom: 18,
+                      borderRadius: 14,
+                      background: "#eef2f0",
+                      aspectRatio: "16 / 10",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--color-text-muted)",
+                      fontSize: "0.92rem",
+                      textAlign: "center",
+                      padding: 18,
+                    }}
+                  >
+                    No photo available / 暂无房源图片
+                  </div>
+                )}
 
                 <h2 style={{ fontSize: "1.55rem", color: "#213128", marginBottom: 8 }}>
                   {listing.address || "待补房产地址 / Property address pending"}
@@ -263,12 +289,29 @@ export default function HomeSaleListingDetail() {
 
                   {!marketing.zh && !marketing.en && (
                     <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>
-                      房源简介即将更新。/ Property description coming soon.
+                      房源简介将由卖家提供。/ Property description will be provided by the seller.
                     </p>
                   )}
                 </div>
 
                 <div style={{ marginTop: 18 }}>
+                  {videoWatchUrl && (
+                    <a
+                      href={videoWatchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        gap: 8, marginBottom: 10, width: "100%", textAlign: "center",
+                        border: "1.5px solid #3e5b4b", color: "#3e5b4b",
+                        padding: "13px 24px", borderRadius: 8, fontWeight: 700,
+                        fontSize: "0.95rem", textDecoration: "none",
+                        background: "#f0f7f2",
+                      }}
+                    >
+                      ▶ Watch Video / 查看视频
+                    </a>
+                  )}
                   <ShareButton
                     title={listing.address || "Home Sale Listing"}
                     text={`出售房源分享：${listing.address || listing.id} / Home sale listing`}
