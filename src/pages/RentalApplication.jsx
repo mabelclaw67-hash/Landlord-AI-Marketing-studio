@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getListing, getListings, saveRentalApplication } from "../utils/storage";
+import { getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
 
 const LEASE_TERM_OPTIONS = [
   "Month-to-Month / 月租",
@@ -222,7 +222,7 @@ export default function RentalApplication() {
         if (!cancelled) setListing(result);
       } catch {
         try {
-          const all = await getListings();
+          const all = await getPublicListings();
           const fallback = all.find((item) => item.id === listingId) || null;
           if (!cancelled) setListing(fallback);
         } catch {

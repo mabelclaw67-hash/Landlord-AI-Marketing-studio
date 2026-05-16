@@ -34,6 +34,14 @@ export async function getListings() {
   return lsGetAll();
 }
 
+// Public variant: no auth sent — backend returns only Published listings visible to everyone.
+export async function getPublicListings() {
+  if (isApiConnected()) {
+    return apiGet({ action: "getListings" });
+  }
+  return lsGetAll();
+}
+
 export async function getListing(id) {
   if (isApiConnected()) {
     try {

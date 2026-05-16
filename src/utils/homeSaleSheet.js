@@ -242,6 +242,13 @@ export async function getHomeSaleListings() {
   return Array.isArray(data) ? data.map(normalizeSaleListing) : [];
 }
 
+// Public variant: no auth sent — backend returns only Published/Active listings visible to everyone.
+export async function getPublicSaleListings() {
+  ensureHomeSaleApiConnected();
+  const data = await homeSaleApiGet({ action: "getSaleListings" });
+  return Array.isArray(data) ? data.map(normalizeSaleListing) : [];
+}
+
 export async function getHomeSaleListing(listingId) {
   ensureHomeSaleApiConnected();
   if (!listingId) throw new Error("Missing sale listing ID.");

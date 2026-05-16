@@ -5,7 +5,7 @@ import ShareButton from "../components/ShareButton";
 import { readTrialAccess } from "../utils/trialAccess";
 import {
   buildHomeSalePublicUrl,
-  getHomeSaleListings,
+  getPublicSaleListings,
   resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
 
@@ -25,7 +25,7 @@ export default function HomeSaleStudio() {
   const [brokenImages, setBrokenImages] = useState({});
 
   useEffect(() => {
-    getHomeSaleListings()
+    getPublicSaleListings()
       .then((rows) => setListings(rows))
       .catch((err) => setError(err.message || "Unable to load sale listings right now."))
       .finally(() => setLoading(false));

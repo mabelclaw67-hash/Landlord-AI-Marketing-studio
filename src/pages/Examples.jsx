@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getListings } from "../utils/storage";
+import { getPublicListings } from "../utils/storage";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
@@ -50,7 +50,7 @@ export default function Examples() {
   const [error,    setError]    = useState(null);
 
   useEffect(() => {
-    getListings()
+    getPublicListings()
       .then(all => {
         const active = (all || []).filter(l =>
           (l.status || "").trim().toLowerCase() === "published"
