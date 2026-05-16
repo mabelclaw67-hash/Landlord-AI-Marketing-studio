@@ -1379,7 +1379,8 @@ function homeSaleSanitizeListingForAccess_(listing, auth) {
     safe[key] = listing[key];
   }
 
-  delete safe.googleDriveFolderUrl;
+  // Trial users need googleDriveFolderUrl to upload photos to their own listings.
+  if (auth.mode !== "trial") delete safe.googleDriveFolderUrl;
   delete safe.notes;
   delete safe.internalStatus;
   delete safe.createdByEmail;
@@ -1476,4 +1477,29 @@ function homeSaleErr_(message) {
   return ContentService
     .createTextOutput(JSON.stringify({ error: message }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function testSaleDriveBasic() {
+  try {
+    var root = DriveApp.getRootFolder();
+    Logger.log("Root folder OK: " + root.getName());
+  } catch (e) {
+    Logger.log("Root folder FAILED: " + e.message);
+    return;
+  }
+  try {
+    var folder = DriveApp.getFolderById(HOME_SALE_DRIVE_FOLDER_ID);
+    Logger.log("Sale parent folder OK: " + folder.getName());
+  } catch (e) {
+    Logger.log("Sale parent folder getFolderById FAILED: " + e.message);
+  }
+}
+
+function testSaleFolderCreation() {
+  try {
+    var url = createSaleListingMediaFolder_("TEST-SALE-001", "456 Test Ave");
+    Logger.log("SUCCESS: " + url);
+  } catch (e) {
+    Logger.log("FAILED: " + e.message);
+  }
 }
