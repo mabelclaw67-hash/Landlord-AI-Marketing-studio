@@ -480,8 +480,8 @@ export default function HomeSaleMedia() {
         )}
       </div>
 
-      {/* Drive Sync — mirrors Rental's Drive folder sync section */}
-      <div className="card mb-24">
+      {/* Drive Sync — admin only: exposes raw Drive folder URL */}
+      {isAdmin && <div className="card mb-24">
         <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: "0.95rem", color: "var(--color-primary)" }}>
           📁 Sync Photos from Drive / 从 Drive 批量导入照片
         </h3>
@@ -547,7 +547,7 @@ export default function HomeSaleMedia() {
             </p>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Add Individual Asset — collapsible, mirrors Rental upload section style */}
       <div className="card mb-24">

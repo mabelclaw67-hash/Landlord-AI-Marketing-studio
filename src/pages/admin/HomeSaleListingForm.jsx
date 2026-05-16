@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { readTrialAccess } from "../../utils/trialAccess";
 import {
   HOME_SALE_PROPERTY_TYPES,
   HOME_SALE_STATUS_OPTIONS,
@@ -17,11 +18,17 @@ export default function HomeSaleListingForm({ mode }) {
   const { listingId } = useParams();
   const navigate = useNavigate();
   const isEdit = mode === "edit";
-  const [form, setForm] = useState(createEmptySaleListingForm());
+  const isTrial = !!readTrialAccess();
+  const [form, setForm] = useState(() =>
+    createEmptySaleListingForm(
+      isTrial ? {} : { contactName: "Mabel Chen", contactPhone: "672-514-8866", contactEmail: "mabelclaw67@gmail.com" }
+    )
+  );
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [showOnboardingDetails, setShowOnboardingDetails] = useState(false);
   const [suggestedId, setSuggestedId] = useState("SALE-2026-001");
   const unsupportedFields = useMemo(() => getHomeSaleFieldConnectionWarnings(), []);
 
@@ -95,7 +102,7 @@ export default function HomeSaleListingForm({ mode }) {
 
       <HomeSaleWorkflowNav listingId={isEdit ? listingId : ""} />
 
-      {unsupportedFields.length > 0 && (
+      {!isTrial && unsupportedFields.length > 0 && (
         <div className="notice notice--warning">
           <h4>Sheet Header Reminder / 表头提醒</h4>
           <p>Current `01 Sale Listings` headers do not include: {unsupportedFields.join(", ")}.</p>
@@ -121,6 +128,53 @@ export default function HomeSaleListingForm({ mode }) {
         <div className="card" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>Loading listing…</div>
       ) : (
         <form className="card" onSubmit={handleSubmit}>
+          {!isEdit && isTrial && (
+            <div style={{
+              background: "#f0f7f2",
+              border: "1px solid #b6d8c3",
+              borderLeft: "4px solid #3e5b4b",
+              borderRadius: "0 10px 10px 0",
+              padding: "14px 16px",
+              marginBottom: 24,
+              fontSize: "0.875rem",
+              lineHeight: 1.65,
+              color: "#213128",
+            }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>ℹ️ Step 1 — Fill in basic property information first.</div>
+              <div style={{ fontSize: "0.82rem", color: "#4a6b57", marginBottom: 8 }}>
+                保存后将自动开启照片上传和营销功能。
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOnboardingDetails((v) => !v)}
+                style={{ fontSize: "0.78rem", color: "#3e5b4b", background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 600 }}
+              >
+                {showOnboardingDetails ? "Hide Details ▲" : "Show Details ▼"}
+              </button>
+              {showOnboardingDetails && (
+                <div style={{ marginTop: 10, borderTop: "1px solid #b6d8c3", paddingTop: 10 }}>
+                  <div style={{ marginBottom: 4 }}>The system will automatically create:</div>
+                  <div style={{ paddingLeft: 4, marginBottom: 8 }}>
+                    {"• Property folder\n• Listing workspace\n• Photo/video storage\n• Public listing page".split("\n").map((line, i) => (
+                      <div key={i}>{line}</div>
+                    ))}
+                  </div>
+                  <div style={{ marginBottom: 10 }}>After saving, additional upload and marketing tools will become available.</div>
+                  <div style={{ borderTop: "1px solid #b6d8c3", paddingTop: 10 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>第一步：请先填写房源基本信息。</div>
+                    <div style={{ marginBottom: 4 }}>系统会自动创建：</div>
+                    <div style={{ paddingLeft: 4, marginBottom: 8 }}>
+                      {"• 房源文件夹\n• 房源工作区\n• 图片/视频存储空间\n• 公开房源页面".split("\n").map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                    <div>保存房源后，系统才会开放照片上传、视频生成、广告发布等功能。</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="form-row">
             <div className="form-group">
               <label>Listing ID <span className="ch-hint">房源编号</span></label>
@@ -136,7 +190,7 @@ export default function HomeSaleListingForm({ mode }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Owner Name <span className="ch-hint">屋主姓名</span></label>
+              <label>Owner / Realtor Name <span className="ch-hint">屋主/经纪姓名</span></label>
               <input className="form-control" value={form.ownerName} onChange={updateField("ownerName")} />
             </div>
             <div className="form-group">
@@ -240,44 +294,54 @@ export default function HomeSaleListingForm({ mode }) {
             </div>
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Public Listing URL <span className="ch-hint">公开页面链接</span></label>
-              <input className="form-control" value={form.publicListingUrl} onChange={updateField("publicListingUrl")} />
-            </div>
-            <div className="form-group">
-              <label>QR Code URL <span className="ch-hint">二维码链接</span></label>
-              <input className="form-control" value={form.qrCodeUrl} onChange={updateField("qrCodeUrl")} />
-            </div>
-          </div>
+          {!isTrial && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Public Listing URL <span className="ch-hint">公开页面链接</span></label>
+                  <input className="form-control" value={form.publicListingUrl} onChange={updateField("publicListingUrl")} />
+                </div>
+                <div className="form-group">
+                  <label>QR Code URL <span className="ch-hint">二维码链接</span></label>
+                  <input className="form-control" value={form.qrCodeUrl} onChange={updateField("qrCodeUrl")} />
+                </div>
+              </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Google Drive Folder URL <span className="ch-hint">Drive 文件夹</span></label>
-              <input className="form-control" value={form.googleDriveFolderUrl} onChange={updateField("googleDriveFolderUrl")} />
-            </div>
-            <div className="form-group">
-              <label>Primary Photo URL <span className="ch-hint">主图链接</span></label>
-              <input className="form-control" value={form.primaryPhotoUrl} onChange={updateField("primaryPhotoUrl")} />
-            </div>
-          </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Google Drive Folder URL <span className="ch-hint">Drive 文件夹</span></label>
+                  <input className="form-control" value={form.googleDriveFolderUrl} onChange={updateField("googleDriveFolderUrl")} />
+                </div>
+                <div className="form-group">
+                  <label>Primary Photo URL <span className="ch-hint">主图链接</span></label>
+                  <input className="form-control" value={form.primaryPhotoUrl} onChange={updateField("primaryPhotoUrl")} />
+                </div>
+              </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Video URL <span className="ch-hint">视频链接</span></label>
-              <input className="form-control" value={form.videoUrl} onChange={updateField("videoUrl")} />
-            </div>
-            <div className="form-group">
-              <label>Internal Status <span className="ch-hint">内部状态</span></label>
-              <input className="form-control" value={form.internalStatus} onChange={updateField("internalStatus")} />
-            </div>
-          </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Video URL <span className="ch-hint">视频链接</span></label>
+                  <input className="form-control" value={form.videoUrl} onChange={updateField("videoUrl")} />
+                </div>
+                <div className="form-group">
+                  <label>Internal Status <span className="ch-hint">内部状态</span></label>
+                  <input className="form-control" value={form.internalStatus} onChange={updateField("internalStatus")} />
+                </div>
+              </div>
 
-          <div className="form-group">
-            <label>Notes <span className="ch-hint">备注</span></label>
-            <textarea className="form-control" value={form.notes} onChange={updateField("notes")} rows={3} />
-          </div>
+              <div className="form-group">
+                <label>Notes <span className="ch-hint">备注</span></label>
+                <textarea className="form-control" value={form.notes} onChange={updateField("notes")} rows={3} />
+              </div>
+            </>
+          )}
 
+          {!isEdit && isTrial && (
+            <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.6 }}>
+              Save basic information first to activate media upload features.<br />
+              请先保存基础资料，再开启图片/视频上传功能。
+            </p>
+          )}
           <div className="flex gap-8">
             <button type="submit" className="btn btn--primary" disabled={submitting}>
               {submitting ? "Saving..." : isEdit ? "Save Listing / 保存房源" : "Create Listing / 创建房源"}

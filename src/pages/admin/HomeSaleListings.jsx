@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 import { formatSalePrice, getHomeSaleListings, getSuggestedSaleListingId, homeSaleSheetConfig } from "../../utils/homeSaleSheet";
 
 export default function HomeSaleListings() {
@@ -26,9 +27,11 @@ export default function HomeSaleListings() {
           <Link to="/admin/home-sale/listings/new" className="btn btn--primary">
             + New Sale Listing / 新增出售房源
           </Link>
-          <a href={homeSaleSheetConfig.spreadsheetUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">
-            Open Sale Database
-          </a>
+          {isAdminSessionActive() && (
+            <a href={homeSaleSheetConfig.spreadsheetUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">
+              Open Sale Database
+            </a>
+          )}
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { apiPost, isApiConnected } from "../../utils/api";
-import { getStudioRequestAuth } from "../../utils/trialAccess";
+import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { getListingFolderFiles, getListingSubfolderFiles } from "../../utils/storage";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import {
@@ -684,6 +684,7 @@ export default function HomeSaleVideo() {
   }
 
   const apiReady   = isApiConnected();
+  const isAdmin    = isAdminSessionActive();
   const folderId   = extractFolderId(listing?.googleDriveFolderUrl);
   const canGenerate = apiReady && folderId && folderFiles.length > 0
     && videoStatus !== "rendering" && videoStatus !== "uploading" && videoStatus !== "preparing";
@@ -874,12 +875,12 @@ export default function HomeSaleVideo() {
                 >
                   ⬇️ Download Video
                 </a>
-                {drivePreviewUrl && (
+                {isAdmin && drivePreviewUrl && (
                   <a href={drivePreviewUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                     ▶ Open Drive Preview
                   </a>
                 )}
-                {videoFolderUrl && (
+                {isAdmin && videoFolderUrl && (
                   <a href={videoFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                     📂 Open 04_Video_Output
                   </a>
@@ -919,7 +920,7 @@ export default function HomeSaleVideo() {
               >
                 ⬇️ Download MP4
               </a>
-              {videoFolderUrl && (
+              {isAdmin && videoFolderUrl && (
                 <a href={videoFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   📂 Open Drive Output Folder
                 </a>
