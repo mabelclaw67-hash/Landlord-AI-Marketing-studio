@@ -81,8 +81,9 @@ export default function HomeSalePhotoEnhance() {
           return {
             fileId,
             name: item.fileName || item.assetRole || item.assetId || "photo",
+            // lh3 CDN supports CORS for publicly-shared files; drive.google.com/thumbnail does not
             thumbUrl: fileId
-              ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+              ? `https://lh3.googleusercontent.com/d/${fileId}=w800`
               : (item.publicUrl || ""),
           };
         })
@@ -137,6 +138,22 @@ export default function HomeSalePhotoEnhance() {
       }
 
       try {
+        // Fetch as blob → convert to data URL so canvas never sees a cross-origin src.
+        // img.crossOrigin="anonymous" fails on drive.google.com/thumbnail (no CORS headers).
+        // lh3.googleusercontent.com supports CORS fetch for publicly-shared files.
+        let resolvedSrc = src;
+        if (!src.startsWith("data:")) {
+          const resp = await fetch(src, { credentials: "omit" });
+          if (!resp.ok) throw new Error(`Fetch failed: ${resp.status}`);
+          const blob = await resp.blob();
+          resolvedSrc = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onloadend = () => res(reader.result);
+            reader.onerror = rej;
+            reader.readAsDataURL(blob);
+          });
+        }
+
         const dataUrl = await new Promise((resolve, reject) => {
           const img = new Image();
           img.onload = () => {
@@ -149,8 +166,7 @@ export default function HomeSalePhotoEnhance() {
             resolve(canvas.toDataURL("image/jpeg", 0.92));
           };
           img.onerror = () => reject(new Error("Image load failed"));
-          img.crossOrigin = "anonymous";
-          img.src = src;
+          img.src = resolvedSrc; // data URL: same-origin, no crossOrigin needed
         });
 
         const base64   = dataUrl.split(",")[1];
@@ -219,18 +235,25 @@ export default function HomeSalePhotoEnhance() {
         <div className="notice notice--error"><h4>Error</h4><p>{error}</p></div>
       )}
 
-      {/* Drive folder status */}
       {!folderId && listing && (
         <div className="notice notice--warm" style={{ marginBottom: 20 }}>
-          <h4>Google Drive Folder Not Set / 未设置 Drive 文件夹</h4>
+          <h4>{isAdmin ? "Google Drive Folder Not Set / 未设置 Drive 文件夹" : "照片尚未上传 / Photos Not Yet Uploaded"}</h4>
           <p>
-            请先在 Edit Listing 页面填写 Google Drive Folder URL，才能读取照片或运行美化批次。
+            {isAdmin
+              ? "请先在 Edit Listing 页面填写 Google Drive Folder URL，才能读取照片或运行美化批次。"
+              : "请先在 Original Photos 页面上传照片，上传完成后才能进行照片美化。"}
           </p>
           <p style={{ marginTop: 6, opacity: 0.86 }}>
-            Set the Google Drive Folder URL in Edit Listing to enable photo loading and enhancement.
+            {isAdmin
+              ? "Set the Google Drive Folder URL in Edit Listing to enable photo loading and enhancement."
+              : "Upload photos on the Original Photos page first, then return here to enhance them."}
           </p>
-          <Link to={`/admin/home-sale/listings/${listingId}/edit`} className="btn btn--ghost btn--sm" style={{ marginTop: 10 }}>
-            Edit Listing →
+          <Link
+            to={isAdmin ? `/admin/home-sale/listings/${listingId}/edit` : `/admin/home-sale/media/${listingId}`}
+            className="btn btn--ghost btn--sm"
+            style={{ marginTop: 10 }}
+          >
+            {isAdmin ? "Edit Listing →" : "Go to Original Photos →"}
           </Link>
         </div>
       )}
