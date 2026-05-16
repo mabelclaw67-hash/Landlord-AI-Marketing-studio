@@ -4,7 +4,7 @@ import { t } from "../../translations";
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
-import { getStudioRequestAuth } from "../../utils/trialAccess";
+import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../utils/listingPublicMeta";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
@@ -466,9 +466,21 @@ export default function ListingDetail({ lang }) {
   const MAX_BATCH = 10;
 
   const handleFileChange = (e) => {
+    const MAX_PHOTOS = 50;
     const selected = Array.from(e.target.files || []);
     if (selected.length === 0) return;
-    const batch = selected.slice(0, MAX_BATCH);
+    const currentCount = folderFiles.length;
+    const remaining = Math.max(0, MAX_PHOTOS - currentCount);
+    if (currentCount >= MAX_PHOTOS) {
+      setUploadMsg({ type: "error", text: `Photo limit reached (max ${MAX_PHOTOS}). / 已达到照片上限（最多 ${MAX_PHOTOS} 张）。` });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    const clipped = selected.slice(0, Math.min(MAX_BATCH, remaining));
+    if (selected.length > remaining) {
+      setUploadMsg({ type: "error", text: `Only ${remaining} more photo(s) can be uploaded (max ${MAX_PHOTOS} total). / 还可上传 ${remaining} 张（总上限 ${MAX_PHOTOS} 张）。` });
+    }
+    const batch = clipped;
     const oversized = batch.find((f) => f.size > MAX_FILE_MB * 1024 * 1024);
     if (oversized) {
       setUploadMsg({ type: "error", text: `"${oversized.name}" exceeds the ${MAX_FILE_MB} MB limit.` });
@@ -526,6 +538,7 @@ export default function ListingDetail({ lang }) {
   }
 
   // ── Derived values ───────────────────────────────────────────────────────────
+  const isAdmin    = isAdminSessionActive();
   const outputKeys = Object.keys(listing.outputs || {});
   const currentTab = activeTab || outputKeys[0];
 
@@ -1640,10 +1653,12 @@ export default function ListingDetail({ lang }) {
                 style={{ whiteSpace: "nowrap" }}>
                 {folderLoading ? "Loading…" : "↻ Refresh"}
               </button>
-              <a href={listing.driveFolderLink} target="_blank" rel="noopener noreferrer"
-                className="btn btn--ghost btn--sm" style={{ whiteSpace: "nowrap" }}>
-                Open Folder ↗
-              </a>
+              {isAdmin && (
+                <a href={listing.driveFolderLink} target="_blank" rel="noopener noreferrer"
+                  className="btn btn--ghost btn--sm" style={{ whiteSpace: "nowrap" }}>
+                  Open Folder ↗
+                </a>
+              )}
             </div>
             {folderLoading && <p className="text-muted text-sm" style={{ marginBottom: 14 }}>Loading photos…</p>}
             {!folderLoading && folderFiles.length === 0 && (
@@ -1845,9 +1860,11 @@ export default function ListingDetail({ lang }) {
                           <div style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 2 }}>
                             {f.name}
                           </div>
-                          <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.65rem", color: "var(--color-primary)", fontWeight: 600 }}>
-                            Open in Drive ↗
-                          </a>
+                          {isAdmin && (
+                            <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.65rem", color: "var(--color-primary)", fontWeight: 600 }}>
+                              Open in Drive ↗
+                            </a>
+                          )}
                         </div>
                       </div>
                     ))}
