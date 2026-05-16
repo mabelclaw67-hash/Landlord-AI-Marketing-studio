@@ -128,6 +128,7 @@ export default function HomeSalePhotoEnhance() {
     const errors = [];
     let capturedFolderUrl = null;
     let capturedFolderId  = null;
+    const uploadedPhotos  = [];
 
     for (const photo of folderFiles) {
       const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
@@ -188,6 +189,13 @@ export default function HomeSalePhotoEnhance() {
         });
         if (res?.subfolderUrl      && !capturedFolderUrl) capturedFolderUrl = res.subfolderUrl;
         if (res?.subfolderFolderId && !capturedFolderId)  capturedFolderId  = res.subfolderFolderId;
+        if (res?.fileId) {
+          uploadedPhotos.push({
+            fileId: res.fileId,
+            name:   res.fileName || photo.name,
+            thumbUrl: `https://drive.google.com/thumbnail?id=${res.fileId}&sz=w400`,
+          });
+        }
       } catch (err) {
         errors.push(`${photo.name}: ${err.message}`);
       }
@@ -197,10 +205,8 @@ export default function HomeSalePhotoEnhance() {
     }
 
     if (capturedFolderUrl) setEnhancedFolderUrl(capturedFolderUrl);
-    if (capturedFolderId) {
-      setEnhancedFolderId(capturedFolderId);
-      loadEnhancedPhotos(folderId);
-    }
+    if (capturedFolderId)  setEnhancedFolderId(capturedFolderId);
+    if (uploadedPhotos.length > 0) setEnhancedPhotos(uploadedPhotos);
 
     if (errors.length === 0) {
       setEnhanceStatus("done");
