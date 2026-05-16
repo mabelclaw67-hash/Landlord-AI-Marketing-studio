@@ -4,14 +4,18 @@ import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { apiPost, isApiConnected } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
-import { getListingFolderFiles, getListingSubfolderFiles } from "../../utils/storage";
+import { getListingSubfolderFiles } from "../../utils/storage";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import {
   HOME_SALE_LANGUAGES,
   HOME_SALE_VIDEO_STATUS_OPTIONS,
   HOME_SALE_VIDEO_TYPES,
   createOrUpdateVideoScript,
+  extractHomeSaleDriveFileId,
   getHomeSaleListing,
+  getSaleMediaByListingId,
+  getSalePhotoData,
+  getSaleSubfolderFiles,
   getVideoScriptsByListingId,
   updateSaleListing,
 } from "../../utils/homeSaleSheet";
@@ -84,9 +88,10 @@ export default function HomeSaleVideo() {
   const [form, setForm]       = useState(emptyVideoForm(listingId));
   const [submitting, setSubmitting] = useState(false);
 
-  // Photo state (from Drive folder)
+  // Photo state
   const [folderFiles,    setFolderFiles]    = useState([]);
   const [enhancedPhotos, setEnhancedPhotos] = useState([]);
+  const [photoSourceType, setPhotoSourceType] = useState("original"); // "original" | "enhanced"
   const [videoOutputFiles, setVideoOutputFiles] = useState([]);
 
   // Video generator state
@@ -121,12 +126,10 @@ export default function HomeSaleVideo() {
   useEffect(() => {
     refresh()
       .then((listingRow) => {
+        loadFolderFiles();
+        loadEnhancedPhotos();
         const fid = extractFolderId(listingRow?.googleDriveFolderUrl);
-        if (fid) loadFolderFiles(fid);
-        if (fid) {
-          loadEnhancedPhotos(fid);
-          loadVideoOutputs(fid, listingRow?.videoUrl || "");
-        }
+        if (fid) loadVideoOutputs(fid, listingRow?.videoUrl || "");
       })
       .catch((err) => setError(err.message || "Failed to load video workflow."))
       .finally(() => setLoading(false));
@@ -206,21 +209,36 @@ export default function HomeSaleVideo() {
       .catch(() => {});
   }, []);
 
-  async function loadFolderFiles(folderId) {
+  async function loadFolderFiles() {
     try {
-      const files = await getListingFolderFiles(folderId, listingId);
-      setFolderFiles(sortByFilenameNumber(files || []));
+      const rows = await getSaleMediaByListingId(listingId);
+      const photos = rows
+        .filter((item) => !item.assetType || item.assetType === "Photo")
+        .map((item) => {
+          const fileId = extractHomeSaleDriveFileId(item.driveUrl || "");
+          return {
+            fileId,
+            name: item.fileName || item.assetId || "photo",
+            thumbUrl: fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400` : (item.publicUrl || ""),
+          };
+        })
+        .filter((f) => f.fileId || f.thumbUrl);
+      setFolderFiles(sortByFilenameNumber(photos));
     } catch { setFolderFiles([]); }
   }
 
-  async function loadEnhancedPhotos(folderId) {
-    if (!folderId) return;
+  async function loadEnhancedPhotos() {
     try {
-      const result = await getListingSubfolderFiles(folderId, "02_AI_Enhanced_Photos", listingId);
-      const files = result?.files || [];
-      const seen = new Map();
-      for (const f of (files || [])) seen.set(f.name, f);
-      setEnhancedPhotos(Array.from(seen.values()));
+      const result = await getSaleSubfolderFiles({
+        listingId,
+        subfolderName: "02_AI_Enhanced_Photos",
+        ...getStudioRequestAuth("sale"),
+      });
+      const files = (result?.files || []).map((f) => ({
+        ...f,
+        thumbUrl: `https://drive.google.com/thumbnail?id=${f.fileId}&sz=w400`,
+      }));
+      setEnhancedPhotos(files);
     } catch { setEnhancedPhotos([]); }
   }
 
@@ -245,7 +263,7 @@ export default function HomeSaleVideo() {
   // ── Short Video Generator ──────────────────────────────────────────────────
   async function generateShortVideo() {
     const folderId = extractFolderId(listing?.googleDriveFolderUrl);
-    if (!folderId || folderFiles.length === 0) return;
+    if (!folderId || activePhotos.length === 0) return;
 
     setVideoStatus("preparing");
     setVideoMsg(null);
@@ -269,18 +287,28 @@ export default function HomeSaleVideo() {
     const W = isLandscape ? 1280 : 720;
     const H = isLandscape ? 720  : 1280;
 
-    // Pick up to 20 photos; prefer enhanced > original by filename
+    // Use user-selected photo source (original or enhanced).
     const MAX_PHOTOS = 20;
-    const basePhotos = sortByFilenameNumber(folderFiles).slice(0, MAX_PHOTOS);
-    let usedEnhanced = 0;
-    const photoSource = basePhotos.map((orig) => {
-      if (enhancedPhotos.length === 0) return orig;
-      const base = orig.name.replace(/\.[^.]+$/, "");
-      const ep = enhancedPhotos.find((e) => e.name === `enhanced__${base}.jpg`);
-      if (ep) { usedEnhanced++; return ep; }
-      return orig;
-    });
-    setVideoSourceType(usedEnhanced > 0 ? "enhanced" : "original");
+    const useEnhanced = photoSourceType === "enhanced" && enhancedPhotos.length > 0;
+    const sourcePool = useEnhanced ? enhancedPhotos : folderFiles;
+    setVideoSourceType(useEnhanced ? "enhanced" : "original");
+
+    // Pre-fetch data URLs via backend — WebCodecs VideoFrame requires a non-tainted canvas.
+    setVideoMsg("Loading photos from Drive…");
+    const photoSource = await Promise.all(
+      sortByFilenameNumber(sourcePool).slice(0, MAX_PHOTOS).map(async (photo) => {
+        if (photo.dataUrl) return photo;
+        if (!photo.fileId) return photo;
+        try {
+          const result = await getSalePhotoData({
+            listingId,
+            fileId: photo.fileId,
+            ...getStudioRequestAuth("sale"),
+          });
+          return { ...photo, dataUrl: `data:${result.mimeType};base64,${result.data}` };
+        } catch { return photo; }
+      })
+    );
 
     const loadedImages = await Promise.all(
       photoSource.map((photo) => new Promise((resolve) => {
@@ -683,10 +711,12 @@ export default function HomeSaleVideo() {
     }
   }
 
-  const apiReady   = isApiConnected();
-  const isAdmin    = isAdminSessionActive();
-  const folderId   = extractFolderId(listing?.googleDriveFolderUrl);
-  const canGenerate = apiReady && folderId && folderFiles.length > 0
+  const apiReady    = isApiConnected();
+  const isAdmin     = isAdminSessionActive();
+  const folderId    = extractFolderId(listing?.googleDriveFolderUrl);
+  const activePhotos = photoSourceType === "enhanced" && enhancedPhotos.length > 0
+    ? enhancedPhotos : folderFiles;
+  const canGenerate = folderId && activePhotos.length > 0
     && videoStatus !== "rendering" && videoStatus !== "uploading" && videoStatus !== "preparing";
   const driveStreamUrl = buildDriveVideoStreamUrl(videoFileMeta);
   const drivePreviewUrl = buildDriveVideoPreviewUrl(videoFileMeta);
@@ -735,21 +765,42 @@ export default function HomeSaleVideo() {
           </div>
         )}
 
-        {/* Photo source status */}
-        {folderFiles.length > 0 && (
-          <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-            <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", background: "var(--color-bg-subtle)", borderRadius: 6, padding: "5px 10px" }}>
-              📸 {Math.min(folderFiles.length, 20)} photos (of {folderFiles.length} total)
-            </div>
-            {videoSourceType && (
-              <div style={{ fontSize: "0.8rem", color: videoSourceType === "enhanced" ? "var(--color-primary)" : "#b45309", background: "var(--color-bg-subtle)", borderRadius: 6, padding: "5px 10px" }}>
-                {videoSourceType === "enhanced"
-                  ? "✅ Using Enhanced Photos / 使用美化照片"
-                  : "⚠️ Original Photos / 原始照片 — Run Light Enhancement Batch above for better quality"}
-              </div>
-            )}
+        {/* Photo Source selector */}
+        <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--color-bg-subtle)", borderRadius: 8 }}>
+          <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: 8 }}>
+            Photo Source / 照片来源
           </div>
-        )}
+          <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
+            Choose which photo set will be used to generate the short video. / 请选择用于生成短视频的照片组。
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { value: "original", label: "Original Photos / 原始照片", count: folderFiles.length },
+              { value: "enhanced", label: "Enhanced Photos / 美化照片", count: enhancedPhotos.length },
+            ].map(({ value, label, count }) => {
+              const disabled = count === 0;
+              return (
+                <label key={value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}>
+                  <input
+                    type="radio"
+                    name="photoSource"
+                    value={value}
+                    checked={photoSourceType === value}
+                    disabled={disabled}
+                    onChange={() => setPhotoSourceType(value)}
+                  />
+                  <span style={{ fontSize: "0.83rem" }}>
+                    {label}
+                    {count > 0
+                      ? <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "var(--color-text-muted)" }}>({Math.min(count, 20)} photos)</span>
+                      : <span style={{ marginLeft: 6, fontSize: "0.75rem", color: "#b45309" }}>— No enhanced photos found yet</span>
+                    }
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Video format */}
         <div style={{ marginBottom: 14 }}>
