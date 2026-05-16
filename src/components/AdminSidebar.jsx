@@ -1,9 +1,28 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { lockAdmin } from "./AdminGuard";
+import { readTrialAccess, clearTrialAccess } from "../utils/trialAccess";
 
 export default function AdminSidebar({ lang }) {
+  const navigate = useNavigate();
+  const trialSession = readTrialAccess();
+
+  const handleExit = () => {
+    if (trialSession) {
+      clearTrialAccess();
+      navigate("/", { replace: true });
+    } else {
+      lockAdmin();
+    }
+  };
+
   return (
     <aside className="admin-sidebar">
+      {trialSession && (
+        <div className="admin-sidebar__trial-badge">
+          Trial Mode / 试用模式
+          <span>{trialSession.approvedModule}</span>
+        </div>
+      )}
       <h3>Platform Menu / 平台菜单</h3>
 
       <div className="admin-sidebar__group">
@@ -27,9 +46,11 @@ export default function AdminSidebar({ lang }) {
         <NavLink to="/admin/leads" className={({ isActive }) => (isActive ? "active" : "")}>
           🗂️ Rental Leads / 租客申请
         </NavLink>
-        <NavLink to="/admin/trial-requests" className={({ isActive }) => (isActive ? "active" : "")}>
-          📨 Trial Requests / 试用申请
-        </NavLink>
+        {!trialSession && (
+          <NavLink to="/admin/trial-requests" className={({ isActive }) => (isActive ? "active" : "")}>
+            📨 Trial Requests / 试用申请
+          </NavLink>
+        )}
       </div>
 
       <div className="admin-sidebar__group">
@@ -50,11 +71,13 @@ export default function AdminSidebar({ lang }) {
 
       <div className="admin-sidebar__group">
         <div className="admin-sidebar__label">SYSTEM / 系统</div>
-        <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
-          ⚙️ Settings / 系统设置
-        </NavLink>
-        <button className="admin-lock-btn" onClick={lockAdmin}>
-          🔒 Lock Admin / 锁定
+        {!trialSession && (
+          <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
+            ⚙️ Settings / 系统设置
+          </NavLink>
+        )}
+        <button className="admin-lock-btn" onClick={handleExit}>
+          {trialSession ? "🚪 Exit Trial / 退出试用" : "🔒 Lock Admin / 锁定"}
         </button>
       </div>
     </aside>

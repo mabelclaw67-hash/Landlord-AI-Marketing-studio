@@ -286,6 +286,30 @@ export async function createSaleMediaAsset(values) {
   });
 }
 
+export async function uploadSaleMediaFile({ listingId, file, sortOrder, assetRole }) {
+  ensureHomeSaleApiConnected();
+  const base64 = await fileToBase64(file);
+  return homeSaleApiPost({
+    action: "uploadSaleMediaFile",
+    listingId,
+    fileName: file.name,
+    mimeType: file.type || "image/jpeg",
+    data: base64,
+    sortOrder: sortOrder || "",
+    assetRole: assetRole || "Other",
+    ...getStudioRequestAuth("sale"),
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function syncSaleMediaFromDriveFolder(values) {
   ensureHomeSaleApiConnected();
   return homeSaleApiPost({

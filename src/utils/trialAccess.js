@@ -63,8 +63,9 @@ export function canAccessModule(session, module) {
 
 export function getTrialAccessHome(approvedModule) {
   const normalized = normalizeModuleValue(approvedModule);
-  if (normalized === "Sale Only") return "/home-sale-studio";
-  return "/examples";
+  if (normalized === "Sale Only") return "/admin/home-sale";
+  if (normalized === "Both") return "/admin";
+  return "/admin/rental";
 }
 
 export function getTrialModuleLabel(module) {

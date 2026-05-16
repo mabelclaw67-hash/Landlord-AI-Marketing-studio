@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   approveContactRequest,
   getContactRequests,
   updateContactRequestNotes,
 } from "../../utils/storage";
+import { getTrialAccessHome, readTrialAccess } from "../../utils/trialAccess";
 
 const MODULE_ACTIONS = [
   { label: "Approve Rental Only", value: "Rental Only" },
@@ -45,6 +47,12 @@ function getDefaultPaymentStatus(accessType) {
 }
 
 export default function TrialRequests() {
+  const trialSession = readTrialAccess();
+  if (trialSession) return <Navigate to={getTrialAccessHome(trialSession.approvedModule)} replace />;
+  return <TrialRequestsInner />;
+}
+
+function TrialRequestsInner() {
   const [items, setItems] = useState([]);
   const [draftNotes, setDraftNotes] = useState({});
   const [draftAccess, setDraftAccess] = useState({});

@@ -11,9 +11,8 @@ export default function AdminGuard({ children }) {
   const [loading, setLoading] = useState(false);
 
   if (unlocked) return children;
-  if (trialSession) {
-    return <Navigate to={getTrialAccessHome(trialSession.approvedModule)} replace />;
-  }
+  // Trial users enter the admin workspace with data isolation enforced by the backend.
+  if (trialSession) return children;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -4,6 +4,7 @@
 // ============================================================
 
 var HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
+var HOME_SALE_DRIVE_FOLDER_ID = "1u0SHW4PqZUuPARtehbTumu90GFKSuvKI";
 var HOME_SALE_LISTINGS_SHEET = "01 Sale Listings";
 var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
@@ -50,6 +51,7 @@ function doPost(e) {
     if (action === "getSaleMediaByListingId") return homeSaleOk_(getSaleMediaByListingId_(body.listingId, auth));
     if (action === "createSaleMediaAsset") return homeSaleOk_(createSaleMediaAsset_(body.record || {}, auth));
     if (action === "syncSaleMediaFromDriveFolder") return homeSaleOk_(syncSaleMediaFromDriveFolder_(body, auth));
+    if (action === "uploadSaleMediaFile") return homeSaleOk_(uploadSaleMediaFile_(body, auth));
     if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
     if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
@@ -236,6 +238,14 @@ function createSaleListing_(record, auth) {
   } else {
     record["Created By Role"] = record["Created By Role"] || "Admin";
   }
+  // Auto-create Drive media folder if one isn't already provided.
+  if (!record["Google Drive Folder URL"]) {
+    try {
+      record["Google Drive Folder URL"] = createSaleListingMediaFolder_(listingId, record["Property Address"] || "");
+    } catch (e) {
+      Logger.log("[createSaleListing_] Auto-folder creation failed: " + e.message);
+    }
+  }
 
   homeSaleAppendRecord_(sheet, headers, record, { setCreatedAt: true, setUpdatedAt: true });
   return {
@@ -286,6 +296,58 @@ function createSaleMediaAsset_(record, auth) {
 
   homeSaleAppendRecord_(sheet, headers, record, { setCreatedAt: true });
   return { success: true, assetId: assetId };
+}
+
+function uploadSaleMediaFile_(body, auth) {
+  var listingId  = body.listingId  || "";
+  var fileName   = body.fileName   || ("upload_" + Date.now());
+  var mimeType   = body.mimeType   || "image/jpeg";
+  var data       = body.data       || "";
+  var sortOrder  = body.sortOrder  || "";
+  var assetRole  = body.assetRole  || "Other";
+
+  if (!listingId) throw new Error("uploadSaleMediaFile: listingId required");
+  if (!data)      throw new Error("uploadSaleMediaFile: base64 data required");
+
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  var driveFolderUrl = match.record["Google Drive Folder URL"] || "";
+  if (!driveFolderUrl) {
+    throw new Error("No Google Drive folder is set for this listing. Add the Drive Folder URL in the listing info first.");
+  }
+
+  var folderId = homeSaleExtractDriveFolderId_(driveFolderUrl);
+  if (!folderId) throw new Error("Cannot extract Drive folder ID from listing folder URL.");
+
+  var folder = DriveApp.getFolderById(folderId);
+  var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  var fileId    = file.getId();
+  var driveUrl  = file.getUrl();
+  var publicUrl = homeSaleBuildDriveImagePublicUrl_(fileId);
+
+  var mediaSheet   = homeSaleGetSheet_(HOME_SALE_MEDIA_SHEET);
+  var mediaHeaders = homeSaleGetHeaders_(mediaSheet);
+  var assetId      = homeSaleGenerateNextId_(mediaSheet, "Asset ID", "MEDIA");
+
+  var record = {
+    "Asset ID":   assetId,
+    "Listing ID": listingId,
+    "Asset Type": "Photo",
+    "Asset Role": assetRole,
+    "File Name":  fileName,
+    "Drive URL":  driveUrl,
+    "Public URL": publicUrl,
+    "Sort Order": sortOrder,
+    "Caption EN": "",
+    "Caption CN": "",
+    "Alt Text":   fileName,
+    Notes:        "Direct upload",
+  };
+
+  homeSaleAppendRecord_(mediaSheet, mediaHeaders, record, { setCreatedAt: true });
+  return { success: true, assetId: assetId, fileId: fileId, driveUrl: driveUrl, publicUrl: publicUrl, fileName: fileName };
 }
 
 function syncSaleMediaFromDriveFolder_(payload, auth) {
@@ -1357,6 +1419,16 @@ function homeSaleObjectFromRow_(headers, row) {
     result[headers[i]] = row[i];
   }
   return result;
+}
+
+function createSaleListingMediaFolder_(listingId, address) {
+  var parent = DriveApp.getFolderById(HOME_SALE_DRIVE_FOLDER_ID);
+  var folderName = listingId + (address ? " - " + address + " - Media" : " - Media");
+  // Reuse existing folder with the same name to avoid duplicates on retry.
+  var iter = parent.getFoldersByName(folderName);
+  var folder = iter.hasNext() ? iter.next() : parent.createFolder(folderName);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return folder.getUrl();
 }
 
 function homeSaleExtractDriveFolderId_(folderUrl) {

@@ -8,6 +8,7 @@ import {
   getHomeSaleListing,
   getSaleMediaByListingId,
   syncSaleMediaFromDriveFolder,
+  uploadSaleMediaFile,
 } from "../../utils/homeSaleSheet";
 
 function emptyMediaForm(listingId) {
@@ -143,6 +144,10 @@ export default function HomeSaleMedia() {
   const [error, setError] = useState("");
   const [syncResult, setSyncResult] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+  const [uploadError, setUploadError] = useState("");
 
   const orderedMediaRows = useMemo(() => {
     return [...mediaRows].sort((a, b) => {
@@ -228,6 +233,38 @@ export default function HomeSaleMedia() {
       setError(err.message || "Failed to sync photos from Drive.");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (!uploadFiles.length) return;
+    setUploading(true);
+    setUploadError("");
+    setUploadResult(null);
+    const nextSort = (mediaRows.length ? Math.max(...mediaRows.map((r) => Number(r.sortOrder) || 0)) : 0) + 1;
+    const results = [];
+    const errors = [];
+    for (let i = 0; i < uploadFiles.length; i++) {
+      try {
+        const res = await uploadSaleMediaFile({
+          listingId,
+          file: uploadFiles[i],
+          sortOrder: String(nextSort + i),
+          assetRole: "Other",
+        });
+        results.push(res);
+      } catch (err) {
+        errors.push(`${uploadFiles[i].name}: ${err.message}`);
+      }
+    }
+    setUploading(false);
+    if (results.length) {
+      setUploadFiles([]);
+      setUploadResult({ uploadedCount: results.length });
+      await refresh();
+    }
+    if (errors.length) {
+      setUploadError(errors.join(" | "));
     }
   }
 
@@ -379,6 +416,62 @@ export default function HomeSaleMedia() {
                 isCurrentCover={coverPhoto ? item.assetId === coverPhoto.assetId : false}
               />
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Upload Photos — direct file upload to listing Drive folder */}
+      <div className="card mb-24">
+        <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: "0.95rem", color: "var(--color-primary)" }}>
+          📤 Upload Photos / 上传照片
+        </h3>
+        <p className="text-muted text-sm" style={{ marginBottom: 14 }}>
+          Select images from your computer to upload directly to this listing&apos;s Drive folder.
+          需要先在房源信息中设置 Google Drive 文件夹链接。
+        </p>
+        <div className="form-group">
+          <label style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6, display: "block" }}>
+            Select Photos <span className="ch-hint">支持 JPG · PNG · WebP</span>
+          </label>
+          <input
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            className="form-control"
+            style={{ padding: "6px 10px" }}
+            onChange={(e) => {
+              setUploadFiles(Array.from(e.target.files || []));
+              setUploadResult(null);
+              setUploadError("");
+            }}
+          />
+        </div>
+
+        {uploadFiles.length > 0 && (
+          <ul style={{ margin: "8px 0 12px", padding: "0 0 0 18px", fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+            {uploadFiles.map((f) => (
+              <li key={f.name}>{f.name} <span style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>({(f.size / 1024).toFixed(0)} KB)</span></li>
+            ))}
+          </ul>
+        )}
+
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={uploading || !uploadFiles.length}
+          onClick={handleUpload}
+        >
+          {uploading ? `Uploading… (${uploadFiles.length} file(s))` : "Upload Selected Photos / 上传所选照片"}
+        </button>
+
+        {uploadResult && (
+          <div className="notice notice--success" style={{ marginTop: 14 }}>
+            <p>✅ {uploadResult.uploadedCount} photo(s) uploaded successfully. / 上传成功。</p>
+          </div>
+        )}
+        {uploadError && (
+          <div className="notice notice--error" style={{ marginTop: 14 }}>
+            <p>{uploadError}</p>
           </div>
         )}
       </div>

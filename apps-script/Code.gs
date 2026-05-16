@@ -771,6 +771,14 @@ function saveListing_(data, auth) {
     } else if (auth && auth.mode === "admin") {
       dataMap["Created By Role"] = "Admin";
     }
+    // Auto-create Drive media folder if one isn't already provided.
+    if (!dataMap["Drive Folder Link"]) {
+      try {
+        dataMap["Drive Folder Link"] = createRentalListingFolder_(data.id, data.address || "");
+      } catch (e) {
+        Logger.log("[saveListing_] Auto-folder creation failed: " + e.message);
+      }
+    }
     var numCols = sheet.getLastColumn();
     var row = new Array(numCols).fill("");
     for (var name in dataMap) {
@@ -1303,6 +1311,18 @@ function generateAccessCode_(sheet, headerMap) {
     }
   }
   return "VAI-" + year + "-" + String(maxSeq + 1).padStart(4, "0");
+}
+
+// ── Rental listing media folder auto-creation ────────────────────────────────
+
+function createRentalListingFolder_(listingId, address) {
+  var parent = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var folderName = listingId + (address ? " - " + address + " - Media" : " - Media");
+  // Reuse existing folder with the same name to avoid duplicates on retry.
+  var iter = parent.getFoldersByName(folderName);
+  var folder = iter.hasNext() ? iter.next() : parent.createFolder(folderName);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return folder.getUrl();
 }
 
 // ── File upload → Drive (legacy — kept for backward compat) ──────────────────

@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import { apiPost } from "../../utils/api";
-import { getStudioRequestAuth, refreshAdminCode } from "../../utils/trialAccess";
+import { getStudioRequestAuth, getTrialAccessHome, readTrialAccess, refreshAdminCode } from "../../utils/trialAccess";
 
 export default function AdminSettings() {
+  const trialSession = readTrialAccess();
+  if (trialSession) return <Navigate to={getTrialAccessHome(trialSession.approvedModule)} replace />;
+  return <AdminSettingsInner />;
+}
+
+function AdminSettingsInner() {
   const [settings, setSettings]     = useState(null);
   const [loadErr, setLoadErr]        = useState("");
   const [newCode, setNewCode]        = useState("");
