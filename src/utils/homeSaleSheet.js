@@ -615,6 +615,11 @@ export async function submitHomeSaleBuyerInquiry({ listingId, listingTitle, buye
   });
 }
 
+export async function getSalePhotoData({ listingId, fileId, ...auth }) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({ action: "getSalePhotoData", listingId, fileId, ...auth });
+}
+
 export async function uploadSaleEnhancedPhoto({ listingId, fileName, mimeType, data, ...auth }) {
   ensureHomeSaleApiConnected();
   return homeSaleApiPost({ action: "uploadSaleEnhancedPhoto", listingId, fileName, mimeType, data, ...auth });

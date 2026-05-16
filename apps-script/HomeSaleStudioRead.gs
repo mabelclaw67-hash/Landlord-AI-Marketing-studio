@@ -53,6 +53,7 @@ function doPost(e) {
     if (action === "syncSaleMediaFromDriveFolder") return homeSaleOk_(syncSaleMediaFromDriveFolder_(body, auth));
     if (action === "uploadSaleMediaFile") return homeSaleOk_(uploadSaleMediaFile_(body, auth));
     if (action === "uploadSaleEnhancedPhoto") return homeSaleOk_(uploadSaleEnhancedPhoto_(body, auth));
+    if (action === "getSalePhotoData") return homeSaleOk_(getSalePhotoData_(body, auth));
     if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
     if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
@@ -357,6 +358,23 @@ function uploadSaleMediaFile_(body, auth) {
 
   homeSaleAppendRecord_(mediaSheet, mediaHeaders, record, { setCreatedAt: true });
   return { success: true, assetId: assetId, fileId: fileId, driveUrl: driveUrl, publicUrl: publicUrl, fileName: fileName };
+}
+
+function getSalePhotoData_(body, auth) {
+  var listingId = body.listingId || "";
+  var fileId    = body.fileId    || "";
+
+  if (!listingId) throw new Error("getSalePhotoData: listingId required");
+  if (!fileId)    throw new Error("getSalePhotoData: fileId required");
+
+  homeSaleAssertListingAccess_(listingId, auth);
+
+  var file     = DriveApp.getFileById(fileId);
+  var blob     = file.getBlob();
+  var mimeType = blob.getContentType() || "image/jpeg";
+  var data     = Utilities.base64Encode(blob.getBytes());
+
+  return { success: true, data: data, mimeType: mimeType, fileName: file.getName() };
 }
 
 function uploadSaleEnhancedPhoto_(body, auth) {

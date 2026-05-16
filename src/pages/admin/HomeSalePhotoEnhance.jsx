@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { isApiConnected } from "../../utils/api";
 import { getListingSubfolderFiles } from "../../utils/storage";
-import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
@@ -81,9 +81,10 @@ export default function HomeSalePhotoEnhance() {
           return {
             fileId,
             name: item.fileName || item.assetRole || item.assetId || "photo",
-            // lh3 CDN supports CORS for publicly-shared files; drive.google.com/thumbnail does not
+            // drive.google.com/thumbnail works for img tag display without CORS.
+            // Enhancement fetches full data via backend (getSalePhotoData) to avoid CDN rate limits.
             thumbUrl: fileId
-              ? `https://lh3.googleusercontent.com/d/${fileId}=w800`
+              ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
               : (item.publicUrl || ""),
           };
         })
@@ -138,12 +139,16 @@ export default function HomeSalePhotoEnhance() {
       }
 
       try {
-        // lh3.googleusercontent.com rate-limits rapid sequential fetches (429).
-        // A short delay between photos keeps us under the limit.
-        if (done > 0) await new Promise((r) => setTimeout(r, 600));
-
+        // Fetch full image data via backend — avoids CDN rate limits and CORS issues entirely.
         let resolvedSrc = src;
-        if (!src.startsWith("data:")) {
+        if (photo.fileId) {
+          const result = await getSalePhotoData({
+            listingId,
+            fileId: photo.fileId,
+            ...getStudioRequestAuth("sale"),
+          });
+          resolvedSrc = `data:${result.mimeType};base64,${result.data}`;
+        } else if (!src.startsWith("data:")) {
           const resp = await fetch(src, { credentials: "omit" });
           if (!resp.ok) throw new Error(`Fetch failed: ${resp.status}`);
           const blob = await resp.blob();
