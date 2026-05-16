@@ -54,6 +54,7 @@ function doPost(e) {
     if (action === "uploadSaleMediaFile") return homeSaleOk_(uploadSaleMediaFile_(body, auth));
     if (action === "uploadSaleEnhancedPhoto") return homeSaleOk_(uploadSaleEnhancedPhoto_(body, auth));
     if (action === "getSalePhotoData") return homeSaleOk_(getSalePhotoData_(body, auth));
+    if (action === "getSaleSubfolderFiles") return homeSaleOk_(getSaleSubfolderFiles_(body, auth));
     if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
     if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
@@ -360,6 +361,34 @@ function uploadSaleMediaFile_(body, auth) {
   return { success: true, assetId: assetId, fileId: fileId, driveUrl: driveUrl, publicUrl: publicUrl, fileName: fileName };
 }
 
+function getSaleSubfolderFiles_(body, auth) {
+  var listingId     = body.listingId     || "";
+  var subfolderName = body.subfolderName || "02_AI_Enhanced_Photos";
+
+  if (!listingId) throw new Error("getSaleSubfolderFiles: listingId required");
+
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  var driveFolderUrl = match.record["Google Drive Folder URL"] || "";
+  if (!driveFolderUrl) return { files: [], subfolderUrl: "", subfolderFolderId: "" };
+
+  var folderId = homeSaleExtractDriveFolderId_(driveFolderUrl);
+  if (!folderId) return { files: [], subfolderUrl: "", subfolderFolderId: "" };
+
+  var parentFolder = DriveApp.getFolderById(folderId);
+  var iter = parentFolder.getFoldersByName(subfolderName);
+  if (!iter.hasNext()) return { files: [], subfolderUrl: "", subfolderFolderId: "" };
+
+  var subfolder = iter.next();
+  var files = [];
+  var fileIter = subfolder.getFiles();
+  while (fileIter.hasNext()) {
+    var file = fileIter.next();
+    files.push({ fileId: file.getId(), name: file.getName() });
+  }
+
+  return { files: files, subfolderUrl: subfolder.getUrl(), subfolderFolderId: subfolder.getId() };
+}
+
 function getSalePhotoData_(body, auth) {
   var listingId = body.listingId || "";
   var fileId    = body.fileId    || "";
@@ -397,6 +426,10 @@ function uploadSaleEnhancedPhoto_(body, auth) {
   var subfolderName = "02_AI_Enhanced_Photos";
   var iter = parentFolder.getFoldersByName(subfolderName);
   var subfolder = iter.hasNext() ? iter.next() : parentFolder.createFolder(subfolderName);
+
+  // Trash any existing file with the same name to avoid duplicates on re-run.
+  var existing = subfolder.getFilesByName(fileName);
+  while (existing.hasNext()) { existing.next().setTrashed(true); }
 
   var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
   var file = subfolder.createFile(blob);

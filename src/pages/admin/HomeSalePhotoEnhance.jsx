@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { isApiConnected } from "../../utils/api";
-import { getListingSubfolderFiles } from "../../utils/storage";
-import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
@@ -65,7 +64,7 @@ export default function HomeSalePhotoEnhance() {
         listingRef.current = row;
         loadFolderFiles();
         const fid = extractFolderId(row?.googleDriveFolderUrl);
-        if (fid) loadEnhancedPhotos(fid);
+        loadEnhancedPhotos();
       })
       .catch((err) => setError(err.message || "Failed to load listing."));
   }, [listingId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,15 +96,19 @@ export default function HomeSalePhotoEnhance() {
     }
   }
 
-  async function loadEnhancedPhotos(folderId) {
-    if (!folderId) return;
+  async function loadEnhancedPhotos() {
     setEnhancedLoading(true);
     try {
-      const result = await getListingSubfolderFiles(folderId, "02_AI_Enhanced_Photos", listingId);
-      const files = result?.files || [];
-      const seen = new Map();
-      for (const f of (files || [])) seen.set(f.name, f);
-      setEnhancedPhotos(Array.from(seen.values()));
+      const result = await getSaleSubfolderFiles({
+        listingId,
+        subfolderName: "02_AI_Enhanced_Photos",
+        ...getStudioRequestAuth("sale"),
+      });
+      const files = (result?.files || []).map((f) => ({
+        ...f,
+        thumbUrl: `https://drive.google.com/thumbnail?id=${f.fileId}&sz=w400`,
+      }));
+      setEnhancedPhotos(files);
       setEnhancedFolderId(result?.subfolderFolderId || "");
       setEnhancedFolderUrl(result?.subfolderUrl || "");
     } catch {
@@ -208,7 +211,9 @@ export default function HomeSalePhotoEnhance() {
 
     if (capturedFolderUrl) setEnhancedFolderUrl(capturedFolderUrl);
     if (capturedFolderId)  setEnhancedFolderId(capturedFolderId);
+    // Show instantly from canvas output, then reload from Drive (deduped list after overwrite).
     if (uploadedPhotos.length > 0) setEnhancedPhotos(uploadedPhotos);
+    loadEnhancedPhotos();
 
     if (errors.length === 0) {
       setEnhanceStatus("done");
@@ -414,7 +419,7 @@ export default function HomeSalePhotoEnhance() {
                   )}
                   {enhancedFolderId && (
                     <button className="btn btn--ghost btn--sm" disabled={enhancedLoading}
-                      onClick={() => loadEnhancedPhotos(folderId)}>
+                      onClick={() => loadEnhancedPhotos()}>
                       {enhancedLoading ? "Loading…" : "↺ Refresh Enhanced Photos"}
                     </button>
                   )}
