@@ -554,7 +554,8 @@ function sanitizeListingForAccess_(listing, auth) {
     safe[key] = listing[key];
   }
 
-  delete safe.driveFolderLink;
+  // Trial users need driveFolderLink to upload photos to their own listings.
+  if (auth.mode !== "trial") delete safe.driveFolderLink;
   delete safe.driveFiles;
   delete safe.enhancedFolderId;
   delete safe.reviewStatus;
