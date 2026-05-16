@@ -34,6 +34,8 @@ import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
 import HomeSaleBuyerInquiries from "./pages/admin/HomeSaleBuyerInquiries";
 import ApplicationReview from "./pages/admin/ApplicationReview";
 import AdminSettings from "./pages/admin/AdminSettings";
+import PhotoTips from "./pages/admin/PhotoTips";
+import Faq from "./pages/admin/Faq";
 import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
@@ -80,6 +82,8 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/review/:listingId" element={<HomeSaleReviewPublish />} />
           <Route path="application/:applicationId" element={<ApplicationReview />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="photo-tips" element={<PhotoTips />} />
+          <Route path="faq" element={<Faq />} />
         </Route>
         <Route path="/apply/:listingId" element={<RentalApplication />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />

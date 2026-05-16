@@ -4,6 +4,7 @@ import { t } from "../../translations";
 import { saveListing, generateListingId } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import PrototypeBanner from "../../components/PrototypeBanner";
+import { readTrialAccess } from "../../utils/trialAccess";
 
 const PLATFORMS = ["Facebook", "Craigslist", "WeChat", "Short Video", "Owner Summary"];
 const LANGUAGES = ["Bilingual", "English", "Chinese"];
@@ -42,6 +43,8 @@ export default function NewListing({ lang }) {
   const [form, setForm] = useState(INIT);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const isTrial = !!readTrialAccess();
+  const [showOnboardingDetails, setShowOnboardingDetails] = useState(false);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -134,6 +137,53 @@ export default function NewListing({ lang }) {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {isTrial && (
+          <div style={{
+            background: "#f0f7f2",
+            border: "1px solid #b6d8c3",
+            borderLeft: "4px solid #3e5b4b",
+            borderRadius: "0 10px 10px 0",
+            padding: "14px 16px",
+            marginBottom: 24,
+            fontSize: "0.875rem",
+            lineHeight: 1.65,
+            color: "#213128",
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>ℹ️ Step 1 — Fill in basic property information first.</div>
+            <div style={{ fontSize: "0.82rem", color: "#4a6b57", marginBottom: 8 }}>
+              保存后将自动开启照片上传和营销功能。
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowOnboardingDetails((v) => !v)}
+              style={{ fontSize: "0.78rem", color: "#3e5b4b", background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 600 }}
+            >
+              {showOnboardingDetails ? "Hide Details ▲" : "Show Details ▼"}
+            </button>
+            {showOnboardingDetails && (
+              <div style={{ marginTop: 10, borderTop: "1px solid #b6d8c3", paddingTop: 10 }}>
+                <div style={{ marginBottom: 4 }}>The system will automatically create:</div>
+                <div style={{ paddingLeft: 4, marginBottom: 8 }}>
+                  {"• Property folder\n• Listing workspace\n• Photo/video storage\n• Public listing page".split("\n").map((line, i) => (
+                    <div key={i}>{line}</div>
+                  ))}
+                </div>
+                <div style={{ marginBottom: 10 }}>After saving, additional upload and marketing tools will become available.</div>
+                <div style={{ borderTop: "1px solid #b6d8c3", paddingTop: 10 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>第一步：请先填写房源基本信息。</div>
+                  <div style={{ marginBottom: 4 }}>系统会自动创建：</div>
+                  <div style={{ paddingLeft: 4, marginBottom: 8 }}>
+                    {"• 房源文件夹\n• 房源工作区\n• 图片/视频存储空间\n• 公开房源页面".split("\n").map((line, i) => (
+                      <div key={i}>{line}</div>
+                    ))}
+                  </div>
+                  <div>保存房源后，系统才会开放照片上传、视频生成、广告发布等功能。</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Owner Info */}
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
@@ -276,6 +326,12 @@ export default function NewListing({ lang }) {
           </div>
         </div>
 
+        {isTrial && (
+          <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.6, textAlign: "center" }}>
+            Save basic information first to activate media upload features.<br />
+            请先保存基础资料，再开启图片/视频上传功能。
+          </p>
+        )}
         <button type="submit" className="btn btn--primary btn--full" disabled={loading} style={{ fontSize: "1rem", padding: "14px" }}>
           {loading ? t(lang, "newListing.generating") : t(lang, "newListing.submit")}
         </button>

@@ -70,6 +70,16 @@ export default function AdminSidebar({ lang }) {
       </div>
 
       <div className="admin-sidebar__group">
+        <div className="admin-sidebar__label">RESOURCES / 资源</div>
+        <NavLink to="/admin/photo-tips" className={({ isActive }) => (isActive ? "active" : "")}>
+          📷 Photo Tips / 拍照建议
+        </NavLink>
+        <NavLink to="/admin/faq" className={({ isActive }) => (isActive ? "active" : "")}>
+          ❓ FAQ / 常见问题
+        </NavLink>
+      </div>
+
+      <div className="admin-sidebar__group">
         <div className="admin-sidebar__label">SYSTEM / 系统</div>
         {!trialSession && (
           <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>

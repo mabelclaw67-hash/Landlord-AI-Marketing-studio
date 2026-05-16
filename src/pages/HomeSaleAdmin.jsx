@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { formatSalePrice, getHomeSaleListings } from "../utils/homeSaleSheet";
 import PrototypeBanner from "../components/PrototypeBanner";
+import ComingSoonSection from "../components/ComingSoonSection";
 
 function statusBadge(status) {
   const map = {
@@ -129,6 +130,8 @@ export default function HomeSaleAdmin() {
           </div>
         )}
       </div>
+
+      <ComingSoonSection />
     </div>
   );
 }

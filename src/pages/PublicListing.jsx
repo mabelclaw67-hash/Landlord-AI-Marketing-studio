@@ -284,6 +284,8 @@ export default function PublicListing() {
     );
     const safeAvailable = escapePrintHtml(formatDate(listing.available));
     const safeListingUrl = escapePrintHtml(listingUrl);
+    const safeContactPhone = escapePrintHtml(listing.contactPhone || "");
+    const safeContactEmail = escapePrintHtml(listing.contactEmail || listing.ownerEmail || "");
 
     printWindow.document.write(`<!doctype html>
 <html lang="en">
@@ -428,8 +430,10 @@ export default function PublicListing() {
         <div class="qr-wrap">${qrSvg}</div>
         <div class="cta">扫码查看房源并在线申请 / Scan to view listing and apply online</div>
         <div class="contact">
-          <div class="contact-row">电话 / Phone: 672-514-8866</div>
-          <div class="contact-row">邮箱 / Email: mabelclaw67@gmail.com</div>
+          ${safeContactPhone || safeContactEmail ? `
+          ${safeContactPhone ? `<div class="contact-row">电话 / Phone: ${safeContactPhone}</div>` : ""}
+          ${safeContactEmail ? `<div class="contact-row">邮箱 / Email: ${safeContactEmail}</div>` : ""}
+          ` : `<div class="contact-row">Contact information not provided</div>`}
         </div>
         <div class="url">${safeListingUrl}</div>
       </div>

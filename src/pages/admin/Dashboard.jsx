@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { getListings } from "../../utils/storage";
 import { getHomeSaleListings } from "../../utils/homeSaleSheet";
 import PrototypeBanner from "../../components/PrototypeBanner";
+import ComingSoonSection from "../../components/ComingSoonSection";
 
 function statusBadge(status) {
   const map = {
@@ -230,6 +231,8 @@ export default function Dashboard({ lang, mode = "platform" }) {
           </div>
         </section>
       </div>
+
+      <ComingSoonSection />
     </div>
   );
 }
