@@ -1,11 +1,11 @@
 // ============================================================
 //  Vanisland AI Marketing Studio — Apps Script Backend v0.3
 //  Spreadsheet ID : 1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4
-//  Drive Folder ID: 1RNF_WZWsDECSnIqnaZuXWsbUy-xtmE2r
+//  Drive Folder ID: 1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD
 // ============================================================
 
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
-var DRIVE_FOLDER_ID = "1RNF_WZWsDECSnIqnaZuXWsbUy-xtmE2r";
+var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
 var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
