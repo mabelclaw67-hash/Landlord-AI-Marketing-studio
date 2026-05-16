@@ -55,8 +55,16 @@ export default function HomeSaleReviewPublish() {
     if (!listing) return;
     setSaving(true);
     try {
-      await updateSaleListing({ ...listing, status: newStatus });
-      setListing((prev) => ({ ...prev, status: newStatus }));
+      const base = window.location.origin;
+      const update = {
+        ...listing,
+        status: newStatus,
+        publicListingUrl: newStatus === "Published" || newStatus === "Active"
+          ? (listing.publicListingUrl || `${base}/home-sale-studio/listings/${listingId}`)
+          : listing.publicListingUrl,
+      };
+      await updateSaleListing(update);
+      setListing((prev) => ({ ...prev, status: newStatus, publicListingUrl: update.publicListingUrl }));
     } catch (e) {
       alert("Save failed: " + e.message);
     } finally {
