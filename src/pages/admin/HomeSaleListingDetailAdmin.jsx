@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 import {
   formatSalePrice,
   getHomeSaleListing,
@@ -264,7 +265,7 @@ export default function HomeSaleListingDetailAdmin() {
               Media Links
             </label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {listing.googleDriveFolderUrl && (
+              {isAdminSessionActive() && listing.googleDriveFolderUrl && (
                 <a href={listing.googleDriveFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   📁 Drive Folder
                 </a>

@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { apiPost, isApiConnected } from "../../utils/api";
-import { getListingFolderFiles, getListingSubfolderFiles } from "../../utils/storage";
-import { getHomeSaleListing } from "../../utils/homeSaleSheet";
-import { getStudioRequestAuth } from "../../utils/trialAccess";
+import { getListingSubfolderFiles } from "../../utils/storage";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId } from "../../utils/homeSaleSheet";
+import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
   if (!link) return null;
@@ -63,20 +63,31 @@ export default function HomeSalePhotoEnhance() {
       .then((row) => {
         setListing(row);
         listingRef.current = row;
+        loadFolderFiles();
         const fid = extractFolderId(row?.googleDriveFolderUrl);
-        if (fid) loadFolderFiles(fid);
-        if (fid) {
-          loadEnhancedPhotos(fid);
-        }
+        if (fid) loadEnhancedPhotos(fid);
       })
       .catch((err) => setError(err.message || "Failed to load listing."));
-  }, [listingId]);
+  }, [listingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadFolderFiles(folderId) {
+  async function loadFolderFiles() {
     setFolderLoading(true);
     try {
-      const files = await getListingFolderFiles(folderId, listingId);
-      setFolderFiles(sortByFilenameNumber(files || []));
+      const rows = await getSaleMediaByListingId(listingId);
+      const photos = rows
+        .filter((item) => !item.assetType || item.assetType === "Photo")
+        .map((item) => {
+          const fileId = extractHomeSaleDriveFileId(item.driveUrl || "");
+          return {
+            fileId,
+            name: item.fileName || item.assetRole || item.assetId || "photo",
+            thumbUrl: fileId
+              ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`
+              : (item.publicUrl || ""),
+          };
+        })
+        .filter((f) => f.fileId || f.thumbUrl);
+      setFolderFiles(sortByFilenameNumber(photos));
     } catch {
       setFolderFiles([]);
     } finally {
@@ -182,6 +193,7 @@ export default function HomeSalePhotoEnhance() {
 
   const folderId = extractFolderId(listing?.googleDriveFolderUrl);
   const apiReady = isApiConnected();
+  const isAdmin = isAdminSessionActive();
 
   return (
     <div>
@@ -231,7 +243,7 @@ export default function HomeSalePhotoEnhance() {
               📸 Property Photos / 房源照片
             </h3>
             <div style={{ display: "flex", gap: 8 }}>
-              {listing?.googleDriveFolderUrl && (
+              {isAdmin && listing?.googleDriveFolderUrl && (
                 <a href={listing.googleDriveFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   📁 Open Drive Folder
                 </a>
@@ -239,7 +251,7 @@ export default function HomeSalePhotoEnhance() {
               <button
                 className="btn btn--ghost btn--sm"
                 disabled={folderLoading}
-                onClick={() => loadFolderFiles(folderId)}
+                onClick={() => loadFolderFiles()}
               >
                 {folderLoading ? "Loading…" : "↺ Refresh"}
               </button>
@@ -321,7 +333,7 @@ export default function HomeSalePhotoEnhance() {
                     <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
                       Run Again
                     </button>
-                    {enhancedFolderUrl && (
+                    {isAdmin && enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                         📂 Open Enhanced Photos Folder
                       </a>
@@ -338,7 +350,7 @@ export default function HomeSalePhotoEnhance() {
                     <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
                       Try Again
                     </button>
-                    {enhancedFolderUrl && (
+                    {isAdmin && enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                         📂 Open Enhanced Photos Folder
                       </a>
@@ -360,7 +372,7 @@ export default function HomeSalePhotoEnhance() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ Enhanced Photos Preview / 美化照片预览</p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {enhancedFolderUrl && (
+                  {isAdmin && enhancedFolderUrl && (
                     <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                       📂 Open Folder
                     </a>

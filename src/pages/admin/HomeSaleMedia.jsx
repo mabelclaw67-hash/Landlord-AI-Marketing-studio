@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 import {
   HOME_SALE_MEDIA_ROLE_OPTIONS,
   HOME_SALE_MEDIA_TYPE_OPTIONS,
@@ -56,7 +57,7 @@ function assetMatchesPrimaryPhoto(item, primaryPhotoUrl) {
   return target === normalizeAssetRef(item?.driveUrl) || target === normalizeAssetRef(item?.publicUrl);
 }
 
-function SalePhotoCard({ item, isCurrentCover }) {
+function SalePhotoCard({ item, isCurrentCover, showDriveLink }) {
   const [failed, setFailed] = useState(false);
   const src = buildPreviewSrc(item);
 
@@ -111,7 +112,7 @@ function SalePhotoCard({ item, isCurrentCover }) {
           }}>
             #{item.sortOrder || "—"}
           </span>
-          {item.driveUrl && (
+          {showDriveLink && item.driveUrl && (
             <a
               href={item.driveUrl}
               target="_blank"
@@ -268,6 +269,8 @@ export default function HomeSaleMedia() {
     }
   }
 
+  const isAdmin = isAdminSessionActive();
+
   if (loading) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>
@@ -352,9 +355,9 @@ export default function HomeSaleMedia() {
                 Drive Folder
               </p>
               <p style={{ fontSize: "0.85rem", fontWeight: 700 }}>
-                {listing?.googleDriveFolderUrl
+                {isAdmin && listing?.googleDriveFolderUrl
                   ? <a href={listing.googleDriveFolderUrl} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)" }}>Open ↗</a>
-                  : "—"}
+                  : listing?.googleDriveFolderUrl ? "✅ Set" : "—"}
               </p>
             </div>
           </div>
@@ -414,6 +417,7 @@ export default function HomeSaleMedia() {
                 key={item.assetId || item.driveUrl || item.publicUrl}
                 item={item}
                 isCurrentCover={coverPhoto ? item.assetId === coverPhoto.assetId : false}
+                showDriveLink={isAdmin}
               />
             ))}
           </div>
@@ -658,9 +662,9 @@ export default function HomeSaleMedia() {
                     <td style={{ fontSize: "0.82rem" }}>{item.fileName || "—"}</td>
                     <td>{item.sortOrder || "—"}</td>
                     <td>
-                      {item.driveUrl
+                      {isAdmin && item.driveUrl
                         ? <a href={item.driveUrl} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", fontSize: "0.82rem" }}>Drive ↗</a>
-                        : item.publicUrl
+                        : isAdmin && item.publicUrl
                           ? <a href={item.publicUrl} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", fontSize: "0.82rem" }}>Public ↗</a>
                           : "—"}
                     </td>
