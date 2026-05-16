@@ -190,7 +190,15 @@ function homeSaleCanAccessListing_(record, auth) {
     var status = String(record["Status"] || "").trim();
     return status === "Published" || status === "Active";
   }
-  return homeSaleNormalizeEmail_(record["Created By Email"]) === homeSaleNormalizeEmail_(auth.email);
+  // Trial mode: match by email first, then fall back to access code for listings
+  // created before the "Created By Email" column existed.
+  var recordEmail = homeSaleNormalizeEmail_(record["Created By Email"]);
+  var authEmail = homeSaleNormalizeEmail_(auth.email);
+  if (recordEmail && authEmail && recordEmail === authEmail) return true;
+  var recordCode = String(record["Created By Access Code"] || "").trim().toUpperCase();
+  var authCode = String(auth.accessCode || "").trim().toUpperCase();
+  if (recordCode && authCode && recordCode === authCode) return true;
+  return false;
 }
 
 function homeSaleAssertListingAccess_(listingId, auth) {
