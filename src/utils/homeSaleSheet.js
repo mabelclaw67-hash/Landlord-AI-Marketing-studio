@@ -630,6 +630,11 @@ export async function uploadSaleEnhancedPhoto({ listingId, fileName, mimeType, d
   return homeSaleApiPost({ action: "uploadSaleEnhancedPhoto", listingId, fileName, mimeType, data, ...auth });
 }
 
+export async function uploadSaleToSubfolder({ listingId, subfolderName, fileName, mimeType, data, ...auth }) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({ action: "uploadSaleToSubfolder", listingId, subfolderName, fileName, mimeType, data, ...auth });
+}
+
 function ensureHomeSaleApiConnected() {
   if (!isHomeSaleApiConnected()) {
     throw new Error(getHomeSaleSetupMessage());

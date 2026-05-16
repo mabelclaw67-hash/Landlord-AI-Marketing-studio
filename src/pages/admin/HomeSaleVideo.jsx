@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { apiPost, isApiConnected } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
-import { getListingSubfolderFiles } from "../../utils/storage";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import {
   HOME_SALE_LANGUAGES,
@@ -17,7 +15,9 @@ import {
   getSalePhotoData,
   getSaleSubfolderFiles,
   getVideoScriptsByListingId,
+  isHomeSaleApiConnected,
   updateSaleListing,
+  uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
 
 const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
@@ -128,8 +128,7 @@ export default function HomeSaleVideo() {
       .then((listingRow) => {
         loadFolderFiles();
         loadEnhancedPhotos();
-        const fid = extractFolderId(listingRow?.googleDriveFolderUrl);
-        if (fid) loadVideoOutputs(fid, listingRow?.videoUrl || "");
+        loadVideoOutputs(listingRow?.videoUrl || "");
       })
       .catch((err) => setError(err.message || "Failed to load video workflow."))
       .finally(() => setLoading(false));
@@ -242,11 +241,13 @@ export default function HomeSaleVideo() {
     } catch { setEnhancedPhotos([]); }
   }
 
-  async function loadVideoOutputs(folderId, fallbackVideoUrl = "") {
-    if (!folderId) return;
+  async function loadVideoOutputs(fallbackVideoUrl = "") {
     try {
-      const result = await getListingSubfolderFiles(folderId, "04_Video_Output", listingId);
-      const files = result?.files || [];
+      const result = await getSaleSubfolderFiles({ listingId, subfolderName: "04_Video_Output", ...getStudioRequestAuth("sale") });
+      const files = (result?.files || []).map((f) => ({
+        ...f,
+        url: f.url || (f.fileId ? `https://drive.google.com/uc?export=view&id=${f.fileId}` : ""),
+      }));
       setVideoOutputFiles(files);
       setVideoFolderUrl(result?.subfolderUrl || null);
       const preferredFile = files.find((f) => f.name === `video__${listingId}__${videoFormat}.mp4`) || files[0] || null;
@@ -649,7 +650,6 @@ export default function HomeSaleVideo() {
     // Upload to Drive
     setVideoStatus("uploading");
     try {
-      const fid = extractFolderId(listing?.googleDriveFolderUrl);
       const base64 = await new Promise((res, rej) => {
         const fr = new FileReader();
         fr.onload  = () => res(fr.result.split(",")[1]);
@@ -657,14 +657,13 @@ export default function HomeSaleVideo() {
         fr.readAsDataURL(blob);
       });
       const fileName = `video__${listingId}__${videoFormat}.mp4`;
-      const result = await apiPost({
-        action: "uploadToSubfolder", folderId: fid,
-        subfolderName: "04_Video_Output", fileName, mimeType: "video/mp4", data: base64,
+      const result = await uploadSaleToSubfolder({
+        listingId, subfolderName: "04_Video_Output", fileName, mimeType: "video/mp4", data: base64,
         ...getStudioRequestAuth("sale"),
       });
       if (result?.subfolderUrl) setVideoFolderUrl(result.subfolderUrl);
       if (result?.url)          setVideoFileUrl(result.url);
-      await loadVideoOutputs(fid, result?.url || "");
+      await loadVideoOutputs(result?.url || "");
       setVideoStatus("done");
       setVideoMsg(`${fileName} saved to 04_Video_Output/`);
       setVideoMusicStatus(musicStatus);
@@ -711,7 +710,7 @@ export default function HomeSaleVideo() {
     }
   }
 
-  const apiReady    = isApiConnected();
+  const apiReady    = isHomeSaleApiConnected();
   const isAdmin     = isAdminSessionActive();
   const folderId    = extractFolderId(listing?.googleDriveFolderUrl);
   const activePhotos = photoSourceType === "enhanced" && enhancedPhotos.length > 0
@@ -871,7 +870,7 @@ export default function HomeSaleVideo() {
           )}
           {!apiReady && (
             <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 4 }}>
-              Requires API connection (VITE_STUDIO_EXEC_URL).
+              Requires API connection (VITE_HOME_SALE_EXEC_URL).
             </p>
           )}
         </div>
@@ -888,7 +887,7 @@ export default function HomeSaleVideo() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             <strong style={{ fontSize: "0.9rem" }}>Drive Video Output / 视频输出预览</strong>
             {folderId && (
-              <button className="btn btn--ghost btn--sm" onClick={() => loadVideoOutputs(folderId, listing?.videoUrl || "")}>
+              <button className="btn btn--ghost btn--sm" onClick={() => loadVideoOutputs(listing?.videoUrl || "")}>
                 ↺ Refresh Video Output
               </button>
             )}

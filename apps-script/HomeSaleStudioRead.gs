@@ -55,6 +55,7 @@ function doPost(e) {
     if (action === "uploadSaleEnhancedPhoto") return homeSaleOk_(uploadSaleEnhancedPhoto_(body, auth));
     if (action === "getSalePhotoData") return homeSaleOk_(getSalePhotoData_(body, auth));
     if (action === "getSaleSubfolderFiles") return homeSaleOk_(getSaleSubfolderFiles_(body, auth));
+    if (action === "uploadSaleToSubfolder") return homeSaleOk_(uploadSaleToSubfolder_(body, auth));
     if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
     if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
@@ -383,7 +384,8 @@ function getSaleSubfolderFiles_(body, auth) {
   var fileIter = subfolder.getFiles();
   while (fileIter.hasNext()) {
     var file = fileIter.next();
-    files.push({ fileId: file.getId(), name: file.getName() });
+    var fid = file.getId();
+    files.push({ fileId: fid, name: file.getName(), url: "https://drive.google.com/uc?export=view&id=" + fid });
   }
 
   return { files: files, subfolderUrl: subfolder.getUrl(), subfolderFolderId: subfolder.getId() };
@@ -439,6 +441,46 @@ function uploadSaleEnhancedPhoto_(body, auth) {
     success: true,
     fileId: file.getId(),
     fileName: fileName,
+    subfolderUrl: subfolder.getUrl(),
+    subfolderFolderId: subfolder.getId(),
+  };
+}
+
+function uploadSaleToSubfolder_(body, auth) {
+  var listingId     = body.listingId     || "";
+  var subfolderName = body.subfolderName || "04_Video_Output";
+  var fileName      = body.fileName      || ("file_" + Date.now());
+  var mimeType      = body.mimeType      || "application/octet-stream";
+  var data          = body.data          || "";
+
+  if (!listingId) throw new Error("uploadSaleToSubfolder: listingId required");
+  if (!data)      throw new Error("uploadSaleToSubfolder: base64 data required");
+
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  var driveFolderUrl = match.record["Google Drive Folder URL"] || "";
+  if (!driveFolderUrl) throw new Error("No Google Drive folder is set for this listing.");
+
+  var folderId = homeSaleExtractDriveFolderId_(driveFolderUrl);
+  if (!folderId) throw new Error("Cannot extract Drive folder ID from listing folder URL.");
+
+  var parentFolder = DriveApp.getFolderById(folderId);
+  var iter = parentFolder.getFoldersByName(subfolderName);
+  var subfolder = iter.hasNext() ? iter.next() : parentFolder.createFolder(subfolderName);
+
+  // Replace any existing file with the same name.
+  var existing = subfolder.getFilesByName(fileName);
+  while (existing.hasNext()) { existing.next().setTrashed(true); }
+
+  var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
+  var file = subfolder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  var fileId = file.getId();
+  return {
+    success: true,
+    fileId: fileId,
+    fileName: fileName,
+    url: "https://drive.google.com/uc?export=view&id=" + fileId,
     subfolderUrl: subfolder.getUrl(),
     subfolderFolderId: subfolder.getId(),
   };
