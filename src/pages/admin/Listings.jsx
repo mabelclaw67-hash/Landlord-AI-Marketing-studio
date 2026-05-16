@@ -7,12 +7,19 @@ export default function Listings({ lang }) {
   const [listings, setListings] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
   useEffect(() => {
     getListings()
       .then(setListings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const statusClass = {
@@ -48,6 +55,51 @@ export default function Listings({ lang }) {
             <Link to="/admin/new" className="btn btn--primary" style={{ marginTop: 16, display: "inline-block" }}>
               + New Rental Listing / 新增出租房源
             </Link>
+          </div>
+        ) : isMobile ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {listings.map((l, idx) => (
+              <div
+                key={l.id}
+                style={{
+                  padding: "16px",
+                  borderBottom: idx < listings.length - 1 ? "1px solid var(--color-border)" : "none",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", flex: 1, marginRight: 8 }}>
+                    {l.address}
+                  </div>
+                  <span className={`badge ${statusClass[l.status] || "badge--draft"}`} style={{ flexShrink: 0 }}>
+                    {l.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 4 }}>
+                  {l.city}
+                </div>
+                <div style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 4 }}>
+                  ${Number(l.rent).toLocaleString()}/mo
+                </div>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: 8 }}>
+                  <code style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", background: "var(--color-bg-subtle, #f4f4f4)", padding: "2px 5px", borderRadius: 4 }}>
+                    {l.id}
+                  </code>
+                  {l.createdDate && (
+                    <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                      · {l.createdDate}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
+                    {t(lang, "admin.view")}
+                  </Link>
+                  <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
+                    Edit / 编辑
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="table-wrap">
