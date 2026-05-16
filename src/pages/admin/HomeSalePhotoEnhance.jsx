@@ -138,9 +138,10 @@ export default function HomeSalePhotoEnhance() {
       }
 
       try {
-        // Fetch as blob → convert to data URL so canvas never sees a cross-origin src.
-        // img.crossOrigin="anonymous" fails on drive.google.com/thumbnail (no CORS headers).
-        // lh3.googleusercontent.com supports CORS fetch for publicly-shared files.
+        // lh3.googleusercontent.com rate-limits rapid sequential fetches (429).
+        // A short delay between photos keeps us under the limit.
+        if (done > 0) await new Promise((r) => setTimeout(r, 600));
+
         let resolvedSrc = src;
         if (!src.startsWith("data:")) {
           const resp = await fetch(src, { credentials: "omit" });
