@@ -191,8 +191,10 @@ export default function HomeSalePhotoEnhance() {
         if (res?.subfolderFolderId && !capturedFolderId)  capturedFolderId  = res.subfolderFolderId;
         if (res?.fileId) {
           uploadedPhotos.push({
-            fileId: res.fileId,
-            name:   res.fileName || photo.name,
+            fileId:   res.fileId,
+            name:     res.fileName || photo.name,
+            // Use the canvas output we already have — Drive thumbnail takes time to generate for new files.
+            dataUrl,
             thumbUrl: `https://drive.google.com/thumbnail?id=${res.fileId}&sz=w400`,
           });
         }
