@@ -4,7 +4,7 @@
 // ============================================================
 
 var HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
-var HOME_SALE_DRIVE_FOLDER_ID = "1u0SHW4PqZUuPARtehbTumu90GFKSuvKI";
+var HOME_SALE_DRIVE_FOLDER_ID = "1elr_qL6Rl4TmnnDLGesB9qFz9_nyjLKa";
 var HOME_SALE_LISTINGS_SHEET = "01 Sale Listings";
 var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
