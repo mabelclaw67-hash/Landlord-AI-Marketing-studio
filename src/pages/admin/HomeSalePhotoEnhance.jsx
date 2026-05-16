@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { isApiConnected } from "../../utils/api";
-import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, isHomeSaleApiConnected, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
@@ -225,7 +224,7 @@ export default function HomeSalePhotoEnhance() {
   }
 
   const folderId = extractFolderId(listing?.googleDriveFolderUrl);
-  const apiReady = isApiConnected();
+  const apiReady = isHomeSaleApiConnected();
   const isAdmin = isAdminSessionActive();
 
   return (
@@ -400,7 +399,7 @@ export default function HomeSalePhotoEnhance() {
               )}
               {!apiReady && (
                 <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
-                  Requires API connection (VITE_STUDIO_EXEC_URL).
+                  Requires API connection (VITE_HOME_SALE_EXEC_URL).
                 </p>
               )}
             </div>
