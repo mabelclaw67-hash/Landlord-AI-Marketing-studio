@@ -1479,6 +1479,30 @@ function homeSaleErr_(message) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function backfillSaleFolderUrls() {
+  var rows = homeSaleGetDataRows_(HOME_SALE_LISTINGS_SHEET);
+  var fixed = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var match = rows[i];
+    var listingId = match.record["Listing ID"] || "";
+    var existing = match.record["Google Drive Folder URL"] || "";
+    if (!listingId || existing) continue;
+    try {
+      var url = createSaleListingMediaFolder_(listingId, match.record["Property Address"] || "");
+      var headerMap = homeSaleHeaderMap_(match.sheet);
+      var colIdx = headerMap["Google Drive Folder URL"];
+      if (colIdx !== undefined) {
+        match.sheet.getRange(match.rowIndex, colIdx + 1).setValue(url);
+        Logger.log("Fixed " + listingId + ": " + url);
+        fixed++;
+      }
+    } catch (e) {
+      Logger.log("Failed " + listingId + ": " + e.message);
+    }
+  }
+  Logger.log("Done. Fixed " + fixed + " listing(s).");
+}
+
 function testSaleDriveBasic() {
   try {
     var root = DriveApp.getRootFolder();
