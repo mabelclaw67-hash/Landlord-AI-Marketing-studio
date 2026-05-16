@@ -52,6 +52,7 @@ function doPost(e) {
     if (action === "createSaleMediaAsset") return homeSaleOk_(createSaleMediaAsset_(body.record || {}, auth));
     if (action === "syncSaleMediaFromDriveFolder") return homeSaleOk_(syncSaleMediaFromDriveFolder_(body, auth));
     if (action === "uploadSaleMediaFile") return homeSaleOk_(uploadSaleMediaFile_(body, auth));
+    if (action === "uploadSaleEnhancedPhoto") return homeSaleOk_(uploadSaleEnhancedPhoto_(body, auth));
     if (action === "getMarketingCopyByListingId") return homeSaleOk_(getMarketingCopyByListingId_(body.listingId, auth));
     if (action === "generateHomeSaleMarketingCopy") return homeSaleOk_(generateHomeSaleMarketingCopy_(body.listingId, auth));
     if (action === "createOrUpdateMarketingCopy") return homeSaleOk_(createOrUpdateMarketingCopy_(body.copyId, body.record || {}, auth));
@@ -356,6 +357,40 @@ function uploadSaleMediaFile_(body, auth) {
 
   homeSaleAppendRecord_(mediaSheet, mediaHeaders, record, { setCreatedAt: true });
   return { success: true, assetId: assetId, fileId: fileId, driveUrl: driveUrl, publicUrl: publicUrl, fileName: fileName };
+}
+
+function uploadSaleEnhancedPhoto_(body, auth) {
+  var listingId = body.listingId || "";
+  var fileName  = body.fileName  || ("enhanced_" + Date.now() + ".jpg");
+  var mimeType  = body.mimeType  || "image/jpeg";
+  var data      = body.data      || "";
+
+  if (!listingId) throw new Error("uploadSaleEnhancedPhoto: listingId required");
+  if (!data)      throw new Error("uploadSaleEnhancedPhoto: base64 data required");
+
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  var driveFolderUrl = match.record["Google Drive Folder URL"] || "";
+  if (!driveFolderUrl) throw new Error("No Google Drive folder is set for this listing.");
+
+  var folderId = homeSaleExtractDriveFolderId_(driveFolderUrl);
+  if (!folderId) throw new Error("Cannot extract Drive folder ID from listing folder URL.");
+
+  var parentFolder = DriveApp.getFolderById(folderId);
+  var subfolderName = "02_AI_Enhanced_Photos";
+  var iter = parentFolder.getFoldersByName(subfolderName);
+  var subfolder = iter.hasNext() ? iter.next() : parentFolder.createFolder(subfolderName);
+
+  var blob = Utilities.newBlob(Utilities.base64Decode(data), mimeType, fileName);
+  var file = subfolder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return {
+    success: true,
+    fileId: file.getId(),
+    fileName: fileName,
+    subfolderUrl: subfolder.getUrl(),
+    subfolderFolderId: subfolder.getId(),
+  };
 }
 
 function syncSaleMediaFromDriveFolder_(payload, auth) {

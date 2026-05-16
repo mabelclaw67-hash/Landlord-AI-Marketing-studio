@@ -220,9 +220,9 @@ export function createEmptySaleListingForm(overrides = {}) {
     keyFeatures: "",
     descriptionCn: "",
     descriptionEn: "",
-    contactName: "Mabel Chen",
-    contactPhone: "672-514-8866",
-    contactEmail: "mabelclaw67@gmail.com",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
     publicListingUrl: "",
     qrCodeUrl: "",
     googleDriveFolderUrl: "",
@@ -560,6 +560,16 @@ function buildVideoScriptRecord(values) {
   };
 }
 
+export async function setSaleListingCoverPhoto(listingId, photoPublicUrl) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({
+    action: "updateSaleListing",
+    listingId,
+    record: { "Primary Photo URL": photoPublicUrl },
+    ...getStudioRequestAuth("sale"),
+  });
+}
+
 export async function saveHomeSaleShowingAvailability(listingId, showingAvailability) {
   ensureHomeSaleApiConnected();
   return homeSaleApiPost({
@@ -603,6 +613,11 @@ export async function submitHomeSaleBuyerInquiry({ listingId, listingTitle, buye
     preferredTimeWindow,
     message,
   });
+}
+
+export async function uploadSaleEnhancedPhoto({ listingId, fileName, mimeType, data, ...auth }) {
+  ensureHomeSaleApiConnected();
+  return homeSaleApiPost({ action: "uploadSaleEnhancedPhoto", listingId, fileName, mimeType, data, ...auth });
 }
 
 function ensureHomeSaleApiConnected() {

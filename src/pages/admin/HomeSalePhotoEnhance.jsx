@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { apiPost, isApiConnected } from "../../utils/api";
+import { isApiConnected } from "../../utils/api";
 import { getListingSubfolderFiles } from "../../utils/storage";
-import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId } from "../../utils/homeSaleSheet";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 
 function extractFolderId(link) {
@@ -173,14 +173,12 @@ export default function HomeSalePhotoEnhance() {
         const baseName = photo.name.replace(/\.[^.]+$/, "");
         const fileName = `enhanced__${baseName}.jpg`;
 
-        const res = await apiPost({
-          action:        "uploadToSubfolder",
-          folderId,
-          subfolderName: "02_AI_Enhanced_Photos",
+        const res = await uploadSaleEnhancedPhoto({
+          listingId,
           fileName,
-          mimeType:      "image/jpeg",
-          data:          base64,
-          ...getStudioRequestAuth("rental"),
+          mimeType: "image/jpeg",
+          data:     base64,
+          ...getStudioRequestAuth("sale"),
         });
         if (res?.subfolderUrl      && !capturedFolderUrl) capturedFolderUrl = res.subfolderUrl;
         if (res?.subfolderFolderId && !capturedFolderId)  capturedFolderId  = res.subfolderFolderId;
