@@ -14,7 +14,7 @@ function extractDriveFileId(url) {
 
 function toImgSrc(url) {
   const fileId = extractDriveFileId(url);
-  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w800` : url;
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400` : url;
 }
 
 function normalizeAssetRef(url) {
@@ -163,7 +163,7 @@ export default function HomeSaleCoverImage() {
             📸 全部照片 / All Photo Assets ({photoAssets.length})
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
-            {photoAssets.map((asset) => {
+            {photoAssets.map((asset, index) => {
               const isCurrentCover = currentCoverAsset
                 ? assetMatchesCoverUrl(asset, currentCoverAsset.driveUrl || currentCoverAsset.publicUrl)
                 : false;
@@ -172,7 +172,7 @@ export default function HomeSaleCoverImage() {
 
               return (
                 <div
-                  key={asset.assetId}
+                  key={asset.assetId || asset.driveUrl || asset.publicUrl || asset.fileName || String(index)}
                   style={{
                     border: isCurrentCover
                       ? "2px solid var(--color-primary)"
