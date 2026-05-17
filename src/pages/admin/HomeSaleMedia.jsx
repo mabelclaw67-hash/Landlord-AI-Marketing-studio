@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { isAdminSessionActive } from "../../utils/trialAccess";
+import { isAdminSessionActive, getStudioRequestAuth } from "../../utils/trialAccess";
 import {
   HOME_SALE_MEDIA_ROLE_OPTIONS,
   HOME_SALE_MEDIA_TYPE_OPTIONS,
   createSaleMediaAsset,
+  extractHomeSaleDriveFileId,
   getHomeSaleListing,
   getSaleMediaByListingId,
+  getSalePhotoData,
+  isHomeSaleApiConnected,
   syncSaleMediaFromDriveFolder,
   uploadSaleMediaFile,
 } from "../../utils/homeSaleSheet";
@@ -29,24 +32,17 @@ function emptyMediaForm(listingId) {
   };
 }
 
-function extractDriveFileId(url) {
-  const text = String(url || "");
-  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return fileMatch[1];
-  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idMatch) return idMatch[1];
-  return "";
-}
-
+// Use canonical extractor from homeSaleSheet — handles /file/d/ID, /d/ID, and ?id=ID formats
 function buildPreviewSrc(item) {
-  const fileId = extractDriveFileId(item.driveUrl);
-  if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
-  if (item.publicUrl) return item.publicUrl;
+  const fileId = extractHomeSaleDriveFileId(item.driveUrl || "");
+  if (fileId) return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+  const pubFileId = extractHomeSaleDriveFileId(item.publicUrl || "");
+  if (pubFileId) return `https://drive.google.com/thumbnail?id=${pubFileId}&sz=w400`;
   return "";
 }
 
 function normalizeAssetRef(url) {
-  const fileId = extractDriveFileId(url);
+  const fileId = extractHomeSaleDriveFileId(String(url || ""));
   if (fileId) return fileId;
   return String(url || "").trim();
 }
@@ -57,9 +53,12 @@ function assetMatchesPrimaryPhoto(item, primaryPhotoUrl) {
   return target === normalizeAssetRef(item?.driveUrl) || target === normalizeAssetRef(item?.publicUrl);
 }
 
-function SalePhotoCard({ item, isCurrentCover, showDriveLink }) {
+// dataUrl: base64 loaded via backend (takes priority over Drive thumbnail URL)
+function SalePhotoCard({ item, isCurrentCover, showDriveLink, dataUrl }) {
   const [failed, setFailed] = useState(false);
-  const src = buildPreviewSrc(item);
+  // Prefer backend-fetched base64 — always works for private Drive files.
+  // Fall back to thumbnail URL (works only for publicly-shared files).
+  const src = dataUrl || buildPreviewSrc(item);
 
   return (
     <div style={{
@@ -149,6 +148,41 @@ export default function HomeSaleMedia() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
   const [uploadError, setUploadError] = useState("");
+
+  // Photo data URLs — keyed by assetId (or fileId fallback).
+  // Loaded progressively via backend so private Drive files display correctly.
+  // Same pattern as For Rent: "dataUrl (base64) always works regardless of Drive sharing."
+  const [photoDataUrls, setPhotoDataUrls] = useState({});
+
+  // Background-load base64 data URLs after mediaRows loads
+  useEffect(() => {
+    const photos = mediaRows.filter((a) => a.assetType === "Photo");
+    if (!photos.length || !isHomeSaleApiConnected()) return;
+
+    let active = true;
+    (async () => {
+      for (const asset of photos) {
+        if (!active) break;
+        const fileId = extractHomeSaleDriveFileId(asset.driveUrl || "");
+        if (!fileId) continue;
+        const key = asset.assetId || fileId;
+        try {
+          const result = await getSalePhotoData({
+            listingId,
+            fileId,
+            ...getStudioRequestAuth("sale"),
+          });
+          if (active && result?.data) {
+            setPhotoDataUrls((prev) => ({
+              ...prev,
+              [key]: `data:${result.mimeType || "image/jpeg"};base64,${result.data}`,
+            }));
+          }
+        } catch { /* skip failed photos */ }
+      }
+    })();
+    return () => { active = false; };
+  }, [listingId, mediaRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const orderedMediaRows = useMemo(() => {
     return [...mediaRows].sort((a, b) => {
@@ -372,17 +406,21 @@ export default function HomeSaleMedia() {
           </h3>
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ border: "2px solid var(--color-primary)", borderRadius: 8, overflow: "hidden", maxWidth: 320, flexShrink: 0 }}>
-              {buildPreviewSrc(coverPhoto) ? (
-                <img
-                  src={buildPreviewSrc(coverPhoto)}
-                  alt={coverPhoto.altText || coverPhoto.fileName || "Cover photo"}
-                  style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
-                />
-              ) : (
-                <div style={{ width: 320, height: 200, background: "#EFF3F8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "2rem" }}>🖼️</span>
-                </div>
-              )}
+              {(() => {
+                const coverKey = coverPhoto.assetId || extractHomeSaleDriveFileId(coverPhoto.driveUrl || "");
+                const coverSrc = photoDataUrls[coverKey] || buildPreviewSrc(coverPhoto);
+                return coverSrc ? (
+                  <img
+                    src={coverSrc}
+                    alt={coverPhoto.altText || coverPhoto.fileName || "Cover photo"}
+                    style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                  />
+                ) : (
+                  <div style={{ width: 320, height: 200, background: "#EFF3F8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "2rem" }}>🖼️</span>
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <p style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 4 }}>{coverPhoto.fileName || "Cover"}</p>
@@ -412,14 +450,18 @@ export default function HomeSaleMedia() {
           <p className="text-muted text-sm">No photos yet. Sync from Drive folder below.</p>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {orderedMediaRows.map((item) => (
-              <SalePhotoCard
-                key={item.assetId || item.driveUrl || item.publicUrl}
-                item={item}
-                isCurrentCover={coverPhoto ? item.assetId === coverPhoto.assetId : false}
-                showDriveLink={isAdmin}
-              />
-            ))}
+            {orderedMediaRows.map((item) => {
+              const photoKey = item.assetId || extractHomeSaleDriveFileId(item.driveUrl || "");
+              return (
+                <SalePhotoCard
+                  key={item.assetId || item.driveUrl || item.publicUrl}
+                  item={item}
+                  isCurrentCover={coverPhoto ? item.assetId === coverPhoto.assetId : false}
+                  showDriveLink={isAdmin}
+                  dataUrl={photoDataUrls[photoKey] || null}
+                />
+              );
+            })}
           </div>
         )}
       </div>

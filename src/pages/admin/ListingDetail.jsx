@@ -9,6 +9,7 @@ import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../utils/listingPublicMeta";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
+import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
 
 const TAB_LABELS = {
   "Facebook Post":        "📘 Facebook",
@@ -86,7 +87,8 @@ function DrivePhoto({ file }) {
 
 // Marketplace photo card with order, exclude, and cover-select controls.
 function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManual,
-  onMoveUp, onMoveDown, onExclude, onSetCover }) {
+  onMoveUp, onMoveDown, onExclude, onSetCover,
+  inCollage, canAddToCollage, onToggleCollage }) {
   const [failed, setFailed] = useState(false);
   // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
   const src = file.dataUrl
@@ -143,6 +145,28 @@ function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManua
           Open ↗
         </a>
       </div>
+      {/* Collage selection toggle */}
+      {onToggleCollage && (
+        <div style={{ padding: "4px 6px", borderTop: "1px solid var(--color-border)" }}>
+          <button
+            style={{
+              width: "100%",
+              fontSize: "0.62rem", padding: "3px 6px",
+              border: `1px solid var(--color-primary)`,
+              borderRadius: 3, cursor: (!inCollage && !canAddToCollage) ? "not-allowed" : "pointer",
+              background:  inCollage  ? "var(--color-primary)" : "transparent",
+              color:       inCollage  ? "#fff"                 : "var(--color-primary)",
+              opacity:     (!inCollage && !canAddToCollage)    ? 0.45 : 1,
+              lineHeight: 1.4,
+            }}
+            disabled={!inCollage && !canAddToCollage}
+            onClick={onToggleCollage}
+            title={inCollage ? "Remove from collage" : "Add to collage"}
+          >
+            {inCollage ? "✓ In Collage / 已选" : "+ Use in Collage / 加入拼图"}
+          </button>
+        </div>
+      )}
       {/* Controls */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "5px 6px", borderTop: "1px solid var(--color-border)", background: "#fafbfc" }}>
         <button style={btnStyle} onClick={onMoveUp}  disabled={isFirst  || isExcluded} title="Move up">↑</button>
@@ -208,6 +232,13 @@ export default function ListingDetail({ lang }) {
   const [photoOrder,    setPhotoOrder]    = useState([]);   // fileId[]
   const [excluded,      setExcluded]      = useState(new Set()); // Set<fileId>
   const [manualCover,   setManualCover]   = useState(null); // fileId | null
+
+  // Collage state
+  const [collageStatus,    setCollageStatus]    = useState("idle"); // idle|loading|ready|saving|saved|error
+  const [collageDataUrl,   setCollageDataUrl]   = useState(null);
+  const [collageMsg,       setCollageMsg]       = useState("");
+  const [collageFolderUrl, setCollageFolderUrl] = useState(null);
+  const [collageSelection, setCollageSelection] = useState(new Set()); // Set<fileId>
 
   // Copy edit state (local only — no "03 Generated Copy" write path exists yet)
   const [editedCopy,   setEditedCopy]   = useState({});   // {key: savedDraftText}
@@ -1173,6 +1204,118 @@ export default function ListingDetail({ lang }) {
     }
   }
 
+  // ── Collage cover generator ──────────────────────────────────────────────────
+  function buildRentOverlay(l) {
+    if (!l) return null;
+    const hasBeds = l.bedrooms || l.bathrooms;
+    const title   = hasBeds
+      ? `${l.bedrooms || "?"} Bed / ${l.bathrooms || "?"} Bath`
+      : null;
+    const loc = l.city ? `${l.city}, BC` : null;
+    let price = null;
+    if (l.rent) {
+      const n = Number(String(l.rent).replace(/[^0-9.]/g, ""));
+      if (!isNaN(n) && n > 0) price = `$${n.toLocaleString()}/month`;
+    }
+    let date = null;
+    if (l.available && String(l.available).trim()) {
+      date = `Available: ${String(l.available).trim().slice(0, 10)}`;
+    }
+    return {
+      badge:      "FOR RENT",
+      title,
+      location:   loc,
+      address:    l.address   || null,
+      priceLabel: price,
+      dateLabel:  date,
+    };
+  }
+
+  function toggleCollagePhoto(fileId) {
+    setCollageSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else if (next.size < 4) {
+        next.add(fileId);
+      }
+      return next;
+    });
+  }
+
+  async function handleGenerateCollage() {
+    const pool    = activePhotos.filter((f) => f.dataUrl || f.thumbUrl);
+    const sources = resolveCollagePhotos(pool, collageSelection, (f) => f.fileId, effectiveCover?.fileId);
+    if (sources.length < 2) {
+      setCollageStatus("error");
+      setCollageMsg("At least 2 photos are needed. Sync photos from Drive first. / 需要至少 2 张照片，请先从 Drive 同步。");
+      return;
+    }
+    setCollageStatus("loading");
+    setCollageMsg("");
+    setCollageDataUrl(null);
+    try {
+      // Prefer dataUrl (base64, no CORS) — fall back to thumbUrl with crossOrigin
+      const imageSrcs = sources.map((f) => f.dataUrl || f.thumbUrl || f.thumbUrlLg || "");
+      const dataUrl = await generateCollageDataUrl(imageSrcs, {
+        overlayData: buildRentOverlay(listing),
+      });
+      setCollageDataUrl(dataUrl);
+      setCollageStatus("ready");
+    } catch (err) {
+      setCollageStatus("error");
+      setCollageMsg(err.message || "Collage generation failed. / 拼图生成失败。");
+    }
+  }
+
+  async function handleSaveCollage() {
+    if (!collageDataUrl || !listing) return;
+    const folderId = extractFolderId(listing?.driveFolderLink);
+    if (!folderId) {
+      setCollageStatus("error");
+      setCollageMsg("No Drive folder linked to this listing. / 此房源没有关联的 Drive 文件夹。");
+      return;
+    }
+    setCollageStatus("saving");
+    setCollageMsg("");
+    try {
+      const base64 = collageDataUrl.split(",")[1];
+      const ts = Date.now();
+      const fileName = `collage_cover__${ts}.jpg`;
+      const res = await apiPost({
+        action:        "uploadToSubfolder",
+        folderId,
+        subfolderName: "03_Cover_Images",
+        fileName,
+        mimeType:      "image/jpeg",
+        data:          base64,
+        ...getStudioRequestAuth("rental"),
+      });
+      if (res?.subfolderUrl) setCollageFolderUrl(res.subfolderUrl);
+      const fileId = res?.fileId;
+      if (!fileId) throw new Error("Upload succeeded but no fileId was returned.");
+      // Inject a synthetic folderFiles entry so the cover thumbnail renders immediately
+      const syntheticFile = {
+        fileId,
+        name: fileName,
+        dataUrl: collageDataUrl,
+        thumbUrl: collageDataUrl,
+        thumbUrlLg: collageDataUrl,
+      };
+      setFolderFiles((prev) => {
+        if (prev.some((f) => f.fileId === fileId)) return prev;
+        return [...prev, syntheticFile];
+      });
+      setPhotoOrder((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
+      setManualCover(fileId);
+      setCollageStatus("saved");
+      setCollageMsg("Collage saved to 03_Cover_Images/ and set as cover. / 拼图封面已保存并设为主图。");
+    } catch (err) {
+      setCollageStatus("error");
+      setCollageMsg(err.message || "Failed to save collage. / 保存失败。");
+    }
+  }
+
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
     <div>
@@ -1704,6 +1847,84 @@ export default function ListingDetail({ lang }) {
               </div>
             )}
 
+            {/* ── Collage Cover Generator ───────────────────────────────── */}
+            {!folderLoading && activePhotos.length >= 2 && (
+              <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: "0.9rem", margin: 0 }}>🖼️ Generate Collage Cover / 生成拼图封面</p>
+                    {collageSelection.size > 0 && (
+                      <span style={{ fontSize: "0.78rem", color: "var(--color-primary)", marginTop: 2, display: "inline-block" }}>
+                        Selected for Collage: {collageSelection.size} / 4 &nbsp;
+                        <button
+                          type="button"
+                          style={{ fontSize: "0.72rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                          onClick={() => setCollageSelection(new Set())}
+                        >
+                          Clear Selection / 清空拼图选择
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      disabled={collageStatus === "loading" || collageStatus === "saving"}
+                      onClick={handleGenerateCollage}
+                    >
+                      {collageStatus === "loading"
+                        ? "Generating… / 生成中…"
+                        : collageStatus === "ready" || collageStatus === "saved"
+                        ? "Regenerate / 重新生成"
+                        : "Generate Collage Cover / 生成拼图封面"}
+                    </button>
+                    {collageStatus === "ready" && (
+                      <button
+                        type="button"
+                        className="btn btn--sm"
+                        onClick={handleSaveCollage}
+                      >
+                        Save as Cover / 保存为封面
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
+                  选择最多 4 张照片（点击下方"加入拼图"），或留空自动使用前 4 张。主图（Cover）优先显示在左侧大图位置。
+                  <br />
+                  Select up to 4 photos using "Use in Collage" buttons below, or leave empty to auto-use the first 4. The cover photo is placed in the main left panel.
+                </p>
+                {collageStatus === "error" && collageMsg && (
+                  <div className="notice notice--error" style={{ marginBottom: 10 }}>
+                    <p>{collageMsg}</p>
+                  </div>
+                )}
+                {collageStatus === "saved" && collageMsg && (
+                  <div className="notice notice--sage" style={{ marginBottom: 10 }}>
+                    <p>{collageMsg}</p>
+                    {collageFolderUrl && (
+                      <a href={collageFolderUrl} target="_blank" rel="noreferrer" style={{ fontSize: "0.82rem" }}>
+                        Open 03_Cover_Images/ folder ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+                {collageDataUrl && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ borderRadius: 10, overflow: "hidden", maxWidth: 520, background: "#eef2f0", marginBottom: 6 }}>
+                      <img src={collageDataUrl} alt="Collage preview" style={{ width: "100%", display: "block" }} />
+                    </div>
+                    <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+                      {collageStatus === "saved"
+                        ? "✅ Saved and set as cover / 已保存并设为封面"
+                        : "Preview — click \"Save as Cover\" to upload. / 预览图 — 点击\"保存为封面\"上传。"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Marketplace Photo Package ─────────────────────────────── */}
             {!folderLoading && folderFiles.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
@@ -1729,6 +1950,9 @@ export default function ListingDetail({ lang }) {
                       onMoveDown={() => movePhoto(f.fileId, "down")}
                       onExclude={() => toggleExclude(f.fileId)}
                       onSetCover={() => setManualCover(f.fileId)}
+                      inCollage={collageSelection.has(f.fileId)}
+                      canAddToCollage={collageSelection.size < 4}
+                      onToggleCollage={() => toggleCollagePhoto(f.fileId)}
                     />
                   ))}
                 </div>
