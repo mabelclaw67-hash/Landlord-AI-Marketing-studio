@@ -6,6 +6,8 @@ import {
   updateApplicationStatus,
   updateApplicationNotes,
 } from "../../utils/storage";
+import { downloadSubmittedAppPdf } from "../../utils/rentalApplicationPdf";
+import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
 
 const REVIEW_STATUSES = ["Pending", "Reviewing", "Approved", "Rejected", "On Hold"];
 
@@ -278,6 +280,7 @@ export default function ApplicationReview() {
   const [notes, setNotes]       = useState("");
   const [savingNotes, setSavingNotes]   = useState(false);
   const [notesSaved, setNotesSaved]     = useState(false);
+  const [adminPdfBusy, setAdminPdfBusy] = useState(false);
 
   useEffect(() => {
     getApplicationById(applicationId)
@@ -360,6 +363,20 @@ export default function ApplicationReview() {
   const hasJoint          = String(app.hasJointApplicant || "").includes("Yes");
   const jointEmployment   = parseJointEmployment(app.jointEmployment);
 
+  // ── PDF access control ────────────────────────────────────────────────────
+  // Admin: always allowed.
+  // Trial: only if their email matches the listing's ownerEmail.
+  //   - If listing not loaded yet: deny until resolved (avoid flash of allowed state).
+  //   - If listing has no ownerEmail field: grant (can't verify, benefit of the doubt).
+  const _isAdmin      = isAdminSessionActive();
+  const _trialSession = readTrialAccess();
+  const _isTrial      = !!_trialSession && !_isAdmin;
+  const canAccessSubmittedPdf = _isAdmin
+    || !_isTrial
+    || (!listing && false)  // listing still loading → hold off
+    || (listing && !listing.ownerEmail)  // ownerEmail not set → can't verify, allow
+    || (listing?.ownerEmail?.toLowerCase() === (_trialSession?.email || "").toLowerCase());
+
   return (
     <div>
       {/* Header */}
@@ -370,7 +387,7 @@ export default function ApplicationReview() {
         </div>
         <div className="flex gap-8">
           <Link to="/admin/leads" className="btn btn--ghost btn--sm">← Leads</Link>
-          {app.pdfUrl && (
+          {app.pdfUrl && canAccessSubmittedPdf && (
             <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
               Download PDF
             </a>
@@ -538,19 +555,87 @@ export default function ApplicationReview() {
 
       {/* ── 13. Application PDF ───────────────────────────────────────────────── */}
       <SectionCard title="Application PDF / 申请表 PDF">
-        {app.pdfUrl ? (
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-              Open PDF →
-            </a>
-            <span style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-              Stored in listing Drive folder under <code>Applications/</code>
-            </span>
-          </div>
+        {canAccessSubmittedPdf ? (
+          <>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              {app.pdfUrl && (
+                <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                  Open PDF (Drive) →
+                </a>
+              )}
+              {/* Client-side PDF generation — admin and listing-owner trial users only */}
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={adminPdfBusy}
+                onClick={() => {
+                  if (adminPdfBusy) return;
+                  setAdminPdfBusy(true);
+                  try {
+                    const data = {
+                      listingId:             app.listingId,
+                      listingAddress:        listing?.address || "",
+                      listingRent:           listing?.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "",
+                      applicantName:         app.applicantName,
+                      email:                 app.email,
+                      phone:                 app.phone,
+                      dateOfBirth:           app.dateOfBirth,
+                      currentAddress:        app.currentAddress,
+                      wechat:                app.wechat,
+                      employmentStatus:      app.employmentStatus,
+                      employer:              app.employer,
+                      monthlyIncome:         app.monthlyIncome,
+                      moveInDate:            app.moveInDate,
+                      leaseTerm:             app.leaseTerm,
+                      occupants:             app.occupants,
+                      adults:                app.adults,
+                      minors:                app.minors,
+                      occupantNamesAges:     app.occupantNamesAges,
+                      landlordReference:     app.landlordReference,
+                      creditHistory:         app.creditHistory,
+                      hasPets:               app.hasPets,
+                      petDetails:            app.petDetails,
+                      parkingRequest:        app.parkingRequest,
+                      hasTenantInsurance:    app.hasTenantInsurance,
+                      depositFundsAvailable: app.depositFundsAvailable,
+                      reasonForMoving:       app.reasonForMoving,
+                      additionalNotes:       app.additionalNotes,
+                      recordId:              app.recordId,
+                      submittedAt:           app.submittedAt,
+                    };
+                    downloadSubmittedAppPdf(data, app.recordId, app.recordId);
+                  } finally {
+                    window.setTimeout(() => setAdminPdfBusy(false), 800);
+                  }
+                }}
+              >
+                {adminPdfBusy ? "Preparing…" : "📄 Download Submitted Application / 下载已提交申请表"}
+              </button>
+            </div>
+            {app.pdfUrl ? (
+              <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+                Drive PDF: stored in listing folder under <code>Applications/</code>
+              </p>
+            ) : (
+              <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
+                No Drive PDF yet — use &ldquo;Generate PDF&rdquo; to create a local copy from the application data above.
+                <br />
+                尚无 Drive PDF — 可点击"生成申请表 PDF"根据当前申请数据在本地生成。
+              </p>
+            )}
+          </>
         ) : (
-          <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>
-            PDF not yet generated — will be created on submission once Apps Script is redeployed with the updated Code.gs.
-          </p>
+          <div style={{ background: "#fff8f3", border: "1px solid #f0cfa0", borderRadius: 8, padding: "12px 14px" }}>
+            <p style={{ fontWeight: 600, fontSize: "0.88rem", color: "#7a4f00", marginBottom: 4 }}>
+              Access Restricted / 访问受限
+            </p>
+            <p style={{ fontSize: "0.82rem", color: "#7a5a2f", lineHeight: 1.65 }}>
+              Submitted application PDFs are only accessible by admins and the listing owner.
+              This application is connected to listing <code>{app.listingId}</code>, which does not match your trial account.
+              <br />
+              申请表 PDF 仅供管理员及对应房源的拥有者查看。此申请所属房源与您的试用账号不匹配。
+            </p>
+          </div>
         )}
       </SectionCard>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
+import { downloadSubmittedAppPdf } from "../utils/rentalApplicationPdf";
 
 const LEASE_TERM_OPTIONS = [
   "Month-to-Month / 月租",
@@ -206,6 +207,7 @@ export default function RentalApplication() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(null);
   const [error, setError] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
 
   useEffect(() => {
@@ -446,6 +448,64 @@ export default function RentalApplication() {
   }
 
   if (submitted) {
+    // Build the normalized data object for client-side PDF generation.
+    // Uses the form state (still in memory) as source of truth.
+    function handleDownloadPdf() {
+      if (pdfBusy) return;
+      // If backend returned a real Drive URL, open it directly.
+      if (submitted.pdfUrl) {
+        window.open(submitted.pdfUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      // Otherwise generate client-side from the submitted form data.
+      setPdfBusy(true);
+      try {
+        const data = {
+          listingId:             listingId,
+          listingAddress:        listing?.address || "",
+          listingRent:           listing?.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "",
+          applicantName:         form.applicantName,
+          email:                 form.email,
+          phone:                 form.phone,
+          dateOfBirth:           form.dateOfBirth,
+          currentAddress:        form.currentResidenceAddress,
+          wechat:                form.wechat,
+          employmentStatus:      form.employmentStatus,
+          employer:              form.employer,
+          monthlyIncome:         form.monthlyIncome,
+          moveInDate:            form.moveInDate,
+          leaseTerm:             form.leaseTerm,
+          occupants:             form.totalOccupants,
+          adults:                form.adults,
+          minors:                form.minors,
+          occupantNamesAges:     form.occupantNamesAges,
+          landlordReference:     [
+            form.currentResidenceLandlordName && `Current landlord: ${form.currentResidenceLandlordName}`,
+            form.currentResidenceLandlordContact && `Contact: ${form.currentResidenceLandlordContact}`,
+            form.previousResidenceLandlordName && `Previous landlord: ${form.previousResidenceLandlordName}`,
+            form.referenceOneName && `Ref 1: ${form.referenceOneName}`,
+            form.referenceTwoName && `Ref 2: ${form.referenceTwoName}`,
+          ].filter(Boolean).join(" | "),
+          creditHistory:         form.creditHistory,
+          hasPets:               form.hasPets,
+          petDetails:            form.petDetails,
+          parkingRequest:        [
+            form.vehicleCount && `Vehicles: ${form.vehicleCount}`,
+            form.vehicleDetails,
+          ].filter(Boolean).join(" "),
+          hasTenantInsurance:    form.hasTenantInsurance,
+          depositFundsAvailable: form.depositFundsAvailable,
+          reasonForMoving:       form.currentResidenceReasonForLeaving,
+          additionalNotes:       form.additionalNotes,
+          recordId:              submitted.recordId,
+          submittedAt:           submitted.submittedAt,
+        };
+        downloadSubmittedAppPdf(data, submitted.recordId, submitted.recordId || listingId);
+      } finally {
+        window.setTimeout(() => setPdfBusy(false), 800);
+      }
+    }
+
     return (
       <div style={{ maxWidth: 600, margin: "60px auto", padding: "0 20px" }}>
         <div className="card" style={{ textAlign: "center", padding: "40px 32px" }}>
@@ -469,7 +529,7 @@ export default function RentalApplication() {
               background: "#f5f8f5",
               borderRadius: 10,
               padding: "16px 20px",
-              marginBottom: 20,
+              marginBottom: 24,
               textAlign: "left",
             }}
           >
@@ -492,19 +552,46 @@ export default function RentalApplication() {
               {submitted.recordId}
             </p>
           </div>
-          {submitted.pdfUrl && (
-            <a
-              href={submitted.pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn--primary"
-            >
-              Download PDF Copy / 下载 PDF 副本
-            </a>
-          )}
+
+          {/* ── Submitted application PDF — private, shown only on this success screen ── */}
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={pdfBusy}
+            style={{
+              display: "block",
+              width: "100%",
+              padding: "15px 20px",
+              background: pdfBusy ? "#d7dce1" : "#3e5b4b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 9,
+              fontWeight: 700,
+              fontSize: "1rem",
+              cursor: pdfBusy ? "wait" : "pointer",
+              fontFamily: "var(--font)",
+              marginBottom: 10,
+            }}
+          >
+            {pdfBusy
+              ? "Preparing… / 正在准备…"
+              : "📄 Download Submitted Application / 下载已提交申请表"}
+          </button>
           <p
             style={{
-              marginTop: 20,
+              fontSize: "0.78rem",
+              color: "var(--color-text-muted)",
+              marginBottom: 20,
+              lineHeight: 1.6,
+            }}
+          >
+            {submitted.pdfUrl
+              ? "Downloads your completed application from our system. / 从系统下载您已提交的完整申请表。"
+              : "Saves a copy of your completed application to this device. / 在本设备保存您已提交的申请表副本。"}
+          </p>
+
+          <p
+            style={{
               fontSize: "0.82rem",
               color: "var(--color-text-muted)",
             }}

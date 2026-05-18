@@ -37,6 +37,51 @@ const TENANT_SHARE_MESSAGES = [
   },
 ];
 
+// Resolve the best available cover thumbnail URL for a listing.
+// Priority: coverImageFileId (admin-selected) → first driveFiles entry → null.
+// Always uses drive.google.com/thumbnail which works for publicly-shared files
+// without requiring the viewer to be signed into Google.
+function resolveCoverThumbUrl(listing) {
+  if (listing.coverImageFileId) {
+    return `https://drive.google.com/thumbnail?id=${listing.coverImageFileId}&sz=w640-h480`;
+  }
+  const files = Array.isArray(listing.driveFiles) ? listing.driveFiles : [];
+  const first = files.find((f) => f.thumbUrl || f.fileId);
+  if (first) {
+    return first.thumbUrl || `https://drive.google.com/thumbnail?id=${first.fileId}&sz=w640-h480`;
+  }
+  return null;
+}
+
+// Show the cover image for a rental listing card.
+// Always renders the photo area — shows a placeholder when no URL or image fails to load.
+function ListingCardCover({ thumbUrl }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#eef2f0", aspectRatio: "16/10" }}>
+      {thumbUrl && !failed ? (
+        <img
+          src={thumbUrl}
+          alt="Listing cover"
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <div style={{
+          width: "100%", height: "100%", minHeight: 140,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: "2.5rem", opacity: 0.45 }}>🏠</span>
+          <span style={{ fontSize: "0.78rem", color: "#8a9e90", fontWeight: 500 }}>
+            {thumbUrl ? "Photo unavailable / 照片暂不可用" : "No photo / 暂无照片"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatDate(val) {
   if (!val) return null;
   const s = String(val).trim();
@@ -116,6 +161,8 @@ export default function Examples() {
 
               return (
                 <div key={listing.id} className="rental-card">
+                  {/* Cover photo — resolved from coverImageFileId or first driveFiles entry */}
+                  <ListingCardCover thumbUrl={resolveCoverThumbUrl(listing)} />
                   {/* Card header */}
                   <div className="rental-card__header">
                     <div>

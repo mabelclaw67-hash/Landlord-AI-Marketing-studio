@@ -169,6 +169,7 @@ var LISTING_HEADERS = [
   "Drive Files",          // AB 27 JSON
   "Enhanced Folder ID",   // AC 28 — 02_AI_Enhanced_Photos subfolder Drive ID
   "videoUrl",             // AD 29 — generated MP4 video URL (Google Drive link)
+  "Cover Image File ID",  //        fileId of the selected/generated cover image
   "Created By Email",
   "Created By Access Code",
   "Created By Role",
@@ -609,6 +610,7 @@ function rowToListing_(row, headerMap) {
     driveFiles:      tryParse_(col("Drive Files"),     []),
     enhancedFolderId: col("Enhanced Folder ID") || null,
     videoUrl:         col("videoUrl")           || null,
+    coverImageFileId: col("Cover Image File ID") || null,
     createdByEmail:   col("Created By Email")   || "",
     createdByAccessCode: col("Created By Access Code") || "",
     createdByRole:    col("Created By Role")    || "",
@@ -654,6 +656,7 @@ function makeDataMap_(d) {
   m["Drive Files"]          = JSON.stringify(d.driveFiles     || []);
   m["Enhanced Folder ID"]   = d.enhancedFolderId || "";
   m["videoUrl"]             = d.videoUrl        || "";
+  m["Cover Image File ID"]  = d.coverImageFileId || "";
   m["Created By Email"]     = d.createdByEmail || "";
   m["Created By Access Code"] = d.createdByAccessCode || "";
   m["Created By Role"]      = d.createdByRole || "";
