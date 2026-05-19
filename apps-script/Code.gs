@@ -181,7 +181,7 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
