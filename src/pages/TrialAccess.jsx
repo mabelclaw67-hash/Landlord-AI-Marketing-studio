@@ -72,11 +72,11 @@ export default function TrialAccess() {
   return (
     <div className="pub-page">
       <section className="pub-hero">
-        <h1 className="pub-hero__title">Trial Access / 试用入口</h1>
+        <h1 className="pub-hero__title">Trial Access</h1>
         <p className="pub-hero__sub">Enter your email and access code to open your approved module.</p>
-        <p className="pub-hero__desc">
-          当前入口对应：{moduleLabel}
-        </p>
+        {moduleLabel && (
+          <p className="pub-hero__desc">Module: {moduleLabel}</p>
+        )}
       </section>
 
       <section className="section">
@@ -84,7 +84,7 @@ export default function TrialAccess() {
           <div className="card">
             {!isApiConnected() ? (
               <div className="notice notice--warm">
-                <h4>Local Setup Required / 需要本地连接</h4>
+                <h4>Local Setup Required</h4>
                 <p>Set <code>VITE_STUDIO_EXEC_URL</code> before validating trial access.</p>
               </div>
             ) : (
@@ -96,7 +96,7 @@ export default function TrialAccess() {
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
                       <button type="button" className="btn btn--ghost btn--sm" onClick={() => goToApprovedHome(session.approvedModule)}>
-                        Open Approved Module / 打开已授权模块
+                        Open Approved Module
                       </button>
                       <button
                         type="button"
@@ -106,7 +106,7 @@ export default function TrialAccess() {
                           setForm({ email: "", accessCode: "" });
                         }}
                       >
-                        Clear Access / 清除访问
+                        Clear Access
                       </button>
                     </div>
                   </div>
@@ -114,7 +114,7 @@ export default function TrialAccess() {
 
                 <form onSubmit={handleSubmit}>
                   <div className="form-group">
-                    <label>Email / 邮箱</label>
+                    <label>Email</label>
                     <input
                       className="form-control"
                       type="email"
@@ -125,7 +125,7 @@ export default function TrialAccess() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Access Code / 访问码</label>
+                    <label>Access Code</label>
                     <input
                       className="form-control"
                       required
@@ -142,7 +142,7 @@ export default function TrialAccess() {
                   ) : null}
 
                   <button type="submit" className="btn btn--sage" disabled={submitting}>
-                    {submitting ? "Checking..." : "Open Trial Access / 进入试用"}
+                    {submitting ? "Checking..." : "Open Trial Access"}
                   </button>
                 </form>
               </>
@@ -152,9 +152,6 @@ export default function TrialAccess() {
               <p>
                 If you do not have an access code yet, please submit your request on the{" "}
                 <Link to="/contact">Contact / Request</Link> page.
-              </p>
-              <p style={{ marginTop: 6 }}>
-                如果还没有 access code，请先到 <Link to="/contact">Contact / Request</Link> 页面提交申请。
               </p>
             </div>
           </div>

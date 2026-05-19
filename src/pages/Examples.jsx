@@ -1,67 +1,62 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getPublicListings } from "../utils/storage";
+import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } from "../utils/storage";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
-import { getListingStatusMeta } from "../utils/listingPublicMeta";
+import {
+  extractDriveFolderId,
+  getListingStatusMeta,
+  resolveRentalListingCover,
+  resolveRentalListingImageSrc,
+} from "../utils/listingPublicMeta";
 
 const TENANT_SHARE_MESSAGES = [
   {
     id: "general-rental-sharing",
-    label: "房源分享文案 / General Rental Sharing",
-    rows: 7,
+    label: "General Rental Sharing",
+    rows: 5,
     text:
-      "这里是当前可租房源页面，您可以查看可租房、浏览详情，并在合适时直接在线申请。\n\n如需转发给家人朋友或潜在租客，可直接发送这个房源页面。\n\nEnglish:\nHere is the current rental listings page. You can browse available homes, view details, and apply online if a listing is a good fit.",
+      "Here is the current rental listings page. You can browse available homes, view details, and apply online if a listing is a good fit.",
   },
   {
     id: "wechat-tenant-sharing",
-    label: "微信租客分享 / WeChat Tenant Sharing",
-    rows: 8,
+    label: "WeChat Sharing",
+    rows: 5,
     text:
-      "你好，这里是当前可租房源页面。每个房源都可以打开查看详情、照片和在线申请链接，如果有兴趣可以直接手机在线申请。\n\n适合微信转发给正在找房的朋友或家人。\n\nEnglish:\nHere is the current rental listings page for available homes. You can open each listing to see details, photos, and the application link. If you are interested, please apply online here.",
+      "Here is the current rental listings page for available homes. You can open each listing to see details, photos, and the application link. If you are interested, please apply online here.",
   },
   {
     id: "facebook-rental-group",
-    label: "Facebook 租房群分享 / Facebook Rental Group Sharing",
-    rows: 7,
+    label: "Facebook Rental Group",
+    rows: 5,
     text:
-      "当前可租房源都在这个页面里，潜在租客可以直接查看房屋资料、照片和在线申请入口。\n\n适合分享到 Facebook 租房群、社区群或本地租房讨论区。\n\nEnglish:\nCurrent rental listings are available at the link below. Prospective tenants can review property details and apply online directly from each listing page.",
+      "Current rental listings are available at the link below. Prospective tenants can review property details and apply online directly from each listing page.",
   },
   {
     id: "direct-message-tenant",
-    label: "私信租客文案 / Direct Message to Prospective Tenant",
-    rows: 7,
+    label: "Direct Message to Prospective Tenant",
+    rows: 5,
     text:
-      "您好，这里是当前可租房源页面。请先查看房源详情、照片和申请要求，如果您有兴趣，可以直接在线提交申请。\n\nEnglish:\nHere is the rental listings page with current available homes. Please review the listing details carefully and submit the online application if you would like to be considered.",
+      "Here is the rental listings page with current available homes. Please review the listing details carefully and submit the online application if you would like to be considered.",
   },
 ];
 
-// Resolve the best available cover thumbnail URL for a listing.
-// Priority: coverImageFileId (admin-selected) → first driveFiles entry → null.
-// Always uses drive.google.com/thumbnail which works for publicly-shared files
-// without requiring the viewer to be signed into Google.
-function resolveCoverThumbUrl(listing) {
-  if (listing.coverImageFileId) {
-    return `https://drive.google.com/thumbnail?id=${listing.coverImageFileId}&sz=w640-h480`;
-  }
-  const files = Array.isArray(listing.driveFiles) ? listing.driveFiles : [];
-  const first = files.find((f) => f.thumbUrl || f.fileId);
-  if (first) {
-    return first.thumbUrl || `https://drive.google.com/thumbnail?id=${first.fileId}&sz=w640-h480`;
-  }
-  return null;
-}
-
 // Show the cover image for a rental listing card.
 // Always renders the photo area — shows a placeholder when no URL or image fails to load.
-function ListingCardCover({ thumbUrl }) {
+function ListingCardCover({ coverPhoto }) {
+  const src = resolveRentalListingImageSrc(coverPhoto);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
   return (
     <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#eef2f0", aspectRatio: "16/10" }}>
-      {thumbUrl && !failed ? (
+      {src && !failed ? (
         <img
-          src={thumbUrl}
+          src={src}
           alt="Listing cover"
           onError={() => setFailed(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -74,7 +69,7 @@ function ListingCardCover({ thumbUrl }) {
         }}>
           <span style={{ fontSize: "2.5rem", opacity: 0.45 }}>🏠</span>
           <span style={{ fontSize: "0.78rem", color: "#8a9e90", fontWeight: 500 }}>
-            {thumbUrl ? "Photo unavailable / 照片暂不可用" : "No photo / 暂无照片"}
+            Photo unavailable
           </span>
         </div>
       )}
@@ -91,19 +86,63 @@ function formatDate(val) {
 
 export default function Examples() {
   const [listings, setListings] = useState([]);
+  const [coverPhotos, setCoverPhotos] = useState({});
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
 
   useEffect(() => {
-    getPublicListings()
-      .then(all => {
-        const active = (all || []).filter(l =>
-          (l.status || "").trim().toLowerCase() === "published"
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const all = await getPublicListings();
+        const active = (all || []).filter((listing) =>
+          (listing.status || "").trim().toLowerCase() === "published"
         );
+        if (cancelled) return;
         setListings(active);
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+        setCoverPhotos(Object.fromEntries(
+          active.map((listing) => [
+            listing.id,
+            resolveRentalListingCover([], [], listing.coverImageFileId),
+          ])
+        ));
+        setLoading(false);
+
+        Promise.all(
+          active.map(async (listing) => {
+            try {
+              const folderId = extractDriveFolderId(listing.driveFolderLink);
+              const [rootFiles, subfolder] = await Promise.all([
+                getListingFolderFiles(folderId || "", listing.id).catch(() => []),
+                getListingSubfolderFiles(folderId || "", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
+              ]);
+              const coverPhoto = resolveRentalListingCover(
+                rootFiles || [],
+                subfolder?.files || [],
+                listing.coverImageFileId
+              );
+              return [listing.id, coverPhoto];
+            } catch {
+              return [listing.id, resolveRentalListingCover([], [], listing.coverImageFileId)];
+            }
+          })
+        ).then((coverEntries) => {
+          if (cancelled) return;
+          setCoverPhotos(Object.fromEntries(coverEntries));
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -111,19 +150,18 @@ export default function Examples() {
 
       {/* Hero */}
       <section className="tenant-hero">
-        <h1 className="tenant-hero__title">Public Rental Listings / 公开出租房源</h1>
-        <p className="tenant-hero__sub">Rental Studio / 租赁工作台</p>
+        <h1 className="tenant-hero__title">Public Rental Listings</h1>
+        <p className="tenant-hero__sub">Rental Studio</p>
         <p className="tenant-hero__desc">
           Browse current rentals and apply online.
-          <br />查看当前可租房源，并在线提交申请。
         </p>
         <div className="tenant-share-kit-wrap">
           <ShareKit
-            buttonLabel="房源分享素材 / Share Kit"
-            title="房源分享素材 / Tenant Rental Listings Share Kit"
-            subtitle="供租客、申请人和公开房源转发使用。 / For tenants, applicants, and public rental listing sharing only."
+            buttonLabel="Share Kit"
+            title="Tenant Rental Listings Share Kit"
+            subtitle="For tenants, applicants, and public rental listing sharing only."
             messages={TENANT_SHARE_MESSAGES}
-            linkLabel="复制当前页面链接 / Copy Current Page Link"
+            linkLabel="Copy Current Page Link"
           />
         </div>
       </section>
@@ -131,7 +169,7 @@ export default function Examples() {
       <div className="tenant-listings-body">
 
         {loading && (
-          <p className="tenant-loading">Loading listings… / 正在加载房源…</p>
+          <p className="tenant-loading">Loading listings…</p>
         )}
 
         {error && (
@@ -145,7 +183,7 @@ export default function Examples() {
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏘</div>
             <p style={{ fontWeight: 700, marginBottom: 4 }}>No listings available right now.</p>
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-              目前暂无可租房源，请稍后再查看。
+              Please check back later.
             </p>
           </div>
         )}
@@ -158,11 +196,12 @@ export default function Examples() {
                 : null;
               const avail = formatDate(listing.available);
               const statusMeta = getListingStatusMeta(listing);
+              const coverPhoto = coverPhotos[listing.id] || null;
 
               return (
                 <div key={listing.id} className="rental-card">
-                  {/* Cover photo — resolved from coverImageFileId or first driveFiles entry */}
-                  <ListingCardCover thumbUrl={resolveCoverThumbUrl(listing)} />
+                  {/* Cover photo — resolved with the same cover-selection logic as the detail page */}
+                  <ListingCardCover coverPhoto={coverPhoto} />
                   {/* Card header */}
                   <div className="rental-card__header">
                     <div>
@@ -185,25 +224,25 @@ export default function Examples() {
                   <div className="rental-card__facts">
                     {listing.rent && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Rent / 租金</span>
+                        <span className="rental-card__fact-label">Rent</span>
                         <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
                       </div>
                     )}
                     {listing.bedrooms && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Beds / 卧室</span>
+                        <span className="rental-card__fact-label">Beds</span>
                         <span className="rental-card__fact-value">{listing.bedrooms}</span>
                       </div>
                     )}
                     {listing.bathrooms && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Baths / 卫浴</span>
+                        <span className="rental-card__fact-label">Baths</span>
                         <span className="rental-card__fact-value">{listing.bathrooms}</span>
                       </div>
                     )}
                     {avail && (
                       <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Available / 可入住</span>
+                        <span className="rental-card__fact-label">Available</span>
                         <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
                       </div>
                     )}
@@ -216,7 +255,7 @@ export default function Examples() {
 
                   {statusMeta.applicationsClosed && (
                     <p style={{ fontSize: "0.82rem", color: statusMeta.color, fontWeight: 700, marginBottom: 10 }}>
-                      Applications closed / 暂停申请
+                      Applications closed
                     </p>
                   )}
 
@@ -226,12 +265,12 @@ export default function Examples() {
                     className="rental-card__cta"
                   >
                     {statusMeta.applicationsClosed
-                      ? "View Details / Status / 查看详情 / 状态 →"
-                      : "View Details / Apply / 查看详情 / 申请 →"}
+                      ? "View Details / Status →"
+                      : "View Details / Apply →"}
                   </Link>
                   <ShareButton
                     title={listing.address}
-                    text={`查看这个出租房源：${listing.address}, ${listing.city}, BC / Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
+                    text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
                     url={`${window.location.origin}/listings/${listing.id}`}
                   />
                 </div>

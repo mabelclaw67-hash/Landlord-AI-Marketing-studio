@@ -6,8 +6,9 @@ import {
   getHomeSaleListing,
   getSaleMediaByListingId,
   getSalePhotoData,
+  getSaleSubfolderFiles,
   isHomeSaleApiConnected,
-  updateSaleListing,
+  setSaleListingCoverPhoto,
   uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth } from "../../utils/trialAccess";
@@ -35,6 +36,7 @@ export default function HomeSaleCoverImage() {
   const { listingId } = useParams();
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
+  const [coverFiles, setCoverFiles] = useState([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [savingAssetId, setSavingAssetId] = useState("");
@@ -55,10 +57,30 @@ export default function HomeSaleCoverImage() {
     Promise.all([
       getHomeSaleListing(listingId),
       getSaleMediaByListingId(listingId).catch(() => []),
+      getSaleSubfolderFiles({
+        listingId,
+        subfolderName: "03_Cover_Images",
+        ...getStudioRequestAuth("sale"),
+      }).catch(() => ({ files: [], subfolderUrl: "" })),
     ])
-      .then(([row, media]) => {
+      .then(([row, media, coverResult]) => {
         setListing(row);
         setMediaRows(media);
+        setCoverFiles(
+          (coverResult?.files || []).map((file) => {
+            const driveUrl = file?.url || (file?.fileId ? `https://drive.google.com/file/d/${file.fileId}/view?usp=sharing` : "");
+            return {
+              ...file,
+              assetId: file?.assetId || file?.fileId || "",
+              fileName: file?.fileName || file?.name || "",
+              driveUrl,
+              publicUrl: driveUrl,
+              thumbUrl: file?.thumbUrl || (file?.fileId ? `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w400` : ""),
+              thumbUrlLg: file?.thumbUrlLg || (file?.fileId ? `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w1600` : ""),
+            };
+          })
+        );
+        if (coverResult?.subfolderUrl) setCollageFolderUrl(coverResult.subfolderUrl);
       })
       .catch((err) => setError(err.message || "Failed to load listing."));
   }, [listingId]);
@@ -67,14 +89,17 @@ export default function HomeSaleCoverImage() {
   // This mirrors the For Rent pipeline where getListingFolderFiles() returns dataUrl per file.
   useEffect(() => {
     const photos = mediaRows.filter((a) => a.assetType === "Photo");
-    if (!photos.length || !isHomeSaleApiConnected()) return;
+    const primaryFileId = extractHomeSaleDriveFileId(listing?.primaryPhotoUrl || "");
+    if ((!photos.length && !primaryFileId) || !isHomeSaleApiConnected()) return;
 
     let active = true;
     (async () => {
+      const seenFileIds = new Set();
       for (const asset of photos) {
         if (!active) break;
         const fileId = extractHomeSaleDriveFileId(asset.driveUrl || "");
-        if (!fileId) continue;
+        if (!fileId || seenFileIds.has(fileId)) continue;
+        seenFileIds.add(fileId);
         const key = asset.assetId || fileId;
         try {
           const result = await getSalePhotoData({
@@ -90,26 +115,43 @@ export default function HomeSaleCoverImage() {
           }
         } catch { /* skip failed photos — fallback URL still shown */ }
       }
+
+      if (!active || !primaryFileId || seenFileIds.has(primaryFileId)) return;
+      try {
+        const result = await getSalePhotoData({
+          listingId,
+          fileId: primaryFileId,
+          ...getStudioRequestAuth("sale"),
+        });
+        if (active && result?.data) {
+          setPhotoDataUrls((prev) => ({
+            ...prev,
+            [primaryFileId]: `data:${result.mimeType || "image/jpeg"};base64,${result.data}`,
+          }));
+        }
+      } catch { /* current cover can still fall back to thumbnail URL */ }
     })();
     return () => { active = false; };
-  }, [listingId, mediaRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [listingId, listing?.primaryPhotoUrl, mediaRows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Returns base64 dataUrl if loaded, falls back to Drive thumbnail URL. */
   function getPhotoSrc(asset) {
-    const key = asset.assetId || extractHomeSaleDriveFileId(asset.driveUrl || "");
-    return photoDataUrls[key] || toImgSrc(asset.driveUrl || asset.publicUrl);
+    const fileId = asset?.fileId || extractHomeSaleDriveFileId(asset?.driveUrl || asset?.publicUrl || asset?.url || "");
+    const key = asset?.assetId || fileId;
+    return photoDataUrls[key] || (fileId ? photoDataUrls[fileId] : "") || asset?.dataUrl || asset?.thumbUrlLg || asset?.thumbUrl || toImgSrc(asset?.driveUrl || asset?.publicUrl || asset?.url || "");
   }
 
   const fallbackCoverAsset = mediaRows.find((item) => item.assetRole === "Cover");
   const photoAssets = mediaRows.filter((item) => item.assetType === "Photo");
 
   const currentCoverAsset = useMemo(() => {
-    if (listing?.primaryPhotoUrl) {
-      const selected = mediaRows.find((item) => assetMatchesCoverUrl(item, listing.primaryPhotoUrl));
+    const targetCoverUrl = listing?.primaryPhotoUrl || listing?.coverImageUrl || "";
+    if (targetCoverUrl) {
+      const selected = [...coverFiles, ...mediaRows].find((item) => assetMatchesCoverUrl(item, targetCoverUrl));
       if (selected) return selected;
     }
     return fallbackCoverAsset || null;
-  }, [fallbackCoverAsset, listing?.primaryPhotoUrl, mediaRows]);
+  }, [coverFiles, fallbackCoverAsset, listing?.coverImageUrl, listing?.primaryPhotoUrl, mediaRows]);
 
   async function handleSetCover(asset) {
     if (!listing) return;
@@ -126,10 +168,7 @@ export default function HomeSaleCoverImage() {
     setMessage("");
 
     try {
-      await updateSaleListing({
-        ...listing,
-        primaryPhotoUrl: selectedUrl,
-      });
+      await setSaleListingCoverPhoto(listing.listingId || listing.id, selectedUrl);
       setListing((current) => ({ ...current, primaryPhotoUrl: selectedUrl }));
       setMessage(`Cover image updated: ${asset.fileName || asset.assetId || "selected photo"}`);
     } catch (err) {
@@ -244,7 +283,23 @@ export default function HomeSaleCoverImage() {
       const fileId = res?.fileId;
       if (!fileId) throw new Error("Upload succeeded but no fileId was returned.");
       const driveUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
-      await updateSaleListing({ ...listing, primaryPhotoUrl: driveUrl });
+      const syntheticCover = {
+        assetId: fileId,
+        fileId,
+        fileName,
+        name: fileName,
+        driveUrl,
+        publicUrl: driveUrl,
+        url: driveUrl,
+        dataUrl: collageDataUrl,
+        thumbUrl: collageDataUrl,
+        thumbUrlLg: collageDataUrl,
+      };
+      setCoverFiles((prev) => {
+        const next = prev.filter((file) => file.fileId !== fileId);
+        return [syntheticCover, ...next];
+      });
+      await setSaleListingCoverPhoto(listing.listingId || listing.id, driveUrl);
       setListing((prev) => ({ ...prev, primaryPhotoUrl: driveUrl }));
       setCollageStatus("saved");
       setCollageMsg("Collage saved to 03_Cover_Images/ and set as cover. / 拼图封面已保存并设为主图。");

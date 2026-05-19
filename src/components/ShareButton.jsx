@@ -26,10 +26,10 @@ export default function ShareButton({ title, text, url, className = "" }) {
     <button
       className={`share-btn${className ? " " + className : ""}`}
       onClick={handleShare}
-      aria-label="分享这个房源 / Share this listing"
+      aria-label="Share this listing"
     >
       {copied ? (
-        <span className="share-btn__copied">✓ 已复制链接 / Link copied</span>
+        <span className="share-btn__copied">✓ Link copied</span>
       ) : (
         <>
           <svg className="share-btn__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -39,7 +39,7 @@ export default function ShareButton({ title, text, url, className = "" }) {
             <line x1="6.9" y1="9.1" x2="13.1" y2="5.1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             <line x1="6.9" y1="10.9" x2="13.1" y2="14.9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
-          分享房源 / Share Listing
+          Share Listing
         </>
       )}
     </button>

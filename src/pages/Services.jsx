@@ -13,7 +13,6 @@ export default function Services({ lang }) {
     <div className="pub-page">
       <section className="pub-hero">
         <h1 className="pub-hero__title">{t(lang, "services.title")}</h1>
-        <p className="pub-hero__sub">{t(lang, "services.chTitle")}</p>
         <p className="pub-hero__desc">{t(lang, "services.subtitle")}</p>
       </section>
 
@@ -35,9 +34,6 @@ export default function Services({ lang }) {
                     <h3 style={{ fontWeight: 700, color: "#3e5b4b", marginBottom: 2 }}>
                       {t(lang, `services.${key}`)}
                     </h3>
-                    <div className="ch-label" style={{ fontSize: "0.82rem", color: "#62796b", marginBottom: 8 }}>
-                      {t(lang, `services.${key}Ch`)}
-                    </div>
                     <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.65 }}>
                       {t(lang, `services.${key}Desc`)}
                     </p>
@@ -48,9 +44,8 @@ export default function Services({ lang }) {
           </div>
 
           <div className="notice notice--sage" style={{ marginTop: 40, maxWidth: 680, marginLeft: "auto", marginRight: "auto" }}>
-            <h4>More Features / 更多功能</h4>
+            <h4>More Features</h4>
             <p>{t(lang, "services.futureNote")}</p>
-            <p style={{ marginTop: 4, opacity: 0.85 }}>{t(lang, "services.futureNoteCh")}</p>
           </div>
         </div>
       </section>

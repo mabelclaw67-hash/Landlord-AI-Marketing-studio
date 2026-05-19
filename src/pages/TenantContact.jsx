@@ -16,10 +16,8 @@ export default function TenantContact() {
         <h1 style={{ fontSize: "clamp(1.5rem, 5vw, 2rem)", fontWeight: 800, marginBottom: 10 }}>
           Rental Inquiries
         </h1>
-        <p style={{ fontSize: "1rem", opacity: 0.85, marginBottom: 4 }}>租房咨询</p>
         <p style={{ fontSize: "0.9rem", opacity: 0.7 }}>
           For rental inquiries, please apply online or send us an email.
-          <br />租房咨询请在线提交申请。
         </p>
       </section>
 
@@ -36,7 +34,6 @@ export default function TenantContact() {
             </h2>
             <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", marginBottom: 20, lineHeight: 1.7 }}>
               Use our online application form to apply for a rental. It takes about 5 minutes.
-              <br /><span style={{ fontSize: "0.85rem" }}>在线填写租房申请，约需 5 分钟。</span>
             </p>
             <a
               href={RENTAL_FORM_URL}
@@ -65,7 +62,6 @@ export default function TenantContact() {
           </h2>
           <p style={{ fontSize: "0.88rem", color: "var(--color-text-muted)", marginBottom: 16, lineHeight: 1.7 }}>
             View all current listings before you apply.
-            <br />申请前请查看当前所有可租房源。
           </p>
           <Link
             to="/examples"
@@ -91,9 +87,6 @@ export default function TenantContact() {
           <p style={{ fontSize: "0.88rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
             For rental inquiries, please email us or submit an application online.
             We respond within 1–2 business days.
-          </p>
-          <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginTop: 6, lineHeight: 1.75 }}>
-            租房咨询请发送邮件或在线提交申请。我们将在 1–2 个工作日内回复。
           </p>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
             <a

@@ -36,20 +36,20 @@ export default function Navbar({ lang, setLang }) {
           <div className="navbar__inner">
             <Link to="/" className="navbar__brand tenant-brand" onClick={() => setOpen(false)}>
               <span>🏠</span>
-              Vanisland Rentals / 温岛出租
+              Vanisland Rentals
             </Link>
             {/* Desktop tenant links */}
             <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
-              <li><Link to="/" onClick={() => setOpen(false)}>Home / 首页</Link></li>
-              <li><Link to="/examples" onClick={() => setOpen(false)}>Rental Listings / 出租房源</Link></li>
-              <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>Contact / 联系</Link></li>
+              <li><Link to="/" onClick={() => setOpen(false)}>Home</Link></li>
+              <li><Link to="/examples" onClick={() => setOpen(false)}>Rental Listings</Link></li>
+              <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>Contact</Link></li>
               <li>
                 <Link
                   to={applyTo}
                   className="tenant-apply-link"
                   onClick={() => setOpen(false)}
                 >
-                  Apply Now / 立即申请
+                  Apply Now
                 </Link>
               </li>
             </ul>
@@ -60,19 +60,19 @@ export default function Navbar({ lang, setLang }) {
         <nav className="mobile-bottom-nav" aria-label="Tenant navigation">
           <Link to="/" className={`mobile-bottom-nav__item${pathname === "/" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">🏠</span>
-            <span className="mobile-bottom-nav__label">Home / 首页</span>
+            <span className="mobile-bottom-nav__label">Home</span>
           </Link>
           <Link to="/examples" className={`mobile-bottom-nav__item${pathname === "/examples" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">🏘</span>
-            <span className="mobile-bottom-nav__label">Rentals / 出租</span>
+            <span className="mobile-bottom-nav__label">Rentals</span>
           </Link>
           <Link to="/tenant-contact" className={`mobile-bottom-nav__item${pathname === "/tenant-contact" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">📞</span>
-            <span className="mobile-bottom-nav__label">Contact / 联系</span>
+            <span className="mobile-bottom-nav__label">Contact</span>
           </Link>
           <Link to={applyTo} className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
             <span className="mobile-bottom-nav__icon">📋</span>
-            <span className="mobile-bottom-nav__label">Apply / 申请</span>
+            <span className="mobile-bottom-nav__label">Apply</span>
           </Link>
         </nav>
       </>
@@ -86,7 +86,6 @@ export default function Navbar({ lang, setLang }) {
         <Link to="/" className="navbar__brand" onClick={() => setOpen(false)}>
           <span>🏠</span>
           Vanisland AI Studio
-          <span>/ 房东广告工作台</span>
         </Link>
 
         <button

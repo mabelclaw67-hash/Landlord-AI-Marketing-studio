@@ -133,3 +133,44 @@ export function getOpenHouseInfo(listing) {
     parkingAccessNotes,
   };
 }
+
+export function extractDriveFolderId(link) {
+  if (!link) return null;
+  const match = String(link).match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+export function resolveRentalListingCover(rootPhotos = [], coverFiles = [], coverImageFileId = "") {
+  const allFiles = [...coverFiles, ...rootPhotos];
+  if (coverImageFileId) {
+    const match = allFiles.find((file) => file.fileId === coverImageFileId);
+    if (match) return match;
+    return {
+      fileId: coverImageFileId,
+      name: "cover-image",
+      thumbUrl: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w640-h480`,
+      thumbUrlLg: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w1600`,
+      url: `https://drive.google.com/file/d/${coverImageFileId}/view`,
+    };
+  }
+
+  if (allFiles.length === 0) return null;
+
+  if (coverFiles.length > 0) {
+    const collages = coverFiles
+      .filter((file) => file.name && file.name.startsWith("collage_cover__"))
+      .sort((a, b) => b.name.localeCompare(a.name));
+    if (collages.length > 0) return collages[0];
+    return coverFiles[0];
+  }
+
+  const sortedRootPhotos = [...rootPhotos].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true })
+  );
+  return sortedRootPhotos.find((file) => /^1/i.test(file.name)) || sortedRootPhotos[0];
+}
+
+export function resolveRentalListingImageSrc(file) {
+  if (!file) return "";
+  return file.dataUrl || file.thumbUrlLg || file.thumbUrl || file.url || "";
+}

@@ -266,19 +266,19 @@ export default function RentalApplication() {
     setError("");
 
     if (!clean(form.applicantName)) {
-      setError("Applicant name is required. / 申请人姓名为必填项。");
+      setError("Applicant name is required.");
       return;
     }
     if (!clean(form.email)) {
-      setError("Email is required. / 邮箱为必填项。");
+      setError("Email is required.");
       return;
     }
     if (!form.moveInDate) {
-      setError("Preferred move-in date is required. / 期望入住日期为必填项。");
+      setError("Preferred move-in date is required.");
       return;
     }
     if (!form.agreed) {
-      setError("Please confirm the declaration at the bottom. / 请确认底部声明。");
+      setError("Please confirm the declaration at the bottom.");
       return;
     }
 
@@ -426,7 +426,7 @@ export default function RentalApplication() {
       setSubmitted(result);
     } catch (err) {
       setError(
-        err.message || "Submission failed. Please try again. / 提交失败，请重试。"
+        err.message || "Submission failed. Please try again."
       );
     } finally {
       setSubmitting(false);
@@ -511,7 +511,7 @@ export default function RentalApplication() {
         <div className="card" style={{ textAlign: "center", padding: "40px 32px" }}>
           <div style={{ fontSize: "3rem", marginBottom: 16 }}>✅</div>
           <h1 style={{ fontWeight: 800, fontSize: "1.4rem", marginBottom: 8 }}>
-            Application Submitted / 申请已提交
+            Application Submitted
           </h1>
           <p
             style={{
@@ -521,8 +521,6 @@ export default function RentalApplication() {
             }}
           >
             Thank you! Your application has been received and will be reviewed shortly.
-            <br />
-            感谢您的申请！我们将尽快审核并与您联系。
           </p>
           <div
             style={{
@@ -540,7 +538,7 @@ export default function RentalApplication() {
                 marginBottom: 4,
               }}
             >
-              Reference Number / 参考编号
+              Reference Number
             </p>
             <p
               style={{
@@ -574,8 +572,8 @@ export default function RentalApplication() {
             }}
           >
             {pdfBusy
-              ? "Preparing… / 正在准备…"
-              : "📄 Download Submitted Application / 下载已提交申请表"}
+              ? "Preparing…"
+              : "📄 Download Submitted Application"}
           </button>
           <p
             style={{
@@ -586,8 +584,8 @@ export default function RentalApplication() {
             }}
           >
             {submitted.pdfUrl
-              ? "Downloads your completed application from our system. / 从系统下载您已提交的完整申请表。"
-              : "Saves a copy of your completed application to this device. / 在本设备保存您已提交的申请表副本。"}
+              ? "Downloads your completed application from our system."
+              : "Saves a copy of your completed application to this device."}
           </p>
 
           <p
@@ -597,8 +595,6 @@ export default function RentalApplication() {
             }}
           >
             Please keep your reference number for follow-up inquiries.
-            <br />
-            请保存您的参考编号以便后续联系。
           </p>
         </div>
       </div>
@@ -619,7 +615,7 @@ export default function RentalApplication() {
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 80px" }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontWeight: 800, fontSize: "1.5rem", marginBottom: 6 }}>
-          Residential Tenancy Application / 住宅租赁申请表
+          Residential Tenancy Application
         </h1>
         {listing && (
           <p style={{ color: "var(--color-text-muted)", fontSize: "0.92rem" }}>
@@ -641,8 +637,6 @@ export default function RentalApplication() {
           Please complete this application if you are interested in renting this
           property. All adult occupants may be required to provide supporting
           documents before move-in. Submitting this form does not guarantee approval.
-          <br />
-          请如实填写此申请表。所有成年入住人员在入住前可能需提供支持文件。提交申请不代表获得批准。
         </div>
       </div>
 
@@ -654,7 +648,7 @@ export default function RentalApplication() {
 
       <form onSubmit={handleSubmit}>
         <div className="card mb-24">
-          <h3 style={sTitle}>1. Property Applied For / 申请房源</h3>
+          <h3 style={sTitle}>1. Property Applied For</h3>
           <div
             style={{
               background: "#edf3ee",
@@ -671,7 +665,7 @@ export default function RentalApplication() {
                   fontWeight: 600,
                 }}
               >
-                Listing ID / 房源编号：
+                Listing ID:
               </span>{" "}
               <code>{listingId}</code>
             </div>
@@ -683,7 +677,7 @@ export default function RentalApplication() {
                     fontWeight: 600,
                   }}
                 >
-                  Address / 地址：
+                  Address:
                 </span>{" "}
                 {listing.address}
                 {listing.city ? `, ${listing.city}` : ""}
@@ -697,7 +691,7 @@ export default function RentalApplication() {
                     fontWeight: 600,
                   }}
                 >
-                  Rent / 月租：
+                  Rent:
                 </span>{" "}
                 ${Number(listing.rent).toLocaleString()}/mo
               </div>
@@ -706,20 +700,20 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>2. Applicant Information / 申请人信息</h3>
+          <h3 style={sTitle}>2. Applicant Information</h3>
           <div className="form-group">
-            <label className="form-label">Full Legal Name / 法定全名 *</label>
+            <label className="form-label">Full Legal Name *</label>
             <input
               className="form-control"
               value={form.applicantName}
               onChange={(e) => set("applicantName", e.target.value)}
-              placeholder="Legal name as shown on ID / 与证件一致的姓名"
+              placeholder="Legal name as shown on ID"
               required
             />
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Phone Number / 电话 *</label>
+              <label className="form-label">Phone Number *</label>
               <input
                 className="form-control"
                 type="tel"
@@ -729,7 +723,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Email Address / 邮箱 *</label>
+              <label className="form-label">Email Address *</label>
               <input
                 className="form-control"
                 type="email"
@@ -742,7 +736,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Date of Birth / 出生日期</label>
+              <label className="form-label">Date of Birth</label>
               <input
                 className="form-control"
                 type="date"
@@ -751,21 +745,21 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">WeChat ID / 微信号</label>
+              <label className="form-label">WeChat ID</label>
               <input
                 className="form-control"
                 value={form.wechat}
                 onChange={(e) => set("wechat", e.target.value)}
-                placeholder="Optional / 选填"
+                placeholder="Optional"
               />
             </div>
           </div>
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>3. Current Residence / 现居住信息</h3>
+          <h3 style={sTitle}>3. Current Residence</h3>
           <div className="form-group">
-            <label className="form-label">Current Address / 当前住址</label>
+            <label className="form-label">Current Address</label>
             <input
               className="form-control"
               value={form.currentResidenceAddress}
@@ -775,7 +769,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">How long have you lived there? / 现住址居住时间</label>
+              <label className="form-label">How long have you lived there?</label>
               <input
                 className="form-control"
                 value={form.currentResidenceSince}
@@ -784,7 +778,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Current Monthly Rent / 当前月租</label>
+              <label className="form-label">Current Monthly Rent</label>
               <input
                 className="form-control"
                 value={form.currentResidenceMonthlyRent}
@@ -795,41 +789,41 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Current Landlord / Property Manager / 现任房东或物业</label>
+              <label className="form-label">Current Landlord / Property Manager</label>
               <input
                 className="form-control"
                 value={form.currentResidenceLandlordName}
                 onChange={(e) => set("currentResidenceLandlordName", e.target.value)}
-                placeholder="Name / 姓名"
+                placeholder="Name"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Landlord Contact / 房东联系方式</label>
+              <label className="form-label">Landlord Contact</label>
               <input
                 className="form-control"
                 value={form.currentResidenceLandlordContact}
                 onChange={(e) => set("currentResidenceLandlordContact", e.target.value)}
-                placeholder="Phone or email / 电话或邮箱"
+                placeholder="Phone or email"
               />
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Reason for Leaving / 搬离原因</label>
+            <label className="form-label">Reason for Leaving</label>
             <textarea
               className="form-control"
               rows={3}
               value={form.currentResidenceReasonForLeaving}
               onChange={(e) => set("currentResidenceReasonForLeaving", e.target.value)}
-              placeholder="Why are you moving from your current residence? / 为什么准备搬离现住址？"
+              placeholder="Why are you moving from your current residence?"
               style={{ resize: "vertical" }}
             />
           </div>
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>4. Previous Residence / 前居住信息</h3>
+          <h3 style={sTitle}>4. Previous Residence</h3>
           <div className="form-group">
-            <label className="form-label">Previous Address / 之前住址</label>
+            <label className="form-label">Previous Address</label>
             <input
               className="form-control"
               value={form.previousResidenceAddress}
@@ -839,7 +833,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Residence Dates / 居住时间</label>
+              <label className="form-label">Residence Dates</label>
               <input
                 className="form-control"
                 value={form.previousResidenceDates}
@@ -848,7 +842,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Previous Monthly Rent / 之前月租</label>
+              <label className="form-label">Previous Monthly Rent</label>
               <input
                 className="form-control"
                 value={form.previousResidenceMonthlyRent}
@@ -859,36 +853,36 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Previous Landlord / Property Manager / 之前房东或物业</label>
+              <label className="form-label">Previous Landlord / Property Manager</label>
               <input
                 className="form-control"
                 value={form.previousResidenceLandlordName}
                 onChange={(e) => set("previousResidenceLandlordName", e.target.value)}
-                placeholder="Name / 姓名"
+                placeholder="Name"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Landlord Contact / 房东联系方式</label>
+              <label className="form-label">Landlord Contact</label>
               <input
                 className="form-control"
                 value={form.previousResidenceLandlordContact}
                 onChange={(e) => set("previousResidenceLandlordContact", e.target.value)}
-                placeholder="Phone or email / 电话或邮箱"
+                placeholder="Phone or email"
               />
             </div>
           </div>
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>5. Employment &amp; Income / 工作与收入</h3>
+          <h3 style={sTitle}>5. Employment &amp; Income</h3>
           <div className="form-group">
-            <label className="form-label">Employment Status / 就业状态</label>
+            <label className="form-label">Employment Status</label>
             <select
               className="select-control"
               value={form.employmentStatus}
               onChange={(e) => set("employmentStatus", e.target.value)}
             >
-              <option value="">Select… / 请选择</option>
+              <option value="">Select…</option>
               {EMPLOYMENT_OPTIONS.map((option) => (
                 <option key={option}>{option}</option>
               ))}
@@ -896,7 +890,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Employer / Income Source / 雇主或收入来源</label>
+              <label className="form-label">Employer / Income Source</label>
               <input
                 className="form-control"
                 value={form.employer}
@@ -905,7 +899,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Monthly Income / 月收入 (CAD)</label>
+              <label className="form-label">Monthly Income (CAD)</label>
               <input
                 className="form-control"
                 value={form.monthlyIncome}
@@ -916,7 +910,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Length of Employment / 工作时长</label>
+              <label className="form-label">Length of Employment</label>
               <input
                 className="form-control"
                 value={form.employmentLength}
@@ -925,7 +919,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Employer Contact / 雇主联系方式</label>
+              <label className="form-label">Employer Contact</label>
               <input
                 className="form-control"
                 value={form.employerContact}
@@ -935,7 +929,7 @@ export default function RentalApplication() {
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Other Income / Additional Notes / 其他收入说明</label>
+            <label className="form-label">Other Income / Additional Notes</label>
             <textarea
               className="form-control"
               rows={3}
@@ -948,10 +942,10 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>6. Occupants / 入住人员</h3>
+          <h3 style={sTitle}>6. Occupants</h3>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Preferred Move-in Date / 期望入住日期 *</label>
+              <label className="form-label">Preferred Move-in Date *</label>
               <input
                 className="form-control"
                 type="date"
@@ -961,13 +955,13 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Desired Lease Term / 期望租期</label>
+              <label className="form-label">Desired Lease Term</label>
               <select
                 className="select-control"
                 value={form.leaseTerm}
                 onChange={(e) => set("leaseTerm", e.target.value)}
               >
-                <option value="">Select… / 请选择</option>
+                <option value="">Select…</option>
                 {LEASE_TERM_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -976,7 +970,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Total Occupants / 入住总人数</label>
+              <label className="form-label">Total Occupants</label>
               <input
                 className="form-control"
                 type="number"
@@ -988,7 +982,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Adults / 成年人数</label>
+              <label className="form-label">Adults</label>
               <input
                 className="form-control"
                 type="number"
@@ -1002,7 +996,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Minors / 未成年人数量</label>
+              <label className="form-label">Minors</label>
               <input
                 className="form-control"
                 type="number"
@@ -1014,7 +1008,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Occupant Summary / 入住人员说明</label>
+              <label className="form-label">Occupant Summary</label>
               <input
                 className="form-control"
                 value={form.occupantNamesAges}
@@ -1026,10 +1020,10 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>7. Joint Applicant / Co-applicant / 共同申请人</h3>
+          <h3 style={sTitle}>7. Joint Applicant / Co-applicant</h3>
           <div className="form-group">
             <label className="form-label">
-              Do you have a joint applicant / co-applicant? / 是否有共同申请人？
+              Do you have a joint applicant / co-applicant?
             </label>
             <RadioGroup
               name="hasJointApplicant"
@@ -1048,7 +1042,7 @@ export default function RentalApplication() {
               }}
             >
               <div className="form-group">
-                <label className="form-label">Full Legal Name / 法定全名</label>
+                <label className="form-label">Full Legal Name</label>
                 <input
                   className="form-control"
                   value={form.jointName}
@@ -1058,7 +1052,7 @@ export default function RentalApplication() {
               </div>
               <div style={grid2}>
                 <div className="form-group">
-                  <label className="form-label">Date of Birth / 出生日期</label>
+                  <label className="form-label">Date of Birth</label>
                   <input
                     className="form-control"
                     type="date"
@@ -1067,7 +1061,7 @@ export default function RentalApplication() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Phone Number / 电话</label>
+                  <label className="form-label">Phone Number</label>
                   <input
                     className="form-control"
                     type="tel"
@@ -1079,7 +1073,7 @@ export default function RentalApplication() {
               </div>
               <div style={grid2}>
                 <div className="form-group">
-                  <label className="form-label">Email Address / 邮箱</label>
+                  <label className="form-label">Email Address</label>
                   <input
                     className="form-control"
                     type="email"
@@ -1089,7 +1083,7 @@ export default function RentalApplication() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Current Address / 当前住址</label>
+                  <label className="form-label">Current Address</label>
                   <input
                     className="form-control"
                     value={form.jointAddress}
@@ -1100,20 +1094,20 @@ export default function RentalApplication() {
               </div>
               <div style={grid2}>
                 <div className="form-group">
-                  <label className="form-label">Employment Status / 就业状态</label>
+                  <label className="form-label">Employment Status</label>
                   <select
                     className="select-control"
                     value={form.jointEmploymentStatus}
                     onChange={(e) => set("jointEmploymentStatus", e.target.value)}
                   >
-                    <option value="">Select… / 请选择</option>
+                    <option value="">Select…</option>
                     {EMPLOYMENT_OPTIONS.map((option) => (
                       <option key={option}>{option}</option>
                     ))}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Monthly Income / 月收入 (CAD)</label>
+                  <label className="form-label">Monthly Income (CAD)</label>
                   <input
                     className="form-control"
                     value={form.jointIncome}
@@ -1123,7 +1117,7 @@ export default function RentalApplication() {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Employer / Income Source / 雇主或收入来源</label>
+                <label className="form-label">Employer / Income Source</label>
                 <input
                   className="form-control"
                   value={form.jointEmployerIncomeSource}
@@ -1132,7 +1126,7 @@ export default function RentalApplication() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Employer Contact / 雇主联系方式</label>
+                <label className="form-label">Employer Contact</label>
                 <input
                   className="form-control"
                   value={form.jointEmployerContact}
@@ -1141,7 +1135,7 @@ export default function RentalApplication() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Current Landlord Reference / 当前房东参考</label>
+                <label className="form-label">Current Landlord Reference</label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -1152,7 +1146,7 @@ export default function RentalApplication() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Credit Information / 信用信息</label>
+                <label className="form-label">Credit Information</label>
                 <RadioGroup
                   name="jointCreditInfo"
                   options={CREDIT_OPTIONS}
@@ -1162,7 +1156,7 @@ export default function RentalApplication() {
               </div>
               <div className="form-group">
                 <label className="form-label">
-                  Willing to provide proof of income / credit report / 是否愿意提供收入证明或信用报告
+                  Willing to provide proof of income / credit report
                 </label>
                 <RadioGroup
                   name="jointProofOfIncome"
@@ -1176,9 +1170,9 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>8. Pets / 宠物</h3>
+          <h3 style={sTitle}>8. Pets</h3>
           <div className="form-group">
-            <label className="form-label">Do you have pets? / 是否有宠物？</label>
+            <label className="form-label">Do you have pets?</label>
             <RadioGroup
               name="hasPets"
               options={PET_OPTIONS}
@@ -1195,7 +1189,7 @@ export default function RentalApplication() {
               }}
             >
               <div className="form-group">
-                <label className="form-label">Pet Deposit Ready / 是否已准备宠物押金</label>
+                <label className="form-label">Pet Deposit Ready</label>
                 <RadioGroup
                   name="petDepositFunds"
                   options={YES_NO_OPTIONS}
@@ -1204,7 +1198,7 @@ export default function RentalApplication() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Pet Details / 宠物详情</label>
+                <label className="form-label">Pet Details</label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -1219,10 +1213,10 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>9. Vehicles / 车辆</h3>
+          <h3 style={sTitle}>9. Vehicles</h3>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Number of Vehicles / 车辆数量</label>
+              <label className="form-label">Number of Vehicles</label>
               <input
                 className="form-control"
                 value={form.vehicleCount}
@@ -1231,7 +1225,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Vehicle Details / 车辆详情</label>
+              <label className="form-label">Vehicle Details</label>
               <input
                 className="form-control"
                 value={form.vehicleDetails}
@@ -1243,10 +1237,10 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>10. Smoking / Vaping / 吸烟或电子烟</h3>
+          <h3 style={sTitle}>10. Smoking / Vaping</h3>
           <div className="form-group">
             <label className="form-label">
-              Do you or any occupant smoke, vape, or use cannabis? / 您或任何入住人员是否吸烟、使用电子烟或大麻？
+              Do you or any occupant smoke, vape, or use cannabis?
             </label>
             <RadioGroup
               name="smokesVapesCannabis"
@@ -1271,25 +1265,24 @@ export default function RentalApplication() {
               onChange={(e) => set("noSmokingAgreement", e.target.checked)}
               style={{ marginTop: 3, flexShrink: 0 }}
             />
-            I agree that no smoking, vaping, or cannabis use is permitted on the
-            property. / 本人同意在物业内禁止吸烟、电子烟或大麻使用。
+            I agree that no smoking, vaping, or cannabis use is permitted on the property.
           </label>
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>11. References / 推荐人</h3>
+          <h3 style={sTitle}>11. References</h3>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Reference 1 Name / 推荐人 1 姓名</label>
+              <label className="form-label">Reference 1 Name</label>
               <input
                 className="form-control"
                 value={form.referenceOneName}
                 onChange={(e) => set("referenceOneName", e.target.value)}
-                placeholder="Name / 姓名"
+                placeholder="Name"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Reference 1 Relationship / 关系</label>
+              <label className="form-label">Reference 1 Relationship</label>
               <input
                 className="form-control"
                 value={form.referenceOneRelationship}
@@ -1299,7 +1292,7 @@ export default function RentalApplication() {
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Reference 1 Contact / 联系方式</label>
+            <label className="form-label">Reference 1 Contact</label>
             <input
               className="form-control"
               value={form.referenceOneContact}
@@ -1309,16 +1302,16 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Reference 2 Name / 推荐人 2 姓名</label>
+              <label className="form-label">Reference 2 Name</label>
               <input
                 className="form-control"
                 value={form.referenceTwoName}
                 onChange={(e) => set("referenceTwoName", e.target.value)}
-                placeholder="Name / 姓名"
+                placeholder="Name"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Reference 2 Relationship / 关系</label>
+              <label className="form-label">Reference 2 Relationship</label>
               <input
                 className="form-control"
                 value={form.referenceTwoRelationship}
@@ -1328,7 +1321,7 @@ export default function RentalApplication() {
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Reference 2 Contact / 联系方式</label>
+            <label className="form-label">Reference 2 Contact</label>
             <input
               className="form-control"
               value={form.referenceTwoContact}
@@ -1339,19 +1332,19 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>12. Emergency Contact / 紧急联系人</h3>
+          <h3 style={sTitle}>12. Emergency Contact</h3>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Name / 姓名</label>
+              <label className="form-label">Name</label>
               <input
                 className="form-control"
                 value={form.emergencyName}
                 onChange={(e) => set("emergencyName", e.target.value)}
-                placeholder="Name / 姓名"
+                placeholder="Name"
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Relationship / 关系</label>
+              <label className="form-label">Relationship</label>
               <input
                 className="form-control"
                 value={form.emergencyRelationship}
@@ -1362,7 +1355,7 @@ export default function RentalApplication() {
           </div>
           <div style={grid2}>
             <div className="form-group">
-              <label className="form-label">Phone Number / 电话</label>
+              <label className="form-label">Phone Number</label>
               <input
                 className="form-control"
                 value={form.emergencyPhone}
@@ -1371,7 +1364,7 @@ export default function RentalApplication() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Email Address / 邮箱</label>
+              <label className="form-label">Email Address</label>
               <input
                 className="form-control"
                 type="email"
@@ -1384,9 +1377,9 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>13. Background / Credit / 租赁背景与信用</h3>
+          <h3 style={sTitle}>13. Background / Credit</h3>
           <div className="form-group">
-            <label className="form-label">Current Credit Profile / 当前信用情况</label>
+            <label className="form-label">Current Credit Profile</label>
             <RadioGroup
               name="creditHistory"
               options={CREDIT_OPTIONS}
@@ -1396,21 +1389,20 @@ export default function RentalApplication() {
           </div>
           <div className="form-group">
             <label className="form-label">
-              Have you or any co-applicant ever been evicted or found in breach of a
-              tenancy agreement? / 您或共同申请人是否曾被驱逐或违反租约？
+              Have you or any co-applicant ever been evicted or found in breach of a tenancy agreement?
             </label>
             <textarea
               className="form-control"
               rows={3}
               value={form.evictionHistory}
               onChange={(e) => set("evictionHistory", e.target.value)}
-              placeholder='If no, write "No". / 如无，请填写 "No"。'
+              placeholder='If no, write "No".'
               style={{ resize: "vertical" }}
             />
           </div>
           <div className="form-group">
             <label className="form-label">
-              Additional Background / Credit Notes / 其他背景或信用说明
+              Additional Background / Credit Notes
             </label>
             <textarea
               className="form-control"
@@ -1424,11 +1416,10 @@ export default function RentalApplication() {
         </div>
 
         <div className="card mb-24">
-          <h3 style={sTitle}>14. Supporting Documents / 支持文件说明</h3>
+          <h3 style={sTitle}>14. Supporting Documents</h3>
           <div className="form-group">
             <label className="form-label">
-              Can you provide proof of income and/or a recent credit report if
-              requested? / 如被要求，您能否提供收入证明或近期信用报告？
+              Can you provide proof of income and/or a recent credit report if requested?
             </label>
             <RadioGroup
               name="proofOfIncome"
@@ -1438,7 +1429,7 @@ export default function RentalApplication() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Supporting Document Notes / 支持文件说明</label>
+            <label className="form-label">Supporting Document Notes</label>
             <textarea
               className="form-control"
               rows={3}
@@ -1450,7 +1441,7 @@ export default function RentalApplication() {
           </div>
           <div className="form-group">
             <label className="form-label">
-              Do you currently have tenant insurance? / 您目前是否有租客保险？
+              Do you currently have tenant insurance?
             </label>
             <RadioGroup
               name="hasTenantInsurance"
@@ -1461,8 +1452,7 @@ export default function RentalApplication() {
           </div>
           <div className="form-group">
             <label className="form-label">
-              Can you provide proof of tenant insurance before move-in? /
-              能否在入住前提供租客保险证明？
+              Can you provide proof of tenant insurance before move-in?
             </label>
             <RadioGroup
               name="proofInsuranceBeforeMoveIn"
@@ -1478,8 +1468,7 @@ export default function RentalApplication() {
               lineHeight: 1.6,
             }}
           >
-            Do not upload files on this page. Documents can be requested separately
-            after review. / 此页无需上传文件，审核后如有需要会再单独联系。
+            Do not upload files on this page. Documents can be requested separately after review.
           </p>
         </div>
 
@@ -1487,11 +1476,10 @@ export default function RentalApplication() {
           className="card mb-24"
           style={{ background: "#f5f8f5", border: "2px solid var(--color-border)" }}
         >
-          <h3 style={sTitle}>15. Consent &amp; Declaration / 同意与声明</h3>
+          <h3 style={sTitle}>15. Consent &amp; Declaration</h3>
           <div className="form-group">
             <label className="form-label">
-              Do you have funds available for the security deposit and first month's
-              rent? / 是否已准备好押金和首月租金？
+              Do you have funds available for the security deposit and first month's rent?
             </label>
             <RadioGroup
               name="depositFundsAvailable"
@@ -1505,9 +1493,6 @@ export default function RentalApplication() {
             of half one month's rent. If you have pets, an additional pet deposit may
             be required. Tenant insurance with at least $1,000,000 third-party
             liability is required before move-in.
-            <br />
-            根据卑诗省住宅租赁法，押金最高为半个月租金。如有宠物，可能需要额外宠物押金。入住前须持有至少
-            $1,000,000 第三方责任险的租客保险。
           </div>
           <label
             style={{
@@ -1526,8 +1511,7 @@ export default function RentalApplication() {
               onChange={(e) => set("depositAgreement", e.target.checked)}
               style={{ marginTop: 3, flexShrink: 0 }}
             />
-            I understand and agree to the deposit requirements. /
-            本人了解并同意押金相关要求。
+            I understand and agree to the deposit requirements.
           </label>
           <label
             style={{
@@ -1546,11 +1530,10 @@ export default function RentalApplication() {
               onChange={(e) => set("tenantInsuranceAgreement", e.target.checked)}
               style={{ marginTop: 3, flexShrink: 0 }}
             />
-            I understand that tenant insurance is required before move-in. /
-            本人了解入住前必须提供租客保险。
+            I understand that tenant insurance is required before move-in.
           </label>
           <div className="form-group">
-            <label className="form-label">Additional Notes / 其他补充说明</label>
+            <label className="form-label">Additional Notes</label>
             <textarea
               className="form-control"
               rows={3}
@@ -1569,10 +1552,10 @@ export default function RentalApplication() {
               marginBottom: 16,
             }}
           >
-            <li>All information provided is true and complete. / 所有信息真实且完整。</li>
-            <li>Submitting this application does not guarantee approval. / 提交申请不代表必然获批。</li>
-            <li>You authorize reference and tenancy screening checks. / 您授权进行推荐人和租赁背景核查。</li>
-            <li>Your information will be used only for tenancy review. / 您的信息仅用于租赁审核。</li>
+            <li>All information provided is true and complete.</li>
+            <li>Submitting this application does not guarantee approval.</li>
+            <li>You authorize reference and tenancy screening checks.</li>
+            <li>Your information will be used only for tenancy review.</li>
           </ul>
           <label
             style={{
@@ -1590,8 +1573,7 @@ export default function RentalApplication() {
               required
             />
             <span style={{ fontSize: "0.88rem", lineHeight: 1.6, fontWeight: 600 }}>
-              I confirm the declaration above and consent to the review of this
-              application. / 本人确认以上声明，并同意本申请进入审核。 *
+              I confirm the declaration above and consent to the review of this application. *
             </span>
           </label>
         </div>
@@ -1602,7 +1584,7 @@ export default function RentalApplication() {
           disabled={submitting}
           style={{ width: "100%", padding: "16px 0", fontSize: "1.05rem", fontWeight: 700 }}
         >
-          {submitting ? "Submitting… / 提交中…" : "Submit Application / 提交申请"}
+          {submitting ? "Submitting…" : "Submit Application"}
         </button>
 
         <p
@@ -1614,8 +1596,7 @@ export default function RentalApplication() {
             lineHeight: 1.6,
           }}
         >
-          By submitting, you agree that your information will be used for tenancy
-          screening. / 提交即表示同意将信息用于租赁审核。
+          By submitting, you agree that your information will be used for tenancy screening.
         </p>
       </form>
     </div>

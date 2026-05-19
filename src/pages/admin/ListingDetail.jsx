@@ -1308,6 +1308,13 @@ export default function ListingDetail({ lang }) {
       });
       setPhotoOrder((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
       setManualCover(fileId);
+      // Persist active cover fileId to listing sheet so public pages can find it
+      const currentListing = listingRef.current;
+      if (currentListing) {
+        try {
+          await persist({ ...currentListing, coverImageFileId: fileId });
+        } catch { /* non-critical — admin view still works via in-memory state */ }
+      }
       setCollageStatus("saved");
       setCollageMsg("Collage saved to 03_Cover_Images/ and set as cover. / 拼图封面已保存并设为主图。");
     } catch (err) {

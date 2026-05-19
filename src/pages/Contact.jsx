@@ -44,7 +44,6 @@ export default function Contact({ lang }) {
     <div className="pub-page">
       <section className="pub-hero">
         <h1 className="pub-hero__title">{t(lang, "contact.title")}</h1>
-        <p className="pub-hero__sub">{t(lang, "contact.chTitle")}</p>
       </section>
 
       <section className="section">
@@ -53,34 +52,26 @@ export default function Contact({ lang }) {
             {/* Left: Info */}
             <div>
               <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-                <h4>Request Access / 申请使用</h4>
+                <h4>Request Access</h4>
                 <p>{t(lang, "contact.betaNotice")}</p>
-                <p style={{ marginTop: 6, opacity: 0.8 }}>{t(lang, "contact.betaNoticeCh")}</p>
                 <p style={{ marginTop: 6 }}>
-                  可申请使用 Rental Listing Studio、Home Sale Studio，或同时申请两套模块。
-                  {" "}You can request Rental Listing Studio, Home Sale Studio, or both.
+                  You can request Rental Listing Studio, Home Sale Studio, or both.
                 </p>
               </div>
 
               <div className="card" style={{ marginBottom: 16, borderColor: "#e5dfd6" }}>
-                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>我们可为您准备 / What we prepare for you:</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>What we prepare for you:</h3>
                 <ul style={{ paddingLeft: 16, fontSize: "0.88rem", lineHeight: 2 }}>
-                  <li>🏘️ 出租房源推广 / Rental listing promotion workflow</li>
-                  <li>🏡 出售房源推广 / Home sale marketing workflow</li>
-                  <li>📝 中英文营销文案 / Bilingual marketing copy</li>
-                  <li>📲 分享素材与二维码 / Share kit and QR code</li>
-                  <li>🎬 短视频与展示素材 / Short video and media support</li>
+                  <li>🏘️ Rental listing promotion workflow</li>
+                  <li>🏡 Home sale marketing workflow</li>
+                  <li>📝 Bilingual marketing copy</li>
+                  <li>📲 Share kit and QR code</li>
+                  <li>🎬 Short video and media support</li>
                 </ul>
-                <div style={{ borderTop: "1px solid var(--color-border)", marginTop: 12, paddingTop: 10 }}>
-                  <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                    可申请：出租房源推广 · 出售房源推广 · 或两套模块一起开通
-                  </p>
-                </div>
               </div>
 
               <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-                <p>📍 服务范围：纳奈莫、维多利亚、大温哥华及 BC 全省。</p>
-                <p style={{ marginTop: 4 }}>Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.</p>
+                <p>Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.</p>
               </div>
             </div>
 
@@ -90,15 +81,12 @@ export default function Contact({ lang }) {
                 <div className="text-center" style={{ padding: "40px 0" }}>
                   <div style={{ fontSize: "3rem", marginBottom: 16 }}>✅</div>
                   <h3 style={{ fontWeight: 700, marginBottom: 8 }}>{t(lang, "contact.successMsg")}</h3>
-                  <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-                    {t(lang, "contact.successMsgCh")}
-                  </p>
                   <button
                     className="btn btn--ghost mt-16"
                     style={{ marginTop: 20 }}
                     onClick={() => { setSubmitted(false); setForm({ name: "", email: "", phone: "", wechat: "", city: "", service: "", message: "" }); }}
                   >
-                    Submit another / 再次提交
+                    Submit another
                   </button>
                 </div>
               ) : (
@@ -137,7 +125,7 @@ export default function Contact({ lang }) {
                       />
                     </div>
                     <div className="form-group">
-                      <label>WeChat ID / 微信号</label>
+                      <label>WeChat ID</label>
                       <input
                         className="form-control"
                         value={form.wechat}
@@ -158,9 +146,9 @@ export default function Contact({ lang }) {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Interested Module / {t(lang, "contact.serviceInterest")}</label>
+                    <label>Interested Module</label>
                     <select className="form-control" value={form.service} onChange={set("service")}>
-                      <option value="">— Select / 请选择 —</option>
+                      <option value="">— Select —</option>
                       {SERVICE_OPTIONS.map((o) => (
                         <option key={o} value={o}>{o}</option>
                       ))}
@@ -186,8 +174,8 @@ export default function Contact({ lang }) {
                   </button>
                   <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 10, textAlign: "center" }}>
                     {isApiConnected()
-                      ? "Your request will be saved to our Google Sheet. / 您的申请将保存至我们的 Google 表格。"
-                      : "Prototype mode: form is not transmitted. / 原型模式：表单数据不会传输。"}
+                      ? "Your request will be saved to our system."
+                      : "Prototype mode: form is not transmitted."}
                   </p>
                 </form>
               )}
