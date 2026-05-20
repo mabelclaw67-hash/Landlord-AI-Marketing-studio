@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { getListing, getListingFolderFiles, getListingSubfolderFiles } from "../utils/storage";
 import ShareButton from "../components/ShareButton";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
-import { buildQrCodeSvg } from "../utils/qrCodeSvg";
 import { buildRentalListingPublicUrl } from "../utils/publicUrls";
 import {
   extractDriveFolderId,
@@ -206,12 +206,11 @@ export default function PublicListing() {
     letterSpacing: "0.06em", marginBottom: 3,
   };
   const listingUrl = buildRentalListingPublicUrl(id);
-  const qrSvg = buildQrCodeSvg(listingUrl, {
-    cellSize: 5,
-    quietZone: 4,
-    foreground: "#2f4338",
-    background: "#ffffff",
-  });
+  const qrRef = useRef(null);
+
+  function getQrSvgHtml() {
+    return qrRef.current?.querySelector("svg")?.outerHTML || "";
+  }
 
   function handlePdfDownload() {
     if (!listing || pdfBusy) return;
@@ -268,7 +267,7 @@ export default function PublicListing() {
       <h1 style="font-size: 22px; margin-bottom: 8px;">QR Code</h1>
       <p class="meta" style="margin-bottom: 8px;">${safeTitle}</p>
       <p class="meta" style="margin-bottom: 10px;">Scan to view listing and apply online</p>
-      <div class="code">${qrSvg}</div>
+      <div class="code">${getQrSvgHtml()}</div>
       <p class="meta">${safeListingUrl}</p>
     </div>
     <script>
@@ -437,7 +436,7 @@ export default function PublicListing() {
           ${openHouseInfo.viewingInstructions ? `<div style="font-size: 15px; line-height: 1.6; margin-bottom: 6px;"><strong>Viewing:</strong> ${escapePrintHtml(openHouseInfo.viewingInstructions)}</div>` : ""}
           ${openHouseInfo.parkingAccessNotes ? `<div style="font-size: 15px; line-height: 1.6;"><strong>Parking / Access:</strong> ${escapePrintHtml(openHouseInfo.parkingAccessNotes)}</div>` : ""}
         </div>` : ""}
-        <div class="qr-wrap">${qrSvg}</div>
+        <div class="qr-wrap">${getQrSvgHtml()}</div>
         <div class="cta">Scan to view listing and apply online</div>
         <div class="contact">
           ${safeContactPhone || safeContactEmail ? `
@@ -689,10 +688,11 @@ export default function PublicListing() {
                 marginBottom: 10,
               }}
             >
-              <div
-                style={{ width: 180, maxWidth: "100%" }}
-                dangerouslySetInnerHTML={{ __html: qrSvg }}
-              />
+              {/* Hidden ref — print handlers extract SVG HTML from here */}
+              <div ref={qrRef} style={{ display: "none" }}>
+                <QRCodeSVG value={listingUrl} size={200} fgColor="#2f4338" bgColor="#ffffff" />
+              </div>
+              <QRCodeSVG value={listingUrl} size={180} fgColor="#2f4338" bgColor="#ffffff" />
             </div>
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 12 }}>
               Scan to view listing and apply online
