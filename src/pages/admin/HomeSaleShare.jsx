@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { buildQrCodeSvg } from "../../utils/qrCodeSvg";
 import {
   buildHomeSalePublicUrl,
   getHomeSaleListing,
@@ -37,12 +37,7 @@ export default function HomeSaleShare() {
   }, [listingId]);
 
   const publicUrl = useMemo(() => buildHomeSalePublicUrl(listingId), [listingId]);
-  const qrSvg = useMemo(() => buildQrCodeSvg(publicUrl, {
-    cellSize: 5,
-    quietZone: 4,
-    foreground: "#2f4338",
-    background: "#ffffff",
-  }), [publicUrl]);
+  const shareQrRef = useRef(null);
 
   const copyBlocks = useMemo(() => {
     const displayOrder = [
@@ -103,7 +98,7 @@ export default function HomeSaleShare() {
   <div class="wrap">
     <h1>扫码查看出售房源</h1>
     <p class="meta">Scan to view the sale listing / 扫码查看出售房源</p>
-    <div class="code">${qrSvg}</div>
+    <div class="code">${shareQrRef.current?.querySelector("svg")?.outerHTML || ""}</div>
     <p class="meta">${escapeHtml(listing?.address || listingId)}</p>
     <p class="meta">${escapeHtml(publicUrl)}</p>
   </div>
@@ -154,7 +149,13 @@ export default function HomeSaleShare() {
         <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>
           扫码查看房源详情与买家咨询入口。 / Scan to open the sale listing and buyer inquiry page.
         </p>
-        <div style={{ width: 180, margin: "0 auto 12px" }} dangerouslySetInnerHTML={{ __html: qrSvg }} />
+        {/* Hidden ref — print handler extracts SVG HTML from here */}
+        <div ref={shareQrRef} style={{ display: "none" }}>
+          <QRCodeSVG value={publicUrl} size={200} fgColor="#2f4338" bgColor="#ffffff" />
+        </div>
+        <div style={{ width: 180, margin: "0 auto 12px", display: "flex", justifyContent: "center" }}>
+          <QRCodeSVG value={publicUrl} size={180} fgColor="#2f4338" bgColor="#ffffff" />
+        </div>
         <div className="flex" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
           <button type="button" className="btn btn--ghost" onClick={handlePrintQr}>Print QR Code / 打印二维码</button>
           <a href={publicUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">Open Public Page</a>

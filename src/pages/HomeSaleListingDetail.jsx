@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
-import { buildQrCodeSvg } from "../utils/qrCodeSvg";
+import { QRCodeSVG } from "qrcode.react";
 import {
   buildHomeSalePublicUrl,
   getHomeSaleListing,
@@ -240,6 +240,7 @@ export default function HomeSaleListingDetail() {
   const [inquirySuccess, setInquirySuccess] = useState("");
   const [inquiryError, setInquiryError] = useState("");
   const formRef = useRef(null);
+  const saleQrRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -382,12 +383,7 @@ export default function HomeSaleListingDetail() {
 
   function handlePrintQrCode() {
     const listingUrl = buildHomeSalePublicUrl(listingId);
-    const svg = buildQrCodeSvg(listingUrl, {
-      cellSize: 5,
-      quietZone: 4,
-      foreground: "#2f4338",
-      background: "#ffffff",
-    });
+    const svg = saleQrRef.current?.querySelector("svg")?.outerHTML || "";
     const win = window.open("", "_blank", "width=560,height=760");
     if (!win) return;
     win.document.write(`<!doctype html>
@@ -659,12 +655,11 @@ export default function HomeSaleListingDetail() {
                   Sale QR Code
                 </h3>
                 <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10 }}>
-                  <div style={{ width: 180 }} dangerouslySetInnerHTML={{ __html: buildQrCodeSvg(normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)), {
-                    cellSize: 5,
-                    quietZone: 4,
-                    foreground: "#2f4338",
-                    background: "#ffffff",
-                  }) }} />
+                  {/* Hidden ref — print handler extracts SVG HTML from here */}
+                  <div ref={saleQrRef} style={{ display: "none" }}>
+                    <QRCodeSVG value={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} size={200} fgColor="#2f4338" bgColor="#ffffff" />
+                  </div>
+                  <QRCodeSVG value={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} size={180} fgColor="#2f4338" bgColor="#ffffff" />
                 </div>
                 <p style={{ fontSize: "0.84rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 12 }}>
                   Scan to view the sale listing and buyer inquiry page
