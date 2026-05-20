@@ -37,6 +37,28 @@ function formatPrice(value) {
   return `$${amount.toLocaleString()}`;
 }
 
+function normalizeExternalUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text;
+  return "";
+}
+
+function isInternalHomeSalePublicUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  return /\/home-sale-studio\/listings\/[^/]+$/i.test(text);
+}
+
+function stripGeneratedMissingInfoNote(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text
+    .replace(/\n*\s*Note:\s*Some listing details are not yet filled in:[^\n]*/gi, "")
+    .replace(/\n*\s*说明：以下部分房源信息暂未填写：[^\n]*/g, "")
+    .trim();
+}
+
 function normalizeSaleAssetRef(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -92,7 +114,11 @@ function buildStandalonePrimaryPhoto(listing, photoDataUrls = {}) {
 
 function buildOrderedSalePhotos(listing, mediaRows, photoDataUrls = {}) {
   const photoAssets = (Array.isArray(mediaRows) ? mediaRows : [])
-    .filter((item) => item?.assetType === "Photo" || (!item?.assetType && (item?.driveUrl || item?.publicUrl)))
+    .filter((item) =>
+      item?.assetType === "Photo"
+      || item?.assetType === "Virtual Staging Public"
+      || (!item?.assetType && (item?.driveUrl || item?.publicUrl))
+    )
     .sort((a, b) => compareSalePhotoAssets(a, b, listing?.primaryPhotoUrl));
 
   const ordered = [];
@@ -314,6 +340,18 @@ export default function HomeSaleListingDetail() {
   }, [listingId, listing?.primaryPhotoUrl, mediaRows]);
 
   const orderedPhotos = buildOrderedSalePhotos(listing, mediaRows, photoDataUrls);
+  const rawPublicListingUrl = normalizeExternalUrl(listing?.publicListingUrl);
+  const safeMlsUrl = normalizeExternalUrl(listing?.mlsUrl)
+    || (!isInternalHomeSalePublicUrl(rawPublicListingUrl) ? rawPublicListingUrl : "");
+  const hasMlsInfo = !!(listing?.mlsNumber || safeMlsUrl);
+  const marketingZh = stripGeneratedMissingInfoNote(marketing.zh);
+  const marketingEn = stripGeneratedMissingInfoNote(marketing.en);
+  const contactPhoneHref = listing?.contactPhone ? `tel:${String(listing.contactPhone).replace(/[^\d+]/g, "")}` : "";
+  const contactEmailHref = listing?.contactEmail ? `mailto:${String(listing.contactEmail).trim()}` : "";
+
+  function handleScrollToInquiry() {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function handleInquirySubmit(e) {
     e.preventDefault();
@@ -473,8 +511,83 @@ export default function HomeSaleListingDetail() {
                   </div>
                 </div>
 
+                {hasMlsInfo && (
+                  <div
+                    style={{
+                      marginBottom: 18,
+                      border: "1px solid #d8e4db",
+                      borderRadius: 12,
+                      background: "#f7fbf8",
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 4 }}>
+                          MLS Listing
+                        </div>
+                        <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#213128", lineHeight: 1.5 }}>
+                          {listing.mlsNumber ? `MLS® ${listing.mlsNumber}` : "Listed on MLS"}
+                        </div>
+                        <p style={{ marginTop: 4, fontSize: "0.82rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+                          This property is also listed on MLS for added listing verification.
+                        </p>
+                      </div>
+                      {safeMlsUrl && (
+                        <a
+                          href={safeMlsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn--ghost"
+                        >
+                          View MLS Listing
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    marginBottom: 18,
+                    border: "1px solid #e5dfd6",
+                    borderRadius: 12,
+                    background: "#fffaf2",
+                    padding: "16px 16px",
+                  }}
+                >
+                  <div style={{ fontSize: "0.78rem", color: "#8a5a22", fontWeight: 700, marginBottom: 6 }}>
+                    Local Promotion Ready
+                  </div>
+                  <h3 style={{ fontSize: "1rem", color: "#213128", marginBottom: 6 }}>
+                    Interested in this property?
+                  </h3>
+                  <p style={{ fontSize: "0.86rem", color: "var(--color-text-muted)", lineHeight: 1.65, marginBottom: 12 }}>
+                    Request a showing, contact the listing representative, or verify the MLS listing before making your next move.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={handleScrollToInquiry}
+                      className="btn btn--primary"
+                    >
+                      Request a Showing
+                    </button>
+                    {contactPhoneHref && (
+                      <a href={contactPhoneHref} className="btn btn--ghost">
+                        Call Listing Contact
+                      </a>
+                    )}
+                    {contactEmailHref && (
+                      <a href={contactEmailHref} className="btn btn--ghost">
+                        Email Listing Contact
+                      </a>
+                    )}
+                  </div>
+                </div>
+
                 <div style={{ display: "grid", gap: 20 }}>
-                  {(marketing.zh || marketing.headlineZh) && (
+                  {(marketingZh || marketing.headlineZh) && (
                     <div>
                       <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
                         Chinese Description
@@ -485,13 +598,13 @@ export default function HomeSaleListingDetail() {
                         </p>
                       )}
                       <p style={{ lineHeight: 1.9, whiteSpace: "pre-line" }}>
-                        {marketing.zh}
+                        {marketingZh}
                       </p>
                     </div>
                   )}
 
-                  {(marketing.en || marketing.headlineEn) && (
-                    <div style={{ borderTop: marketing.zh ? "1px solid #f0ede8" : "none", paddingTop: marketing.zh ? 16 : 0 }}>
+                  {(marketingEn || marketing.headlineEn) && (
+                    <div style={{ borderTop: marketingZh ? "1px solid #f0ede8" : "none", paddingTop: marketingZh ? 16 : 0 }}>
                       <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 700, marginBottom: 6 }}>
                         English Description
                       </div>
@@ -501,12 +614,12 @@ export default function HomeSaleListingDetail() {
                         </p>
                       )}
                       <p style={{ lineHeight: 1.9, color: "var(--color-text-muted)", whiteSpace: "pre-line" }}>
-                        {marketing.en}
+                        {marketingEn}
                       </p>
                     </div>
                   )}
 
-                  {!marketing.zh && !marketing.en && (
+                  {!marketingZh && !marketingEn && (
                     <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem" }}>
                       Property description will be provided by the seller.
                     </p>

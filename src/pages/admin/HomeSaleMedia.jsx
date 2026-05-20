@@ -324,6 +324,9 @@ export default function HomeSaleMedia() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <Link to={`/admin/home-sale/staging/${listingId}`} className="btn btn--ghost btn--sm">
+            ✨ Virtual Staging
+          </Link>
           <a
             href={listing?.publicListingUrl || `/home-sale-studio/listings/${listingId}`}
             target="_blank"

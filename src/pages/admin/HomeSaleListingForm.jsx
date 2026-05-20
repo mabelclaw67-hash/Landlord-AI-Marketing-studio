@@ -258,6 +258,16 @@ export default function HomeSaleListingForm({ mode }) {
           </div>
 
           <div className="form-group">
+            <label>MLS URL <span className="ch-hint">MLS 链接</span></label>
+            <input
+              className="form-control"
+              value={form.mlsUrl}
+              onChange={updateField("mlsUrl")}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="form-group">
             <label>Key Features <span className="ch-hint">主要卖点</span></label>
             <textarea className="form-control" value={form.keyFeatures} onChange={updateField("keyFeatures")} rows={4} />
           </div>

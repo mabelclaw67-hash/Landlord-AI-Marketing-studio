@@ -92,6 +92,7 @@ const LISTING_HEADER_MAP = {
   "Primary Photo URL": "primaryPhotoUrl",
   "Video URL": "videoUrl",
   "MLS Number": "mlsNumber",
+  "MLS URL": "mlsUrl",
   "Listing Source": "listingSource",
   Notes: "notes",
   "Internal Status": "internalStatus",
@@ -176,6 +177,7 @@ const LISTING_CONNECTED_HEADERS = [
   "Primary Photo URL",
   "Video URL",
   "MLS Number",
+  "MLS URL",
   "Listing Source",
 ];
 
@@ -229,6 +231,7 @@ export function createEmptySaleListingForm(overrides = {}) {
     primaryPhotoUrl: "",
     videoUrl: "",
     mlsNumber: "",
+    mlsUrl: "",
     listingSource: "Manual / Realtor / FSBO",
     notes: "",
     internalStatus: "",
@@ -505,6 +508,7 @@ function buildSaleListingRecord(values) {
     "Primary Photo URL": state.primaryPhotoUrl || "",
     "Video URL": state.videoUrl || "",
     "MLS Number": state.mlsNumber || "",
+    "MLS URL": state.mlsUrl || "",
     "Listing Source": state.listingSource || "",
     Notes: state.notes || "",
     "Internal Status": state.internalStatus || "",

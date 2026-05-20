@@ -4,6 +4,7 @@ import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } fr
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
+import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import {
   extractDriveFolderId,
   getListingStatusMeta,
@@ -189,93 +190,103 @@ export default function Examples() {
         )}
 
         {!loading && !error && listings.length > 0 && (
-          <div className="rental-card-list">
-            {listings.map((listing) => {
-              const firstFeature = listing.features
-                ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)[0]
-                : null;
-              const avail = formatDate(listing.available);
-              const statusMeta = getListingStatusMeta(listing);
-              const coverPhoto = coverPhotos[listing.id] || null;
+          <div className="tenant-listings-layout">
+            <div className="tenant-listings-main">
+              <div className="application-process-mobile-wrap">
+                <MobileApplicationProcessCard />
+              </div>
 
-              return (
-                <div key={listing.id} className="rental-card">
-                  {/* Cover photo — resolved with the same cover-selection logic as the detail page */}
-                  <ListingCardCover coverPhoto={coverPhoto} />
-                  {/* Card header */}
-                  <div className="rental-card__header">
-                    <div>
-                      <h2 className="rental-card__address">{listing.address}</h2>
-                      <p className="rental-card__city">📍 {listing.city}, BC</p>
+              <div className="rental-card-list">
+                {listings.map((listing) => {
+                  const firstFeature = listing.features
+                    ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)[0]
+                    : null;
+                  const avail = formatDate(listing.available);
+                  const statusMeta = getListingStatusMeta(listing);
+                  const coverPhoto = coverPhotos[listing.id] || null;
+
+                  return (
+                    <div key={listing.id} className="rental-card">
+                      {/* Cover photo — resolved with the same cover-selection logic as the detail page */}
+                      <ListingCardCover coverPhoto={coverPhoto} />
+                      {/* Card header */}
+                      <div className="rental-card__header">
+                        <div>
+                          <h2 className="rental-card__address">{listing.address}</h2>
+                          <p className="rental-card__city">📍 {listing.city}, BC</p>
+                        </div>
+                        <span
+                          className="rental-card__badge"
+                          style={{
+                            background: statusMeta.background,
+                            color: statusMeta.color,
+                            border: `1px solid ${statusMeta.border}`,
+                          }}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      </div>
+
+                      {/* Key facts row */}
+                      <div className="rental-card__facts">
+                        {listing.rent && (
+                          <div className="rental-card__fact">
+                            <span className="rental-card__fact-label">Rent</span>
+                            <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
+                          </div>
+                        )}
+                        {listing.bedrooms && (
+                          <div className="rental-card__fact">
+                            <span className="rental-card__fact-label">Beds</span>
+                            <span className="rental-card__fact-value">{listing.bedrooms}</span>
+                          </div>
+                        )}
+                        {listing.bathrooms && (
+                          <div className="rental-card__fact">
+                            <span className="rental-card__fact-label">Baths</span>
+                            <span className="rental-card__fact-value">{listing.bathrooms}</span>
+                          </div>
+                        )}
+                        {avail && (
+                          <div className="rental-card__fact">
+                            <span className="rental-card__fact-label">Available</span>
+                            <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Short feature highlight */}
+                      {firstFeature && (
+                        <p className="rental-card__feature">✓ {firstFeature}</p>
+                      )}
+
+                      {statusMeta.applicationsClosed && (
+                        <p style={{ fontSize: "0.82rem", color: statusMeta.color, fontWeight: 700, marginBottom: 10 }}>
+                          Applications closed
+                        </p>
+                      )}
+
+                      {/* CTA */}
+                      <Link
+                        to={`/listings/${listing.id}`}
+                        className="rental-card__cta"
+                      >
+                        {statusMeta.applicationsClosed
+                          ? "View Details / Status →"
+                          : "View Details / Apply →"}
+                      </Link>
+                      <ShareButton
+                        title={listing.address}
+                        text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
+                        url={`${window.location.origin}/listings/${listing.id}`}
+                      />
                     </div>
-                    <span
-                      className="rental-card__badge"
-                      style={{
-                        background: statusMeta.background,
-                        color: statusMeta.color,
-                        border: `1px solid ${statusMeta.border}`,
-                      }}
-                    >
-                      {statusMeta.label}
-                    </span>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                  {/* Key facts row */}
-                  <div className="rental-card__facts">
-                    {listing.rent && (
-                      <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Rent</span>
-                        <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
-                      </div>
-                    )}
-                    {listing.bedrooms && (
-                      <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Beds</span>
-                        <span className="rental-card__fact-value">{listing.bedrooms}</span>
-                      </div>
-                    )}
-                    {listing.bathrooms && (
-                      <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Baths</span>
-                        <span className="rental-card__fact-value">{listing.bathrooms}</span>
-                      </div>
-                    )}
-                    {avail && (
-                      <div className="rental-card__fact">
-                        <span className="rental-card__fact-label">Available</span>
-                        <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Short feature highlight */}
-                  {firstFeature && (
-                    <p className="rental-card__feature">✓ {firstFeature}</p>
-                  )}
-
-                  {statusMeta.applicationsClosed && (
-                    <p style={{ fontSize: "0.82rem", color: statusMeta.color, fontWeight: 700, marginBottom: 10 }}>
-                      Applications closed
-                    </p>
-                  )}
-
-                  {/* CTA */}
-                  <Link
-                    to={`/listings/${listing.id}`}
-                    className="rental-card__cta"
-                  >
-                    {statusMeta.applicationsClosed
-                      ? "View Details / Status →"
-                      : "View Details / Apply →"}
-                  </Link>
-                  <ShareButton
-                    title={listing.address}
-                    text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
-                    url={`${window.location.origin}/listings/${listing.id}`}
-                  />
-                </div>
-              );
-            })}
+            <DesktopApplicationProcessSidebar />
           </div>
         )}
       </div>

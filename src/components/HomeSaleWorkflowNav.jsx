@@ -10,6 +10,7 @@ export default function HomeSaleWorkflowNav({ listingId = "" }) {
     links.push(
       { to: `/admin/home-sale/listings/${listingId}`,         label: "Listing Info / 房源信息" },
       { to: `/admin/home-sale/media/${listingId}`,            label: "Original Photos / 原始照片" },
+      { to: `/admin/home-sale/staging/${listingId}`,          label: "Virtual Staging / 虚拟布置" },
       { to: `/admin/home-sale/enhance/${listingId}`,          label: "Photo Enhancement / 照片美化" },
       { to: `/admin/home-sale/cover/${listingId}`,            label: "Cover Image / 封面图" },
       { to: `/admin/home-sale/marketing/${listingId}`,        label: "Marketing Copy / 营销文案" },

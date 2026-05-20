@@ -28,6 +28,7 @@ import HomeSaleShare from "./pages/admin/HomeSaleShare";
 import HomeSaleVideo from "./pages/admin/HomeSaleVideo";
 import HomeSaleOpenHouse from "./pages/admin/HomeSaleOpenHouse";
 import HomeSalePhotoEnhance from "./pages/admin/HomeSalePhotoEnhance";
+import HomeSaleVirtualStaging from "./pages/admin/HomeSaleVirtualStaging";
 import HomeSaleCoverImage from "./pages/admin/HomeSaleCoverImage";
 import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
 import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
@@ -72,6 +73,7 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/listings/:listingId/edit" element={<HomeSaleListingForm mode="edit" />} />
           <Route path="home-sale/buyer-inquiries" element={<HomeSaleBuyerInquiries />} />
           <Route path="home-sale/media/:listingId" element={<HomeSaleMedia />} />
+          <Route path="home-sale/staging/:listingId" element={<HomeSaleVirtualStaging />} />
           <Route path="home-sale/enhance/:listingId" element={<HomeSalePhotoEnhance />} />
           <Route path="home-sale/cover/:listingId" element={<HomeSaleCoverImage />} />
           <Route path="home-sale/marketing/:listingId" element={<HomeSaleMarketing />} />
