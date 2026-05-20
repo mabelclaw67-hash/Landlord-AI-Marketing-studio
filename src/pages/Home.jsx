@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { t } from "../translations";
 import ShareKit from "../components/ShareKit";
-
-const PRODUCTION_URL = "https://vanislandproperty.ca/";
+import { PUBLIC_SITE_BASE_URL } from "../utils/publicUrls";
 
 const RENTAL_OUTPUTS = [
   {
@@ -394,7 +393,7 @@ export default function Home({ lang }) {
               <div className="lh-qr-badge">Scan to Try</div>
               <div className="lh-qr-code-box">
                 <QRCodeSVG
-                  value={PRODUCTION_URL}
+                  value={PUBLIC_SITE_BASE_URL}
                   size={180}
                   bgColor="#ffffff"
                   fgColor="#1a3a2e"
@@ -407,7 +406,7 @@ export default function Home({ lang }) {
                 Scan to open the platform
               </p>
               <a
-                href={PRODUCTION_URL}
+                href={PUBLIC_SITE_BASE_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="lh-btn lh-btn--sand"

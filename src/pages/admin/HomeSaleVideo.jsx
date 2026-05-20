@@ -19,6 +19,7 @@ import {
   updateSaleListing,
   uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
+import { buildHomeSalePublicUrl } from "../../utils/publicUrls";
 
 const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
 
@@ -412,7 +413,7 @@ export default function HomeSaleVideo() {
     const addr      = cur?.address || "";
     const propType  = cur?.propertyType || "";
     const contactName = cur?.contactName || cur?.ownerName || "";
-    const publicUrl = cur?.publicListingUrl || `${window.location.origin}/home-sale-studio/listings/${listingId}`;
+    const publicUrl = buildHomeSalePublicUrl(listingId);
     const mlsNum    = cur?.mlsNumber ? `MLS® ${cur.mlsNumber}` : "";
 
     // ── Drawing helpers ──

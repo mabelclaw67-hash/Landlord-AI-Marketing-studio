@@ -7,6 +7,7 @@ import {
   updateHomeSaleBuyerInquiry,
   saveHomeSaleShowingAvailability,
 } from "../../utils/homeSaleSheet";
+import { buildHomeSalePublicUrl } from "../../utils/publicUrls";
 
 const APPROVAL_COLORS = {
   Pending:    { background: "#fdf3e7", color: "#8a5a22", border: "1px solid #e7cda7" },
@@ -155,7 +156,7 @@ export default function HomeSaleBuyerInquiry() {
     setInquiries(prev => prev.map(i => i.inquiryId === inquiryId ? { ...i, ...updates } : i));
   }
 
-  const publicUrl = listing?.publicListingUrl || `/home-sale-studio/listings/${listingId}`;
+  const publicUrl = buildHomeSalePublicUrl(listingId);
   const pending = inquiries.filter(i => i.sellerApproval === "Pending").length;
 
   return (

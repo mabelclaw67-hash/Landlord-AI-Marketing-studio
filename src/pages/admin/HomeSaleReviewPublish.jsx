@@ -86,7 +86,7 @@ export default function HomeSaleReviewPublish() {
     : [];
 
   const allGreen = checks.every((c) => c.ok);
-  const publicUrl = listing?.publicListingUrl || `/home-sale-studio/listings/${listingId}`;
+  const publicUrl = buildHomeSalePublicUrl(listingId);
 
   if (loading) {
     return (

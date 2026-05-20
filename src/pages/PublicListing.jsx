@@ -122,6 +122,7 @@ export default function PublicListing() {
   const [coverFiles,    setCoverFiles]    = useState([]); // files from 03_Cover_Images/ subfolder
   const [photosLoading, setPhotosLoading] = useState(false);
   const [pdfBusy,       setPdfBusy]       = useState(false);
+  const [videoCopied,   setVideoCopied]   = useState(false);
   const qrRef = useRef(null);
 
   useEffect(() => {
@@ -278,6 +279,24 @@ export default function PublicListing() {
   </body>
 </html>`);
     printWindow.document.close();
+  }
+
+  async function handleShareVideo() {
+    if (!listing?.videoUrl) return;
+    const shareData = {
+      title: listing.address || "Property Video",
+      text: "Check out this property video",
+      url: listing.videoUrl,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch (_) { /* user cancelled */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(listing.videoUrl);
+        setVideoCopied(true);
+        setTimeout(() => setVideoCopied(false), 2000);
+      } catch (_) { /* clipboard unavailable */ }
+    }
   }
 
   function handlePrintOpenHouseCard() {
@@ -774,6 +793,36 @@ export default function PublicListing() {
             >
               ▶ Watch Video
             </a>
+          )}
+
+          {/* Share Video — only shown when videoUrl exists */}
+          {listing.videoUrl && (
+            <button
+              type="button"
+              onClick={handleShareVideo}
+              style={{
+                position: "relative",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 8, marginTop: 8, width: "100%", textAlign: "center",
+                border: "1.5px solid #3e5b4b", color: "#3e5b4b",
+                padding: "13px 24px", borderRadius: 8, fontWeight: 700,
+                fontSize: "0.95rem", background: "#f0f7f2",
+                cursor: "pointer", fontFamily: "var(--font)",
+                minHeight: 48,
+              }}
+            >
+              📤 Share Video
+              {videoCopied && (
+                <span style={{
+                  position: "absolute", top: -32, left: "50%", transform: "translateX(-50%)",
+                  background: "#3e5b4b", color: "#fff",
+                  padding: "4px 12px", borderRadius: 6, fontSize: "0.8rem",
+                  fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none",
+                }}>
+                  Link copied!
+                </span>
+              )}
+            </button>
           )}
 
           <ShareButton
