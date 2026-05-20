@@ -187,7 +187,7 @@ export default function Home({ lang }) {
         <div className="lh-hero__inner">
           <div className="lh-hero__content">
             <div className="lh-eyebrow">📚 PLATFORM</div>
-            <h1 className="lh-hero__title">Vanisland AI Marketing Studio</h1>
+            <h1 className="lh-hero__title">Vanisland Property</h1>
             <p className="lh-hero__desc">Create marketing packages for rental and home sale listings.</p>
             <p className="lh-hero__desc-ch">
               One platform for rental and home sale marketing across public pages, applications, and sharing.
@@ -371,11 +371,11 @@ export default function Home({ lang }) {
               Scan to Access the Platform
             </div>
             <h2 style={{ fontSize: "1.45rem", fontWeight: 800, lineHeight: 1.3, marginBottom: 10 }}>
-              Vanisland AI Marketing Studio
+              Vanisland Property
             </h2>
             <p style={{ lineHeight: 1.8, color: "var(--color-text)", marginBottom: 20 }}>
               Built for Vancouver Island landlords, home sellers, FSBO owners, property managers, and realtors.
-              Scan the QR code to open the platform on any device — easy to share with clients and partners.
+              Scan the QR code to open our website on any device — easy to share with clients and partners.
             </p>
             <ul className="lh-qr-features">
               <li>📋 Rental Studio — bilingual ads, listing pages, photo management</li>
@@ -401,9 +401,9 @@ export default function Home({ lang }) {
                   includeMargin={false}
                 />
               </div>
-              <p className="lh-qr-url">Vanisland AI Marketing Studio</p>
+              <p className="lh-qr-url">Vanisland Property</p>
               <p className="lh-qr-caption">
-                Scan to open the platform
+                Scan to open our website
               </p>
               <a
                 href={PUBLIC_SITE_BASE_URL}
@@ -412,7 +412,7 @@ export default function Home({ lang }) {
                 className="lh-btn lh-btn--sand"
                 style={{ marginTop: 14, display: "block", textAlign: "center", fontSize: "0.85rem" }}
               >
-                Open Platform →
+                Open Website →
               </a>
             </div>
           </div>
