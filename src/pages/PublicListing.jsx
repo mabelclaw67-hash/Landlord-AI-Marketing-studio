@@ -150,6 +150,43 @@ export default function PublicListing() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // ── Dynamic document.title + OG tags per listing ───────────────────────────
+
+  useEffect(() => {
+    if (!listing) return;
+    const beds = listing.bedrooms || '';
+    const baths = listing.bathrooms || '';
+    const addr = listing.address || 'Rental Listing';
+    const listingTitle = beds && baths
+      ? `${beds} Bed / ${baths} Bath — ${addr}`
+      : addr;
+    const listingUrl = buildRentalListingPublicUrl(listing.id);
+
+    // Browser tab title
+    document.title = listingTitle;
+
+    // OG tags — update or create
+    const setMeta = (property, content) => {
+      let el = document.querySelector(`meta[property="${property}"]`) ||
+               document.querySelector(`meta[name="${property}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(property.startsWith('og:') || property.startsWith('twitter:') ? 'property' : 'name', property);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    setMeta('og:title', listingTitle);
+    setMeta('og:url', listingUrl);
+    setMeta('og:description', `${beds} bed / ${baths} bath rental at ${addr} on Vancouver Island.`);
+    setMeta('twitter:title', listingTitle);
+
+    return () => {
+      document.title = 'Vanisland Rentals';
+    };
+  }, [listing]);
+
   // ── Loading / error guards ─────────────────────────────────────────────────
 
   if (loading) {
@@ -282,20 +319,26 @@ export default function PublicListing() {
   }
 
   async function handleShareVideo() {
-    if (!listing?.videoUrl) return;
-    const shareData = {
-      title: listing.address || "Property Video",
-      text: "Check out this property video",
-      url: listing.videoUrl,
-    };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch (_) { /* user cancelled */ }
-    } else {
-      try {
-        await navigator.clipboard.writeText(listing.videoUrl);
+    const title = listing?.address || 'Property Video';
+    const beds = listing?.bedrooms;
+    const baths = listing?.bathrooms;
+    const shareTitle = beds && baths ? `${beds} Bed / ${baths} Bath — ${title}` : title;
+    const videoUrl = listing?.videoUrl;
+    if (!videoUrl) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: shareTitle, text: 'Check out this property video', url: videoUrl });
+      } else {
+        await navigator.clipboard.writeText(videoUrl);
         setVideoCopied(true);
         setTimeout(() => setVideoCopied(false), 2000);
-      } catch (_) { /* clipboard unavailable */ }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        await navigator.clipboard.writeText(videoUrl).catch(() => {});
+        setVideoCopied(true);
+        setTimeout(() => setVideoCopied(false), 2000);
+      }
     }
   }
 
