@@ -122,6 +122,7 @@ export default function PublicListing() {
   const [coverFiles,    setCoverFiles]    = useState([]); // files from 03_Cover_Images/ subfolder
   const [photosLoading, setPhotosLoading] = useState(false);
   const [pdfBusy,       setPdfBusy]       = useState(false);
+  const qrRef = useRef(null);
 
   useEffect(() => {
     getListing(id)
@@ -206,7 +207,6 @@ export default function PublicListing() {
     letterSpacing: "0.06em", marginBottom: 3,
   };
   const listingUrl = buildRentalListingPublicUrl(id);
-  const qrRef = useRef(null);
 
   function getQrSvgHtml() {
     return qrRef.current?.querySelector("svg")?.outerHTML || "";
