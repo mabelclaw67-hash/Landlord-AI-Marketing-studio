@@ -1,6 +1,6 @@
 import { getStudioRequestAuth } from "./trialAccess";
 import { buildHomeSalePublicUrl } from "./publicUrls";
-
+export { buildHomeSalePublicUrl };
 const HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
 const HOME_SALE_EXEC_URL = import.meta.env.VITE_HOME_SALE_EXEC_URL || "";
 
