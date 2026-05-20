@@ -15,6 +15,7 @@ import {
   extractHomeSaleDriveFileId,
 } from "../utils/homeSaleSheet";
 import { getStudioRequestAuth } from "../utils/trialAccess";
+import { normalizePublicFacingUrl } from "../utils/publicUrls";
 
 function extractDriveFileId(url) {
   if (!url) return "";
@@ -647,7 +648,7 @@ export default function HomeSaleListingDetail() {
                   <ShareButton
                     title={listing.address || "Home Sale Listing"}
                     text={`Home sale listing: ${listing.address || listing.id}`}
-                    url={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)}
+                    url={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))}
                     className="share-btn--detail"
                   />
                 </div>
@@ -658,7 +659,7 @@ export default function HomeSaleListingDetail() {
                   Sale QR Code
                 </h3>
                 <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10 }}>
-                  <div style={{ width: 180 }} dangerouslySetInnerHTML={{ __html: buildQrCodeSvg(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id), {
+                  <div style={{ width: 180 }} dangerouslySetInnerHTML={{ __html: buildQrCodeSvg(normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)), {
                     cellSize: 5,
                     quietZone: 4,
                     foreground: "#2f4338",
@@ -670,7 +671,7 @@ export default function HomeSaleListingDetail() {
                 </p>
                 <div className="flex" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
                   <button type="button" className="btn btn--ghost" onClick={handlePrintQrCode}>Print QR Code</button>
-                  <a href={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)} target="_blank" rel="noreferrer" className="btn btn--ghost">
+                  <a href={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} target="_blank" rel="noreferrer" className="btn btn--ghost">
                     Open Public Page
                   </a>
                 </div>

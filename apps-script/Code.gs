@@ -1159,7 +1159,7 @@ function sendTrialApprovalEmail_(request) {
     "Hi " + greetingName + ",\n\n" +
     "Your trial access for Vanisland AI Marketing Studio has been approved.\n\n" +
     "Website:\n" +
-    "https://landlord-ai-marketing-studio.netlify.app/\n\n" +
+    "https://vanislandproperty.ca/\n\n" +
     "Login Email:\n" +
     (request.email || "") + "\n\n" +
     "Access Code:\n" +

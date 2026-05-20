@@ -10,6 +10,7 @@ import {
   getVideoScriptsByListingId,
   updateSaleListing,
 } from "../../utils/homeSaleSheet";
+import { buildHomeSalePublicUrl, normalizePublicFacingUrl } from "../../utils/publicUrls";
 
 const STATUS_BADGE = {
   Draft: "badge--draft",
@@ -55,12 +56,11 @@ export default function HomeSaleReviewPublish() {
     if (!listing) return;
     setSaving(true);
     try {
-      const base = window.location.origin;
       const update = {
         ...listing,
         status: newStatus,
-        publicListingUrl: newStatus === "Published" || newStatus === "Active"
-          ? (listing.publicListingUrl || `${base}/home-sale-studio/listings/${listingId}`)
+        publicListingUrl: (newStatus === "Published" || newStatus === "Active")
+          ? normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listingId))
           : listing.publicListingUrl,
       };
       await updateSaleListing(update);

@@ -11,6 +11,7 @@ import {
   HOME_SALE_STATUS_OPTIONS,
   updateSaleListing,
 } from "../../utils/homeSaleSheet";
+import { buildHomeSalePublicUrl, normalizePublicFacingUrl } from "../../utils/publicUrls";
 
 const CHANNEL_LABELS = {
   Website: "🌐 Website",
@@ -98,12 +99,11 @@ export default function HomeSaleListingDetailAdmin() {
     if (!listing) return;
     setSaving(true);
     try {
-      const base = window.location.origin;
       const update = {
         ...listing,
         status: newStatus,
-        publicListingUrl: newStatus === "Published" || newStatus === "Active"
-          ? (listing.publicListingUrl || `${base}/home-sale-studio/listings/${listingId}`)
+        publicListingUrl: (newStatus === "Published" || newStatus === "Active")
+          ? normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listingId))
           : listing.publicListingUrl,
       };
       await updateSaleListing(update);

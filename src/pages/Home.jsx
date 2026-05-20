@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { t } from "../translations";
 import ShareKit from "../components/ShareKit";
 
-const PRODUCTION_URL = "https://landlord-ai-marketing-studio.netlify.app/";
+const PRODUCTION_URL = "https://vanislandproperty.ca/";
 
 const RENTAL_OUTPUTS = [
   {

@@ -1,4 +1,5 @@
 import { getStudioRequestAuth } from "./trialAccess";
+import { buildPublicSiteUrl } from "./publicUrls";
 
 const HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
 const HOME_SALE_EXEC_URL = import.meta.env.VITE_HOME_SALE_EXEC_URL || "";
@@ -198,10 +199,7 @@ export function getHomeSaleFieldConnectionWarnings() {
 
 export function buildHomeSalePublicUrl(listingId) {
   if (!listingId) return "";
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/home-sale-studio/listings/${listingId}`;
-  }
-  return `/home-sale-studio/listings/${listingId}`;
+  return buildPublicSiteUrl(`/home-sale-studio/listings/${listingId}`);
 }
 
 export function createEmptySaleListingForm(overrides = {}) {

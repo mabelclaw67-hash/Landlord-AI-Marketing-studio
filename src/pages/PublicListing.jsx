@@ -5,6 +5,7 @@ import ShareButton from "../components/ShareButton";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
 import { buildQrCodeSvg } from "../utils/qrCodeSvg";
+import { buildRentalListingPublicUrl } from "../utils/publicUrls";
 import {
   extractDriveFolderId,
   getListingStatusMeta,
@@ -204,7 +205,7 @@ export default function PublicListing() {
     fontWeight: 600, textTransform: "uppercase",
     letterSpacing: "0.06em", marginBottom: 3,
   };
-  const listingUrl = window.location.href;
+  const listingUrl = buildRentalListingPublicUrl(id);
   const qrSvg = buildQrCodeSvg(listingUrl, {
     cellSize: 5,
     quietZone: 4,
