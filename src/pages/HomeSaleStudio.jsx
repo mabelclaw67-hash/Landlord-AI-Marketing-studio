@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import { readTrialAccess } from "../utils/trialAccess";
+import { buildHomeSalePublicUrl } from "../utils/publicUrls";
 import {
-  buildHomeSalePublicUrl,
   getPublicSaleListings,
   resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
@@ -58,12 +58,6 @@ export default function HomeSaleStudio() {
             </div>
           )}
 
-          <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-            <h4>Home Sale Marketing Studio</h4>
-            <p style={{ marginTop: 6, opacity: 0.86 }}>
-              Prepare bilingual home sale marketing packages, listing pages, QR codes, buyer inquiry links, and AI video promotion materials.
-            </p>
-          </div>
 
           {loading && (
             <div className="card" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>

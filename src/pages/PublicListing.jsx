@@ -318,6 +318,28 @@ export default function PublicListing() {
     printWindow.document.close();
   }
 
+  function handleDownloadVideo() {
+    const videoUrl = listing?.videoUrl;
+    if (!videoUrl) return;
+    // Mobile / iOS: open in new tab so user can long-press → Save Video
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.open(videoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // Desktop: create a temporary <a download> to trigger save dialog.
+    // For same-origin URLs the browser downloads directly; for cross-origin it
+    // opens in a new tab — both are acceptable.
+    const a = document.createElement('a');
+    a.href = videoUrl;
+    a.download = `property-video-${listing.id || 'listing'}.mp4`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   async function handleShareVideo() {
     const title = listing?.address || 'Property Video';
     const beds = listing?.bedrooms;
@@ -819,61 +841,49 @@ export default function PublicListing() {
           <p style={{ fontSize: "0.73rem", color: "var(--color-text-muted)", marginTop: 8, textAlign: "center", lineHeight: 1.6 }}>
             Generates a printable PDF with this listing information. Online form is still preferred.
           </p>
-          {/* Watch Video — only shown when videoUrl exists in listing data */}
-          {listing.videoUrl && (
-            <a
-              href={listing.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8, marginTop: 10, width: "100%", textAlign: "center",
-                border: "1.5px solid #3e5b4b", color: "#3e5b4b",
-                padding: "13px 24px", borderRadius: 8, fontWeight: 700,
-                fontSize: "0.95rem", textDecoration: "none",
-                background: "#f0f7f2",
-              }}
-            >
-              ▶ Watch Video
-            </a>
+          {/* ── Video + Share action buttons — 2-column grid ── */}
+          {listing.videoUrl ? (
+            <div className="action-btn-grid">
+              {/* Row 1 */}
+              <a
+                href={listing.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="action-btn"
+              >
+                ▶ Watch Video
+              </a>
+              <button type="button" onClick={handleShareVideo} className="action-btn">
+                📤 Share Video
+                {videoCopied && (
+                  <span style={{
+                    position: "absolute", top: -30, left: "50%", transform: "translateX(-50%)",
+                    background: "#3e5b4b", color: "#fff",
+                    padding: "3px 10px", borderRadius: 6, fontSize: "0.78rem",
+                    fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none",
+                  }}>
+                    Link copied!
+                  </span>
+                )}
+              </button>
+              {/* Row 2 */}
+              <button type="button" onClick={handleDownloadVideo} className="action-btn">
+                ⬇️ Download MP4
+              </button>
+              <ShareButton
+                title={title}
+                text={`Check out this rental listing: ${title}`}
+                url={window.location.href}
+              />
+            </div>
+          ) : (
+            <ShareButton
+              className="share-btn--detail"
+              title={title}
+              text={`Check out this rental listing: ${title}`}
+              url={window.location.href}
+            />
           )}
-
-          {/* Share Video — only shown when videoUrl exists */}
-          {listing.videoUrl && (
-            <button
-              type="button"
-              onClick={handleShareVideo}
-              style={{
-                position: "relative",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8, marginTop: 8, width: "100%", textAlign: "center",
-                border: "1.5px solid #3e5b4b", color: "#3e5b4b",
-                padding: "13px 24px", borderRadius: 8, fontWeight: 700,
-                fontSize: "0.95rem", background: "#f0f7f2",
-                cursor: "pointer", fontFamily: "var(--font)",
-                minHeight: 48,
-              }}
-            >
-              📤 Share Video
-              {videoCopied && (
-                <span style={{
-                  position: "absolute", top: -32, left: "50%", transform: "translateX(-50%)",
-                  background: "#3e5b4b", color: "#fff",
-                  padding: "4px 12px", borderRadius: 6, fontSize: "0.8rem",
-                  fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none",
-                }}>
-                  Link copied!
-                </span>
-              )}
-            </button>
-          )}
-
-          <ShareButton
-            className="share-btn--detail"
-            title={title}
-            text={`Check out this rental listing: ${title}`}
-            url={window.location.href}
-          />
             </div>
 
             {/* ── Application Requirements ─────────────────────────────────────── */}

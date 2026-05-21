@@ -3159,6 +3159,50 @@ tr:hover td { background: #F8FAFC; }
 }
 
 /* =====================
+   Action Button Grid (video / share / download buttons)
+   2-column on desktop/tablet, 1-column on very narrow screens
+   ===================== */
+.action-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+@media (max-width: 320px) {
+  .action-btn-grid { grid-template-columns: 1fr; }
+}
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1.5px solid #3e5b4b;
+  border-radius: 8px;
+  background: #f0f7f2;
+  color: #3e5b4b;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  font-family: var(--font);
+  min-height: 44px;
+  text-align: center;
+  text-decoration: none;
+  position: relative;
+  transition: background 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.action-btn:hover { background: #e2f0e6; }
+/* ShareButton inside grid: reset the component's own margin/padding to match grid siblings */
+.action-btn-grid .share-btn {
+  margin-top: 0;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  min-height: 44px;
+}
+
+/* =====================
    Share Kit
    ===================== */
 .lh-share-kit-wrap,
