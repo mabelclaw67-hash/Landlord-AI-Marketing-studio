@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { t } from "../translations";
 import ShareKit from "../components/ShareKit";
 import { PUBLIC_SITE_BASE_URL } from "../utils/publicUrls";
+import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
 
 const RENTAL_OUTPUTS = [
   {
@@ -92,11 +94,6 @@ const HOME_SALE_SECONDARY_OUTPUTS = HOME_SALE_OUTPUTS.slice(4);
 
 const PLATFORM_REASONS = [
   {
-    icon: "🛡️",
-    title: "Why Vanisland AI Studio?",
-    desc: "Built for rental listing marketing and home sale marketing in one platform.",
-  },
-  {
     icon: "✨",
     title: "AI-Powered Marketing",
     desc: "Generate high-quality copy, pages, and materials in minutes.",
@@ -172,7 +169,68 @@ const LANDLORD_SHARE_MESSAGES = [
   },
 ];
 
+const DAILY_BRIEF_FIELDS = [
+  { key: "policySummary", label: "Policy Summary" },
+  { key: "bcRentalSummary", label: "BC Rental Summary" },
+  { key: "bcSaleSummary", label: "BC Sale Summary" },
+  { key: "nanaimoRentalSummary", label: "Nanaimo Rental Summary" },
+  { key: "nanaimoSaleSummary", label: "Nanaimo Sale Summary" },
+  { key: "landlordActionNotes", label: "Landlord Action Notes" },
+  { key: "websiteSummary", label: "Website Summary" },
+];
+
+const DAILY_BRIEF_CARD_META = {
+  policySummary: { icon: "📄", className: "" },
+  bcRentalSummary: { icon: "🏢", className: "" },
+  bcSaleSummary: { icon: "🏠", className: "" },
+  nanaimoRentalSummary: { icon: "📍", className: "" },
+  nanaimoSaleSummary: { icon: "🏡", className: "" },
+  landlordActionNotes: { icon: "💡", className: "lh-daily-brief__card--wide" },
+  websiteSummary: { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
+};
+
 export default function Home({ lang }) {
+  const [brief, setBrief] = useState(null);
+  const [briefLoading, setBriefLoading] = useState(true);
+  const [briefError, setBriefError] = useState("");
+  const [wechatCopied, setWechatCopied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadBrief() {
+      setBriefLoading(true);
+      setBriefError("");
+      try {
+        const data = await getDailyMarketBrief();
+        if (!active) return;
+        setBrief(data || null);
+      } catch (err) {
+        if (!active) return;
+        setBrief(null);
+        setBriefError(err?.message || "Failed to load daily market brief.");
+      } finally {
+        if (active) setBriefLoading(false);
+      }
+    }
+
+    loadBrief();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleCopyWechat() {
+    if (!brief?.wechatShareText) return;
+    try {
+      await navigator.clipboard.writeText(brief.wechatShareText);
+      setWechatCopied(true);
+      window.setTimeout(() => setWechatCopied(false), 1800);
+    } catch {
+      setWechatCopied(false);
+    }
+  }
+
   return (
     <>
       <section className="lh-home-topbar">
@@ -228,6 +286,73 @@ export default function Home({ lang }) {
               <div className="lh-hero-visual__house" />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="lh-daily-brief-section" aria-labelledby="daily-market-brief-title">
+        <div className="lh-daily-brief">
+          <div className="lh-daily-brief__top">
+            <div>
+              <div className="lh-daily-brief__eyebrow">DAILY MARKET BRIEF</div>
+              <h2 id="daily-market-brief-title">Daily BC Rent &amp; Sale Market Brief / 每日BC租赁与房屋买卖市场晨报</h2>
+            </div>
+            <div className="lh-daily-brief__date">
+              <span>Date</span>
+              <strong>{brief?.date || "—"}</strong>
+            </div>
+          </div>
+
+          {briefLoading ? (
+            <div className="lh-daily-brief__status">Loading latest published brief...</div>
+          ) : briefError ? (
+            <div className="lh-daily-brief__status lh-daily-brief__status--error">{briefError}</div>
+          ) : brief ? (
+            <>
+              <div className="lh-daily-brief__title-card">
+                <div className="lh-daily-brief__label">Title</div>
+                <h3>{brief.title || "Untitled Brief"}</h3>
+              </div>
+
+              <div className="lh-daily-brief__grid">
+                {DAILY_BRIEF_FIELDS.map((field) => {
+                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                  return (
+                  <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                    <div className="lh-daily-brief__card-head">
+                      <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                      <div className="lh-daily-brief__label">{field.label}</div>
+                    </div>
+                    <p>{brief[field.key] || "—"}</p>
+                    {field.key !== "landlordActionNotes" && field.key !== "websiteSummary" ? (
+                      <div className="lh-daily-brief__detail-link">View details →</div>
+                    ) : null}
+                  </article>
+                  );
+                })}
+              </div>
+
+              <div className="lh-daily-brief__actions">
+                {brief.fullReportUrl ? (
+                  <a
+                    href={brief.fullReportUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="lh-btn lh-btn--sand"
+                  >
+                    View Full Report
+                  </a>
+                ) : (
+                  <button type="button" className="lh-btn lh-btn--sand lh-btn--disabled" disabled>
+                    View Full Report
+                  </button>
+                )}
+
+                <button type="button" className="lh-btn lh-btn--white" onClick={handleCopyWechat}>
+                  {wechatCopied ? "Copied WeChat Version" : "Copy WeChat Version"}
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
       </section>
 

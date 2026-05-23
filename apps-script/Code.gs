@@ -6,11 +6,13 @@
 
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
+var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
 var INTAKE_SHEET    = "07 Intake Records";
 var SYSTEM_SETTINGS_SHEET = "08 System Settings";
+var DAILY_MARKET_BRIEF_SHEET = "01 Daily Market Brief";
 
 var INTAKE_HEADERS = [
   // System
@@ -181,13 +183,14 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
     if (action === "getListingById")      return ok(getListingById_(e.parameter.listingId, auth));
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
+    if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
     if (action === "getContactRequests")  return ok(getContactRequests_(auth));
     return err("Unknown GET action: " + action);
@@ -287,6 +290,133 @@ function getHeaderMap_(sheet) {
 function colVal_(row, headerMap, name) {
   var idx = headerMap[name];
   return (idx !== undefined && idx < row.length) ? (row[idx] || "") : "";
+}
+
+function firstHeaderMatch_(headerMap, names) {
+  for (var i = 0; i < names.length; i++) {
+    if (headerMap[names[i]] !== undefined) return names[i];
+  }
+  return "";
+}
+
+function normalizeCellText_(value) {
+  if (value === null || value === undefined) return "";
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  return String(value).trim();
+}
+
+function normalizeBriefDateValue_(value) {
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return value;
+  }
+
+  var text = normalizeCellText_(value);
+  if (!text) return null;
+
+  var match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+
+  var parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) return parsed;
+  return null;
+}
+
+function getBriefSheet_() {
+  var ss = SpreadsheetApp.openById(DAILY_MARKET_BRIEF_SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(DAILY_MARKET_BRIEF_SHEET);
+  if (!sheet) {
+    throw new Error('Sheet not found: "' + DAILY_MARKET_BRIEF_SHEET + '".');
+  }
+  return sheet;
+}
+
+function getDailyMarketBrief_() {
+  var sheet = getBriefSheet_();
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) {
+    throw new Error("No Daily Market Brief records found.");
+  }
+
+  var headerMap = getHeaderMap_(sheet);
+  var statusHeader = firstHeaderMatch_(headerMap, ["Status", "Publish Status", "Record Status"]);
+  if (!statusHeader) {
+    throw new Error('Daily Market Brief sheet is missing a status column. Expected one of: Status, Publish Status, Record Status.');
+  }
+
+  var dateHeader = firstHeaderMatch_(headerMap, ["Date", "Published Date", "Publish Date", "Created Date"]);
+  if (!dateHeader) {
+    throw new Error('Daily Market Brief sheet is missing a date column. Expected one of: Date, Published Date, Publish Date, Created Date.');
+  }
+
+  var requiredHeaders = [
+    "Title",
+    "Policy Summary",
+    "BC Rental Summary",
+    "BC Sale Summary",
+    "Nanaimo Rental Summary",
+    "Nanaimo Sale Summary",
+    "Landlord Action Notes",
+    "Website Summary",
+    "WeChat Share Text",
+  ];
+
+  for (var i = 0; i < requiredHeaders.length; i++) {
+    if (headerMap[requiredHeaders[i]] === undefined) {
+      throw new Error('Daily Market Brief sheet is missing required column: "' + requiredHeaders[i] + '".');
+    }
+  }
+
+  var fullReportHeader = firstHeaderMatch_(headerMap, ["Full Report URL", "Report URL", "Google Doc URL", "Doc URL"]);
+  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var latest = null;
+
+  for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
+    var row = values[rowIndex];
+    var statusValue = normalizeCellText_(colVal_(row, headerMap, statusHeader)).toLowerCase();
+    if (statusValue !== "published") continue;
+
+    var dateValue = normalizeBriefDateValue_(colVal_(row, headerMap, dateHeader));
+    if (!dateValue) continue;
+
+    if (!latest || dateValue.getTime() > latest.dateValue.getTime()) {
+      latest = {
+        row: row,
+        dateValue: dateValue,
+      };
+    }
+  }
+
+  if (!latest) {
+    throw new Error('No Published record found in "' + DAILY_MARKET_BRIEF_SHEET + '".');
+  }
+
+  var latestRow = latest.row;
+  var fullReportUrl = "";
+  if (fullReportHeader) {
+    fullReportUrl = normalizeCellText_(colVal_(latestRow, headerMap, fullReportHeader));
+  }
+  if (!fullReportUrl && headerMap["Source Doc Link"] !== undefined) {
+    fullReportUrl = normalizeCellText_(colVal_(latestRow, headerMap, "Source Doc Link"));
+  }
+
+  return {
+    date: Utilities.formatDate(latest.dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    title: normalizeCellText_(colVal_(latestRow, headerMap, "Title")),
+    policySummary: normalizeCellText_(colVal_(latestRow, headerMap, "Policy Summary")),
+    bcRentalSummary: normalizeCellText_(colVal_(latestRow, headerMap, "BC Rental Summary")),
+    bcSaleSummary: normalizeCellText_(colVal_(latestRow, headerMap, "BC Sale Summary")),
+    nanaimoRentalSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Nanaimo Rental Summary")),
+    nanaimoSaleSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Nanaimo Sale Summary")),
+    landlordActionNotes: normalizeCellText_(colVal_(latestRow, headerMap, "Landlord Action Notes")),
+    websiteSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Website Summary")),
+    wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
+    fullReportUrl: fullReportUrl,
+  };
 }
 
 // ── System Settings helpers ───────────────────────────────────────────────────
@@ -1159,7 +1289,7 @@ function sendTrialApprovalEmail_(request) {
     "Hi " + greetingName + ",\n\n" +
     "Your trial access for Vanisland AI Marketing Studio has been approved.\n\n" +
     "Website:\n" +
-    "https://landlord-ai-marketing-studio.netlify.app/\n\n" +
+    "https://vanislandproperty.ca/\n\n" +
     "Login Email:\n" +
     (request.email || "") + "\n\n" +
     "Access Code:\n" +
