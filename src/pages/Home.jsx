@@ -189,11 +189,26 @@ const DAILY_BRIEF_CARD_META = {
   websiteSummary: { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
 };
 
+function getVancouverTodayText() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Vancouver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+  return `${year}-${month}-${day}`;
+}
+
 export default function Home({ lang }) {
   const [brief, setBrief] = useState(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError] = useState("");
   const [wechatCopied, setWechatCopied] = useState(false);
+  const homepageBriefDate = getVancouverTodayText();
 
   useEffect(() => {
     let active = true;
@@ -298,7 +313,7 @@ export default function Home({ lang }) {
             </div>
             <div className="lh-daily-brief__date">
               <span>Date</span>
-              <strong>{brief?.date || "—"}</strong>
+              <strong>{homepageBriefDate}</strong>
             </div>
           </div>
 
