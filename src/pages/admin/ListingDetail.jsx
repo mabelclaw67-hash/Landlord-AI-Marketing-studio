@@ -1835,7 +1835,7 @@ export default function ListingDetail({ lang: langProp }) {
                   <div className="notice notice--info" style={{ marginBottom: 10 }}>
                     <p style={{ fontSize: "0.82rem" }}>
                       {lang === "zh"
-                        ? "未找到以"1"开头的文件名，已使用第一张图片作为主图替代。如需更换，请在下方照片包中使用"Set Cover"。"
+                        ? "未找到以「1」开头的文件名，已使用第一张图片作为主图替代。如需更换，请在下方照片包中使用「Set Cover」。"
                         : <>No filename starting with "1" was found. Using the first image as cover fallback. To set a different cover, use "Set Cover" in the photo package below.</>
                       }
                     </p>
