@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { t } from "../../translations";
 import { getListings } from "../../utils/storage";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
-export default function Listings({ lang }) {
+export default function Listings() {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listings, setListings] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
@@ -33,16 +36,15 @@ export default function Listings({ lang }) {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Rental Listings / 出租房源列表</h1>
-          <p className="text-muted text-sm">All saved rental listings / 所有已保存出租房源</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.rentalListingsTitle}</h1>
         </div>
-        <Link to="/admin/new" className="btn btn--primary">+ New Rental Listing / 新增出租房源</Link>
+        <Link to="/admin/new" className="btn btn--primary">{L.newRentalListingBtn}</Link>
       </div>
 
       <div className="card" style={{ padding: 0 }}>
         {loading ? (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--color-text-muted)" }}>
-            Loading…
+            {L.loading}
           </div>
         ) : error ? (
           <div className="notice notice--error" style={{ margin: 16 }}>
@@ -51,9 +53,9 @@ export default function Listings({ lang }) {
           </div>
         ) : listings.length === 0 ? (
           <div style={{ padding: "48px 24px", textAlign: "center" }}>
-            <p className="text-muted">{t(lang, "admin.noListings")}</p>
+            <p className="text-muted">{L.noListings}</p>
             <Link to="/admin/new" className="btn btn--primary" style={{ marginTop: 16, display: "inline-block" }}>
-              + New Rental Listing / 新增出租房源
+              {L.newRentalListingBtn}
             </Link>
           </div>
         ) : isMobile ? (
@@ -92,10 +94,10 @@ export default function Listings({ lang }) {
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
-                    {t(lang, "admin.view")}
+                    {L.view}
                   </Link>
                   <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
-                    Edit / 编辑
+                    {L.edit}
                   </Link>
                 </div>
               </div>
@@ -106,13 +108,13 @@ export default function Listings({ lang }) {
             <table>
               <thead>
                 <tr>
-                  <th>{t(lang, "admin.listingId")}</th>
-                  <th>{t(lang, "admin.address")}</th>
-                  <th>{t(lang, "admin.city")}</th>
-                  <th>{t(lang, "admin.rent")}</th>
-                  <th>{t(lang, "admin.status")}</th>
-                  <th>{t(lang, "admin.created")}</th>
-                  <th>{t(lang, "admin.action")}</th>
+                  <th>{L.colListingId}</th>
+                  <th>{L.colAddress}</th>
+                  <th>{L.colCity}</th>
+                  <th>{L.colRent}</th>
+                  <th>{L.colStatus}</th>
+                  <th>{L.colCreated}</th>
+                  <th>{L.colAction}</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,7 +128,7 @@ export default function Listings({ lang }) {
                     <td className="text-muted text-sm">{l.createdDate}</td>
                     <td>
                       <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">
-                        {t(lang, "admin.view")}
+                        {L.view}
                       </Link>
                     </td>
                   </tr>

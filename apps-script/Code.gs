@@ -380,19 +380,23 @@ function getDailyMarketBrief_() {
 
   var fullReportHeader = firstHeaderMatch_(headerMap, ["Full Report URL", "Report URL", "Google Doc URL", "Doc URL"]);
   var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var displayValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
   var latest = null;
 
   for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
     var row = values[rowIndex];
+    var displayRow = displayValues[rowIndex];
     var statusValue = normalizeCellText_(colVal_(row, headerMap, statusHeader)).toLowerCase();
     if (statusValue !== "published") continue;
 
-    var dateValue = normalizeBriefDateValue_(colVal_(row, headerMap, dateHeader));
+    // Read the visible sheet date text to avoid timezone shifts on date-only cells.
+    var dateValue = normalizeBriefDateValue_(colVal_(displayRow, headerMap, dateHeader));
     if (!dateValue) continue;
 
     if (!latest || dateValue.getTime() > latest.dateValue.getTime()) {
       latest = {
         row: row,
+        displayRow: displayRow,
         dateValue: dateValue,
       };
     }
@@ -403,6 +407,7 @@ function getDailyMarketBrief_() {
   }
 
   var latestRow = latest.row;
+  var latestDisplayRow = latest.displayRow || latest.row;
   var fullReportUrl = "";
   if (fullReportHeader) {
     fullReportUrl = normalizeCellText_(colVal_(latestRow, headerMap, fullReportHeader));
@@ -412,7 +417,8 @@ function getDailyMarketBrief_() {
   }
 
   return {
-    date: Utilities.formatDate(latest.dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    date: normalizeCellText_(colVal_(latestDisplayRow, headerMap, dateHeader)) ||
+      Utilities.formatDate(latest.dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
     title: normalizeCellText_(colVal_(latestRow, headerMap, "Title")),
     policySummary: normalizeCellText_(colVal_(latestRow, headerMap, "Policy Summary")),
     bcRentalSummary: normalizeCellText_(colVal_(latestRow, headerMap, "BC Rental Summary")),

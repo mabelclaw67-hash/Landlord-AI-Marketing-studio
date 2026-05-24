@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { getTrialAccessHome, readTrialAccess, storeAdminSession, clearAdminSession, isAdminSessionActive } from "../utils/trialAccess";
 import { apiPost } from "../utils/api";
+import { useLang } from "../contexts/LangContext";
 
 export default function AdminGuard({ children }) {
+  const lang = useLang();
   const trialSession = readTrialAccess();
   const [unlocked, setUnlocked] = useState(() => isAdminSessionActive());
   const [input, setInput] = useState("");
@@ -26,7 +28,7 @@ export default function AdminGuard({ children }) {
         storeAdminSession(code);
         setUnlocked(true);
       } else {
-        setError("Invalid access code. / 访问密码不正确。");
+        setError(lang === "zh" ? "访问密码不正确。" : "Invalid access code.");
         setInput("");
       }
     } catch {
@@ -69,7 +71,9 @@ export default function AdminGuard({ children }) {
             <p className="admin-guard__error">{error}</p>
           )}
           <button type="submit" className="admin-guard__btn" disabled={loading}>
-            {loading ? "Verifying… / 验证中…" : <>Enter Admin Studio<span>进入管理后台</span></>}
+            {loading
+              ? (lang === "zh" ? "验证中…" : "Verifying…")
+              : (lang === "zh" ? "进入管理后台" : "Enter Admin Studio")}
           </button>
         </form>
 

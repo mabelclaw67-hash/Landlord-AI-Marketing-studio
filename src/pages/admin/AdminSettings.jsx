@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { apiPost } from "../../utils/api";
 import { getStudioRequestAuth, getTrialAccessHome, readTrialAccess, refreshAdminCode } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 export default function AdminSettings() {
   const trialSession = readTrialAccess();
@@ -10,6 +12,8 @@ export default function AdminSettings() {
 }
 
 function AdminSettingsInner() {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [settings, setSettings]     = useState(null);
   const [loadErr, setLoadErr]        = useState("");
   const [newCode, setNewCode]        = useState("");
@@ -57,11 +61,11 @@ function AdminSettingsInner() {
 
   return (
     <div className="admin-settings">
-      <h1 className="admin-settings__title">Admin Settings / 管理员设置</h1>
+      <h1 className="admin-settings__title">{L.adminSettingsTitle}</h1>
 
       <section className="admin-settings__card">
         <h2 className="admin-settings__section-title">
-          Admin Access Code / 管理员访问密码
+          {L.adminAccessCode}
         </h2>
 
         <div className="admin-settings__current">
@@ -106,7 +110,7 @@ function AdminSettingsInner() {
           </div>
 
           <div className="admin-settings__field admin-settings__field--auth">
-            <label>Current Admin Code (confirm identity / 请输入当前密码确认)</label>
+            <label>{lang === "zh" ? "当前管理员密码（确认身份）" : "Current Admin Code (confirm identity)"}</label>
             <input
               type="password"
               value={currentCode}
@@ -124,7 +128,7 @@ function AdminSettingsInner() {
           )}
 
           <button type="submit" className="admin-settings__btn" disabled={saving}>
-            {saving ? "Saving…" : "Save New Code / 保存新密码"}
+            {saving ? (lang === "zh" ? "保存中…" : "Saving…") : (lang === "zh" ? "保存新密码" : "Save New Code")}
           </button>
         </form>
 

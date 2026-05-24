@@ -1,10 +1,14 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { lockAdmin } from "./AdminGuard";
 import { readTrialAccess, clearTrialAccess } from "../utils/trialAccess";
+import { useLang } from "../contexts/LangContext";
+import { AL } from "../utils/adminLabels";
 
-export default function AdminSidebar({ lang }) {
+export default function AdminSidebar() {
   const navigate = useNavigate();
   const trialSession = readTrialAccess();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
 
   const handleExit = () => {
     if (trialSession) {
@@ -19,75 +23,75 @@ export default function AdminSidebar({ lang }) {
     <aside className="admin-sidebar">
       {trialSession && (
         <div className="admin-sidebar__trial-badge">
-          Trial Mode / 试用模式
+          {L.trialMode}
           <span>{trialSession.approvedModule}</span>
         </div>
       )}
-      <h3>Platform Menu / 平台菜单</h3>
+      <h3>{L.platformMenu}</h3>
 
       <div className="admin-sidebar__group">
-        <div className="admin-sidebar__label">ADMIN STUDIO / 管理后台</div>
+        <div className="admin-sidebar__label">{L.groupAdmin}</div>
         <NavLink to="/admin" end className={({ isActive }) => (isActive ? "active" : "")}>
-          📊 Dashboard / 总览
+          📊 {L.dashboard}
         </NavLink>
       </div>
 
       <div className="admin-sidebar__group">
-        <div className="admin-sidebar__label">RENTAL STUDIO / 出租房源</div>
+        <div className="admin-sidebar__label">{L.groupRental}</div>
         <NavLink to="/admin/rental" className={({ isActive }) => (isActive ? "active" : "")}>
-          🏘️ Rental Dashboard / 出租后台
+          🏘️ {L.rentalDashboard}
         </NavLink>
         <NavLink to="/admin/new" className={({ isActive }) => (isActive ? "active" : "")}>
-          ➕ New Rental Listing / 新增出租房源
+          ➕ {L.newRentalListing}
         </NavLink>
         <NavLink to="/admin/listings" className={({ isActive }) => (isActive ? "active" : "")}>
-          📋 Rental Listings / 出租房源列表
+          📋 {L.rentalListings}
         </NavLink>
         <NavLink to="/admin/leads" className={({ isActive }) => (isActive ? "active" : "")}>
-          🗂️ Rental Leads / 租客申请
+          🗂️ {L.rentalLeads}
         </NavLink>
         {!trialSession && (
           <NavLink to="/admin/trial-requests" className={({ isActive }) => (isActive ? "active" : "")}>
-            📨 Trial Requests / 试用申请
+            📨 {L.trialRequests}
           </NavLink>
         )}
       </div>
 
       <div className="admin-sidebar__group">
-        <div className="admin-sidebar__label">HOME SALE STUDIO / 出售房源</div>
+        <div className="admin-sidebar__label">{L.groupSale}</div>
         <NavLink to="/admin/home-sale" className={({ isActive }) => (isActive ? "active" : "")}>
-          🏡 Home Sale Dashboard / 出售后台
+          🏡 {L.homeSaleDashboard}
         </NavLink>
         <NavLink to="/admin/home-sale/listings/new" className={({ isActive }) => (isActive ? "active" : "")}>
-          ➕ New Sale Listing / 新增出售房源
+          ➕ {L.newSaleListing}
         </NavLink>
         <NavLink to="/admin/home-sale/listings" className={({ isActive }) => (isActive ? "active" : "")}>
-          📋 Sale Listings / 出售房源列表
+          📋 {L.saleListings}
         </NavLink>
         <NavLink to="/admin/home-sale/buyer-inquiries" className={({ isActive }) => (isActive ? "active" : "")}>
-          💬 Buyer Inquiries / 买家咨询
+          💬 {L.buyerInquiries}
         </NavLink>
       </div>
 
       <div className="admin-sidebar__group">
-        <div className="admin-sidebar__label">RESOURCES / 资源</div>
+        <div className="admin-sidebar__label">{L.groupResources}</div>
         <NavLink to="/admin/photo-tips" className={({ isActive }) => (isActive ? "active" : "")}>
-          📷 Photo Tips / 拍照建议
+          📷 {L.photoTips}
         </NavLink>
         <NavLink to="/admin/faq" className={({ isActive }) => (isActive ? "active" : "")}>
-          ❓ FAQ / 常见问题
+          ❓ {L.faq}
         </NavLink>
       </div>
 
       <div className="admin-sidebar__group">
-        <div className="admin-sidebar__label">SYSTEM / 系统</div>
+        <div className="admin-sidebar__label">{L.groupSystem}</div>
         {!trialSession && (
           <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
-            ⚙️ Settings / 系统设置
+            ⚙️ {L.settings}
           </NavLink>
         )}
         <button className="admin-lock-btn" onClick={handleExit}>
-          {trialSession ? "🚪 Exit Trial / 退出试用" : "🔒 Lock Admin / 锁定"}
+          {trialSession ? `🚪 ${L.exitTrial}` : `🔒 ${L.lockAdmin}`}
         </button>
       </div>
     </aside>

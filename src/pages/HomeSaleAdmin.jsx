@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { formatSalePrice, getHomeSaleListings } from "../utils/homeSaleSheet";
 import PrototypeBanner from "../components/PrototypeBanner";
 import ComingSoonSection from "../components/ComingSoonSection";
+import { useLang } from "../contexts/LangContext";
+import { AL } from "../utils/adminLabels";
 
 function statusBadge(status) {
   const map = {
@@ -20,6 +22,8 @@ function statusBadge(status) {
 }
 
 export default function HomeSaleAdmin() {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,10 +48,10 @@ export default function HomeSaleAdmin() {
   });
 
   const kpis = [
-    { key: "total",     label: "Total Listings / 总房源数",    val: counts.total },
-    { key: "draft",     label: "Draft / 草稿",                val: counts.draft },
-    { key: "openHouse", label: "Open House / 开放日",          val: counts.openHouse },
-    { key: "sold",      label: "Sold / 已出售",               val: counts.sold },
+    { key: "total",     label: lang === "zh" ? "总房源数" : "Total Listings",  val: counts.total },
+    { key: "draft",     label: lang === "zh" ? "草稿" : "Draft",              val: counts.draft },
+    { key: "openHouse", label: lang === "zh" ? "开放日" : "Open House",       val: counts.openHouse },
+    { key: "sold",      label: lang === "zh" ? "已出售" : "Sold",             val: counts.sold },
   ];
 
   return (
@@ -56,11 +60,11 @@ export default function HomeSaleAdmin() {
 
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Home Sale Studio / 出售房源管理</h1>
-          <p className="text-muted text-sm">管理所有出售房源广告包 / Manage all sale listing marketing packages</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "出售房源管理" : "Home Sale Studio"}</h1>
+          <p className="text-muted text-sm">{lang === "zh" ? "管理所有出售房源广告包" : "Manage all sale listing marketing packages"}</p>
         </div>
         <Link to="/admin/home-sale/listings/new" className="btn btn--primary">
-          + New Sale Listing / 新增出售房源
+          {lang === "zh" ? "+ 新增出售房源" : "+ New Sale Listing"}
         </Link>
       </div>
 

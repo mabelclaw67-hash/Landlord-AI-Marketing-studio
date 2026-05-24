@@ -6,6 +6,8 @@ import {
   updateContactRequestNotes,
 } from "../../utils/storage";
 import { getTrialAccessHome, readTrialAccess } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 const MODULE_ACTIONS = [
   { label: "Approve Rental Only", value: "Rental Only" },
@@ -53,6 +55,8 @@ export default function TrialRequests() {
 }
 
 function TrialRequestsInner() {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [items, setItems] = useState([]);
   const [draftNotes, setDraftNotes] = useState({});
   const [draftAccess, setDraftAccess] = useState({});
@@ -127,7 +131,7 @@ function TrialRequestsInner() {
       <div className="flex-between mb-24">
         <div>
           <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>
-            Trial Requests / 试用申请
+            {L.trialRequestsTitle}
           </h1>
           <p className="text-muted text-sm">
             数据来源：<code>Contacts</code> · Pending {pendingCount} · Total {items.length}
@@ -198,19 +202,19 @@ function TrialRequestsInner() {
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 14 }}>
-                  <label>Admin Notes / 管理备注</label>
+                  <label>{L.adminNotes}</label>
                   <textarea
                     className="form-control"
                     rows={3}
                     value={draftNotes[item.rowNumber] || ""}
                     onChange={(e) => setDraftNotes((prev) => ({ ...prev, [item.rowNumber]: e.target.value }))}
-                    placeholder="Optional notes / 选填备注"
+                    placeholder={lang === "zh" ? "选填备注" : "Optional notes"}
                   />
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Access Type / 访问类型</label>
+                    <label>{lang === "zh" ? "访问类型" : "Access Type"}</label>
                     <select
                       className="form-control"
                       value={draftAccess[item.rowNumber]?.accessType || "Trial"}
@@ -231,7 +235,7 @@ function TrialRequestsInner() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Payment Status / 付款状态</label>
+                    <label>{lang === "zh" ? "付款状态" : "Payment Status"}</label>
                     <select
                       className="form-control"
                       value={draftAccess[item.rowNumber]?.paymentStatus || "Unpaid"}
@@ -250,7 +254,7 @@ function TrialRequestsInner() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Duration / 天数</label>
+                    <label>{lang === "zh" ? "天数" : "Duration"}</label>
                     <select
                       className="form-control"
                       value={draftAccess[item.rowNumber]?.durationDays || "10"}

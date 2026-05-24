@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getAllApplications } from "../../utils/storage";
+import { useLang } from "../../contexts/LangContext";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -18,7 +19,7 @@ function quickScreen(app) {
   if (!app.moveInDate)               missing.push("Move-in Date");
   if (!app.employmentStatus)         missing.push("Employment");
   if (!app.monthlyIncome)            missing.push("Income");
-  if (missing.length === 0) return { label: "Complete / 完整", type: "ok" };
+  if (missing.length === 0) return { label: "complete", type: "ok" };
   if (missing.length <= 2)  return { label: `${missing.length} field(s) missing`, type: "warn" };
   return { label: `${missing.length} fields missing`, type: "error" };
 }
@@ -33,6 +34,7 @@ function isSetupErr(msg) {
 }
 
 export default function Leads() {
+  const lang = useLang();
   const [apps, setApps]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -55,7 +57,7 @@ export default function Leads() {
       <div className="flex-between mb-24">
         <div>
           <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>
-            Rental Applications / AI 初筛
+            {lang === "zh" ? "租客申请 · AI 初筛" : "Rental Applications · AI Screening"}
           </h1>
           <p className="text-muted text-sm">
             租客申请 · AI 初步筛查 · 数据来源：<code>07 Intake Records</code>
@@ -68,7 +70,7 @@ export default function Leads() {
       {/* Setup notice — shown when Apps Script not yet redeployed */}
       {setupError && (
         <div className="notice notice--warm mb-24">
-          <h4>Apps Script Redeploy Required / 需要重新部署 Apps Script</h4>
+          <h4>{lang === "zh" ? "需要重新部署 Apps Script" : "Apps Script Redeploy Required"}</h4>
           <p style={{ marginBottom: 8 }}>
             The application intake API actions (<code>saveRentalApplication</code>,{" "}
             <code>getAllApplications</code>, <code>getApplicationById</code>, etc.) have not been
@@ -125,8 +127,8 @@ export default function Leads() {
             <div style={{ fontSize: "2.2rem", marginBottom: 12 }}>🗂️</div>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
               {setupError
-                ? "Waiting for Apps Script deployment / 等待后台部署"
-                : "No applications yet / 暂无申请记录"}
+                ? (lang === "zh" ? "等待后台部署" : "Waiting for Apps Script deployment")
+                : (lang === "zh" ? "暂无申请记录" : "No applications yet")}
             </h2>
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem", lineHeight: 1.7, maxWidth: 580, margin: "0 auto" }}>
               {setupError
@@ -152,7 +154,7 @@ export default function Leads() {
                     "Applicant Name",
                     "Submitted",
                     "PDF",
-                    "Screening / 初筛",
+                    lang === "zh" ? "初筛" : "Screening",
                     "Review Status",
                     "",
                   ].map((h) => (
@@ -227,7 +229,10 @@ export default function Leads() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {screen.type === "ok" ? "✅" : "⚠️"} {screen.label}
+                          {screen.type === "ok" ? "✅" : "⚠️"}{" "}
+                          {screen.label === "complete"
+                            ? (lang === "zh" ? "完整" : "Complete")
+                            : screen.label}
                         </span>
                       </td>
                       <td style={{ padding: "10px 12px" }}>
@@ -257,7 +262,7 @@ export default function Leads() {
       {/* Application link helper */}
       <div className="card">
         <h3 style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--color-primary)", marginBottom: 8 }}>
-          Application Link / 申请入口链接
+          {lang === "zh" ? "申请入口链接" : "Application Link"}
         </h3>
         <p style={{ fontSize: "0.84rem", color: "var(--color-text-muted)", marginBottom: 8 }}>
           Share this URL with prospective tenants — replace <code>[listing-id]</code> with the actual ID:

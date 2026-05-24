@@ -7,6 +7,8 @@ import {
   getHomeSaleListing,
   getMarketingCopyByListingId,
 } from "../../utils/homeSaleSheet";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -19,6 +21,8 @@ function escapeHtml(value) {
 
 export default function HomeSaleShare() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [marketingRows, setMarketingRows] = useState([]);
   const [error, setError] = useState("");
@@ -65,14 +69,14 @@ export default function HomeSaleShare() {
         ...row,
         id: row.copyId || `${row.channel || "copy"}-${row.language || "lang"}-${index}`,
         shareText: [
-          `Channel / 渠道: ${row.channel || "—"}`,
-          `Language / 语言: ${row.language || "—"}`,
-          `Headline / 标题: ${row.headline || "—"}`,
+          `${lang === "zh" ? "渠道" : "Channel"}: ${row.channel || "—"}`,
+          `${lang === "zh" ? "语言" : "Language"}: ${row.language || "—"}`,
+          `${lang === "zh" ? "标题" : "Headline"}: ${row.headline || "—"}`,
           "",
-          `Body Copy / 正文:\n${row.bodyCopy || "—"}`,
+          `${lang === "zh" ? "正文" : "Body Copy"}:\n${row.bodyCopy || "—"}`,
           "",
-          `Call To Action / 行动引导: ${row.callToAction || "—"}`,
-          `Hashtags / 标签: ${row.hashtags || "—"}`,
+          `${lang === "zh" ? "行动引导" : "Call To Action"}: ${row.callToAction || "—"}`,
+          `${lang === "zh" ? "标签" : "Hashtags"}: ${row.hashtags || "—"}`,
         ].join("\n"),
       }));
   }, [marketingRows]);
@@ -124,7 +128,7 @@ export default function HomeSaleShare() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Share Kit / 分享素材</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.shareKitTitle}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
@@ -144,10 +148,10 @@ export default function HomeSaleShare() {
 
       <div className="card mb-24" style={{ borderColor: "#e5dfd6" }}>
         <h2 style={{ color: "#213128", fontSize: "1.05rem", fontWeight: 800, marginBottom: 10 }}>
-          Sale QR Code / 出售房源二维码
+          {L.saleQrCode}
         </h2>
         <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>
-          扫码查看房源详情与买家咨询入口。 / Scan to open the sale listing and buyer inquiry page.
+          {lang === "zh" ? "扫码查看房源详情与买家咨询入口。" : "Scan to open the sale listing and buyer inquiry page."}
         </p>
         {/* Hidden ref — print handler extracts SVG HTML from here */}
         <div ref={shareQrRef} style={{ display: "none" }}>
@@ -157,7 +161,7 @@ export default function HomeSaleShare() {
           <QRCodeSVG value={publicUrl} size={180} fgColor="#2f4338" bgColor="#ffffff" />
         </div>
         <div className="flex" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn--ghost" onClick={handlePrintQr}>Print QR Code / 打印二维码</button>
+          <button type="button" className="btn btn--ghost" onClick={handlePrintQr}>{lang === "zh" ? "打印二维码" : "Print QR Code"}</button>
           <a href={publicUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">Open Public Page</a>
         </div>
       </div>
@@ -166,7 +170,7 @@ export default function HomeSaleShare() {
         <div className="flex-between mb-16" style={{ alignItems: "flex-start", gap: 12 }}>
           <div>
             <h2 style={{ color: "#213128", fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
-              Marketing Copy Share Blocks / 营销文案分享块
+              {L.marketingShareBlocks}
             </h2>
             <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
               直接读取已生成的 Home Sale 营销文案，方便复制到微信、小红书、Facebook 等渠道。
@@ -177,15 +181,17 @@ export default function HomeSaleShare() {
             className="btn btn--ghost"
             onClick={() => handleCopy("public-link", publicUrl)}
           >
-            {copiedKey === "public-link" ? "已复制链接 / Link Copied" : "复制公开页链接 / Copy Public Link"}
+            {copiedKey === "public-link"
+              ? (lang === "zh" ? "已复制链接" : "Link Copied")
+              : (lang === "zh" ? "复制公开页链接" : "Copy Public Link")}
           </button>
         </div>
 
         {copyBlocks.length === 0 ? (
           <div className="notice notice--warning" style={{ marginBottom: 0 }}>
-            <h4>Please generate Marketing Copy first / 请先生成营销文案</h4>
+            <h4>{lang === "zh" ? "请先生成营销文案" : "Please generate Marketing Copy first"}</h4>
             <p style={{ marginBottom: 0 }}>
-              <Link to={`/admin/home-sale/marketing/${listingId}`}>Go to Marketing Copy / 前往营销文案页面</Link>
+              <Link to={`/admin/home-sale/marketing/${listingId}`}>{lang === "zh" ? "前往营销文案页面" : "Go to Marketing Copy"}</Link>
             </p>
           </div>
         ) : (
@@ -214,25 +220,25 @@ export default function HomeSaleShare() {
                     className="btn btn--ghost btn--sm"
                     onClick={() => handleCopy(block.id, block.shareText)}
                   >
-                    {copiedKey === block.id ? "已复制 / Copied" : "复制文案 / Copy"}
+                    {copiedKey === block.id ? (lang === "zh" ? "已复制" : "Copied") : (lang === "zh" ? "复制文案" : "Copy")}
                   </button>
                 </div>
 
                 <div style={{ display: "grid", gap: 12 }}>
                   <div>
-                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Headline / 标题</p>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>{lang === "zh" ? "标题" : "Headline"}</p>
                     <div style={{ fontWeight: 700 }}>{block.headline || "—"}</div>
                   </div>
                   <div>
-                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Body Copy / 正文</p>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>{lang === "zh" ? "正文" : "Body Copy"}</p>
                     <textarea className="form-control" value={block.bodyCopy || ""} readOnly rows={6} />
                   </div>
                   <div>
-                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Call To Action / 行动引导</p>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>{lang === "zh" ? "行动引导" : "Call To Action"}</p>
                     <div>{block.callToAction || "—"}</div>
                   </div>
                   <div>
-                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>Hashtags / 标签</p>
+                    <p className="text-muted text-sm" style={{ marginBottom: 4 }}>{lang === "zh" ? "标签" : "Hashtags"}</p>
                     <div>{block.hashtags || "—"}</div>
                   </div>
                 </div>

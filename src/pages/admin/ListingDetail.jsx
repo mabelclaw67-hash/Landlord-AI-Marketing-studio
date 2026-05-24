@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { t } from "../../translations";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
@@ -10,21 +12,26 @@ import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../ut
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
+import { buildRentalListingPublicUrl } from "../../utils/publicUrls";
 
-const TAB_LABELS = {
-  "Facebook Post":        "📘 Facebook",
-  "Craigslist Ad":        "📋 Craigslist",
-  "WeChat Post":          "💬 WeChat / 微信",
-  "Short Video Script":   "🎬 Video Script / 视频脚本",
-  "Owner Summary":        "📄 Owner Summary / 房东摘要",
-  "English Rental Ad":    "🇬🇧 English Ad",
-  "Chinese Owner Summary":"🇨🇳 Chinese / 中文",
-};
+function getTabLabels(lang) {
+  const zh = lang === "zh";
+  return {
+    "Facebook Post":        "📘 Facebook",
+    "Craigslist Ad":        "📋 Craigslist",
+    "WeChat Post":          zh ? "💬 微信" : "💬 WeChat",
+    "Short Video Script":   zh ? "🎬 视频脚本" : "🎬 Video Script",
+    "Owner Summary":        zh ? "📄 房东摘要" : "📄 Owner Summary",
+    "English Rental Ad":    zh ? "🇬🇧 英文广告" : "🇬🇧 English Ad",
+    "Chinese Owner Summary":zh ? "🇨🇳 中文版" : "🇨🇳 Chinese",
+  };
+}
 
 const MAX_FILE_MB = 8;
 
 // Fallback when manifest hasn't loaded yet
-const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
+const MUSIC_NO_MUSIC_EN = { label: "No music", file: "none" };
+const MUSIC_NO_MUSIC_ZH = { label: "不加音乐", file: "none" };
 
 // ── Pure helpers (outside component — stable identity, no remount risk) ───────
 
@@ -163,7 +170,7 @@ function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManua
             onClick={onToggleCollage}
             title={inCollage ? "Remove from collage" : "Add to collage"}
           >
-            {inCollage ? "✓ In Collage / 已选" : "+ Use in Collage / 加入拼图"}
+            {inCollage ? (lang === "zh" ? "✓ 已选" : "✓ In Collage") : (lang === "zh" ? "+ 加入拼图" : "+ Use in Collage")}
           </button>
         </div>
       )}
@@ -208,7 +215,12 @@ function CopyButton({ text, lang }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ListingDetail({ lang }) {
+export default function ListingDetail({ lang: langProp }) {
+  const langCtx = useLang();
+  const lang = langCtx || langProp;
+  const L = AL[lang] ?? AL.en;
+  const TAB_LABELS = getTabLabels(lang);
+  const MUSIC_NO_MUSIC = lang === "zh" ? MUSIC_NO_MUSIC_ZH : MUSIC_NO_MUSIC_EN;
   const { id } = useParams();
 
   // ── Core state ───────────────────────────────────────────────────────────────
@@ -310,7 +322,7 @@ export default function ListingDetail({ lang }) {
         setVideoBlob(blob);
         setVideoBlobUrl(URL.createObjectURL(blob));
         setVideoStatus("done");
-        setVideoMsg("Video loaded from cache. / 已从缓存加载视频。");
+        setVideoMsg(lang === "zh" ? "已从缓存加载视频。" : "Video loaded from cache.");
         setVideoMusicStatus(null);
         setVideoSourceType(null);
       })
@@ -503,13 +515,13 @@ export default function ListingDetail({ lang }) {
     const currentCount = folderFiles.length;
     const remaining = Math.max(0, MAX_PHOTOS - currentCount);
     if (currentCount >= MAX_PHOTOS) {
-      setUploadMsg({ type: "error", text: `Photo limit reached (max ${MAX_PHOTOS}). / 已达到照片上限（最多 ${MAX_PHOTOS} 张）。` });
+      setUploadMsg({ type: "error", text: lang === "zh" ? `已达到照片上限（最多 ${MAX_PHOTOS} 张）。` : `Photo limit reached (max ${MAX_PHOTOS}).` });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     const clipped = selected.slice(0, Math.min(MAX_BATCH, remaining));
     if (selected.length > remaining) {
-      setUploadMsg({ type: "error", text: `Only ${remaining} more photo(s) can be uploaded (max ${MAX_PHOTOS} total). / 还可上传 ${remaining} 张（总上限 ${MAX_PHOTOS} 张）。` });
+      setUploadMsg({ type: "error", text: lang === "zh" ? `还可上传 ${remaining} 张（总上限 ${MAX_PHOTOS} 张）。` : `Only ${remaining} more photo(s) can be uploaded (max ${MAX_PHOTOS} total).` });
     }
     const batch = clipped;
     const oversized = batch.find((f) => f.size > MAX_FILE_MB * 1024 * 1024);
@@ -855,7 +867,7 @@ export default function ListingDetail({ lang }) {
     const rent   = listing.rent ? `$${Number(listing.rent).toLocaleString()}/month` : "";
     const avail  = fmtDate(listing.available);
     const addr   = listing.address || "";
-    const pubUrl = `https://landlord-ai-marketing-studio.netlify.app/listings/${listing.id}`;
+    const pubUrl = buildRentalListingPublicUrl(listing.id);
     const feats  = listing.features
       ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)
       : [];
@@ -1248,7 +1260,7 @@ export default function ListingDetail({ lang }) {
     const sources = resolveCollagePhotos(pool, collageSelection, (f) => f.fileId, effectiveCover?.fileId);
     if (sources.length < 2) {
       setCollageStatus("error");
-      setCollageMsg("At least 2 photos are needed. Sync photos from Drive first. / 需要至少 2 张照片，请先从 Drive 同步。");
+      setCollageMsg(lang === "zh" ? "需要至少 2 张照片，请先从 Drive 同步。" : "At least 2 photos are needed. Sync photos from Drive first.");
       return;
     }
     setCollageStatus("loading");
@@ -1264,7 +1276,7 @@ export default function ListingDetail({ lang }) {
       setCollageStatus("ready");
     } catch (err) {
       setCollageStatus("error");
-      setCollageMsg(err.message || "Collage generation failed. / 拼图生成失败。");
+      setCollageMsg(err.message || (lang === "zh" ? "拼图生成失败。" : "Collage generation failed."));
     }
   }
 
@@ -1273,7 +1285,7 @@ export default function ListingDetail({ lang }) {
     const folderId = extractFolderId(listing?.driveFolderLink);
     if (!folderId) {
       setCollageStatus("error");
-      setCollageMsg("No Drive folder linked to this listing. / 此房源没有关联的 Drive 文件夹。");
+      setCollageMsg(lang === "zh" ? "此房源没有关联的 Drive 文件夹。" : "No Drive folder linked to this listing.");
       return;
     }
     setCollageStatus("saving");
@@ -1316,10 +1328,10 @@ export default function ListingDetail({ lang }) {
         } catch { /* non-critical — admin view still works via in-memory state */ }
       }
       setCollageStatus("saved");
-      setCollageMsg("Collage saved to 03_Cover_Images/ and set as cover. / 拼图封面已保存并设为主图。");
+      setCollageMsg(lang === "zh" ? "拼图封面已保存并设为主图。" : "Collage saved to 03_Cover_Images/ and set as cover.");
     } catch (err) {
       setCollageStatus("error");
-      setCollageMsg(err.message || "Failed to save collage. / 保存失败。");
+      setCollageMsg(err.message || (lang === "zh" ? "保存失败。" : "Failed to save collage."));
     }
   }
 
@@ -1713,7 +1725,7 @@ export default function ListingDetail({ lang }) {
       {folderFiles.length > 0 && (
         <div className="card mb-24" style={{ background: "#f8fafc" }}>
           <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            📋 Review Status / 审核状态
+            📋 {lang === "zh" ? "审核状态" : "Review Status"}
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
             <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
@@ -1779,7 +1791,7 @@ export default function ListingDetail({ lang }) {
       {/* Property Photos */}
       <div className="card">
         <h3 style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          📁 Property Photos / 房源照片
+          📁 {L.photoAssets}
         </h3>
 
         {!isApiConnected() ? (
@@ -1796,7 +1808,7 @@ export default function ListingDetail({ lang }) {
             {/* Drive folder toolbar */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
               <p className="text-muted text-sm" style={{ margin: 0, flex: 1 }}>
-                Reading from Drive. Original files are not modified. / 读取 Drive 文件夹，原始文件不变。
+                {lang === "zh" ? "读取 Drive 文件夹，原始文件不变。" : "Reading from Drive. Original files are not modified."}
               </p>
               <button className="btn btn--ghost btn--sm" disabled={folderLoading}
                 onClick={() => { setManualCover(null); setExcluded(new Set()); loadFolderFiles(extractFolderId(listing.driveFolderLink)); }}
@@ -1818,13 +1830,14 @@ export default function ListingDetail({ lang }) {
             {/* ── Detected Cover Photo ─────────────────────────────────── */}
             {!folderLoading && folderFiles.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 10 }}>🖼️ Detected Cover Photo / 自动识别主图</p>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 10 }}>🖼️ {lang === "zh" ? "自动识别主图" : "Detected Cover Photo"}</p>
                 {coverIsFallback && (
                   <div className="notice notice--info" style={{ marginBottom: 10 }}>
                     <p style={{ fontSize: "0.82rem" }}>
-                      No filename starting with "1" was found. Using the first image as cover fallback.
-                      To set a different cover, use "Set Cover" in the photo package below.
-                      <br />未找到以"1"开头的文件名，已使用第一张图片作为主图替代。如需更换，请在下方照片包中使用"Set Cover"。
+                      {lang === "zh"
+                        ? "未找到以"1"开头的文件名，已使用第一张图片作为主图替代。如需更换，请在下方照片包中使用"Set Cover"。"
+                        : <>No filename starting with "1" was found. Using the first image as cover fallback. To set a different cover, use "Set Cover" in the photo package below.</>
+                      }
                     </p>
                   </div>
                 )}
@@ -1838,7 +1851,7 @@ export default function ListingDetail({ lang }) {
                           ? <><strong style={{ color: "#d97706" }}>⚠️ Fallback cover in use</strong><br />File: <code>{effectiveCover.name}</code></>
                           : <><strong style={{ color: "var(--color-text)" }}>✅ Cover auto-detected</strong><br />Filename starts with "1": <code>{effectiveCover.name}</code></>
                       }
-                      <br />This photo will be used as the listing cover image. / 此图将作为房源主图使用。<br />
+                      <br />{lang === "zh" ? "此图将作为房源主图使用。" : "This photo will be used as the listing cover image."}<br />
                       <span style={{ fontSize: "0.78rem" }}>Processed cover → <code>03_Cover_Images/</code></span>
                       {coverIsManual && (
                         <><br />
@@ -1859,7 +1872,7 @@ export default function ListingDetail({ lang }) {
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
                   <div>
-                    <p style={{ fontWeight: 700, fontSize: "0.9rem", margin: 0 }}>🖼️ Generate Collage Cover / 生成拼图封面</p>
+                    <p style={{ fontWeight: 700, fontSize: "0.9rem", margin: 0 }}>🖼️ {lang === "zh" ? "生成拼图封面" : "Generate Collage Cover"}</p>
                     {collageSelection.size > 0 && (
                       <span style={{ fontSize: "0.78rem", color: "var(--color-primary)", marginTop: 2, display: "inline-block" }}>
                         Selected for Collage: {collageSelection.size} / 4 &nbsp;
@@ -1868,7 +1881,7 @@ export default function ListingDetail({ lang }) {
                           style={{ fontSize: "0.72rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
                           onClick={() => setCollageSelection(new Set())}
                         >
-                          Clear Selection / 清空拼图选择
+                          {lang === "zh" ? "清空拼图选择" : "Clear Selection"}
                         </button>
                       </span>
                     )}
@@ -1881,10 +1894,10 @@ export default function ListingDetail({ lang }) {
                       onClick={handleGenerateCollage}
                     >
                       {collageStatus === "loading"
-                        ? "Generating… / 生成中…"
+                        ? (lang === "zh" ? "生成中…" : "Generating…")
                         : collageStatus === "ready" || collageStatus === "saved"
-                        ? "Regenerate / 重新生成"
-                        : "Generate Collage Cover / 生成拼图封面"}
+                        ? (lang === "zh" ? "重新生成" : "Regenerate")
+                        : (lang === "zh" ? "生成拼图封面" : "Generate Collage Cover")}
                     </button>
                     {collageStatus === "ready" && (
                       <button
@@ -1892,7 +1905,7 @@ export default function ListingDetail({ lang }) {
                         className="btn btn--sm"
                         onClick={handleSaveCollage}
                       >
-                        Save as Cover / 保存为封面
+                        {lang === "zh" ? "保存为封面" : "Save as Cover"}
                       </button>
                     )}
                   </div>
@@ -1924,8 +1937,8 @@ export default function ListingDetail({ lang }) {
                     </div>
                     <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
                       {collageStatus === "saved"
-                        ? "✅ Saved and set as cover / 已保存并设为封面"
-                        : "Preview — click \"Save as Cover\" to upload. / 预览图 — 点击\"保存为封面\"上传。"}
+                        ? (lang === "zh" ? "✅ 已保存并设为封面" : "✅ Saved and set as cover")
+                        : (lang === "zh" ? "预览图 — 点击\"保存为封面\"上传。" : "Preview — click \"Save as Cover\" to upload.")}
                     </p>
                   </div>
                 )}
@@ -1935,7 +1948,7 @@ export default function ListingDetail({ lang }) {
             {/* ── Marketplace Photo Package ─────────────────────────────── */}
             {!folderLoading && folderFiles.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 4 }}>🏠 Marketplace Photo Package / Marketplace 全部照片</p>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 4 }}>🏠 {lang === "zh" ? "广告照片集" : "Marketplace Photo Package"}</p>
                 <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.6 }}>
                   <strong>{activePhotos.length}</strong> active photo{activePhotos.length !== 1 ? "s" : ""} ({excluded.size} excluded).
                   Use ↑↓ to reorder · <strong>Set Cover</strong> to override cover detection · <strong>Exclude</strong> to remove from package.
@@ -1969,7 +1982,7 @@ export default function ListingDetail({ lang }) {
             {/* ── Light Enhancement Batch ───────────────────────────────── */}
             {!folderLoading && activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>✨ Light Enhancement Batch / 轻度美化批次</p>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>✨ {lang === "zh" ? "轻度美化批次" : "Light Enhancement Batch"}</p>
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 8, lineHeight: 1.7 }}>
                   <strong>{activePhotos.length}</strong> active photo{activePhotos.length !== 1 ? "s" : ""} will be processed.
                   Enhanced copies → <code>02_AI_Enhanced_Photos/</code> — originals unchanged.
@@ -2048,7 +2061,7 @@ export default function ListingDetail({ lang }) {
             {!folderLoading && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ Enhanced Photos Preview / 美化照片预览</p>
+                  <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ {lang === "zh" ? "美化照片预览" : "Enhanced Photos Preview"}</p>
                   <div style={{ display: "flex", gap: 8 }}>
                     {enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
@@ -2107,7 +2120,7 @@ export default function ListingDetail({ lang }) {
             {/* ── Short Video Generator ─────────────────────────────────── */}
             {!folderLoading && activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>🎬 Short Video Generator / 短视频生成</p>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>🎬 {lang === "zh" ? "短视频生成" : "Short Video Generator"}</p>
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.7 }}>
                   Polished ~25–35 sec listing video. Ken Burns zoom · fade transitions · text overlays.
                   <br /><span style={{ fontSize: "0.78rem" }}>精美房源幻灯片视频，输出至 <code>04_Video_Output/</code>。</span>
@@ -2116,11 +2129,11 @@ export default function ListingDetail({ lang }) {
                 {/* Photo source indicator */}
                 <div style={{ marginBottom: 12, padding: "7px 12px", borderRadius: 7, background: enhancedPhotos.length > 0 ? "#f0fdf4" : "#fffbeb", border: `1px solid ${enhancedPhotos.length > 0 ? "#86efac" : "#fde68a"}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: "0.82rem" }}>
-                    <strong>Video source / 视频素材：</strong>{" "}
+                    <strong>{lang === "zh" ? "视频素材：" : "Video source:"}</strong>{" "}
                     {enhancedPhotos.length > 0 ? (
-                      <span style={{ color: "#16a34a", fontWeight: 700 }}>✅ Enhanced Photos ({enhancedPhotos.length} photos) / 美化照片</span>
+                      <span style={{ color: "#16a34a", fontWeight: 700 }}>✅ {lang === "zh" ? `美化照片 (${enhancedPhotos.length})` : `Enhanced Photos (${enhancedPhotos.length} photos)`}</span>
                     ) : (
-                      <span style={{ color: "#d97706", fontWeight: 600 }}>⚠️ Original Photos / 原始照片</span>
+                      <span style={{ color: "#d97706", fontWeight: 600 }}>⚠️ {L.originalPhotos}</span>
                     )}
                   </span>
                   {enhancedPhotos.length === 0 && enhancedFolderId && (
@@ -2143,13 +2156,13 @@ export default function ListingDetail({ lang }) {
                 {/* ── Video Photo Picker ──────────────────────────────────── */}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>📷 Video Photos / 视频照片</span>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>📷 {lang === "zh" ? "视频照片" : "Video Photos"}</span>
                     {videoPhotoIds
                       ? <span style={{ fontSize: "0.74rem", background: "#EFF3F8", color: "var(--color-primary)", borderRadius: 5, padding: "2px 8px", fontWeight: 600 }}>
-                          Manual: {videoPhotoIds.length} selected / 已手动选择 {videoPhotoIds.length} 张
+                          {lang === "zh" ? `已手动选择 ${videoPhotoIds.length} 张` : `Manual: ${videoPhotoIds.length} selected`}
                         </span>
                       : <span style={{ fontSize: "0.74rem", background: "#f0fdf4", color: "#16a34a", borderRadius: 5, padding: "2px 8px", fontWeight: 600 }}>
-                          Auto (by filename order) / 自动按文件名数字排序
+                          {lang === "zh" ? "自动按文件名数字排序" : "Auto (by filename order)"}
                         </span>
                     }
                     <button
@@ -2167,7 +2180,7 @@ export default function ListingDetail({ lang }) {
                         disabled={videoStatus !== "idle"}
                         onClick={() => setVideoPhotoIds(null)}
                       >
-                        Reset to auto / 重置自动
+                        {lang === "zh" ? "重置自动" : "Reset to auto"}
                       </button>
                     )}
                   </div>
@@ -2197,8 +2210,10 @@ export default function ListingDetail({ lang }) {
                     return (
                       <div style={{ border: "1px solid var(--color-border)", borderRadius: 8, padding: 12, background: "#fafafa" }}>
                         <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.6 }}>
-                          Click to select up to {MAX_SEL} photos. Numbers show video order. If nothing selected, first {MAX_SEL} by filename number are used.
-                          <br />点击选择最多 {MAX_SEL} 张。数字为视频顺序。不选则自动按文件名数字取前 {MAX_SEL} 张。
+                          {lang === "zh"
+                            ? <>点击选择最多 {MAX_SEL} 张。数字为视频顺序。不选则自动按文件名数字取前 {MAX_SEL} 张。</>
+                            : <>Click to select up to {MAX_SEL} photos. Numbers show video order. If nothing selected, first {MAX_SEL} by filename number are used.</>
+                          }
                         </p>
 
                         {/* Thumbnail grid */}
@@ -2242,7 +2257,7 @@ export default function ListingDetail({ lang }) {
                         {selectedIds.length > 0 && (
                           <div>
                             <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginBottom: 6 }}>
-                              Reorder / 调整顺序：
+                              {lang === "zh" ? "调整顺序：" : "Reorder:"}
                             </p>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                               {selectedIds.map((fid, idx) => {
@@ -2279,7 +2294,7 @@ export default function ListingDetail({ lang }) {
                 {/* Background Music selector */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: "0.82rem", fontWeight: 700, display: "block", marginBottom: 6 }}>
-                    🎵 Background Music / 背景音乐
+                    {lang === "zh" ? "🎵 背景音乐" : "🎵 Background Music"}
                   </label>
                   <select
                     value={musicTrack}
@@ -2304,14 +2319,16 @@ export default function ListingDetail({ lang }) {
                     }
                   </p>
                   <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 5, lineHeight: 1.6 }}>
-                    Use royalty-free music only. Music can also be added later in Facebook, CapCut, or Canva.
-                    <br />仅使用免版权音乐。也可以稍后在 Facebook、剪映/CapCut 或 Canva 中添加音乐。
+                    {lang === "zh"
+                      ? "仅使用免版权音乐。也可以稍后在 Facebook、剪映/CapCut 或 Canva 中添加音乐。"
+                      : "Use royalty-free music only. Music can also be added later in Facebook, CapCut, or Canva."
+                    }
                   </p>
                 </div>
 
                 {/* Format selector — disabled while rendering */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-muted)" }}>Format / 格式:</span>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--color-text-muted)" }}>{lang === "zh" ? "格式:" : "Format:"}</span>
                   {[
                     { value: "landscape", label: "Landscape 16:9", sub: "Facebook · YouTube" },
                     { value: "vertical",  label: "Vertical 9:16",  sub: "Reels · TikTok · WeChat" },
@@ -2355,7 +2372,7 @@ export default function ListingDetail({ lang }) {
                 {(videoStatus === "preparing" || videoStatus === "rendering") && (
                   <div style={{ fontSize: "0.85rem", color: "var(--color-primary)", lineHeight: 1.8 }}>
                     <div>
-                      {videoStatus === "preparing" && "Preparing photos… / 准备照片中…"}
+                      {videoStatus === "preparing" && (lang === "zh" ? "准备照片中…" : "Preparing photos…")}
                       {videoStatus === "rendering" && (
                         <>
                           Rendering scene {videoProgress.slide} of {videoProgress.total}…
@@ -2366,14 +2383,14 @@ export default function ListingDetail({ lang }) {
                       )}
                     </div>
                     <div style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 2 }}>
-                      Rendering runs in real time (~25–35 sec). Keep this tab open. / 实时渲染中，请保持当前页面。
+                      {lang === "zh" ? "实时渲染中，请保持当前页面。" : "Rendering runs in real time (~25–35 sec). Keep this tab open."}
                     </div>
                   </div>
                 )}
 
                 {videoStatus === "uploading" && (
                   <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
-                    Saving video to Drive storage… / 正在保存至 Drive…
+                    {lang === "zh" ? "正在保存至 Drive…" : "Saving video to Drive storage…"}
                   </div>
                 )}
 
@@ -2384,7 +2401,7 @@ export default function ListingDetail({ lang }) {
                     {videoBlobUrl && (
                       <div style={{ marginBottom: 14 }}>
                         <p style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 8, color: "var(--color-primary)" }}>
-                          Video Preview / 视频预览
+                          {lang === "zh" ? "视频预览" : "Video Preview"}
                         </p>
                         <video
                           key={videoBlobUrl}
@@ -2462,8 +2479,10 @@ export default function ListingDetail({ lang }) {
                     )}
 
                     <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 8, lineHeight: 1.7 }}>
-                      No background music included. Add in Facebook / CapCut / Canva.
-                      <br />视频不含背景音乐，可在 Facebook / CapCut / Canva 中自行添加。
+                      {lang === "zh"
+                        ? "视频不含背景音乐，可在 Facebook / CapCut / Canva 中自行添加。"
+                        : "No background music included. Add in Facebook / CapCut / Canva."
+                      }
                     </p>
                   </div>
                 )}
@@ -2499,10 +2518,12 @@ export default function ListingDetail({ lang }) {
 
             {/* ── Add More Photos ────────────────────────────────────────── */}
             <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 14 }}>
-              <p style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6 }}>Add More Photos / 补充上传照片</p>
+              <p style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6 }}>{lang === "zh" ? "补充上传照片" : "Add More Photos"}</p>
               <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
-                Uploads go to your listing folder root. Max {MAX_FILE_MB} MB per file, up to {MAX_BATCH} at once.
-                <br />上传至房源文件夹根目录，每次最多 {MAX_BATCH} 张，每张最大 {MAX_FILE_MB} MB。
+                {lang === "zh"
+                  ? <>上传至房源文件夹根目录，每次最多 {MAX_BATCH} 张，每张最大 {MAX_FILE_MB} MB。</>
+                  : <>Uploads go to your listing folder root. Max {MAX_FILE_MB} MB per file, up to {MAX_BATCH} at once.</>
+                }
               </p>
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" multiple
                 style={{ display: "none" }} onChange={handleFileChange} />

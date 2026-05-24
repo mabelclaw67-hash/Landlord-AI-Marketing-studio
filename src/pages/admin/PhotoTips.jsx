@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useLang } from "../../contexts/LangContext";
 
 const SECTIONS = [
   {
@@ -62,21 +63,22 @@ const SECTIONS = [
 ];
 
 export default function PhotoTips() {
+  const lang = useLang();
   return (
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Smart Photo Tips / 智能拍照建议</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "智能拍照建议" : "Smart Photo Tips"}</h1>
           <p className="text-muted text-sm">
-            Follow this checklist to take listing photos that attract more inquiries. / 按照此清单拍摄，帮助您的房源吸引更多咨询。
+            {lang === "zh" ? "按照此清单拍摄，帮助您的房源吸引更多咨询。" : "Follow this checklist to take listing photos that attract more inquiries."}
           </p>
         </div>
-        <Link to="/admin" className="btn btn--ghost">← Back / 返回</Link>
+        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
       </div>
 
       <div className="notice notice--sage" style={{ marginBottom: 24 }}>
         <p style={{ margin: 0, fontSize: "0.88rem" }}>
-          📷 Good photos are the single biggest factor in attracting tenant or buyer inquiries. Use this checklist before every shoot. / 好照片是吸引租客和买家的最重要因素。每次拍摄前请参考此清单。
+          {lang === "zh" ? "📷 好照片是吸引租客和买家的最重要因素。每次拍摄前请参考此清单。" : "📷 Good photos are the single biggest factor in attracting tenant or buyer inquiries. Use this checklist before every shoot."}
         </p>
       </div>
 
@@ -85,7 +87,7 @@ export default function PhotoTips() {
           <div key={section.title} className="card" style={{ padding: "18px 20px" }}>
             <h3 style={{ fontWeight: 700, fontSize: "1rem", color: "#213128", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
               <span>{section.icon}</span>
-              <span>{section.title}</span>
+              <span>{lang === "zh" ? section.title.split(" / ").slice(-1)[0] : section.title.split(" / ")[0]}</span>
             </h3>
             <div style={{ display: "grid", gap: 10 }}>
               {section.items.map((item, i) => (
@@ -108,8 +110,7 @@ export default function PhotoTips() {
                     {i + 1}
                   </span>
                   <div>
-                    <div style={{ fontSize: "0.88rem", color: "#213128", lineHeight: 1.5 }}>{item.en}</div>
-                    <div style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>{item.cn}</div>
+                    <div style={{ fontSize: "0.88rem", color: "#213128", lineHeight: 1.5 }}>{lang === "zh" ? item.cn : item.en}</div>
                   </div>
                 </div>
               ))}
@@ -119,7 +120,7 @@ export default function PhotoTips() {
       </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <Link to="/admin" className="btn btn--ghost">← Back to Dashboard / 返回后台</Link>
+        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回后台" : "← Back to Dashboard"}</Link>
         <Link to="/admin/home-sale" className="btn btn--ghost">Home Sale Studio →</Link>
       </div>
     </div>

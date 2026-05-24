@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { isAdminSessionActive, readTrialAccess } from "../utils/trialAccess";
+import { useLang } from "../contexts/LangContext";
 
 const FREE_MODULES = [
   {
@@ -9,7 +10,6 @@ const FREE_MODULES = [
     desc: "Photography checklist to take listing photos that attract more inquiries.",
     descCn: "拍摄清单，帮助您拍出吸引更多咨询的房源照片。",
     to: "/admin/photo-tips",
-    label: "Open / 打开",
   },
   {
     icon: "❓",
@@ -18,7 +18,6 @@ const FREE_MODULES = [
     desc: "Answers to common questions about listings, photos, and platform features.",
     descCn: "关于房源、照片和平台功能的常见问题解答。",
     to: "/admin/faq",
-    label: "Open / 打开",
   },
 ];
 
@@ -40,10 +39,12 @@ const PREMIUM_MODULES = [
 ];
 
 export default function ComingSoonSection() {
+  const lang = useLang();
   const isAdmin = isAdminSessionActive();
 
   function premiumButtonLabel() {
-    return isAdmin ? "Architecture Preview Only" : "Premium — Upgrade to Access";
+    if (isAdmin) return lang === "zh" ? "仅供架构预览" : "Architecture Preview Only";
+    return lang === "zh" ? "Premium — 升级后可用" : "Premium — Upgrade to Access";
   }
 
   return (
@@ -52,10 +53,10 @@ export default function ComingSoonSection() {
       {/* ── Free modules ──────────────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "#213128", marginBottom: 4 }}>
-          Available Now / 现已开放
+          {lang === "zh" ? "现已开放" : "Available Now"}
         </h2>
         <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 14 }}>
-          Free features accessible to all users. / 所有用户均可免费访问。
+          {lang === "zh" ? "所有用户均可免费访问。" : "Free features accessible to all users."}
         </p>
         <div style={{
           display: "grid",
@@ -71,19 +72,20 @@ export default function ComingSoonSection() {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: "1.35rem", flexShrink: 0, lineHeight: 1 }}>{mod.icon}</span>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#213128", lineHeight: 1.3 }}>{mod.title}</div>
-                  <div style={{ fontSize: "0.77rem", color: "var(--color-text-muted)" }}>{mod.titleCn}</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#213128", lineHeight: 1.3 }}>
+                    {lang === "zh" ? mod.titleCn : mod.title}
+                  </div>
                 </div>
               </div>
               <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", lineHeight: 1.6, marginBottom: 12, flexGrow: 1 }}>
-                {mod.desc}<br />{mod.descCn}
+                {lang === "zh" ? mod.descCn : mod.desc}
               </p>
               <Link
                 to={mod.to}
                 className="btn btn--sage btn--sm"
                 style={{ textAlign: "center", display: "block" }}
               >
-                {mod.label}
+                {lang === "zh" ? "打开" : "Open"}
               </Link>
             </div>
           ))}
@@ -93,10 +95,10 @@ export default function ComingSoonSection() {
       {/* ── Premium modules ────────────────────────────────────── */}
       <div>
         <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "#213128", marginBottom: 4 }}>
-          Premium Features / 高级付费功能
+          {lang === "zh" ? "高级付费功能" : "Premium Features"}
         </h2>
         <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 14 }}>
-          Advanced AI tools for paid accounts. / 付费账号专属 AI 高级功能。
+          {lang === "zh" ? "付费账号专属 AI 高级功能。" : "Advanced AI tools for paid accounts."}
         </p>
         <div style={{
           display: "grid",
@@ -112,12 +114,13 @@ export default function ComingSoonSection() {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: "1.35rem", flexShrink: 0, lineHeight: 1 }}>{mod.icon}</span>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#213128", lineHeight: 1.3 }}>{mod.title}</div>
-                  <div style={{ fontSize: "0.77rem", color: "var(--color-text-muted)" }}>{mod.titleCn}</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#213128", lineHeight: 1.3 }}>
+                    {lang === "zh" ? mod.titleCn : mod.title}
+                  </div>
                 </div>
               </div>
               <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", lineHeight: 1.6, marginBottom: 10, flexGrow: 1 }}>
-                {mod.desc}<br />{mod.descCn}
+                {lang === "zh" ? mod.descCn : mod.desc}
               </p>
               <div style={{
                 display: "inline-block",
@@ -131,7 +134,7 @@ export default function ComingSoonSection() {
                 marginBottom: 10,
                 alignSelf: "flex-start",
               }}>
-                ✨ Premium Feature
+                {lang === "zh" ? "✨ Premium 功能" : "✨ Premium Feature"}
               </div>
               <button
                 disabled
@@ -151,7 +154,7 @@ export default function ComingSoonSection() {
               </button>
               {!isAdmin && (
                 <p style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", marginTop: 6, textAlign: "center", lineHeight: 1.5 }}>
-                  Available for paid accounts only.<br />付费账号专属功能。
+                  {lang === "zh" ? "付费账号专属功能。" : "Available for paid accounts only."}
                 </p>
               )}
             </div>

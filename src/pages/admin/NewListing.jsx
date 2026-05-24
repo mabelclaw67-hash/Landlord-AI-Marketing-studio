@@ -5,6 +5,8 @@ import { saveListing, generateListingId } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { readTrialAccess } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 const PLATFORMS = ["Facebook", "Craigslist", "WeChat", "Short Video", "Owner Summary"];
 const LANGUAGES = ["Bilingual", "English", "Chinese"];
@@ -39,7 +41,10 @@ function FormGroup({ label, chHint, children }) {
   );
 }
 
-export default function NewListing({ lang }) {
+export default function NewListing({ lang: langProp }) {
+  const langCtx = useLang();
+  const lang = langCtx || langProp;
+  const L = AL[lang] ?? AL.en;
   const [form, setForm] = useState(INIT);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -132,8 +137,8 @@ export default function NewListing({ lang }) {
       <PrototypeBanner lang={lang} />
 
       <div className="mb-24">
-        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>New Rental Listing / 新增出租房源</h1>
-        <p className="text-muted text-sm">Fill in the rental property details to generate your marketing package. / 填写出租房源资料以生成营销素材包。</p>
+        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.newRentalListingTitle}</h1>
+        <p className="text-muted text-sm">{lang === "zh" ? "填写出租房源资料以生成营销素材包。" : "Fill in the rental property details to generate your marketing package."}</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -187,7 +192,7 @@ export default function NewListing({ lang }) {
         {/* Owner Info */}
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            👤 Owner Information / 房东信息
+            👤 {L.ownerInfo}
           </h3>
           <div className="form-row">
             <FormGroup label={t(lang, "newListing.ownerName")} chHint="房东姓名">
@@ -202,7 +207,7 @@ export default function NewListing({ lang }) {
         {/* Property Details */}
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            🏠 Property Details / 房源信息
+            🏠 {L.propertyDetails}
           </h3>
           <div className="form-row">
             <FormGroup label={t(lang, "newListing.address")} chHint="地址">
@@ -242,7 +247,7 @@ export default function NewListing({ lang }) {
         {/* Policies */}
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            📋 Policies & Amenities / 政策与设施
+            {lang === "zh" ? "📋 政策与设施" : "📋 Policies & Amenities"}
           </h3>
           <div className="form-row">
             <FormGroup label={t(lang, "newListing.utilities")} chHint="水电">
@@ -278,7 +283,7 @@ export default function NewListing({ lang }) {
         {/* Marketing */}
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            ✨ Marketing Details / 广告信息
+            {lang === "zh" ? "✨ 广告信息" : "✨ Marketing Details"}
           </h3>
           <FormGroup label={t(lang, "newListing.features")} chHint="主要特色（用逗号分隔）">
             <textarea
@@ -321,7 +326,7 @@ export default function NewListing({ lang }) {
               ))}
             </div>
             <p className="text-sm text-muted" style={{ marginTop: 8 }}>
-              English Ad and Chinese Summary are always generated / 英文广告和中文摘要始终生成
+              {lang === "zh" ? "英文广告和中文摘要始终生成" : "English Ad and Chinese Summary are always generated"}
             </p>
           </div>
         </div>

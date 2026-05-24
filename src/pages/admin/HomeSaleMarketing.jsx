@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   HOME_SALE_LANGUAGES,
   HOME_SALE_MARKETING_CHANNELS,
@@ -29,6 +31,8 @@ function emptyMarketingForm(listingId) {
 
 export default function HomeSaleMarketing() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(emptyMarketingForm(listingId));
@@ -92,7 +96,7 @@ export default function HomeSaleMarketing() {
       });
       setForm(emptyMarketingForm(listingId));
       await refresh();
-      setSuccessMessage("Marketing copy saved / 文案已保存");
+      setSuccessMessage(lang === "zh" ? "文案已保存" : "Marketing copy saved");
     } catch (err) {
       setError(err.message || "Failed to save marketing copy.");
     } finally {
@@ -107,7 +111,7 @@ export default function HomeSaleMarketing() {
     try {
       await generateHomeSaleMarketingCopy(listingId);
       await refresh();
-      setSuccessMessage("Bilingual marketing copy generated / 中英文营销文案已生成");
+      setSuccessMessage(lang === "zh" ? "中英文营销文案已生成" : "Bilingual marketing copy generated");
     } catch (err) {
       setError(err.message || "Failed to generate marketing copy.");
     } finally {
@@ -119,12 +123,12 @@ export default function HomeSaleMarketing() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Marketing Copy / 营销文案</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.marketingCopyTitle}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
           <button type="button" className="btn btn--ghost" onClick={handleGenerate} disabled={generating || loading}>
-            {generating ? "Generating... / 生成中..." : "Generate AI Copy / 生成AI文案"}
+            {generating ? (lang === "zh" ? "生成中…" : "Generating…") : (lang === "zh" ? "生成 AI 文案" : "Generate AI Copy")}
           </button>
           <Link to={`/admin/home-sale/share/${listingId}`} className="btn btn--ghost">Share Kit</Link>
           <Link to={`/admin/home-sale/listings/${listingId}/edit`} className="btn btn--ghost">Edit Listing</Link>
@@ -134,7 +138,7 @@ export default function HomeSaleMarketing() {
       <HomeSaleWorkflowNav listingId={listingId} />
 
       <div className="notice notice--warning">
-        <h4>AI Copy Generation / AI 文案生成</h4>
+        <h4>{lang === "zh" ? "AI 文案生成" : "AI Copy Generation"}</h4>
         <p>当前 v1 使用模板式生成，不调用外部 AI API。文案来源只读取 Home Sale Google Sheet 当前房源数据。</p>
       </div>
 
@@ -157,7 +161,7 @@ export default function HomeSaleMarketing() {
       ) : (
         <>
           <form className="card mb-24" onSubmit={handleSubmit}>
-            <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>Add or Update Copy / 新增或更新文案</h2>
+            <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>{L.addOrUpdateCopy}</h2>
             <div className="form-row">
               <div className="form-group">
                 <label>Channel <span className="ch-hint">渠道</span></label>
@@ -201,13 +205,13 @@ export default function HomeSaleMarketing() {
               <input className="form-control" value={form.hashtags} onChange={updateField("hashtags")} />
             </div>
             <button type="submit" className="btn btn--primary" disabled={submitting}>
-              {submitting ? "Saving..." : "Save Marketing Copy / 保存文案"}
+              {submitting ? (lang === "zh" ? "保存中…" : "Saving…") : (lang === "zh" ? "保存文案" : "Save Marketing Copy")}
             </button>
           </form>
 
           <div className="card" style={{ padding: 0 }}>
             <div className="flex-between" style={{ padding: "20px 20px 12px" }}>
-              <h2 style={{ fontSize: "1.05rem", fontWeight: 800 }}>Current Copy Rows / 当前文案行</h2>
+              <h2 style={{ fontSize: "1.05rem", fontWeight: 800 }}>{lang === "zh" ? "当前文案行" : "Current Copy Rows"}</h2>
             </div>
             {rows.length === 0 ? (
               <div style={{ padding: "24px 20px", color: "var(--color-text-muted)" }}>No marketing copy rows yet for this listing.</div>

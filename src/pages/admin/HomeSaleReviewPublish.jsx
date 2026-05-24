@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   HOME_SALE_STATUS_OPTIONS,
   formatSalePrice,
@@ -26,6 +28,8 @@ const STATUS_BADGE = {
 
 export default function HomeSaleReviewPublish() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
   const [marketingRows, setMarketingRows] = useState([]);
@@ -100,7 +104,7 @@ export default function HomeSaleReviewPublish() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Review & Publish / 审核与发布</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.reviewPublishTitle}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
@@ -123,7 +127,7 @@ export default function HomeSaleReviewPublish() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 4 }}>
-              📋 发布状态 / Publish Status
+              📋 {L.publishStatus}
             </h3>
             <span className={`badge ${STATUS_BADGE[listing?.status] || "badge--draft"}`}>
               {listing?.status || "Draft"}
@@ -146,7 +150,7 @@ export default function HomeSaleReviewPublish() {
       {/* Pre-publish checklist */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
-          ✅ 发布前检查 / Pre-Publish Checklist
+          ✅ {lang === "zh" ? "发布前检查" : "Pre-Publish Checklist"}
         </h3>
         <div style={{ display: "grid", gap: 10 }}>
           {checks.map(({ label, ok, detail }) => (
@@ -171,17 +175,11 @@ export default function HomeSaleReviewPublish() {
 
         {allGreen ? (
           <div className="notice notice--sage" style={{ marginTop: 16 }}>
-            <p>
-              ✅ 所有步骤已完成，可以发布！请在上方将状态更改为 <strong>Published</strong> 或 <strong>Active</strong>。
-            </p>
-            <p style={{ opacity: 0.86 }}>All steps complete — ready to publish. Change the status above to Published or Active.</p>
+            <p>{L.allStepsComplete}</p>
           </div>
         ) : (
           <div className="notice notice--warm" style={{ marginTop: 16 }}>
-            <p>
-              部分步骤尚未完成。建议在发布前补全所有内容以确保最佳展示效果。
-            </p>
-            <p style={{ opacity: 0.86 }}>Some steps are incomplete. Complete them before publishing for the best result.</p>
+            <p>{lang === "zh" ? "部分步骤尚未完成。建议在发布前补全所有内容以确保最佳展示效果。" : "Some steps are incomplete. Complete them before publishing for the best result."}</p>
           </div>
         )}
       </div>
@@ -190,7 +188,7 @@ export default function HomeSaleReviewPublish() {
       {listing && (
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
-            🏡 房源摘要 / Listing Summary
+            🏡 {lang === "zh" ? "房源摘要" : "Listing Summary"}
           </h3>
           <div className="info-grid">
             {[
@@ -221,7 +219,7 @@ export default function HomeSaleReviewPublish() {
 
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 12 }}>
-          📋 工作流导航 / Workflow Navigation
+          📋 {lang === "zh" ? "工作流导航" : "Workflow Navigation"}
         </h3>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Link to={`/admin/home-sale/buyer-inquiry/${listingId}`} className="btn btn--ghost btn--sm">

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   createSaleMediaAsset,
   extractHomeSaleDriveFileId,
@@ -102,6 +104,8 @@ function StagingPreviewCard({ asset, selected, onToggle, dataUrl, actionSlot, sh
 
 export default function HomeSaleVirtualStaging() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
   const [photoDataUrls, setPhotoDataUrls] = useState({});
@@ -315,7 +319,7 @@ export default function HomeSaleVirtualStaging() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.45rem" }}>Virtual Staging / 试用虚拟布置</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.45rem" }}>{L.virtualStaging}</h1>
           <p className="text-muted text-sm">{listingId}{listing?.address ? ` — ${listing.address}` : ""}</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

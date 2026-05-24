@@ -11,10 +11,13 @@ import {
   HOME_SALE_STATUS_OPTIONS,
   updateSaleListing,
 } from "../../utils/homeSaleSheet";
+import { buildHomeSalePublicUrl, normalizePublicFacingUrl } from "../../utils/publicUrls";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 const CHANNEL_LABELS = {
   Website: "🌐 Website",
-  WeChat: "💬 WeChat / 微信",
+  WeChat: "💬 WeChat",
   Xiaohongshu: "📕 Xiaohongshu",
   Facebook: "📘 Facebook",
   "Realtor version": "🏡 Realtor.ca",
@@ -34,6 +37,8 @@ const STATUS_BADGE = {
 };
 
 function CopyButton({ text }) {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [copied, setCopied] = useState(false);
   const handle = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -43,13 +48,16 @@ function CopyButton({ text }) {
   };
   return (
     <button onClick={handle} className="btn btn--ghost btn--sm">
-      {copied ? "Copied!" : "Copy"}
+      {copied ? L.copied : L.copy}
     </button>
   );
 }
 
 export default function HomeSaleListingDetailAdmin() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
+
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -98,12 +106,11 @@ export default function HomeSaleListingDetailAdmin() {
     if (!listing) return;
     setSaving(true);
     try {
-      const base = window.location.origin;
       const update = {
         ...listing,
         status: newStatus,
-        publicListingUrl: newStatus === "Published" || newStatus === "Active"
-          ? (listing.publicListingUrl || `${base}/home-sale-studio/listings/${listingId}`)
+        publicListingUrl: (newStatus === "Published" || newStatus === "Active")
+          ? normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listingId))
           : listing.publicListingUrl,
       };
       await updateSaleListing(update);
@@ -122,18 +129,18 @@ export default function HomeSaleListingDetailAdmin() {
   const currentRows = marketingRows.filter((r) => r.channel === currentTab);
 
   const mediaChecklistItems = [
-    "Listing info filled (address, asking price, MLS, contact)",
-    "Photos synced from Google Drive / 照片已同步",
-    "Cover photo set / 封面已设定",
-    "Marketing copy written (at least one channel) / 文案已撰写",
-    "Video script or AI video ready / 视频脚本已备好",
-    "Published / Open House / Sold / 已发布或出售",
+    lang === "zh" ? "房源信息已填写（地址、售价、MLS、联系方式）" : "Listing info filled (address, asking price, MLS, contact)",
+    L.photosSynced,
+    L.coverPhotoSet,
+    lang === "zh" ? "营销文案已撰写（至少一个渠道）" : "Marketing copy written (at least one channel)",
+    L.videoReady,
+    L.publishedOpenHouseSold,
   ];
 
   if (loading) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>
-        Loading sale listing…
+        {L.loading}
       </div>
     );
   }
@@ -143,7 +150,7 @@ export default function HomeSaleListingDetailAdmin() {
       <div style={{ padding: 40, textAlign: "center" }}>
         <p>{error || "Sale listing not found."}</p>
         <Link to="/admin/home-sale" className="btn btn--ghost btn--sm" style={{ marginTop: 12 }}>
-          ← Home Sale Dashboard
+          ← {L.homeSaleDashboard}
         </Link>
       </div>
     );
@@ -151,20 +158,20 @@ export default function HomeSaleListingDetailAdmin() {
 
   return (
     <div>
-      {/* Header — mirrors Rental ListingDetail header */}
+      {/* Header */}
       <div className="flex-between mb-24">
         <div>
           <h1 style={{ fontWeight: 800, fontSize: "1.4rem" }}>
-            Sale Listing Final Package / 出售房源详情
+            {L.saleFinalPackage}
           </h1>
           <p className="text-muted text-sm">
             {listing.id} — {listing.address}{listing.city ? `, ${listing.city}` : ""}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {saving && <span className="text-muted text-sm">Saving…</span>}
+          {saving && <span className="text-muted text-sm">{L.saving}</span>}
           <span className={`badge ${STATUS_BADGE[listing.status] || "badge--draft"}`}>
-            {listing.status || "Draft"}
+            {listing.status || L.statusDraft}
           </span>
           <select
             className="select-control"
@@ -181,28 +188,28 @@ export default function HomeSaleListingDetailAdmin() {
             className="btn btn--ghost btn--sm"
             style={{ whiteSpace: "nowrap" }}
           >
-            🔗 Open Public Sale Listing Preview
+            🔗 {L.viewPublicPage}
           </a>
           <Link
             to="/admin/home-sale"
             className="btn btn--ghost btn--sm"
             style={saving ? { pointerEvents: "none", opacity: 0.5 } : {}}
           >
-            ← Home Sale
+            ← {L.homeSaleDashboard}
           </Link>
         </div>
       </div>
 
       <HomeSaleWorkflowNav listingId={listingId} />
 
-      {/* Property Info — mirrors Rental "Property Info" card */}
+      {/* Property Info */}
       <div className="card mb-24">
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           marginBottom: 16, flexWrap: "wrap", gap: 8,
         }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            🏡 Sale Property Information / 出售房源资料
+            🏡 {L.salePropertyInfo}
           </h3>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             <span style={{
@@ -210,10 +217,10 @@ export default function HomeSaleListingDetailAdmin() {
               border: "1px solid #cddbcf", background: "#edf3ee",
               borderRadius: 999, padding: "3px 10px",
             }}>
-              Sale Status: {listing.status || "Draft"}
+              {L.statusLabel}: {listing.status || L.statusDraft}
             </span>
             <Link to={`/admin/home-sale/listings/${listingId}/edit`} className="btn btn--ghost btn--sm">
-              ✏️ Edit Sale Listing Info
+              ✏️ {L.editSaleListing}
             </Link>
           </div>
         </div>
@@ -267,7 +274,7 @@ export default function HomeSaleListingDetailAdmin() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {isAdminSessionActive() && listing.googleDriveFolderUrl && (
                 <a href={listing.googleDriveFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                  📁 Drive Folder
+                  📁 {L.openFolder}
                 </a>
               )}
               {listing.videoUrl && (
@@ -280,26 +287,25 @@ export default function HomeSaleListingDetailAdmin() {
         )}
       </div>
 
-      {/* Platform Outputs — mirrors Rental "Platform Outputs" card */}
+      {/* Platform Outputs */}
       <div className="card mb-24">
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           marginBottom: channels.length === 0 ? 16 : 8, flexWrap: "wrap", gap: 8,
         }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            📤 Platform Outputs / 平台文案
+            📤 {L.platformOutputs}
           </h3>
           <Link to={`/admin/home-sale/marketing/${listingId}`} className="btn btn--ghost btn--sm">
-            Open Marketing Copy Editor →
+            {L.addOrUpdateCopy} →
           </Link>
         </div>
 
         {channels.length === 0 ? (
           <div className="notice notice--info">
             <p>
-              No marketing copy yet.{" "}
-              <Link to={`/admin/home-sale/marketing/${listingId}`}>Open Marketing Copy Editor</Link>
-              {" "}to add copy for this listing.
+              {lang === "zh" ? "暂无营销文案。" : "No marketing copy yet."}{" "}
+              <Link to={`/admin/home-sale/marketing/${listingId}`}>{L.addOrUpdateCopy}</Link>
             </p>
           </div>
         ) : (
@@ -331,14 +337,14 @@ export default function HomeSaleListingDetailAdmin() {
                         fontSize: "0.7rem", color: "var(--color-text-muted)", fontWeight: 600,
                         border: "1px solid var(--color-border)", borderRadius: 4, padding: "1px 6px",
                       }}>
-                        {row.status || "Draft"}
+                        {row.status || L.statusDraft}
                       </span>
                       <CopyButton text={fullText} />
                       <Link
                         to={`/admin/home-sale/marketing/${listingId}`}
                         className="btn btn--ghost btn--sm"
                       >
-                        ✏️ Edit
+                        ✏️ {L.edit}
                       </Link>
                     </div>
                   </div>
@@ -356,7 +362,9 @@ export default function HomeSaleListingDetailAdmin() {
                       </p>
                     )}
                     {!row.headline && !row.bodyCopy && !row.callToAction && (
-                      <span className="text-muted text-sm">No copy content yet for this channel.</span>
+                      <span className="text-muted text-sm">
+                        {lang === "zh" ? "该渠道暂无文案内容。" : "No copy content yet for this channel."}
+                      </span>
                     )}
                   </div>
                   <div className="output-card__controls">
@@ -368,7 +376,9 @@ export default function HomeSaleListingDetailAdmin() {
                     </div>
                   </div>
                   <div className="output-card__compliance">
-                    ⚠️ Review all copy before publishing — verify accuracy of price, MLS, and contact info.
+                    ⚠️ {lang === "zh"
+                      ? "发布前请检查所有文案——核实售价、MLS编号和联系方式是否准确。"
+                      : "Review all copy before publishing — verify accuracy of price, MLS, and contact info."}
                   </div>
                 </div>
               );
@@ -377,10 +387,10 @@ export default function HomeSaleListingDetailAdmin() {
         )}
       </div>
 
-      {/* Media Checklist — mirrors Rental "Media Checklist" card */}
+      {/* Media Checklist */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          🖼️ Media Checklist / 媒体制作清单
+          🖼️ {L.mediaChecklist}
         </h3>
         <ul className="media-checklist">
           {mediaChecklistItems.map((item, i) => (
@@ -407,36 +417,36 @@ export default function HomeSaleListingDetailAdmin() {
         </ul>
       </div>
 
-      {/* Review Status Summary — mirrors Rental "Review Status" card */}
+      {/* Workflow Summary */}
       <div className="card mb-24" style={{ background: "#f8fafc" }}>
         <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          📋 Workflow Summary / 制作状态总览
+          📋 {L.workflowSummaryTitle}
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
           {[
             {
-              label: "Photo Assets",
-              value: mediaRows.length > 0 ? `${mediaRows.length} asset(s)` : "No photos yet",
+              label: L.photoAssetsTitle,
+              value: mediaRows.length > 0 ? `${mediaRows.length} asset(s)` : (lang === "zh" ? "暂无照片" : "No photos yet"),
               ok: mediaRows.length > 0,
             },
             {
-              label: "Cover Photo",
-              value: hasCover ? "✅ Set" : "⏳ Not set",
+              label: L.coverPhoto,
+              value: hasCover ? "✅" : "⏳",
               ok: hasCover,
             },
             {
-              label: "Marketing Copy",
-              value: marketingRows.length > 0 ? `${marketingRows.length} row(s)` : "No copy yet",
+              label: L.marketingCopyTitle,
+              value: marketingRows.length > 0 ? `${marketingRows.length} row(s)` : (lang === "zh" ? "暂无文案" : "No copy yet"),
               ok: marketingRows.length > 0,
             },
             {
-              label: "Video Scripts",
-              value: videoRows.length > 0 ? `${videoRows.length} script(s)` : "No scripts yet",
+              label: L.videoScript,
+              value: videoRows.length > 0 ? `${videoRows.length} script(s)` : (lang === "zh" ? "暂无脚本" : "No scripts yet"),
               ok: videoRows.length > 0,
             },
             {
-              label: "Sale Status",
-              value: listing.status || "Draft",
+              label: L.statusLabel,
+              value: listing.status || L.statusDraft,
               ok: ["Published", "Open House", "Active", "Sold"].includes(listing.status),
             },
           ].map(({ label, value, ok }) => (
@@ -461,47 +471,47 @@ export default function HomeSaleListingDetailAdmin() {
         </div>
       </div>
 
-      {/* Workflow Section Cards — mirrors Rental section flow */}
+      {/* Workflow Section Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16, marginBottom: 24 }}>
         {[
           {
             icon: "📸",
-            title: "Photo Assets / 房源照片",
-            desc: "Sync Drive folder, set cover image, manage sort order and captions.",
+            title: L.photoAssetsTitle,
+            desc: lang === "zh" ? "同步 Drive 文件夹，设置封面图，管理排序和说明文字。" : "Sync Drive folder, set cover image, manage sort order and captions.",
             to: `/admin/home-sale/media/${listingId}`,
-            label: "Open Photo Workflow",
+            label: lang === "zh" ? "打开照片工作流" : "Open Photo Workflow",
             count: mediaRows.length > 0 ? `${mediaRows.length} asset(s)` : null,
           },
           {
             icon: "📝",
-            title: "Marketing Copy / 营销文案",
-            desc: "Write copy for Website, WeChat, Xiaohongshu, Facebook, Realtor, FSBO.",
+            title: L.marketingCopyTitle,
+            desc: lang === "zh" ? "撰写 Website、WeChat、小红书、Facebook、Realtor、FSBO 文案。" : "Write copy for Website, WeChat, Xiaohongshu, Facebook, Realtor, FSBO.",
             to: `/admin/home-sale/marketing/${listingId}`,
-            label: "Open Copy Editor",
+            label: lang === "zh" ? "打开文案编辑器" : "Open Copy Editor",
             count: marketingRows.length > 0 ? `${marketingRows.length} row(s)` : null,
           },
           {
             icon: "🎬",
-            title: "Video Script / 视频脚本",
-            desc: "Manage voiceover script, subtitles, music style, and video output.",
+            title: L.videoScript,
+            desc: lang === "zh" ? "管理配音脚本、字幕、音乐风格和视频输出。" : "Manage voiceover script, subtitles, music style, and video output.",
             to: `/admin/home-sale/video/${listingId}`,
-            label: "Open Video Workflow",
+            label: lang === "zh" ? "打开视频工作流" : "Open Video Workflow",
             count: videoRows.length > 0 ? `${videoRows.length} script(s)` : null,
           },
           {
             icon: "📤",
-            title: "Share Kit / 分享素材",
-            desc: "Copy sharing messages, QR code, and public listing link.",
+            title: L.shareKit,
+            desc: lang === "zh" ? "复制分享文案、二维码和公开房源链接。" : "Copy sharing messages, QR code, and public listing link.",
             to: `/admin/home-sale/share/${listingId}`,
-            label: "Open Share Kit",
+            label: lang === "zh" ? "打开分享素材" : "Open Share Kit",
             count: null,
           },
           {
             icon: "🏠",
-            title: "Open House / 开放日",
-            desc: "Manage open house schedule and buyer inquiry details.",
+            title: L.openHouse,
+            desc: lang === "zh" ? "管理开放日时间和买家咨询详情。" : "Manage open house schedule and buyer inquiry details.",
             to: `/admin/home-sale/open-house/${listingId}`,
-            label: "Open Open House",
+            label: lang === "zh" ? "打开开放日管理" : "Open Open House",
             count: null,
           },
         ].map(({ icon, title, desc, to, label, count }) => (

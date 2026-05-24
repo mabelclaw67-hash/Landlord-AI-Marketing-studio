@@ -34,7 +34,7 @@ export default function AdminLayout({ lang }) {
       <AdminErrorBoundary>
         <div className="page-wrapper">
           <div className="admin-layout">
-            <AdminSidebar lang={lang} />
+            <AdminSidebar />
             <main className="admin-content">
               <Outlet />
             </main>

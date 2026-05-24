@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { getHomeSaleListing } from "../../utils/homeSaleSheet";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 export default function HomeSaleOpenHouse() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [error, setError] = useState("");
 
@@ -18,7 +22,7 @@ export default function HomeSaleOpenHouse() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Open House / 开放日</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.openHouseTitle}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
@@ -37,13 +41,13 @@ export default function HomeSaleOpenHouse() {
       )}
 
       <div className="notice notice--warning">
-        <h4>Coming next / 下一步</h4>
+        <h4>{lang === "zh" ? "下一步" : "Coming next"}</h4>
         <p>当前先保留 Open House 流程位置，不新增 Google Sheet tab，也不擅自改现有表结构。</p>
         <p>Recommended future columns: Open House Date, Open House Time, Showing Notes, Appointment Required, Contact Person.</p>
       </div>
 
       <div className="card">
-        <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>Suggested Open House Workflow / 建议流程</h2>
+        <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>{lang === "zh" ? "建议流程" : "Suggested Open House Workflow"}</h2>
         <div style={{ display: "grid", gap: 12, lineHeight: 1.75 }}>
           <p>1. 在 listing status 中切换为 `Open House`。</p>
           <p>2. 准备 showing notes、contact person、appointment rule。</p>

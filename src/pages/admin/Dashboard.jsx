@@ -4,6 +4,8 @@ import { getListings } from "../../utils/storage";
 import { getHomeSaleListings } from "../../utils/homeSaleSheet";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import ComingSoonSection from "../../components/ComingSoonSection";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 function statusBadge(status) {
   const map = {
@@ -20,6 +22,7 @@ function RentalDashboardView({ lang }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const location = useLocation();
+  const L = AL[lang] ?? AL.en;
 
   useEffect(() => {
     setLoading(true);
@@ -36,10 +39,10 @@ function RentalDashboardView({ lang }) {
   });
 
   const kpis = [
-    { key: "draft", label: "Draft / 草稿", val: counts.Draft },
-    { key: "review", label: "In Review / 审核中", val: counts["In Review"] },
-    { key: "ready", label: "Ready / 待发布", val: counts["Ready to Publish"] },
-    { key: "published", label: "Published / 已发布", val: counts.Published },
+    { key: "draft",     label: L.kpiDraft,     val: counts.Draft },
+    { key: "review",    label: L.kpiReview,    val: counts["In Review"] },
+    { key: "ready",     label: L.kpiReady,     val: counts["Ready to Publish"] },
+    { key: "published", label: L.kpiPublished, val: counts.Published },
   ];
 
   return (
@@ -48,12 +51,12 @@ function RentalDashboardView({ lang }) {
 
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Rental Dashboard / 出租后台</h1>
-          <p className="text-muted text-sm">管理出租房源营销工作流 / Manage the rental listing marketing workflow</p>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.rentalDashboardTitle}</h1>
+          <p className="text-muted text-sm">{L.rentalDashboardDesc}</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Link to="/admin/new" className="btn btn--primary">+ New Rental Listing / 新增出租房源</Link>
-          <Link to="/admin/listings" className="btn btn--ghost">Rental Listings / 出租房源列表</Link>
+          <Link to="/admin/new" className="btn btn--primary">{L.newRentalListingBtn}</Link>
+          <Link to="/admin/listings" className="btn btn--ghost">{L.rentalListingsBtn}</Link>
         </div>
       </div>
 
@@ -69,7 +72,7 @@ function RentalDashboardView({ lang }) {
       <div className="card" style={{ padding: 0 }}>
         {loading ? (
           <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--color-text-muted)" }}>
-            Loading rental listings…
+            {L.loading}
           </div>
         ) : error ? (
           <div className="notice notice--error" style={{ margin: 16 }}>
@@ -79,9 +82,9 @@ function RentalDashboardView({ lang }) {
         ) : listings.length === 0 ? (
           <div style={{ padding: "48px 24px", textAlign: "center" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏘️</div>
-            <p style={{ color: "var(--color-text-muted)" }}>No rental listings yet / 暂无出租房源</p>
+            <p style={{ color: "var(--color-text-muted)" }}>{L.noRentalListings}</p>
             <Link to="/admin/new" className="btn btn--primary" style={{ marginTop: 16, display: "inline-block" }}>
-              + New Rental Listing / 新增出租房源
+              {L.newRentalListingBtn}
             </Link>
           </div>
         ) : (
@@ -89,13 +92,13 @@ function RentalDashboardView({ lang }) {
             <table>
               <thead>
                 <tr>
-                  <th>Listing ID</th>
-                  <th>Address</th>
-                  <th>City</th>
-                  <th>Rent</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Action</th>
+                  <th>{L.colListingId}</th>
+                  <th>{L.colAddress}</th>
+                  <th>{L.colCity}</th>
+                  <th>{L.colRent}</th>
+                  <th>{L.colStatus}</th>
+                  <th>{L.colCreated}</th>
+                  <th>{L.colAction}</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,7 +111,7 @@ function RentalDashboardView({ lang }) {
                     <td>{statusBadge(l.status)}</td>
                     <td style={{ color: "var(--color-text-muted)", fontSize: "0.82rem" }}>{l.createdDate}</td>
                     <td>
-                      <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">View</Link>
+                      <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">{L.view}</Link>
                     </td>
                   </tr>
                 ))}
@@ -122,6 +125,8 @@ function RentalDashboardView({ lang }) {
 }
 
 export default function Dashboard({ lang, mode = "platform" }) {
+  const resolvedLang = useLang() || lang;
+  const L = AL[resolvedLang] ?? AL.en;
   const [rentalListings, setRentalListings] = useState([]);
   const [saleListings, setSaleListings] = useState([]);
   const [loading, setLoading] = useState(mode === "platform");
@@ -154,7 +159,7 @@ export default function Dashboard({ lang, mode = "platform" }) {
   }, [mode, location.key]);
 
   if (mode === "rental") {
-    return <RentalDashboardView lang={lang} />;
+    return <RentalDashboardView lang={resolvedLang} />;
   }
 
   const rentalPublished = rentalListings.filter((item) => item.status === "Published").length;
@@ -162,15 +167,11 @@ export default function Dashboard({ lang, mode = "platform" }) {
 
   return (
     <div>
-      <PrototypeBanner lang={lang} />
+      <PrototypeBanner lang={resolvedLang} />
 
       <div className="mb-24">
-        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Admin Dashboard / 管理后台</h1>
-        <p className="text-muted text-sm">
-          Manage Rental Studio and Home Sale Studio from one place.
-          <br />
-          统一管理出租房源与出售房源营销工作流。
-        </p>
+        <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.adminDashboard}</h1>
+        <p className="text-muted text-sm">{L.adminDashboardDesc}</p>
       </div>
 
       {error && (
@@ -182,52 +183,44 @@ export default function Dashboard({ lang, mode = "platform" }) {
 
       <div className="admin-module-grid">
         <section className="card admin-module-card">
-          <div className="admin-module-card__eyebrow">RENTAL STUDIO / 出租房源</div>
-          <h2>Rental Listing Studio / 出租房源工作台</h2>
-          <p>
-            Manage rental listings, rental applications, marketing copy, photos, videos, QR codes, and publish workflow.
-            <br />
-            管理出租房源、租客申请、营销文案、照片、视频、二维码和发布流程。
-          </p>
+          <div className="admin-module-card__eyebrow">{L.rentalListingStudioLabel}</div>
+          <h2>{L.rentalStudio}</h2>
+          <p>{L.rentalStudioDesc}</p>
           <div className="admin-module-card__stats">
             <div className="admin-module-card__stat">
               <strong>{loading ? "—" : rentalListings.length}</strong>
-              <span>Rental Listings / 出租房源</span>
+              <span>{L.rentalListingCount}</span>
             </div>
             <div className="admin-module-card__stat">
               <strong>{loading ? "—" : rentalPublished}</strong>
-              <span>Published / 已发布</span>
+              <span>{L.published}</span>
             </div>
           </div>
           <div className="admin-module-card__actions">
-            <Link to="/admin/rental" className="btn btn--primary">Open Rental Dashboard / 打开出租后台</Link>
-            <Link to="/admin/new" className="btn btn--ghost">New Rental Listing / 新增出租房源</Link>
-            <Link to="/admin/listings" className="btn btn--ghost">Rental Listings / 出租房源列表</Link>
+            <Link to="/admin/rental" className="btn btn--primary">{L.openRentalDashboard}</Link>
+            <Link to="/admin/new" className="btn btn--ghost">{L.newRentalListing}</Link>
+            <Link to="/admin/listings" className="btn btn--ghost">{L.rentalListings}</Link>
           </div>
         </section>
 
         <section className="card admin-module-card admin-module-card--soft">
-          <div className="admin-module-card__eyebrow">HOME SALE STUDIO / 出售房源</div>
-          <h2>Home Sale Studio / 出售房源工作台</h2>
-          <p>
-            Manage sale listings, buyer inquiries, marketing copy, photos, videos, QR codes, open house, and publish workflow.
-            <br />
-            管理出售房源、买家咨询、营销文案、照片、视频、二维码、开放日和发布流程。
-          </p>
+          <div className="admin-module-card__eyebrow">{L.homeSaleStudioLabel}</div>
+          <h2>{L.homeSaleStudio}</h2>
+          <p>{L.homeSaleStudioDesc}</p>
           <div className="admin-module-card__stats">
             <div className="admin-module-card__stat">
               <strong>{loading ? "—" : saleListings.length}</strong>
-              <span>Sale Listings / 出售房源</span>
+              <span>{L.saleListingCount}</span>
             </div>
             <div className="admin-module-card__stat">
               <strong>{loading ? "—" : saleDraft}</strong>
-              <span>Draft / 草稿</span>
+              <span>{L.draft}</span>
             </div>
           </div>
           <div className="admin-module-card__actions">
-            <Link to="/admin/home-sale" className="btn btn--primary">Open Home Sale Dashboard / 打开出售后台</Link>
-            <Link to="/admin/home-sale/listings/new" className="btn btn--ghost">New Sale Listing / 新增出售房源</Link>
-            <Link to="/admin/home-sale/listings" className="btn btn--ghost">Sale Listings / 出售房源列表</Link>
+            <Link to="/admin/home-sale" className="btn btn--primary">{L.openHomeSaleDashboard}</Link>
+            <Link to="/admin/home-sale/listings/new" className="btn btn--ghost">{L.newSaleListing}</Link>
+            <Link to="/admin/home-sale/listings" className="btn btn--ghost">{L.saleListings}</Link>
           </div>
         </section>
       </div>

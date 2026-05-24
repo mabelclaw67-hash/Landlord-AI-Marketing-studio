@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getHomeSaleBuyerInquiries, updateHomeSaleBuyerInquiry } from "../../utils/homeSaleSheet";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 const APPROVAL_COLORS = {
   Pending:   { background: "#fdf3e7", color: "#8a5a22", border: "1px solid #e7cda7" },
@@ -19,6 +21,7 @@ function ApprovalBadge({ value }) {
 }
 
 function InquiryRow({ inquiry, onUpdated }) {
+  const lang = useLang();
   const [expanded, setExpanded] = useState(false);
   const [sellerNotes, setSellerNotes] = useState(inquiry.sellerNotes || "");
   const [confirmedTime, setConfirmedTime] = useState(inquiry.confirmedShowingTime || "");
@@ -114,7 +117,7 @@ function InquiryRow({ inquiry, onUpdated }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-text-muted)", display: "block", marginBottom: 4 }}>
-                  Seller Notes / 卖家备注
+                  {lang === "zh" ? "卖家备注" : "Seller Notes"}
                 </label>
                 <textarea
                   className="form-control"
@@ -127,7 +130,7 @@ function InquiryRow({ inquiry, onUpdated }) {
               </div>
               <div>
                 <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-text-muted)", display: "block", marginBottom: 4 }}>
-                  Confirmed Showing Time / 确认看房时间
+                  {lang === "zh" ? "确认看房时间" : "Confirmed Showing Time"}
                 </label>
                 <input
                   className="form-control"
@@ -185,6 +188,8 @@ function InquiryRow({ inquiry, onUpdated }) {
 }
 
 export default function HomeSaleBuyerInquiries() {
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -210,9 +215,9 @@ export default function HomeSaleBuyerInquiries() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Buyer Showing Requests / 买家看房预约管理</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.buyerShowingTitle}</h1>
           <p className="text-muted text-sm">
-            来自公开售房页面的看房预约申请 / Showing requests submitted from public sale listing pages
+            {lang === "zh" ? "来自公开售房页面的看房预约申请" : "Showing requests submitted from public sale listing pages"}
           </p>
         </div>
         <Link to="/admin/home-sale" className="btn btn--ghost">Home Sale Dashboard</Link>

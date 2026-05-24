@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { readTrialAccess } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   HOME_SALE_PROPERTY_TYPES,
   HOME_SALE_STATUS_OPTIONS,
@@ -17,6 +19,8 @@ import {
 export default function HomeSaleListingForm({ mode }) {
   const { listingId } = useParams();
   const navigate = useNavigate();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const isEdit = mode === "edit";
   const isTrial = !!readTrialAccess();
   const [form, setForm] = useState(() =>
@@ -91,7 +95,7 @@ export default function HomeSaleListingForm({ mode }) {
       <div className="flex-between mb-24">
         <div>
           <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>
-            {isEdit ? "Edit Sale Listing / 编辑出售房源" : "New Sale Listing / 新增出售房源"}
+            {isEdit ? L.editSaleListing : L.newSaleListingTitle}
           </h1>
           <p className="text-muted text-sm">Mirror the Rental Studio listing workflow, but save to the Home Sale sheet.</p>
         </div>
@@ -104,7 +108,7 @@ export default function HomeSaleListingForm({ mode }) {
 
       {!isTrial && unsupportedFields.length > 0 && (
         <div className="notice notice--warning">
-          <h4>Sheet Header Reminder / 表头提醒</h4>
+          <h4>{lang === "zh" ? "表头提醒" : "Sheet Header Reminder"}</h4>
           <p>Current `01 Sale Listings` headers do not include: {unsupportedFields.join(", ")}.</p>
           <p>这些字段可先在前端填写，但在你给 Google Sheet 增加对应列之前不会真正保存。</p>
         </div>
@@ -218,7 +222,7 @@ export default function HomeSaleListingForm({ mode }) {
             <div className="form-group">
               <label>Property Type <span className="ch-hint">房产类型</span></label>
               <select className="form-control" value={form.propertyType} onChange={updateField("propertyType")}>
-                <option value="">— Select / 请选择 —</option>
+                <option value="">{lang === "zh" ? "— 请选择 —" : "— Select —"}</option>
                 {HOME_SALE_PROPERTY_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
@@ -354,7 +358,12 @@ export default function HomeSaleListingForm({ mode }) {
           )}
           <div className="flex gap-8">
             <button type="submit" className="btn btn--primary" disabled={submitting}>
-              {submitting ? "Saving..." : isEdit ? "Save Listing / 保存房源" : "Create Listing / 创建房源"}
+              {submitting
+                ? (lang === "zh" ? "保存中…" : "Saving...")
+                : isEdit
+                  ? (lang === "zh" ? "保存房源" : "Save Listing")
+                  : (lang === "zh" ? "创建房源" : "Create Listing")
+              }
             </button>
             <Link to="/admin/home-sale/listings" className="btn btn--ghost">Cancel</Link>
           </div>

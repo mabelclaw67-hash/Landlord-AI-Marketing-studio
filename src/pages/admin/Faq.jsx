@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { readTrialAccess } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
 
 const FAQS = [
   {
@@ -37,8 +38,18 @@ const FAQS = [
   },
 ];
 
+const isCjk = (s) => /[一-鿿]/.test(s);
+
 function FaqItem({ item }) {
+  const lang = useLang();
   const [open, setOpen] = useState(false);
+  const question = lang === "zh"
+    ? item.q.split(" / ").slice(-1)[0]
+    : item.q.split(" / ")[0];
+  const paras = item.a.split("\n\n");
+  const filteredParas = lang === "zh"
+    ? paras.filter(isCjk)
+    : paras.filter((p) => !isCjk(p));
   return (
     <div
       className="card"
@@ -62,7 +73,7 @@ function FaqItem({ item }) {
         }}
       >
         <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "#213128", lineHeight: 1.4 }}>
-          {item.q}
+          {question}
         </span>
         <span style={{ fontSize: "1rem", color: "#3e5b4b", flexShrink: 0 }}>
           {open ? "▲" : "▼"}
@@ -70,12 +81,12 @@ function FaqItem({ item }) {
       </button>
       {open && (
         <div style={{ padding: "12px 18px 16px", borderTop: "1px solid #e4ede7" }}>
-          {item.a.split("\n\n").map((para, i) => (
+          {filteredParas.map((para, i) => (
             <p key={i} style={{
               fontSize: "0.87rem",
-              color: i % 2 === 0 ? "#213128" : "var(--color-text-muted)",
+              color: "#213128",
               lineHeight: 1.75,
-              margin: i === 0 ? "0 0 10px" : "0",
+              margin: i < filteredParas.length - 1 ? "0 0 10px" : "0",
               whiteSpace: "pre-line",
             }}>
               {para}
@@ -88,24 +99,28 @@ function FaqItem({ item }) {
 }
 
 export default function Faq() {
+  const lang = useLang();
   const isTrial = !!readTrialAccess();
 
   return (
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>FAQ / 常见问题</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "常见问题" : "FAQ"}</h1>
           <p className="text-muted text-sm">
-            Frequently asked questions about using the platform. / 关于平台使用的常见问题解答。
+            {lang === "zh" ? "关于平台使用的常见问题解答。" : "Frequently asked questions about using the platform."}
           </p>
         </div>
-        <Link to="/admin" className="btn btn--ghost">← Back / 返回</Link>
+        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
       </div>
 
       {isTrial && (
         <div className="notice notice--sage" style={{ marginBottom: 24 }}>
           <p style={{ margin: 0, fontSize: "0.88rem" }}>
-            💡 You are in Trial Mode. See <strong>"What can trial users access?"</strong> below for details on your available features. / 您正在使用试用模式，请查看下方"Trial 用户能使用哪些功能"了解详情。
+            {lang === "zh"
+              ? <>💡 您正在使用试用模式，请查看下方<strong>"Trial 用户能使用哪些功能"</strong>了解详情。</>
+              : <>💡 You are in Trial Mode. See <strong>"What can trial users access?"</strong> below for details on your available features.</>
+            }
           </p>
         </div>
       )}
@@ -117,8 +132,8 @@ export default function Faq() {
       </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <Link to="/admin" className="btn btn--ghost">← Back to Dashboard / 返回后台</Link>
-        <Link to="/admin/photo-tips" className="btn btn--ghost">📷 Photo Tips →</Link>
+        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回后台" : "← Back to Dashboard"}</Link>
+        <Link to="/admin/photo-tips" className="btn btn--ghost">{lang === "zh" ? "📷 拍照建议 →" : "📷 Photo Tips →"}</Link>
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
 import TenantContact from "./pages/TenantContact";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
+import { LangContext } from "./contexts/LangContext";
 
 function AppInner({ lang, setLang }) {
   const { pathname } = useLocation();
@@ -87,6 +88,8 @@ function AppInner({ lang, setLang }) {
           <Route path="photo-tips" element={<PhotoTips />} />
           <Route path="faq" element={<Faq />} />
         </Route>
+        <Route path="/photo-tips" element={<PhotoTips />} />
+        <Route path="/faq" element={<Faq />} />
         <Route path="/apply/:listingId" element={<RentalApplication />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
@@ -105,8 +108,10 @@ export default function App() {
   }, [lang]);
 
   return (
-    <BrowserRouter>
-      <AppInner lang={lang} setLang={(value) => setLang(normalizeLang(value, readPreferredLang()))} />
-    </BrowserRouter>
+    <LangContext.Provider value={lang}>
+      <BrowserRouter>
+        <AppInner lang={lang} setLang={(value) => setLang(normalizeLang(value, readPreferredLang()))} />
+      </BrowserRouter>
+    </LangContext.Provider>
   );
 }

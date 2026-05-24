@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   getHomeSaleListing,
   getHomeSaleBuyerInquiries,
@@ -119,6 +121,8 @@ function InquiryCard({ inquiry, onUpdated }) {
 
 export default function HomeSaleBuyerInquiry() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [listingError, setListingError] = useState("");
 
@@ -163,7 +167,7 @@ export default function HomeSaleBuyerInquiry() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Buyer Inquiry & Showing / 买家咨询与看房管理</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.buyerInquiryTitle}</h1>
           <p className="text-muted text-sm">{listingId}{listing?.address ? ` — ${listing.address}` : ""}</p>
         </div>
         <div className="flex gap-8">
@@ -185,10 +189,10 @@ export default function HomeSaleBuyerInquiry() {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 4 }}>
-              🗓 Showing Availability / 可看房时间设置
+              🗓 {L.showingAvailability}
             </h3>
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-              此内容将显示在公开房源页面供买家参考。/ This text appears on the public listing page for buyers.
+              {lang === "zh" ? "此内容将显示在公开房源页面供买家参考。" : "This text appears on the public listing page for buyers."}
             </p>
           </div>
           <a href={publicUrl} target="_blank" rel="noreferrer" style={{ fontSize: "0.8rem", color: "var(--color-primary)" }}>
@@ -207,7 +211,7 @@ export default function HomeSaleBuyerInquiry() {
         />
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
           <button className="btn btn--primary btn--sm" onClick={handleSaveAvailability} disabled={availSaving}>
-            {availSaving ? "Saving…" : "Save Availability / 保存时间设置"}
+            {availSaving ? L.saving : (lang === "zh" ? "保存时间设置" : "Save Availability")}
           </button>
           {availMsg && <span style={{ fontSize: "0.82rem", color: availMsg.startsWith("Error") ? "#b42b2b" : "#276745" }}>{availMsg}</span>}
         </div>
@@ -218,7 +222,7 @@ export default function HomeSaleBuyerInquiry() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 2 }}>
-              📋 Showing Requests / 看房申请
+              📋 {L.showingRequests}
               {pending > 0 && (
                 <span style={{ marginLeft: 8, background: "#fdf3e7", color: "#8a5a22", border: "1px solid #e7cda7", borderRadius: 20, padding: "2px 8px", fontSize: "0.75rem" }}>
                   {pending} pending
@@ -226,7 +230,7 @@ export default function HomeSaleBuyerInquiry() {
               )}
             </h3>
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-              仅显示本房源的申请 / Showing requests for this listing only
+              {lang === "zh" ? "仅显示本房源的申请" : "Showing requests for this listing only"}
             </p>
           </div>
           <Link to="/admin/home-sale/buyer-inquiries" style={{ fontSize: "0.82rem", color: "var(--color-primary)" }}>

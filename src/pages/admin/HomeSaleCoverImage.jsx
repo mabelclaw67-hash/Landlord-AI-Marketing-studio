@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   extractHomeSaleDriveFileId,
   getHomeSaleListing,
@@ -34,6 +36,8 @@ function assetMatchesCoverUrl(asset, coverUrl) {
 
 export default function HomeSaleCoverImage() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
   const [coverFiles, setCoverFiles] = useState([]);
@@ -227,7 +231,7 @@ export default function HomeSaleCoverImage() {
     );
     if (sources.length < 2) {
       setCollageStatus("error");
-      setCollageMsg("At least 2 photos are needed. Sync photos from Drive first. / 需要至少 2 张照片，请先从 Drive 同步。");
+      setCollageMsg(lang === "zh" ? "需要至少 2 张照片，请先从 Drive 同步。" : "At least 2 photos are needed. Sync photos from Drive first.");
       return;
     }
     setCollageStatus("loading");
@@ -259,7 +263,7 @@ export default function HomeSaleCoverImage() {
       setCollageStatus("ready");
     } catch (err) {
       setCollageStatus("error");
-      setCollageMsg(err.message || "Collage generation failed. / 拼图生成失败。");
+      setCollageMsg(err.message || (lang === "zh" ? "拼图生成失败。" : "Collage generation failed."));
     }
   }
 
@@ -302,10 +306,10 @@ export default function HomeSaleCoverImage() {
       await setSaleListingCoverPhoto(listing.listingId || listing.id, driveUrl);
       setListing((prev) => ({ ...prev, primaryPhotoUrl: driveUrl }));
       setCollageStatus("saved");
-      setCollageMsg("Collage saved to 03_Cover_Images/ and set as cover. / 拼图封面已保存并设为主图。");
+      setCollageMsg(lang === "zh" ? "拼图封面已保存并设为主图。" : "Collage saved to 03_Cover_Images/ and set as cover.");
     } catch (err) {
       setCollageStatus("error");
-      setCollageMsg(err.message || "Failed to save collage. / 保存失败。");
+      setCollageMsg(err.message || (lang === "zh" ? "保存失败。" : "Failed to save collage."));
     }
   }
 
@@ -313,7 +317,7 @@ export default function HomeSaleCoverImage() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Cover Image / 封面图</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{L.coverImage}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
@@ -347,7 +351,7 @@ export default function HomeSaleCoverImage() {
 
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
-          🖼️ 当前封面图 / Current Cover Image
+          {lang === "zh" ? "🖼️ 当前封面图" : "🖼️ Current Cover Image"}
         </h3>
 
         {currentCoverAsset ? (
@@ -383,7 +387,7 @@ export default function HomeSaleCoverImage() {
         <div className="card mb-24">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-              🖼️ Generate Collage Cover / 生成拼图封面
+              {lang === "zh" ? "🖼️ 生成拼图封面" : "🖼️ Generate Collage Cover"}
             </h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
@@ -393,10 +397,10 @@ export default function HomeSaleCoverImage() {
                 onClick={handleGenerateCollage}
               >
                 {collageStatus === "loading"
-                  ? "Generating… / 生成中…"
+                  ? (lang === "zh" ? "生成中…" : "Generating…")
                   : collageStatus === "ready" || collageStatus === "saved"
-                  ? "Regenerate / 重新生成"
-                  : "Generate Collage Cover / 生成拼图封面"}
+                  ? (lang === "zh" ? "重新生成" : "Regenerate")
+                  : (lang === "zh" ? "生成拼图封面" : "Generate Collage Cover")}
               </button>
               {collageStatus === "ready" && (
                 <button
@@ -404,7 +408,7 @@ export default function HomeSaleCoverImage() {
                   className="btn btn--sm"
                   onClick={handleSaveCollage}
                 >
-                  Save as Cover / 保存为封面
+                  {lang === "zh" ? "保存为封面" : "Save as Cover"}
                 </button>
               )}
             </div>
@@ -414,11 +418,11 @@ export default function HomeSaleCoverImage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
               {collageSelection.size === 0
-                ? "No photos selected — auto-using first 4. / 未选择照片，自动使用前 4 张。"
-                : `Selected for Collage: ${collageSelection.size} / 4 / 已选 ${collageSelection.size} / 4 张`}
+                ? (lang === "zh" ? "未选择照片，自动使用前 4 张。" : "No photos selected — auto-using first 4.")
+                : (lang === "zh" ? `已选 ${collageSelection.size} / 4 张` : `Selected for Collage: ${collageSelection.size} / 4`)}
               {collageSelection.size >= 4 && (
                 <span style={{ marginLeft: 6, color: "#d97706", fontWeight: 600 }}>
-                  Max 4 reached / 已达上限
+                  {lang === "zh" ? "已达上限" : "Max 4 reached"}
                 </span>
               )}
             </span>
@@ -429,15 +433,16 @@ export default function HomeSaleCoverImage() {
                 style={{ fontSize: "0.75rem", padding: "2px 8px" }}
                 onClick={() => setCollageSelection(new Set())}
               >
-                Clear Selection / 清空拼图选择
+                {lang === "zh" ? "清空拼图选择" : "Clear Selection"}
               </button>
             )}
           </div>
 
           <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
-            选择下方最多 4 张照片加入拼图，或留空自动使用前 4 张。上传至 03_Cover_Images/，不修改原始文件。
-            <br />
-            Select up to 4 photos below (or leave empty for auto-first-4). Saved to 03_Cover_Images/. Original files are never modified.
+            {lang === "zh"
+              ? "选择下方最多 4 张照片加入拼图，或留空自动使用前 4 张。上传至 03_Cover_Images/，不修改原始文件。"
+              : "Select up to 4 photos below (or leave empty for auto-first-4). Saved to 03_Cover_Images/. Original files are never modified."
+            }
           </p>
 
           {(collageStatus === "error") && collageMsg && (
@@ -467,8 +472,8 @@ export default function HomeSaleCoverImage() {
               </div>
               <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
                 {collageStatus === "saved"
-                  ? "✅ Saved and set as cover / 已保存并设为封面"
-                  : "Preview — click \"Save as Cover\" to upload. / 预览图 — 点击\"保存为封面\"上传。"}
+                  ? (lang === "zh" ? "✅ 已保存并设为封面" : "✅ Saved and set as cover")
+                  : (lang === "zh" ? "预览图 — 点击\"保存为封面\"上传。" : "Preview — click \"Save as Cover\" to upload.")}
               </p>
             </div>
           )}
@@ -478,7 +483,7 @@ export default function HomeSaleCoverImage() {
       {photoAssets.length > 0 && (
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
-            📸 全部照片 / All Photo Assets ({photoAssets.length})
+            {lang === "zh" ? `📸 全部照片（${photoAssets.length}）` : `📸 All Photo Assets (${photoAssets.length})`}
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
             {photoAssets.map((asset, index) => {
@@ -546,7 +551,7 @@ export default function HomeSaleCoverImage() {
                           disabled={!inCollage && atMax}
                           onClick={() => toggleCollagePhoto(aid)}
                         >
-                          {inCollage ? "✓ In Collage / 已选" : "+ Use in Collage / 加入拼图"}
+                          {inCollage ? (lang === "zh" ? "✓ 已选" : "✓ In Collage") : (lang === "zh" ? "+ 加入拼图" : "+ Use in Collage")}
                         </button>
                       );
                     })()}
@@ -572,7 +577,7 @@ export default function HomeSaleCoverImage() {
 
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 12 }}>
-          📋 工作流导航 / Workflow Navigation
+          {lang === "zh" ? "📋 工作流导航" : "📋 Workflow Navigation"}
         </h3>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Link to={`/admin/home-sale/enhance/${listingId}`} className="btn btn--ghost btn--sm">

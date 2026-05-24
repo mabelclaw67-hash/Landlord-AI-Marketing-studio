@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   getApplicationById,
   getListing,
@@ -271,6 +273,8 @@ function buildFollowUpQuestions(app, listing) {
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function ApplicationReview() {
   const { applicationId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [app, setApp]           = useState(null);
   const [listing, setListing]   = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -328,14 +332,14 @@ export default function ApplicationReview() {
       <div>
         <div className="flex-between mb-24">
           <div>
-            <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Application Review / 申请审核</h1>
+            <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "申请审核" : "Application Review"}</h1>
             <p className="text-muted text-sm" style={{ fontFamily: "monospace" }}>{applicationId}</p>
           </div>
           <Link to="/admin/leads" className="btn btn--ghost btn--sm">← Back to Leads</Link>
         </div>
         {setupError ? (
           <div className="notice notice--warm">
-            <h4>Apps Script Redeploy Required / 需要重新部署 Apps Script</h4>
+            <h4>{lang === "zh" ? "需要重新部署 Apps Script" : "Apps Script Redeploy Required"}</h4>
             <p style={{ marginBottom: 8 }}>
               The <code>getApplicationById</code> action is not yet deployed. Once the Apps Script
               is redeployed, this page will load the full application record for{" "}
@@ -382,7 +386,7 @@ export default function ApplicationReview() {
       {/* Header */}
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Application Review / 申请审核</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "申请审核" : "Application Review"}</h1>
           <p className="text-muted text-sm" style={{ fontFamily: "monospace" }}>{app.recordId}</p>
         </div>
         <div className="flex gap-8">
@@ -402,13 +406,13 @@ export default function ApplicationReview() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 4 }}>
-              Manual Review Status / 人工审核状态
+              {lang === "zh" ? "人工审核状态" : "Manual Review Status"}
             </h3>
             <span className={`badge ${STATUS_BADGE[app.reviewStatus] || "badge--draft"}`}>
               {app.reviewStatus || "Pending"}
             </span>
             <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 6 }}>
-              Final decision is always made by the landlord. / 最终决定由房东人工确认。
+              {lang === "zh" ? "最终决定由房东人工确认。" : "Final decision is always made by the landlord."}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -426,23 +430,23 @@ export default function ApplicationReview() {
       </div>
 
       {/* ── 2. Applicant Information ──────────────────────────────────────────── */}
-      <SectionCard title="Applicant Information / 申请人信息">
+      <SectionCard title={lang === "zh" ? "申请人信息" : "Applicant Information"}>
         <div className="info-grid">
-          <InfoRow label="Full Name / 姓名"           value={app.applicantName} />
-          <InfoRow label="Email / 邮箱"               value={app.email} />
-          <InfoRow label="Phone / 电话"               value={app.phone} />
-          <InfoRow label="Date of Birth / 出生日期"   value={app.dateOfBirth} />
-          <InfoRow label="Current Address / 现居地址" value={app.currentAddress} />
-          <InfoRow label="WeChat / 微信号"             value={app.wechat} />
+          <InfoRow label={lang === "zh" ? "姓名" : "Full Name"}            value={app.applicantName} />
+          <InfoRow label={lang === "zh" ? "邮箱" : "Email"}                value={app.email} />
+          <InfoRow label={lang === "zh" ? "电话" : "Phone"}                value={app.phone} />
+          <InfoRow label={lang === "zh" ? "出生日期" : "Date of Birth"}    value={app.dateOfBirth} />
+          <InfoRow label={lang === "zh" ? "现居地址" : "Current Address"}  value={app.currentAddress} />
+          <InfoRow label={lang === "zh" ? "微信号" : "WeChat"}             value={app.wechat} />
         </div>
       </SectionCard>
 
       {/* ── 3. Employment / Income ────────────────────────────────────────────── */}
-      <SectionCard title="Employment / Income / 就业与收入">
+      <SectionCard title={lang === "zh" ? "就业与收入" : "Employment / Income"}>
         <div className="info-grid">
-          <InfoRow label="Employment Status / 就业状态"       value={app.employmentStatus} />
-          <InfoRow label="Employer / Income Source / 雇主来源" value={app.employer} />
-          <InfoRow label="Monthly Income / 月收入"            value={app.monthlyIncome} />
+          <InfoRow label={lang === "zh" ? "就业状态" : "Employment Status"}        value={app.employmentStatus} />
+          <InfoRow label={lang === "zh" ? "雇主来源" : "Employer / Income Source"} value={app.employer} />
+          <InfoRow label={lang === "zh" ? "月收入" : "Monthly Income"}             value={app.monthlyIncome} />
         </div>
         {listing?.rent && (
           <p style={{ marginTop: 10, fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
@@ -458,103 +462,103 @@ export default function ApplicationReview() {
       </SectionCard>
 
       {/* ── 4. Reference & Credit ─────────────────────────────────────────────── */}
-      <SectionCard title="Landlord Reference &amp; Credit / 房东参考与信用">
+      <SectionCard title={lang === "zh" ? "房东参考与信用" : "Landlord Reference & Credit"}>
         <div className="info-grid">
-          <InfoRow label="Landlord / Property Mgr Reference / 房东参考" value={app.landlordReference} />
-          <InfoRow label="Credit History Self-Rating / 信用记录自评"    value={app.creditHistory} />
+          <InfoRow label={lang === "zh" ? "房东参考" : "Landlord / Property Mgr Reference"} value={app.landlordReference} />
+          <InfoRow label={lang === "zh" ? "信用记录自评" : "Credit History Self-Rating"}     value={app.creditHistory} />
         </div>
       </SectionCard>
 
       {/* ── 5. Move-in & Occupancy ────────────────────────────────────────────── */}
-      <SectionCard title="Move-in &amp; Occupancy / 入住与居住人数">
+      <SectionCard title={lang === "zh" ? "入住与居住人数" : "Move-in & Occupancy"}>
         <div className="info-grid">
-          <InfoRow label="Preferred Move-in Date / 期望入住日期"   value={app.moveInDate} />
-          <InfoRow label="Desired Lease Term / 期望租期"           value={app.leaseTerm} />
-          <InfoRow label="Total Occupants / 总人数"                value={app.occupants} />
-          <InfoRow label="Adults (18+) / 成年人"                   value={app.adults} />
-          <InfoRow label="Minors (under 18) / 未成年人"            value={app.minors} />
-          <InfoRow label="All Occupants Names &amp; Ages / 所有入住人员" value={app.occupantNamesAges} />
+          <InfoRow label={lang === "zh" ? "期望入住日期" : "Preferred Move-in Date"}         value={app.moveInDate} />
+          <InfoRow label={lang === "zh" ? "期望租期" : "Desired Lease Term"}                 value={app.leaseTerm} />
+          <InfoRow label={lang === "zh" ? "总人数" : "Total Occupants"}                      value={app.occupants} />
+          <InfoRow label={lang === "zh" ? "成年人" : "Adults (18+)"}                        value={app.adults} />
+          <InfoRow label={lang === "zh" ? "未成年人" : "Minors (under 18)"}                 value={app.minors} />
+          <InfoRow label={lang === "zh" ? "所有入住人员" : "All Occupants Names & Ages"}     value={app.occupantNamesAges} />
         </div>
       </SectionCard>
 
       {/* ── 6. Joint Applicant ────────────────────────────────────────────────── */}
-      <SectionCard title="Joint Applicant / Co-Applicant / 联名申请人">
+      <SectionCard title={lang === "zh" ? "联名申请人" : "Joint Applicant / Co-Applicant"}>
         <div className="info-grid">
-          <InfoRow label="Has Joint Applicant / 是否有联名申请人" value={app.hasJointApplicant} />
+          <InfoRow label={lang === "zh" ? "是否有联名申请人" : "Has Joint Applicant"} value={app.hasJointApplicant} />
         </div>
         {hasJoint && (
           <div style={{ marginTop: 14, borderTop: "1px solid var(--color-border)", paddingTop: 14 }}>
             <div className="info-grid">
-              <InfoRow label="Joint Applicant Name / 联名申请人姓名"    value={app.jointName} />
-              <InfoRow label="Joint Applicant Address / 地址"           value={app.jointAddress} />
-              <InfoRow label="Joint Applicant Phone / 电话"             value={app.jointPhone} />
-              <InfoRow label="Joint Applicant Email / 邮箱"             value={app.jointEmail} />
-              <InfoRow label="Joint Applicant DOB / 出生日期"           value={app.jointDob} />
-              <InfoRow label="Joint Employment Status / 就业状态"       value={jointEmployment.status} />
-              <InfoRow label="Joint Employer / Income Source / 雇主或收入来源" value={jointEmployment.source} />
-              <InfoRow label="Joint Applicant Monthly Income / 月收入"  value={app.jointIncome} />
-              <InfoRow label="Joint Employer Contact / 雇主联系方式"    value={app.jointEmployerContact} />
-              <InfoRow label="Joint Landlord Reference / 房东参考"      value={app.jointLandlordReference} />
-              <InfoRow label="Joint Credit Information / 信用信息"      value={app.jointCreditInfo} />
-              <InfoRow label="Joint Proof of Income / Credit Report / 收入证明或信用报告" value={app.jointProofOfIncome} />
+              <InfoRow label={lang === "zh" ? "联名申请人姓名" : "Joint Applicant Name"}      value={app.jointName} />
+              <InfoRow label={lang === "zh" ? "地址" : "Joint Applicant Address"}              value={app.jointAddress} />
+              <InfoRow label={lang === "zh" ? "电话" : "Joint Applicant Phone"}               value={app.jointPhone} />
+              <InfoRow label={lang === "zh" ? "邮箱" : "Joint Applicant Email"}               value={app.jointEmail} />
+              <InfoRow label={lang === "zh" ? "出生日期" : "Joint Applicant DOB"}             value={app.jointDob} />
+              <InfoRow label={lang === "zh" ? "就业状态" : "Joint Employment Status"}         value={jointEmployment.status} />
+              <InfoRow label={lang === "zh" ? "雇主或收入来源" : "Joint Employer / Income Source"} value={jointEmployment.source} />
+              <InfoRow label={lang === "zh" ? "月收入" : "Joint Applicant Monthly Income"}    value={app.jointIncome} />
+              <InfoRow label={lang === "zh" ? "雇主联系方式" : "Joint Employer Contact"}      value={app.jointEmployerContact} />
+              <InfoRow label={lang === "zh" ? "房东参考" : "Joint Landlord Reference"}        value={app.jointLandlordReference} />
+              <InfoRow label={lang === "zh" ? "信用信息" : "Joint Credit Information"}        value={app.jointCreditInfo} />
+              <InfoRow label={lang === "zh" ? "收入证明或信用报告" : "Joint Proof of Income / Credit Report"} value={app.jointProofOfIncome} />
             </div>
           </div>
         )}
       </SectionCard>
 
       {/* ── 7. Lease & Deposit ───────────────────────────────────────────────── */}
-      <SectionCard title="Lease &amp; Deposit / 租期与押金">
+      <SectionCard title={lang === "zh" ? "租期与押金" : "Lease & Deposit"}>
         <div className="info-grid">
-          <InfoRow label="Deposit &amp; First Month Funds Ready / 押金首月准备好" value={app.depositFundsAvailable} />
-          <InfoRow label="Deposit Agreement / 押金协议"                            value={app.depositAgreement} />
+          <InfoRow label={lang === "zh" ? "押金首月准备好" : "Deposit & First Month Funds Ready"} value={app.depositFundsAvailable} />
+          <InfoRow label={lang === "zh" ? "押金协议" : "Deposit Agreement"}                       value={app.depositAgreement} />
         </div>
       </SectionCard>
 
       {/* ── 8. Pets ──────────────────────────────────────────────────────────── */}
-      <SectionCard title="Pets / 宠物">
+      <SectionCard title={lang === "zh" ? "宠物" : "Pets"}>
         <div className="info-grid">
-          <InfoRow label="Has Pets / 是否有宠物"                 value={app.hasPets} />
-          <InfoRow label="Pet Deposit Funds Ready / 宠物押金准备好" value={app.petDepositFunds} />
-          <InfoRow label="Pet Details / 宠物详情"               value={app.petDetails} />
+          <InfoRow label={lang === "zh" ? "是否有宠物" : "Has Pets"}               value={app.hasPets} />
+          <InfoRow label={lang === "zh" ? "宠物押金准备好" : "Pet Deposit Funds Ready"} value={app.petDepositFunds} />
+          <InfoRow label={lang === "zh" ? "宠物详情" : "Pet Details"}              value={app.petDetails} />
         </div>
       </SectionCard>
 
       {/* ── 9. Tenancy History ───────────────────────────────────────────────── */}
-      <SectionCard title="Tenancy History / 租赁历史">
+      <SectionCard title={lang === "zh" ? "租赁历史" : "Tenancy History"}>
         <p style={{ fontSize: "0.9rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
           {app.evictionHistory || "—"}
         </p>
       </SectionCard>
 
       {/* ── 10. Smoking / Cannabis ───────────────────────────────────────────── */}
-      <SectionCard title="Smoking / Vaping / Cannabis / 吸烟·电子烟·大麻">
+      <SectionCard title={lang === "zh" ? "吸烟·电子烟·大麻" : "Smoking / Vaping / Cannabis"}>
         <div className="info-grid">
-          <InfoRow label="Smokes / Vapes / Uses Cannabis / 是否吸烟或使用大麻" value={app.smokesVapesCannabis} />
-          <InfoRow label="No-Smoking Agreement / 不吸烟协议"                    value={app.noSmokingAgreement} />
+          <InfoRow label={lang === "zh" ? "是否吸烟或使用大麻" : "Smokes / Vapes / Uses Cannabis"} value={app.smokesVapesCannabis} />
+          <InfoRow label={lang === "zh" ? "不吸烟协议" : "No-Smoking Agreement"}                   value={app.noSmokingAgreement} />
         </div>
       </SectionCard>
 
       {/* ── 11. Documents & Insurance ────────────────────────────────────────── */}
-      <SectionCard title="Documents &amp; Insurance / 文件与保险">
+      <SectionCard title={lang === "zh" ? "文件与保险" : "Documents & Insurance"}>
         <div className="info-grid">
-          <InfoRow label="Can Provide Proof of Income / 可提供收入证明"             value={app.proofOfIncome} />
-          <InfoRow label="Current Tenant Insurance / 当前是否持有租客保险"          value={app.hasTenantInsurance} />
-          <InfoRow label="Tenant Insurance Agreement / 租客保险协议"               value={app.tenantInsuranceAgreement} />
-          <InfoRow label="Proof of Insurance Before Move-in / 入住前可提供保险证明" value={app.proofInsuranceBeforeMoveIn} />
+          <InfoRow label={lang === "zh" ? "可提供收入证明" : "Can Provide Proof of Income"}             value={app.proofOfIncome} />
+          <InfoRow label={lang === "zh" ? "当前是否持有租客保险" : "Current Tenant Insurance"}          value={app.hasTenantInsurance} />
+          <InfoRow label={lang === "zh" ? "租客保险协议" : "Tenant Insurance Agreement"}               value={app.tenantInsuranceAgreement} />
+          <InfoRow label={lang === "zh" ? "入住前可提供保险证明" : "Proof of Insurance Before Move-in"} value={app.proofInsuranceBeforeMoveIn} />
         </div>
       </SectionCard>
 
       {/* ── 12. Additional Information ────────────────────────────────────────── */}
-      <SectionCard title="Additional Information / 其他信息">
+      <SectionCard title={lang === "zh" ? "其他信息" : "Additional Information"}>
         <div className="info-grid">
-          <InfoRow label="Reason for Moving / 搬迁原因"   value={app.reasonForMoving} />
-          <InfoRow label="Parking Request / 停车需求"     value={app.parkingRequest} />
-          <InfoRow label="Other Notes / 其他备注"         value={app.additionalNotes} />
+          <InfoRow label={lang === "zh" ? "搬迁原因" : "Reason for Moving"}  value={app.reasonForMoving} />
+          <InfoRow label={lang === "zh" ? "停车需求" : "Parking Request"}    value={app.parkingRequest} />
+          <InfoRow label={lang === "zh" ? "其他备注" : "Other Notes"}        value={app.additionalNotes} />
         </div>
       </SectionCard>
 
       {/* ── 13. Application PDF ───────────────────────────────────────────────── */}
-      <SectionCard title="Application PDF / 申请表 PDF">
+      <SectionCard title={lang === "zh" ? "申请表 PDF" : "Application PDF"}>
         {canAccessSubmittedPdf ? (
           <>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
@@ -609,7 +613,7 @@ export default function ApplicationReview() {
                   }
                 }}
               >
-                {adminPdfBusy ? "Preparing…" : "📄 Download Submitted Application / 下载已提交申请表"}
+                {adminPdfBusy ? (lang === "zh" ? "准备中…" : "Preparing…") : (lang === "zh" ? "📄 下载已提交申请表" : "📄 Download Submitted Application")}
               </button>
             </div>
             {app.pdfUrl ? (
@@ -618,22 +622,23 @@ export default function ApplicationReview() {
               </p>
             ) : (
               <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
-                No Drive PDF yet — use &ldquo;Generate PDF&rdquo; to create a local copy from the application data above.
-                <br />
-                尚无 Drive PDF — 可点击"生成申请表 PDF"根据当前申请数据在本地生成。
+                {lang === "zh"
+                ? "尚无 Drive PDF — 可点击\"生成申请表 PDF\"根据当前申请数据在本地生成。"
+                : "No Drive PDF yet — use \"Generate PDF\" to create a local copy from the application data above."
+              }
               </p>
             )}
           </>
         ) : (
           <div style={{ background: "#fff8f3", border: "1px solid #f0cfa0", borderRadius: 8, padding: "12px 14px" }}>
             <p style={{ fontWeight: 600, fontSize: "0.88rem", color: "#7a4f00", marginBottom: 4 }}>
-              Access Restricted / 访问受限
+              {lang === "zh" ? "访问受限" : "Access Restricted"}
             </p>
             <p style={{ fontSize: "0.82rem", color: "#7a5a2f", lineHeight: 1.65 }}>
-              Submitted application PDFs are only accessible by admins and the listing owner.
-              This application is connected to listing <code>{app.listingId}</code>, which does not match your trial account.
-              <br />
-              申请表 PDF 仅供管理员及对应房源的拥有者查看。此申请所属房源与您的试用账号不匹配。
+              {lang === "zh"
+                ? <>申请表 PDF 仅供管理员及对应房源的拥有者查看。此申请所属房源（<code>{app.listingId}</code>）与您的试用账号不匹配。</>
+                : <>Submitted application PDFs are only accessible by admins and the listing owner. This application is connected to listing <code>{app.listingId}</code>, which does not match your trial account.</>
+              }
             </p>
           </div>
         )}
@@ -642,7 +647,7 @@ export default function ApplicationReview() {
       {/* ── 14. Screening Summary ─────────────────────────────────────────────── */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
-          Screening Summary / 初筛摘要
+          {lang === "zh" ? "初筛摘要" : "Screening Summary"}
         </h3>
         <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
           {summary.map(({ type, label, text }, i) => {
@@ -659,8 +664,10 @@ export default function ApplicationReview() {
           })}
         </div>
         <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
-          Rule-based checks only — no AI, no automated decisions. All final decisions are made by the landlord. /
-          仅为规则性初步整理，不自动批准或拒绝。所有最终决定由房东人工确认。
+          {lang === "zh"
+            ? "仅为规则性初步整理，不自动批准或拒绝。所有最终决定由房东人工确认。"
+            : "Rule-based checks only — no AI, no automated decisions. All final decisions are made by the landlord."
+          }
         </p>
       </div>
 
@@ -696,7 +703,7 @@ export default function ApplicationReview() {
         return (
           <div className="card mb-24">
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 12 }}>
-              Missing Information / 缺失信息
+              {lang === "zh" ? "缺失信息" : "Missing Information"}
             </h3>
             <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
               {missing.map((m) => <li key={m} style={{ fontSize: "0.88rem", color: "#a05a00" }}>{m}</li>)}
@@ -709,10 +716,10 @@ export default function ApplicationReview() {
       {followUpQuestions.length > 0 && (
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 4 }}>
-            Suggested Follow-up Questions / 建议跟进问题
+            {lang === "zh" ? "建议跟进问题" : "Suggested Follow-up Questions"}
           </h3>
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 12 }}>
-            Based on the application — copy and send to applicant if needed. / 根据申请内容自动生成，可根据需要复制发送。
+            {lang === "zh" ? "根据申请内容自动生成，可根据需要复制发送。" : "Based on the application — copy and send to applicant if needed."}
           </p>
           <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 10 }}>
             {followUpQuestions.map((q, i) => (
@@ -725,10 +732,10 @@ export default function ApplicationReview() {
       {/* ── 17. Internal Notes ────────────────────────────────────────────────── */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 6 }}>
-          Internal Notes / 内部备注
+          {lang === "zh" ? "内部备注" : "Internal Notes"}
         </h3>
         <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
-          Admin-only — not visible to applicant. Saved to the sheet. / 仅管理员可见，保存至表格。
+          {lang === "zh" ? "仅管理员可见，保存至表格。" : "Admin-only — not visible to applicant. Saved to the sheet."}
         </p>
         <textarea
           className="form-control"
@@ -740,14 +747,14 @@ export default function ApplicationReview() {
         />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button type="button" className="btn btn--primary btn--sm" onClick={handleSaveNotes} disabled={savingNotes}>
-            {savingNotes ? "Saving…" : "Save Notes / 保存备注"}
+            {savingNotes ? (lang === "zh" ? "保存中…" : "Saving…") : (lang === "zh" ? "保存备注" : "Save Notes")}
           </button>
           {notesSaved && <span style={{ fontSize: "0.82rem", color: "var(--color-primary)" }}>✅ Saved</span>}
         </div>
       </div>
 
       {/* ── 18. Record Metadata ───────────────────────────────────────────────── */}
-      <SectionCard title="Record Details / 记录信息">
+      <SectionCard title={lang === "zh" ? "记录信息" : "Record Details"}>
         <div className="info-grid">
           <InfoRow label="Record ID"    value={app.recordId}   mono />
           <InfoRow label="Listing ID"   value={app.listingId}  mono />

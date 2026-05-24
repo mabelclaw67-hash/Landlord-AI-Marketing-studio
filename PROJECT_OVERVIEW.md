@@ -141,6 +141,15 @@ When `VITE_STUDIO_EXEC_URL` is not set, `storage.js` reads/writes `vanisland_lis
 
 Set in `.env.local` for local development. Set in Netlify → Site Settings → Environment Variables for production.
 
+### Daily Market Brief deployment note
+
+- The homepage `Daily Market Brief` panel also reads from `VITE_STUDIO_EXEC_URL`.
+- If the Apps Script web app is redeployed and the deployment URL changes, update both:
+  - local `.env.local`
+  - Netlify production environment variable `VITE_STUDIO_EXEC_URL`
+- If only local `.env.local` is updated, local preview will work but the live Netlify site may still call the old Apps Script URL.
+- After any Apps Script URL change, trigger a fresh Netlify production deploy and verify the homepage brief loads without `Access denied`.
+
 ---
 
 ## 5. Deployment Flow
@@ -171,6 +180,11 @@ Live site  (Netlify-assigned URL, or custom domain if configured)
 - Netlify handles all SPA routing via a `_redirects` rule (`/* /index.html 200`) so React Router deep links work.
 - No server-side rendering. The `dist/` folder contains only static HTML, CSS, and JS.
 - Apps Script is deployed separately from Google Apps Script editor and has its own versioned deployment URL.
+- Production config check for the homepage brief:
+  1. Confirm the current Apps Script deployment URL is public and working.
+  2. Confirm Netlify production `VITE_STUDIO_EXEC_URL` matches that exact URL.
+  3. Run a new Netlify production deploy.
+  4. Open the live home page and confirm `Daily Market Brief` shows real content instead of `Access denied`.
 
 ---
 

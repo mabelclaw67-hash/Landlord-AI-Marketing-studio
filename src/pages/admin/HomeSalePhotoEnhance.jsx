@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, isHomeSaleApiConnected, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 
 function extractFolderId(link) {
   if (!link) return null;
@@ -40,6 +42,8 @@ function PhotoThumb({ file }) {
 
 export default function HomeSalePhotoEnhance() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const listingRef = useRef(null);
 
   const [listing, setListing]     = useState(null);
@@ -55,7 +59,6 @@ export default function HomeSalePhotoEnhance() {
   const [enhancedFolderId,  setEnhancedFolderId]  = useState(null);
   const [enhancedPhotos,    setEnhancedPhotos]    = useState([]);
   const [enhancedLoading,   setEnhancedLoading]   = useState(false);
-
   useEffect(() => {
     getHomeSaleListing(listingId)
       .then((row) => {
@@ -231,7 +234,7 @@ export default function HomeSalePhotoEnhance() {
     <div>
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>Photo Enhancement / 照片美化</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "照片美化" : "Photo Enhancement"}</h1>
           <p className="text-muted text-sm">{listingId}</p>
         </div>
         <div className="flex gap-8">
@@ -253,7 +256,7 @@ export default function HomeSalePhotoEnhance() {
 
       {!folderId && listing && (
         <div className="notice notice--warm" style={{ marginBottom: 20 }}>
-          <h4>{isAdmin ? "Google Drive Folder Not Set / 未设置 Drive 文件夹" : "照片尚未上传 / Photos Not Yet Uploaded"}</h4>
+          <h4>{isAdmin ? (lang === "zh" ? "未设置 Drive 文件夹" : "Google Drive Folder Not Set") : (lang === "zh" ? "照片尚未上传" : "Photos Not Yet Uploaded")}</h4>
           <p>
             {isAdmin
               ? "请先在 Edit Listing 页面填写 Google Drive Folder URL，才能读取照片或运行美化批次。"
@@ -279,7 +282,7 @@ export default function HomeSalePhotoEnhance() {
         <div className="card mb-24">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
             <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-              📸 Property Photos / 房源照片
+              📸 {L.photoAssetsTitle}
             </h3>
             <div style={{ display: "flex", gap: 8 }}>
               {isAdmin && listing?.googleDriveFolderUrl && (
@@ -298,7 +301,7 @@ export default function HomeSalePhotoEnhance() {
           </div>
 
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 14 }}>
-            Reading from Drive. Original files are not modified. / 读取 Drive 文件夹，原始文件不变。
+            {lang === "zh" ? "读取 Drive 文件夹，原始文件不变。" : "Reading from Drive. Original files are not modified."}
           </p>
 
           {folderLoading && (
@@ -326,23 +329,22 @@ export default function HomeSalePhotoEnhance() {
           {!folderLoading && folderFiles.length > 0 && (
             <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginTop: 16 }}>
               <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>
-                ✨ Light Enhancement Batch / 轻度美化批次
+                {lang === "zh" ? "✨ 轻度美化批次" : "✨ Light Enhancement Batch"}
               </p>
               <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 8, lineHeight: 1.7 }}>
-                <strong>{folderFiles.length}</strong> photo{folderFiles.length !== 1 ? "s" : ""} will be processed.
-                Enhanced copies → <code>02_AI_Enhanced_Photos/</code> — originals unchanged.
-                <br />
-                <span style={{ fontSize: "0.78rem" }}>
-                  全部 {folderFiles.length} 张照片将进行轻度美化，副本保存至 <code>02_AI_Enhanced_Photos/</code>，原始文件不变。
-                </span>
+                {lang === "zh" ? (
+                  <>全部 <strong>{folderFiles.length}</strong> 张照片将进行轻度美化，副本保存至 <code>02_AI_Enhanced_Photos/</code>，原始文件不变。</>
+                ) : (
+                  <><strong>{folderFiles.length}</strong> photo{folderFiles.length !== 1 ? "s" : ""} will be processed. Enhanced copies → <code>02_AI_Enhanced_Photos/</code> — originals unchanged.</>
+                )}
               </p>
               <div className="notice notice--info" style={{ marginBottom: 12 }}>
                 <p style={{ fontSize: "0.8rem", lineHeight: 1.8 }}>
-                  <strong>Allowed adjustments only:</strong> brightness · contrast · color balance · clarity<br />
-                  Must <strong>not</strong> alter layout, furniture, fixtures, view, condition, or any factual property feature.<br />
-                  <span style={{ opacity: 0.85 }}>
-                    仅限亮度、对比度、色彩平衡、清晰度。不得修改布局、家具、固定设施、景观、状况或任何真实房源特征。
-                  </span>
+                  {lang === "zh" ? (
+                    <>仅限亮度、对比度、色彩平衡、清晰度。不得修改布局、家具、固定设施、景观、状况或任何真实房源特征。</>
+                  ) : (
+                    <><strong>Allowed adjustments only:</strong> brightness · contrast · color balance · clarity<br />Must <strong>not</strong> alter layout, furniture, fixtures, view, condition, or any factual property feature.</>
+                  )}
                 </p>
               </div>
 
@@ -352,12 +354,14 @@ export default function HomeSalePhotoEnhance() {
                   disabled={!apiReady}
                   onClick={runLightEnhancementBatch}
                 >
-                  ✨ Run Light Enhancement Batch
+                  {lang === "zh" ? "✨ 运行轻度美化" : "✨ Run Light Enhancement Batch"}
                 </button>
               )}
               {enhanceStatus === "running" && (
                 <div style={{ fontSize: "0.85rem", color: "var(--color-primary)" }}>
-                  Processing photo {enhanceProgress.done + 1} of {enhanceProgress.total}…
+                  {lang === "zh"
+                    ? `正在处理第 ${enhanceProgress.done + 1} / ${enhanceProgress.total} 张…`
+                    : `Processing photo ${enhanceProgress.done + 1} of ${enhanceProgress.total}…`}
                   <span style={{ marginLeft: 8, opacity: 0.65 }}>
                     ({Math.round((enhanceProgress.done / enhanceProgress.total) * 100)}%)
                   </span>
@@ -370,7 +374,7 @@ export default function HomeSalePhotoEnhance() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
-                      Run Again
+                      {lang === "zh" ? "重新运行" : "Run Again"}
                     </button>
                     {isAdmin && enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
@@ -387,7 +391,7 @@ export default function HomeSalePhotoEnhance() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
-                      Try Again
+                      {lang === "zh" ? "重试" : "Try Again"}
                     </button>
                     {isAdmin && enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
@@ -409,7 +413,7 @@ export default function HomeSalePhotoEnhance() {
           {!folderLoading && (
             <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginTop: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ Enhanced Photos Preview / 美化照片预览</p>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>{lang === "zh" ? "🖼️ 美化照片预览" : "🖼️ Enhanced Photos Preview"}</p>
                 <div style={{ display: "flex", gap: 8 }}>
                   {isAdmin && enhancedFolderUrl && (
                     <a href={enhancedFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">

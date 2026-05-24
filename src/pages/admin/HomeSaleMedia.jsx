@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { isAdminSessionActive, getStudioRequestAuth } from "../../utils/trialAccess";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import {
   HOME_SALE_MEDIA_ROLE_OPTIONS,
   HOME_SALE_MEDIA_TYPE_OPTIONS,
@@ -129,6 +131,8 @@ function SalePhotoCard({ item, isCurrentCover, showDriveLink, dataUrl }) {
 
 export default function HomeSaleMedia() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
   const [form, setForm] = useState(emptyMediaForm(listingId));
@@ -318,7 +322,7 @@ export default function HomeSaleMedia() {
       {/* Header — mirrors Rental ListingDetail header */}
       <div className="flex-between mb-24">
         <div>
-          <h1 style={{ fontWeight: 800, fontSize: "1.4rem" }}>Photo Assets / 房源照片</h1>
+          <h1 style={{ fontWeight: 800, fontSize: "1.4rem" }}>{L.photoAssetsTitle}</h1>
           <p className="text-muted text-sm">
             {listingId}{listing?.address ? ` — ${listing.address}` : ""}
           </p>
@@ -355,7 +359,7 @@ export default function HomeSaleMedia() {
       {orderedMediaRows.length > 0 && (
         <div className="card mb-24" style={{ background: "#f8fafc" }}>
           <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            📋 Photo Review Status / 照片审核状态
+            📋 {L.photoReviewStatus}
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
             <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
@@ -405,7 +409,7 @@ export default function HomeSaleMedia() {
       {coverPhoto && (
         <div className="card mb-24">
           <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            🖼️ Cover Photo / 封面照片
+            🖼️ {L.coverPhoto}
           </h3>
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ border: "2px solid var(--color-primary)", borderRadius: 8, overflow: "hidden", maxWidth: 320, flexShrink: 0 }}>
@@ -443,7 +447,7 @@ export default function HomeSaleMedia() {
       <div className="card mb-24">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            📸 Photo Package / 广告照片集
+            📸 {lang === "zh" ? "广告照片集" : "Photo Package"}
           </h3>
           <span className="text-muted text-sm">
             {orderedMediaRows.length} asset(s) · Sort order: cover first, then by sort number
@@ -472,7 +476,7 @@ export default function HomeSaleMedia() {
       {/* Upload Photos — direct file upload to listing Drive folder */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          📤 Upload Photos / 上传照片
+          📤 {lang === "zh" ? "上传照片" : "Upload Photos"}
         </h3>
         <p className="text-muted text-sm" style={{ marginBottom: 14 }}>
           Select images from your computer to upload directly to this listing&apos;s Drive folder.
@@ -510,12 +514,12 @@ export default function HomeSaleMedia() {
           disabled={uploading || !uploadFiles.length}
           onClick={handleUpload}
         >
-          {uploading ? `Uploading… (${uploadFiles.length} file(s))` : "Upload Selected Photos / 上传所选照片"}
+          {uploading ? `${lang === "zh" ? "上传中…" : "Uploading…"} (${uploadFiles.length} file(s))` : (lang === "zh" ? "上传所选照片" : "Upload Selected Photos")}
         </button>
 
         {uploadResult && (
           <div className="notice notice--success" style={{ marginTop: 14 }}>
-            <p>✅ {uploadResult.uploadedCount} photo(s) uploaded successfully. / 上传成功。</p>
+            <p>✅ {lang === "zh" ? `${uploadResult.uploadedCount} 张照片上传成功。` : `${uploadResult.uploadedCount} photo(s) uploaded successfully.`}</p>
           </div>
         )}
         {uploadError && (
@@ -528,7 +532,7 @@ export default function HomeSaleMedia() {
       {/* Drive Sync — admin only: exposes raw Drive folder URL */}
       {isAdmin && <div className="card mb-24">
         <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          📁 Sync Photos from Drive / 从 Drive 批量导入照片
+          📁 {lang === "zh" ? "从 Drive 批量导入照片" : "Sync Photos from Drive"}
         </h3>
         <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
           Upload all property photos to a Google Drive folder, paste the folder link, and sync all photos into the media sheet.
@@ -580,13 +584,13 @@ export default function HomeSaleMedia() {
             </div>
           </div>
           <button type="submit" className="btn btn--primary" disabled={syncing}>
-            {syncing ? "Syncing…" : "从 Drive 同步照片 / Sync Photos from Drive"}
+            {syncing ? L.loading : (lang === "zh" ? "从 Drive 同步照片" : "Sync Photos from Drive")}
           </button>
         </form>
 
         {syncResult && (
           <div className="notice notice--success" style={{ marginTop: 16 }}>
-            <h4>Drive sync completed / 同步完成</h4>
+            <h4>{lang === "zh" ? "同步完成" : "Drive sync completed"}</h4>
             <p>
               Imported: {syncResult.importedCount || 0} photo(s). Skipped duplicates: {syncResult.skippedDuplicateCount || 0}.
             </p>
@@ -601,7 +605,7 @@ export default function HomeSaleMedia() {
           onClick={() => setShowAddForm((v) => !v)}
         >
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            ➕ Add Individual Asset / 手动新增媒体资源
+            ➕ {lang === "zh" ? "手动新增媒体资源" : "Add Individual Asset"}
           </h3>
           <span className="text-muted text-sm">{showAddForm ? "▲ Collapse" : "▼ Expand"}</span>
         </div>
@@ -659,7 +663,7 @@ export default function HomeSaleMedia() {
               <input className="form-control" value={form.altText} onChange={updateField("altText")} />
             </div>
             <button type="submit" className="btn btn--primary" disabled={submitting}>
-              {submitting ? "Saving…" : "Add Media Asset / 添加资源"}
+              {submitting ? L.saving : (lang === "zh" ? "添加资源" : "Add Media Asset")}
             </button>
           </form>
         )}
@@ -669,7 +673,7 @@ export default function HomeSaleMedia() {
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: "20px 20px 12px" }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            📋 All Media Rows / 所有媒体行
+            📋 {lang === "zh" ? "所有媒体行" : "All Media Rows"}
           </h3>
         </div>
         {mediaRows.length === 0 ? (

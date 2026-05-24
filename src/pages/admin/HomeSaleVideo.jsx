@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useLang } from "../../contexts/LangContext";
+import { AL } from "../../utils/adminLabels";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
@@ -21,7 +23,8 @@ import {
 } from "../../utils/homeSaleSheet";
 import { buildHomeSalePublicUrl } from "../../utils/publicUrls";
 
-const MUSIC_NO_MUSIC = { label: "No music / 不加音乐", file: "none" };
+const MUSIC_NO_MUSIC_EN = { label: "No music", file: "none" };
+const MUSIC_NO_MUSIC_ZH = { label: "不加音乐", file: "none" };
 
 function extractFolderId(link) {
   if (!link) return null;
@@ -79,6 +82,9 @@ function emptyVideoForm(listingId) {
 
 export default function HomeSaleVideo() {
   const { listingId } = useParams();
+  const lang = useLang();
+  const L = AL[lang] ?? AL.en;
+  const MUSIC_NO_MUSIC = lang === "zh" ? MUSIC_NO_MUSIC_ZH : MUSIC_NO_MUSIC_EN;
   const listingRef = useRef(null);
 
   // Listing + script sheet rows
@@ -703,7 +709,7 @@ export default function HomeSaleVideo() {
     setPublishVideoMsg("");
     try {
       await updateSaleListing({ ...listing, videoUrl: previewUrl });
-      setPublishVideoMsg("已发布 / Published — public page will now show Watch Video button.");
+      setPublishVideoMsg(lang === "zh" ? "已发布 — 公开页面将显示「观看视频」按钮。" : "Published — public page will now show Watch Video button.");
     } catch (err) {
       setPublishVideoMsg("Error: " + (err.message || "Failed to save video URL."));
     } finally {
@@ -747,11 +753,13 @@ export default function HomeSaleVideo() {
       {/* ── Polished Short Video Generator ───────────────────────────────── */}
       <div className="card mb-24">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 4 }}>
-          🎬 Short Video Generator / 短视频生成
+          {lang === "zh" ? "🎬 短视频生成" : "🎬 Short Video Generator"}
         </h3>
         <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 16, lineHeight: 1.6 }}>
-          Polished 25–35 sec listing video. Ken Burns zoom · fade transitions · text overlays.<br />
-          精美房源幻灯片视频，输出至 <code>04_Video_Output/</code>。
+          {lang === "zh"
+            ? <>精美房源幻灯片视频，输出至 <code>04_Video_Output/</code>。</>
+            : "Polished 25–35 sec listing video. Ken Burns zoom · fade transitions · text overlays."
+          }
         </p>
 
         {!folderId && (
@@ -768,15 +776,15 @@ export default function HomeSaleVideo() {
         {/* Photo Source selector */}
         <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--color-bg-subtle)", borderRadius: 8 }}>
           <div style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: 8 }}>
-            Photo Source / 照片来源
+            {lang === "zh" ? "照片来源" : "Photo Source"}
           </div>
           <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
-            Choose which photo set will be used to generate the short video. / 请选择用于生成短视频的照片组。
+            {lang === "zh" ? "请选择用于生成短视频的照片组。" : "Choose which photo set will be used to generate the short video."}
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { value: "original", label: "Original Photos / 原始照片", count: folderFiles.length },
-              { value: "enhanced", label: "Enhanced Photos / 美化照片", count: enhancedPhotos.length },
+              { value: "original", label: lang === "zh" ? "原始照片" : "Original Photos", count: folderFiles.length },
+              { value: "enhanced", label: lang === "zh" ? "美化照片" : "Enhanced Photos", count: enhancedPhotos.length },
             ].map(({ value, label, count }) => {
               const disabled = count === 0;
               return (
@@ -804,7 +812,7 @@ export default function HomeSaleVideo() {
 
         {/* Video format */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 6 }}>Video Format / 视频格式</label>
+          <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 6 }}>{lang === "zh" ? "视频格式" : "Video Format"}</label>
           <div style={{ display: "flex", gap: 10 }}>
             {[["landscape", "📺 Landscape 1280×720 (YouTube / WeChat)"], ["vertical", "📱 Vertical 720×1280 (Xiaohongshu / Reels)"]].map(([val, label]) => (
               <button
@@ -828,7 +836,7 @@ export default function HomeSaleVideo() {
         {/* Background music */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 6 }}>
-            Background Music / 背景音乐
+            {lang === "zh" ? "背景音乐" : "Background Music"}
           </label>
           <select
             className="select-control"
@@ -886,7 +894,7 @@ export default function HomeSaleVideo() {
 
         <div style={{ marginBottom: 12, padding: "12px 14px", border: "1px solid var(--color-border)", borderRadius: 10, background: "var(--color-bg-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <strong style={{ fontSize: "0.9rem" }}>Drive Video Output / 视频输出预览</strong>
+            <strong style={{ fontSize: "0.9rem" }}>{lang === "zh" ? "视频输出预览" : "Drive Video Output"}</strong>
             {folderId && (
               <button className="btn btn--ghost btn--sm" onClick={() => loadVideoOutputs(listing?.videoUrl || "")}>
                 ↺ Refresh Video Output
@@ -942,7 +950,7 @@ export default function HomeSaleVideo() {
                     disabled={publishingVideo}
                     onClick={handlePublishVideoUrl}
                   >
-                    {publishingVideo ? "Saving…" : "🌐 Publish to Public Page / 发布到公开页"}
+                    {publishingVideo ? (lang === "zh" ? "保存中…" : "Saving…") : (lang === "zh" ? "🌐 发布到公开页" : "🌐 Publish to Public Page")}
                   </button>
                 )}
               </div>
@@ -954,8 +962,7 @@ export default function HomeSaleVideo() {
             </>
           ) : (
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", margin: 0 }}>
-              No video output found yet.
-              <br /><span style={{ fontSize: "0.78rem" }}>暂未找到视频输出。</span>
+              {lang === "zh" ? "暂未找到视频输出。" : "No video output found yet."}
             </p>
           )}
         </div>
@@ -991,7 +998,7 @@ export default function HomeSaleVideo() {
         <>
           <form className="card mb-24" onSubmit={handleSubmit}>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 16 }}>
-              Video Script / Voiceover / 视频脚本与配音
+              {lang === "zh" ? "视频脚本与配音" : "Video Script / Voiceover"}
             </h2>
             <div className="form-row">
               <div className="form-group">
@@ -1042,14 +1049,14 @@ export default function HomeSaleVideo() {
               <textarea className="form-control" value={form.notes} onChange={updateField("notes")} rows={3} />
             </div>
             <button type="submit" className="btn btn--primary" disabled={submitting}>
-              {submitting ? "Saving..." : "Save Video Script / 保存视频脚本"}
+              {submitting ? (lang === "zh" ? "保存中…" : "Saving...") : (lang === "zh" ? "保存视频脚本" : "Save Video Script")}
             </button>
           </form>
 
           {rows.length > 0 && (
             <div className="card" style={{ padding: 0 }}>
               <div className="flex-between" style={{ padding: "20px 20px 12px" }}>
-                <h2 style={{ fontSize: "1.05rem", fontWeight: 800 }}>Saved Video Rows / 已保存视频行</h2>
+                <h2 style={{ fontSize: "1.05rem", fontWeight: 800 }}>{lang === "zh" ? "已保存视频行" : "Saved Video Rows"}</h2>
               </div>
               <div className="table-wrap">
                 <table>
