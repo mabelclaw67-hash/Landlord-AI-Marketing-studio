@@ -13,6 +13,9 @@ var CONTACTS_SHEET  = "Contacts";
 var INTAKE_SHEET    = "07 Intake Records";
 var SYSTEM_SETTINGS_SHEET = "08 System Settings";
 var DAILY_MARKET_BRIEF_SHEET = "01 Daily Market Brief";
+var DAILY_MARKET_BRIEF_CONFIG_SHEET = "02 Config";
+var DAILY_MARKET_BRIEF_SYNC_LOG_SHEET = "03 Sync Log";
+var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
 
 var INTAKE_HEADERS = [
   // System
@@ -326,12 +329,16 @@ function normalizeBriefDateValue_(value) {
 }
 
 function getBriefSheet_() {
-  var ss = SpreadsheetApp.openById(DAILY_MARKET_BRIEF_SPREADSHEET_ID);
+  var ss = getBriefSpreadsheet_();
   var sheet = ss.getSheetByName(DAILY_MARKET_BRIEF_SHEET);
   if (!sheet) {
     throw new Error('Sheet not found: "' + DAILY_MARKET_BRIEF_SHEET + '".');
   }
   return sheet;
+}
+
+function getBriefSpreadsheet_() {
+  return SpreadsheetApp.openById(DAILY_MARKET_BRIEF_SPREADSHEET_ID);
 }
 
 function getDailyMarketBrief_() {
@@ -417,6 +424,624 @@ function getDailyMarketBrief_() {
     wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
     fullReportUrl: fullReportUrl,
   };
+}
+
+function getBriefConfigValue_(key) {
+  var ss = getBriefSpreadsheet_();
+  var sheet = ss.getSheetByName(DAILY_MARKET_BRIEF_CONFIG_SHEET);
+  if (!sheet) return "";
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "";
+  var rows = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (normalizeCellText_(rows[i][0]) === key) {
+      return normalizeCellText_(rows[i][1]);
+    }
+  }
+  return "";
+}
+
+function getBriefSyncLogSheet_() {
+  var ss = getBriefSpreadsheet_();
+  var sheet = ss.getSheetByName(DAILY_MARKET_BRIEF_SYNC_LOG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(DAILY_MARKET_BRIEF_SYNC_LOG_SHEET);
+  }
+  ensureHeaders_(sheet, ["Run Time", "Source", "Action", "Status", "Notes", "Updated By"]);
+  return sheet;
+}
+
+function logBriefSync_(source, action, status, notes, updatedBy) {
+  var sheet = getBriefSyncLogSheet_();
+  var tz = Session.getScriptTimeZone();
+  sheet.appendRow([
+    Utilities.formatDate(new Date(), tz, "yyyy-MM-dd hh:mm a z"),
+    source || "",
+    action || "",
+    status || "",
+    notes || "",
+    updatedBy || "",
+  ]);
+}
+
+function getBriefSourceFolderId_() {
+  var folderId = getBriefConfigValue_("SOURCE_DOC_FOLDER_ID");
+  if (!folderId) {
+    throw new Error('Missing SOURCE_DOC_FOLDER_ID in "' + DAILY_MARKET_BRIEF_CONFIG_SHEET + '".');
+  }
+  return folderId;
+}
+
+function isSupportedBriefSourceFile_(file) {
+  var mimeType = file.getMimeType();
+  if (mimeType === MimeType.GOOGLE_DOCS) return true;
+  if (mimeType === MimeType.PLAIN_TEXT) return true;
+  if (mimeType === "text/markdown") return true;
+  if (mimeType === "text/x-markdown") return true;
+  var name = file.getName().toLowerCase();
+  return /\.md$/i.test(name) || /\.txt$/i.test(name);
+}
+
+function getLatestBriefSourceFile_() {
+  var rootFolder = DriveApp.getFolderById(getBriefSourceFolderId_());
+  var latest = scanBriefFolderForLatestFile_(rootFolder, null);
+  if (!latest || !latest.file) {
+    throw new Error("No supported Daily Market Brief source file found in configured Drive folder.");
+  }
+  return latest.file;
+}
+
+function scanBriefFolderForLatestFile_(folder, latest) {
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var file = files.next();
+    if (!isSupportedBriefSourceFile_(file)) continue;
+    var fileDate = getBriefSourceDateForFile_(file);
+    if (!latest || fileDate.getTime() > latest.date.getTime()) {
+      latest = { file: file, date: fileDate };
+    }
+  }
+
+  var subfolders = folder.getFolders();
+  while (subfolders.hasNext()) {
+    latest = scanBriefFolderForLatestFile_(subfolders.next(), latest);
+  }
+  return latest;
+}
+
+function getBriefSourceDateForFile_(file) {
+  var fromName = parseBriefDateFromText_(file.getName());
+  if (fromName) return fromName;
+  return file.getLastUpdated();
+}
+
+function parseBriefSourceText_(file) {
+  if (file.getMimeType() === MimeType.GOOGLE_DOCS) {
+    return DocumentApp.openById(file.getId()).getBody().getText();
+  }
+  var blob = file.getBlob();
+  return blob.getDataAsString("UTF-8");
+}
+
+function parseBriefDateFromText_(text) {
+  var value = normalizeCellText_(text);
+  if (!value) return null;
+
+  var compact = value.match(/(20\d{2})(\d{2})(\d{2})/);
+  if (compact) {
+    return new Date(Number(compact[1]), Number(compact[2]) - 1, Number(compact[3]));
+  }
+
+  var dashed = value.match(/(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (dashed) {
+    return new Date(Number(dashed[1]), Number(dashed[2]) - 1, Number(dashed[3]));
+  }
+
+  return null;
+}
+
+function extractBriefSection_(text, startMarkers, endMarkers) {
+  var start = -1;
+  var i;
+  for (i = 0; i < startMarkers.length; i++) {
+    var idx = text.indexOf(startMarkers[i]);
+    if (idx >= 0 && (start < 0 || idx < start)) start = idx;
+  }
+  if (start < 0) return "";
+
+  var end = text.length;
+  for (i = 0; i < endMarkers.length; i++) {
+    var endIdx = text.indexOf(endMarkers[i], start + 1);
+    if (endIdx >= 0 && endIdx < end) end = endIdx;
+  }
+  return text.slice(start, end).trim();
+}
+
+function escapeRegex_(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function lineMatchesAnyPattern_(line, patterns) {
+  if (!line || !patterns || !patterns.length) return false;
+  for (var i = 0; i < patterns.length; i++) {
+    if (patterns[i].test(line)) return true;
+  }
+  return false;
+}
+
+function isMajorHeadingLine_(line) {
+  if (!line) return false;
+  if (/^\s*#{1,6}\s+/.test(line)) return true;
+  if (/^\s*\d+[\.\)]\s+/.test(line)) return true;
+  if (/^\s*(section|part|chapter)\b/i.test(line)) return true;
+  return false;
+}
+
+function extractBriefSectionByPatterns_(text, startPatterns, endPatterns) {
+  if (!text) return "";
+
+  var lines = text.replace(/\r/g, "\n").split("\n");
+  var startIndex = -1;
+  var i;
+
+  for (i = 0; i < lines.length; i++) {
+    var line = normalizeCellText_(lines[i]);
+    if (!line) continue;
+    if (!isMajorHeadingLine_(line)) continue;
+    if (lineMatchesAnyPattern_(line, startPatterns)) {
+      startIndex = i;
+      break;
+    }
+  }
+
+  if (startIndex < 0) return "";
+
+  var endIndex = lines.length;
+  for (i = startIndex + 1; i < lines.length; i++) {
+    var candidate = normalizeCellText_(lines[i]);
+    if (!candidate) continue;
+    if (!isMajorHeadingLine_(candidate)) continue;
+    if (lineMatchesAnyPattern_(candidate, endPatterns)) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(startIndex, endIndex).join("\n").trim();
+}
+
+function extractBriefSectionSmart_(text, startMarkers, endMarkers, startPatterns, endPatterns) {
+  var exact = extractBriefSection_(text, startMarkers || [], endMarkers || []);
+  if (exact) return exact;
+  return extractBriefSectionByPatterns_(text, startPatterns || [], endPatterns || []);
+}
+
+function cleanBriefSection_(section) {
+  if (!section) return "";
+  return section
+    .replace(/\r/g, "\n")
+    .replace(/^#{1,6}\s.*$/gm, "")
+    .replace(/^\*{2}([^*]+)\*{2}$/gm, "$1")
+    .replace(/^---+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function sectionLines_(section) {
+  var cleaned = cleanBriefSection_(section);
+  if (!cleaned) return [];
+  var rawLines = cleaned.split("\n");
+  var lines = [];
+  for (var i = 0; i < rawLines.length; i++) {
+    var line = rawLines[i]
+      .replace(/^\s*[-*]\s*/, "")
+      .replace(/^\s*\d+\.\s*/, "")
+      .replace(/\*\*/g, "")
+      .trim();
+    if (!line) continue;
+    if (/^(中文版|CHINESE VERSION|ENGLISH VERSION|英文版)$/i.test(line)) continue;
+    if (/^(政策与利率更新|BC租赁市场概览|BC房屋销售市场概览|纳奈莫本地市场|房东与投资者行动建议|微信分享版本)$/i.test(line)) continue;
+    if (/^(POLICY & INTEREST RATE UPDATE|BC RENTAL MARKET OVERVIEW|BC HOME SALE MARKET OVERVIEW|NANAIMO LOCAL MARKET|LANDLORD & INVESTOR ACTION NOTES|WECHAT SHARE VERSION)$/i.test(line)) continue;
+    if (/^Data Sources/i.test(line)) break;
+    if (/^Report Generated/i.test(line)) break;
+    if (/^Next Update/i.test(line)) break;
+    lines.push(line);
+  }
+  return lines;
+}
+
+function summaryFromSection_(section, maxLines) {
+  var lines = sectionLines_(section);
+  return lines.slice(0, maxLines || 2).join(" ");
+}
+
+function summaryFromSectionSentence_(section) {
+  var summary = summaryFromSection_(section, 1);
+  if (!summary) return "";
+  var match = summary.match(/^(.+?[。！？.!?])(?:\s|$)/);
+  return match ? match[1].trim() : summary;
+}
+
+function formatBriefActionNotes_(section) {
+  var lines = sectionLines_(section);
+  var formatted = [];
+  for (var i = 0; i < lines.length; i++) {
+    formatted.push((i + 1) + ". " + lines[i]);
+  }
+  return formatted.join("\n");
+}
+
+function formatWechatShareText_(section) {
+  var lines = sectionLines_(section);
+  return lines.join("\n");
+}
+
+function buildWebsiteSummary_(englishRental, englishSale, englishNanaimoRental, englishActions) {
+  var parts = [];
+  var rentalLead = summaryFromSectionSentence_(englishRental);
+  var saleLead = summaryFromSectionSentence_(englishSale);
+  var nanaimoLead = summaryFromSectionSentence_(englishNanaimoRental);
+  var actionLead = sectionLines_(englishActions)[0] || "";
+
+  if (rentalLead) parts.push(rentalLead);
+  if (saleLead) parts.push(saleLead);
+  if (nanaimoLead) parts.push(nanaimoLead);
+  if (actionLead) parts.push("Focus now: " + actionLead.replace(/\.$/, "") + ".");
+
+  return parts.join(" ");
+}
+
+function extractMortgageNotes_(englishPolicySection) {
+  var lines = sectionLines_(englishPolicySection);
+  var picked = [];
+  for (var i = 0; i < lines.length; i++) {
+    if (/rate|mortgage|CMHC|amortization|insured/i.test(lines[i])) {
+      picked.push(lines[i]);
+    }
+    if (picked.length >= 3) break;
+  }
+  return picked.join(" ");
+}
+
+function extractMarketDataNotes_(englishRentalSection, englishSaleSection, englishNanaimoRentalSection) {
+  var parts = [];
+  var rentalLead = summaryFromSectionSentence_(englishRentalSection);
+  var saleLead = summaryFromSectionSentence_(englishSaleSection);
+  var nanaimoLead = summaryFromSectionSentence_(englishNanaimoRentalSection);
+  if (rentalLead) parts.push(rentalLead);
+  if (saleLead) parts.push(saleLead);
+  if (nanaimoLead) parts.push(nanaimoLead);
+  return parts.join(" ");
+}
+
+function buildFallbackSummaryFromText_(text, keywords, maxLines) {
+  if (!text) return "";
+  var lines = sectionLines_(text);
+  if (!lines.length) return "";
+
+  var picked = [];
+  for (var i = 0; i < lines.length; i++) {
+    if (keywords && keywords.length) {
+      var matched = false;
+      for (var j = 0; j < keywords.length; j++) {
+        if (keywords[j].test(lines[i])) {
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) continue;
+    }
+    picked.push(lines[i]);
+    if (picked.length >= (maxLines || 2)) break;
+  }
+
+  if (!picked.length) {
+    picked = lines.slice(0, maxLines || 2);
+  }
+  return picked.join(" ");
+}
+
+function parseDailyMarketBriefRecord_(file) {
+  var text = parseBriefSourceText_(file);
+  if (!normalizeCellText_(text)) {
+    throw new Error("Latest report file is empty.");
+  }
+
+  var titleMatch = text.match(/^#\s+(.+)$/m);
+  var title = titleMatch ? normalizeCellText_(titleMatch[1]) : normalizeCellText_(file.getName());
+
+  var dateValue = parseBriefDateFromText_(title) ||
+    parseBriefDateFromText_(text) ||
+    parseBriefDateFromText_(file.getName()) ||
+    file.getLastUpdated();
+  var dateText = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+  var zhPolicy = extractBriefSectionSmart_(
+    text,
+    ["## 1. 政策与利率更新", "1. 政策与利率更新"],
+    ["## 2. BC租赁市场概览", "2. BC租赁市场概览"],
+    [/政策/i, /利率/i, /央行/i],
+    [/BC.*租赁/i, /租赁市场/i]
+  );
+  var zhRental = extractBriefSectionSmart_(
+    text,
+    ["## 2. BC租赁市场概览", "2. BC租赁市场概览"],
+    ["## 3. BC房屋销售市场概览", "3. BC房屋销售市场概览"],
+    [/BC.*租赁/i, /租赁市场/i],
+    [/房屋销售/i, /买卖市场/i, /销售市场/i]
+  );
+  var zhSale = extractBriefSectionSmart_(
+    text,
+    ["## 3. BC房屋销售市场概览", "3. BC房屋销售市场概览"],
+    ["## 4. 纳奈莫本地市场", "4. 纳奈莫本地市场"],
+    [/房屋销售/i, /买卖市场/i, /销售市场/i],
+    [/纳奈莫/i, /nanaimo/i]
+  );
+  var zhNanaimo = extractBriefSectionSmart_(
+    text,
+    ["## 4. 纳奈莫本地市场", "4. 纳奈莫本地市场"],
+    ["## 5. 房东与投资者行动建议", "5. 房东与投资者行动建议"],
+    [/纳奈莫/i, /nanaimo/i],
+    [/行动建议/i, /房东/i, /投资者/i]
+  );
+  var zhActions = extractBriefSectionSmart_(
+    text,
+    ["## 5. 房东与投资者行动建议", "5. 房东与投资者行动建议"],
+    ["## 6. 微信分享版本", "6. 微信分享版本"],
+    [/行动建议/i, /房东/i, /投资者/i],
+    [/微信/i, /wechat/i, /分享/i]
+  );
+  var zhWechat = extractBriefSectionSmart_(
+    text,
+    ["## 6. 微信分享版本", "6. 微信分享版本"],
+    ["# ENGLISH VERSION", "ENGLISH VERSION 英文版"],
+    [/微信/i, /wechat/i, /分享/i],
+    [/english version/i, /英文版/i]
+  );
+
+  var zhNanaimoRental = extractBriefSectionSmart_(
+    zhNanaimo,
+    ["### 租赁市场——本地强势表现", "### 租赁市场", "租赁市场——本地强势表现"],
+    ["### 房屋销售", "房屋销售"],
+    [/租赁市场/i, /租金/i, /空置率/i],
+    [/房屋销售/i, /买卖/i]
+  );
+  var zhNanaimoSale = extractBriefSectionSmart_(
+    zhNanaimo,
+    ["### 房屋销售", "房屋销售"],
+    ["### 房东机会", "房东机会"],
+    [/房屋销售/i, /买卖/i],
+    [/房东机会/i, /行动/i]
+  );
+
+  var enPolicy = extractBriefSectionSmart_(
+    text,
+    ["## 1. POLICY & INTEREST RATE UPDATE", "1. POLICY & INTEREST RATE UPDATE"],
+    ["## 2. BC RENTAL MARKET OVERVIEW", "2. BC RENTAL MARKET OVERVIEW"],
+    [/policy/i, /interest rate/i, /bank of canada/i, /mortgage/i],
+    [/bc.*rental/i, /rental market/i]
+  );
+  var enRental = extractBriefSectionSmart_(
+    text,
+    ["## 2. BC RENTAL MARKET OVERVIEW", "2. BC RENTAL MARKET OVERVIEW"],
+    ["## 3. BC HOME SALE MARKET OVERVIEW", "2. BC HOME SALE MARKET OVERVIEW"],
+    [/bc.*rental/i, /rental market/i],
+    [/home sale/i, /\bsales?\b/i, /housing market/i]
+  );
+  var enSale = extractBriefSectionSmart_(
+    text,
+    ["## 3. BC HOME SALE MARKET OVERVIEW", "3. BC HOME SALE MARKET OVERVIEW"],
+    ["## 4. NANAIMO LOCAL MARKET", "4. NANAIMO LOCAL MARKET"],
+    [/home sale/i, /\bsales?\b/i, /housing market/i],
+    [/nanaimo/i]
+  );
+  var enNanaimo = extractBriefSectionSmart_(
+    text,
+    ["## 4. NANAIMO LOCAL MARKET", "4. NANAIMO LOCAL MARKET"],
+    ["## 5. LANDLORD & INVESTOR ACTION NOTES", "5. LANDLORD & INVESTOR ACTION NOTES"],
+    [/nanaimo/i],
+    [/landlord/i, /investor/i, /action/i]
+  );
+  var enActions = extractBriefSectionSmart_(
+    text,
+    ["## 5. LANDLORD & INVESTOR ACTION NOTES", "5. LANDLORD & INVESTOR ACTION NOTES"],
+    ["## 6. WECHAT SHARE VERSION", "6. WECHAT SHARE VERSION"],
+    [/landlord/i, /investor/i, /action/i, /next steps/i],
+    [/wechat/i, /share version/i]
+  );
+  var enWechat = extractBriefSectionSmart_(
+    text,
+    ["## 6. WECHAT SHARE VERSION", "6. WECHAT SHARE VERSION"],
+    ["Data Sources", "Report Generated", "Next Update"],
+    [/wechat/i, /share version/i],
+    [/data sources/i, /report generated/i, /next update/i]
+  );
+  var enNanaimoRental = extractBriefSectionSmart_(
+    enNanaimo,
+    ["### Rental Market—Local Outperformance", "### Rental Market", "Rental Market—Local Outperformance"],
+    ["### Rental Supply", "### Home Sales", "Home Sales"],
+    [/rental market/i, /rent/i, /vacancy/i],
+    [/home sales/i, /sales/i]
+  );
+  var enNanaimoSale = extractBriefSectionSmart_(
+    enNanaimo,
+    ["### Home Sales", "Home Sales"],
+    ["### Landlord Opportunity", "Landlord Opportunity"],
+    [/home sales/i, /\bsales?\b/i],
+    [/landlord opportunity/i, /opportunity/i]
+  );
+
+  var policySummary = summaryFromSection_(zhPolicy || enPolicy, 3) ||
+    buildFallbackSummaryFromText_(text, [/政策|利率|央行|policy|rate|mortgage|bank of canada/i], 3);
+  var bcRentalSummary = summaryFromSection_(zhRental || enRental, 3) ||
+    buildFallbackSummaryFromText_(text, [/bc.*租赁|租赁市场|rent|rental|vacancy/i], 3);
+  var bcSaleSummary = summaryFromSection_(zhSale || enSale, 3) ||
+    buildFallbackSummaryFromText_(text, [/销售|买卖|sale|sales|benchmark|inventory/i], 3);
+  var nanaimoRentalSummary = summaryFromSection_(zhNanaimoRental || zhNanaimo || enNanaimoRental || enNanaimo, 3) ||
+    buildFallbackSummaryFromText_(text, [/纳奈莫|nanaimo|rent|rental|vacancy/i], 3);
+  var nanaimoSaleSummary = summaryFromSection_(zhNanaimoSale || enNanaimoSale || zhNanaimo || enNanaimo, 2) ||
+    buildFallbackSummaryFromText_(text, [/纳奈莫|nanaimo|sale|sales|inventory|price/i], 2);
+  var landlordActionNotes = formatBriefActionNotes_(zhActions || enActions) ||
+    buildFallbackSummaryFromText_(text, [/建议|行动|策略|landlord|investor|action|focus/i], 4);
+  var wechatShareText = formatWechatShareText_(zhWechat || enWechat) ||
+    buildFallbackSummaryFromText_(text, [/微信|wechat|share/i], 5) ||
+    buildFallbackSummaryFromText_(text, [], 5);
+  var websiteSummary = buildWebsiteSummary_(enRental || zhRental, enSale || zhSale, enNanaimoRental || zhNanaimoRental || zhNanaimo, enActions || zhActions) ||
+    buildFallbackSummaryFromText_(text, [], 4);
+
+  return {
+    title: title,
+    dateText: dateText,
+    dateValue: dateValue,
+    briefType: "BC Rent & Sale Intelligence Brief",
+    language: getBriefConfigValue_("DEFAULT_LANGUAGE") || "CN_EN",
+    sourceDocLink: "https://drive.google.com/file/d/" + file.getId() + "/view",
+    policySummary: policySummary,
+    bcRentalSummary: bcRentalSummary,
+    bcSaleSummary: bcSaleSummary,
+    nanaimoRentalSummary: nanaimoRentalSummary,
+    nanaimoSaleSummary: nanaimoSaleSummary,
+    mortgageNotes: extractMortgageNotes_(enPolicy),
+    marketDataNotes: extractMarketDataNotes_(enRental, enSale, enNanaimoRental),
+    landlordActionNotes: landlordActionNotes,
+    wechatShareText: wechatShareText,
+    websiteSummary: websiteSummary,
+    fullContent: normalizeCellText_(text),
+    status: "Published",
+    sourceFileId: file.getId(),
+    sourceFileName: file.getName(),
+  };
+}
+
+function generateBriefId_(sheet, headerMap, dateText) {
+  var lastRow = sheet.getLastRow();
+  var next = 1;
+  if (lastRow >= 2) {
+    var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+    for (var i = 0; i < values.length; i++) {
+      var rowDate = normalizeCellText_(colVal_(values[i], headerMap, "Date"));
+      if (rowDate !== dateText) continue;
+      next += 1;
+    }
+  }
+  var suffix = ("000" + next).slice(-3);
+  return "BRIEF-" + dateText + "-" + suffix;
+}
+
+function findExistingBriefRow_(sheet, headerMap, record) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var sourceLink = normalizeCellText_(colVal_(row, headerMap, "Source Doc Link"));
+    var rowDate = normalizeCellText_(colVal_(row, headerMap, "Date"));
+    if (sourceLink && sourceLink === record.sourceDocLink) return i + 2;
+    if (rowDate === record.dateText && normalizeCellText_(colVal_(row, headerMap, "Title")) === record.title) return i + 2;
+  }
+  return 0;
+}
+
+function upsertDailyMarketBriefRecord_(record, updatedBy) {
+  var sheet = getBriefSheet_();
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var headerMap = getHeaderMap_(sheet);
+  var rowNumber = findExistingBriefRow_(sheet, headerMap, record);
+  var tz = Session.getScriptTimeZone();
+  var nowText = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd hh:mm a z");
+  var briefId = rowNumber
+    ? normalizeCellText_(sheet.getRange(rowNumber, headerMap["Brief ID"] + 1).getValue())
+    : generateBriefId_(sheet, headerMap, record.dateText);
+
+  var row = [];
+  for (var i = 0; i < headers.length; i++) {
+    var header = normalizeCellText_(headers[i]);
+    if (header === "Brief ID") row.push(briefId);
+    else if (header === "Date") row.push(record.dateText);
+    else if (header === "Brief Type") row.push(record.briefType);
+    else if (header === "Language") row.push(record.language);
+    else if (header === "Title") row.push(record.title);
+    else if (header === "Source Doc Link") row.push(record.sourceDocLink);
+    else if (header === "Policy Summary") row.push(record.policySummary);
+    else if (header === "BC Rental Summary") row.push(record.bcRentalSummary);
+    else if (header === "BC Sale Summary") row.push(record.bcSaleSummary);
+    else if (header === "Nanaimo Rental Summary") row.push(record.nanaimoRentalSummary);
+    else if (header === "Nanaimo Sale Summary") row.push(record.nanaimoSaleSummary);
+    else if (header === "Mortgage / Interest Notes") row.push(record.mortgageNotes);
+    else if (header === "Market Data Notes") row.push(record.marketDataNotes);
+    else if (header === "Landlord Action Notes") row.push(record.landlordActionNotes);
+    else if (header === "WeChat Share Text") row.push(record.wechatShareText);
+    else if (header === "Website Summary") row.push(record.websiteSummary);
+    else if (header === "Full Content") row.push(record.fullContent);
+    else if (header === "Status") row.push(record.status);
+    else if (header === "Created At") row.push(rowNumber ? sheet.getRange(rowNumber, i + 1).getValue() : nowText);
+    else if (header === "Updated At") row.push(nowText);
+    else row.push(rowNumber ? sheet.getRange(rowNumber, i + 1).getValue() : "");
+  }
+
+  if (rowNumber) {
+    sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+  } else {
+    rowNumber = sheet.getLastRow() + 1;
+    sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+  }
+
+  logBriefSync_(
+    record.sourceFileName,
+    "syncDailyMarketBrief",
+    rowNumber ? "SUCCESS" : "SUCCESS",
+    "Upserted row " + rowNumber + " for " + record.dateText,
+    updatedBy || "Apps Script"
+  );
+
+  return {
+    rowNumber: rowNumber,
+    briefId: briefId,
+    date: record.dateText,
+    title: record.title,
+    sourceFileId: record.sourceFileId,
+    sourceFileName: record.sourceFileName,
+  };
+}
+
+function syncDailyMarketBriefFromLatestReport_() {
+  var file = getLatestBriefSourceFile_();
+  var record = parseDailyMarketBriefRecord_(file);
+  return upsertDailyMarketBriefRecord_(record, "Apps Script auto sync");
+}
+
+function syncDailyMarketBriefFromLatestReport() {
+  try {
+    return syncDailyMarketBriefFromLatestReport_();
+  } catch (ex) {
+    logBriefSync_("Daily Market Brief", "syncDailyMarketBrief", "ERROR", ex.message, "Apps Script");
+    throw ex;
+  }
+}
+
+function installDailyMarketBriefAutoSync() {
+  removeDailyMarketBriefAutoSync();
+  ScriptApp.newTrigger(DAILY_MARKET_BRIEF_SYNC_HANDLER)
+    .timeBased()
+    .everyHours(1)
+    .create();
+  logBriefSync_("Daily Market Brief", "installTrigger", "SUCCESS", "Installed hourly auto sync trigger.", "Apps Script");
+  return { installed: true, handler: DAILY_MARKET_BRIEF_SYNC_HANDLER, interval: "hourly" };
+}
+
+function removeDailyMarketBriefAutoSync() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === DAILY_MARKET_BRIEF_SYNC_HANDLER) {
+      ScriptApp.deleteTrigger(triggers[i]);
+      removed += 1;
+    }
+  }
+  if (removed) {
+    logBriefSync_("Daily Market Brief", "removeTrigger", "SUCCESS", "Removed " + removed + " trigger(s).", "Apps Script");
+  }
+  return { removed: removed };
 }
 
 // ── System Settings helpers ───────────────────────────────────────────────────
