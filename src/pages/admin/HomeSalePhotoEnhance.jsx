@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, isHomeSaleApiConnected, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
+import { extractHomeSaleDriveFileId, getHomeSaleListing, getSaleMediaByListingId, getSalePhotoData, getSaleSubfolderFiles, isHomeSaleApiConnected, syncSaleMediaFromDriveFolder, uploadSaleEnhancedPhoto } from "../../utils/homeSaleSheet";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { useLang } from "../../contexts/LangContext";
 import { AL } from "../../utils/adminLabels";
@@ -49,6 +49,7 @@ export default function HomeSalePhotoEnhance() {
   const [listing, setListing]     = useState(null);
   const [folderFiles, setFolderFiles] = useState([]);
   const [folderLoading, setFolderLoading] = useState(false);
+  const [folderSyncMessage, setFolderSyncMessage] = useState("");
   const [error, setError]         = useState("");
 
   // Enhancement state
@@ -65,34 +66,62 @@ export default function HomeSalePhotoEnhance() {
         setListing(row);
         listingRef.current = row;
         loadFolderFiles();
-        const fid = extractFolderId(row?.googleDriveFolderUrl);
         loadEnhancedPhotos();
       })
       .catch((err) => setError(err.message || "Failed to load listing."));
   }, [listingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function normalizeDriveFiles(files) {
+    return (Array.isArray(files) ? files : [])
+      .map((file) => {
+        const fileId = file.fileId || extractHomeSaleDriveFileId(file.driveUrl || file.publicUrl || file.url || "");
+        return {
+          fileId,
+          name: file.fileName || file.name || "photo",
+          thumbUrl: fileId
+            ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+            : (file.publicUrl || file.url || ""),
+        };
+      })
+      .filter((file) => file.fileId || file.thumbUrl);
+  }
+
   async function loadFolderFiles() {
     setFolderLoading(true);
     try {
       const rows = await getSaleMediaByListingId(listingId);
-      const photos = rows
+      const photos = normalizeDriveFiles(rows
         .filter((item) => !item.assetType || item.assetType === "Photo")
-        .map((item) => {
-          const fileId = extractHomeSaleDriveFileId(item.driveUrl || "");
-          return {
-            fileId,
-            name: item.fileName || item.assetRole || item.assetId || "photo",
-            // drive.google.com/thumbnail works for img tag display without CORS.
-            // Enhancement fetches full data via backend (getSalePhotoData) to avoid CDN rate limits.
-            thumbUrl: fileId
-              ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
-              : (item.publicUrl || ""),
-          };
-        })
-        .filter((f) => f.fileId || f.thumbUrl);
+      );
       setFolderFiles(sortByFilenameNumber(photos));
     } catch {
       setFolderFiles([]);
+    } finally {
+      setFolderLoading(false);
+    }
+  }
+
+  async function syncOriginalPhotosFromDrive() {
+    const folderUrl = listingRef.current?.googleDriveFolderUrl || listing?.googleDriveFolderUrl || "";
+    if (!folderUrl) return loadFolderFiles();
+
+    setFolderLoading(true);
+    setFolderSyncMessage("");
+    setError("");
+    try {
+      const result = await syncSaleMediaFromDriveFolder({
+        listingId,
+        folderUrl,
+        defaultAssetType: "Photo",
+        defaultAssetRole: "Other",
+      });
+      const photos = normalizeDriveFiles(result?.files || []);
+      setFolderFiles(sortByFilenameNumber(photos));
+      const foundCount = typeof result?.foundCount === "number" ? result.foundCount : photos.length;
+      setFolderSyncMessage(`Synced from Google Drive: ${foundCount} original photos found.`);
+    } catch (err) {
+      setError(err.message || "Failed to sync original photos from Google Drive.");
+      await loadFolderFiles();
     } finally {
       setFolderLoading(false);
     }
@@ -293,9 +322,9 @@ export default function HomeSalePhotoEnhance() {
               <button
                 className="btn btn--ghost btn--sm"
                 disabled={folderLoading}
-                onClick={() => loadFolderFiles()}
+                onClick={() => syncOriginalPhotosFromDrive()}
               >
-                {folderLoading ? "Loading…" : "↺ Refresh"}
+                {folderLoading ? "Syncing..." : "Refresh"}
               </button>
             </div>
           </div>
@@ -303,6 +332,11 @@ export default function HomeSalePhotoEnhance() {
           <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 14 }}>
             {lang === "zh" ? "读取 Drive 文件夹，原始文件不变。" : "Reading from Drive. Original files are not modified."}
           </p>
+          {folderSyncMessage && (
+            <p style={{ fontSize: "0.82rem", color: "var(--color-primary)", marginBottom: 12 }}>
+              {folderSyncMessage}
+            </p>
+          )}
 
           {folderLoading && (
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>Loading photos from Drive…</p>

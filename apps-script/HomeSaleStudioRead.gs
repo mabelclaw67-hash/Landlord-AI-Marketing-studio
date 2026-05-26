@@ -504,13 +504,19 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
 
   var folder = DriveApp.getFolderById(folderId);
   var fileIterator = folder.getFiles();
-  var existingMedia = getSaleMediaByListingId_(listingId);
+  var existingRows = homeSaleGetDataRows_(HOME_SALE_MEDIA_SHEET);
   var existingDriveUrls = {};
+  var existingDriveFileIds = {};
   var hasCover = false;
 
-  for (var i = 0; i < existingMedia.length; i++) {
-    if (existingMedia[i].driveUrl) existingDriveUrls[existingMedia[i].driveUrl] = true;
-    if (existingMedia[i].assetRole === "Cover") hasCover = true;
+  for (var i = 0; i < existingRows.length; i++) {
+    var existingRecord = homeSaleMediaFromRecord_(existingRows[i].record, auth);
+    if (existingRecord.listingId !== listingId) continue;
+    if (existingRecord.assetType && existingRecord.assetType !== "Photo") continue;
+    if (existingRecord.driveUrl) existingDriveUrls[existingRecord.driveUrl] = true;
+    var existingFileId = homeSaleExtractDriveFileId_(existingRecord.driveUrl || existingRecord.publicUrl || "");
+    if (existingFileId) existingDriveFileIds[existingFileId] = true;
+    if (existingRecord.assetRole === "Cover") hasCover = true;
   }
 
   var mediaSheet = homeSaleGetSheet_(HOME_SALE_MEDIA_SHEET);
@@ -520,7 +526,9 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
   var skippedDuplicateCount = 0;
   var nextSortOrder = startingSortOrder;
   var importedFiles = [];
+  var currentFiles = [];
   var filesToImport = [];
+  var currentDriveFileIds = {};
 
   while (fileIterator.hasNext()) {
     var file = fileIterator.next();
@@ -534,13 +542,23 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
 
   for (var j = 0; j < filesToImport.length; j++) {
     var currentFile = filesToImport[j];
+    var currentFileId = currentFile.getId();
     var driveUrl = currentFile.getUrl();
-    if (existingDriveUrls[driveUrl]) {
+    var publicUrl = homeSaleBuildDriveImagePublicUrl_(currentFileId);
+    currentDriveFileIds[currentFileId] = true;
+    currentFiles.push({
+      fileId: currentFileId,
+      fileName: currentFile.getName(),
+      driveUrl: driveUrl,
+      publicUrl: publicUrl,
+      sortOrder: nextSortOrder,
+    });
+
+    if (existingDriveUrls[driveUrl] || existingDriveFileIds[currentFileId]) {
       skippedDuplicateCount += 1;
       continue;
     }
 
-    var publicUrl = homeSaleBuildDriveImagePublicUrl_(currentFile.getId());
     var assetRole = (!hasCover && importedCount === 0) ? "Cover" : defaultAssetRole;
     var record = {
       "Asset ID": homeSaleGenerateNextId_(mediaSheet, "Asset ID", "MEDIA"),
@@ -559,6 +577,7 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
 
     homeSaleAppendRecord_(mediaSheet, mediaHeaders, record, { setCreatedAt: true });
     existingDriveUrls[driveUrl] = true;
+    existingDriveFileIds[currentFileId] = true;
     importedCount += 1;
     nextSortOrder += 1;
     if (assetRole === "Cover") hasCover = true;
@@ -572,11 +591,23 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
 
     importedFiles.push({
       fileName: currentFile.getName(),
+      fileId: currentFileId,
       driveUrl: driveUrl,
       publicUrl: publicUrl,
       assetRole: assetRole,
       sortOrder: record["Sort Order"],
     });
+  }
+
+  var removedStaleCount = 0;
+  for (var r = existingRows.length - 1; r >= 0; r--) {
+    var staleRecord = homeSaleMediaFromRecord_(existingRows[r].record, auth);
+    if (staleRecord.listingId !== listingId) continue;
+    if (staleRecord.assetType && staleRecord.assetType !== "Photo") continue;
+    var staleFileId = homeSaleExtractDriveFileId_(staleRecord.driveUrl || staleRecord.publicUrl || "");
+    if (!staleFileId || currentDriveFileIds[staleFileId]) continue;
+    mediaSheet.deleteRow(existingRows[r].rowIndex);
+    removedStaleCount += 1;
   }
 
   if (Object.keys(listingRecordUpdate).length > 0) {
@@ -587,7 +618,10 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
     success: true,
     importedCount: importedCount,
     skippedDuplicateCount: skippedDuplicateCount,
-    files: importedFiles,
+    removedStaleCount: removedStaleCount,
+    foundCount: currentFiles.length,
+    importedFiles: importedFiles,
+    files: currentFiles,
   };
 }
 
@@ -1574,6 +1608,19 @@ function homeSaleExtractDriveFolderId_(folderUrl) {
 
   var folderMatch = text.match(/\/folders\/([a-zA-Z0-9_-]+)/);
   if (folderMatch) return folderMatch[1];
+
+  var idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) return idMatch[1];
+
+  return "";
+}
+
+function homeSaleExtractDriveFileId_(fileUrl) {
+  var text = String(fileUrl || "").trim();
+  if (!text) return "";
+
+  var fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return fileMatch[1];
 
   var idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (idMatch) return idMatch[1];
