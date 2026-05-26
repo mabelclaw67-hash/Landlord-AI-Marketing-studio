@@ -155,6 +155,16 @@ export default function HomeSaleVideo() {
       .catch(() => {});
   }, [listingId, videoFormat]);
 
+  // If a Drive video URL is already known (from listing.videoUrl or loadVideoOutputs) and no
+  // local generation is in progress, mark status as "done" so the UI shows "Video Ready"
+  // instead of leaving the generate button as the apparent primary action.
+  useEffect(() => {
+    if (videoStatus === "idle" && (videoFileUrl || listing?.videoUrl)) {
+      setVideoStatus("done");
+      setVideoMsg(null);
+    }
+  }, [videoFileUrl, listing?.videoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     let cancelled = false;
     let objectUrl = null;
@@ -702,6 +712,16 @@ export default function HomeSaleVideo() {
     }
   }
 
+  // Reload listing from Sheet AND re-check Drive subfolder — single source of truth
+  async function handleRefreshVideoStatus() {
+    try {
+      const listingRow = await refresh();
+      await loadVideoOutputs(listingRow?.videoUrl || "");
+    } catch (err) {
+      setError("Refresh failed: " + (err.message || "Unknown error."));
+    }
+  }
+
   async function handlePublishVideoUrl() {
     const previewUrl = buildDriveVideoPreviewUrl(videoFileMeta);
     if (!previewUrl) return;
@@ -863,7 +883,7 @@ export default function HomeSaleVideo() {
               disabled={!canGenerate}
               onClick={generateShortVideo}
             >
-              ✨ Generate Polished Short Video
+              {(videoFileUrl || listing?.videoUrl) ? "↺ Regenerate Video" : "✨ Generate Polished Short Video"}
             </button>
           )}
           {videoStatus === "preparing" && (
@@ -894,21 +914,47 @@ export default function HomeSaleVideo() {
 
         <div style={{ marginBottom: 12, padding: "12px 14px", border: "1px solid var(--color-border)", borderRadius: 10, background: "var(--color-bg-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <strong style={{ fontSize: "0.9rem" }}>{lang === "zh" ? "视频输出预览" : "Drive Video Output"}</strong>
-            {folderId && (
-              <button className="btn btn--ghost btn--sm" onClick={() => loadVideoOutputs(listing?.videoUrl || "")}>
-                ↺ Refresh Video Output
-              </button>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong style={{ fontSize: "0.9rem" }}>{lang === "zh" ? "视频输出预览" : "Drive Video Output"}</strong>
+              {(videoFileUrl || listing?.videoUrl) && (
+                <span style={{ fontSize: "0.73rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", borderRadius: 999, padding: "2px 8px" }}>
+                  ✅ {lang === "zh" ? "视频就绪" : "Video Ready"}
+                </span>
+              )}
+            </div>
+            <button className="btn btn--ghost btn--sm" onClick={handleRefreshVideoStatus}>
+              ↺ {lang === "zh" ? "刷新视频状态" : "Refresh Video Status"}
+            </button>
           </div>
           {videoOutputFiles.length > 0 && (
             <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 0, marginBottom: 10 }}>
               {videoOutputFiles.length} video file{videoOutputFiles.length !== 1 ? "s" : ""} found in <code>04_Video_Output/</code>.
             </p>
           )}
-          {videoFileUrl ? (
+          {(videoFileUrl || listing?.videoUrl) ? (
             <>
-              {/* Use local blob when available; otherwise embed the Drive /preview iframe */}
+              {/* Primary action: open directly in Drive — embed playback is unreliable */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                <a
+                  href={drivePreviewUrl || videoFileUrl || listing?.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn--primary btn--sm"
+                >
+                  ▶ {lang === "zh" ? "在 Drive 中打开视频" : "Open Video in Drive"}
+                </a>
+                {listing?.videoUrl && listing.videoUrl !== drivePreviewUrl && listing.videoUrl !== videoFileUrl && (
+                  <a
+                    href={listing.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn--ghost btn--sm"
+                  >
+                    🔗 {lang === "zh" ? "表格中的视频链接" : "Video Link (from Sheet)"}
+                  </a>
+                )}
+              </div>
+              {/* Preview: local blob first, then Drive iframe (best-effort) */}
               {(videoBlobUrl || driveVideoBlobUrl) ? (
                 <video
                   controls
@@ -927,16 +973,13 @@ export default function HomeSaleVideo() {
                 />
               ) : null}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a
-                  href={driveDownloadUrl}
-                  download={videoFileMeta?.name || `video__${listingId}__${videoFormat}.mp4`}
-                  className="btn btn--ghost btn--sm"
-                >
-                  ⬇️ Download Video
-                </a>
-                {isAdmin && drivePreviewUrl && (
-                  <a href={drivePreviewUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                    ▶ Open Drive Preview
+                {driveDownloadUrl && (
+                  <a
+                    href={driveDownloadUrl}
+                    download={videoFileMeta?.name || `video__${listingId}__${videoFormat}.mp4`}
+                    className="btn btn--ghost btn--sm"
+                  >
+                    ⬇️ {lang === "zh" ? "下载视频" : "Download Video"}
                   </a>
                 )}
                 {isAdmin && videoFolderUrl && (
@@ -946,7 +989,7 @@ export default function HomeSaleVideo() {
                 )}
                 {drivePreviewUrl && (
                   <button
-                    className="btn btn--primary btn--sm"
+                    className="btn btn--ghost btn--sm"
                     disabled={publishingVideo}
                     onClick={handlePublishVideoUrl}
                   >
@@ -962,7 +1005,7 @@ export default function HomeSaleVideo() {
             </>
           ) : (
             <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", margin: 0 }}>
-              {lang === "zh" ? "暂未找到视频输出。" : "No video output found yet."}
+              {lang === "zh" ? "暂未找到视频输出。点击「刷新视频状态」重试。" : "No video output found yet. Click Refresh Video Status to check Drive."}
             </p>
           )}
         </div>
