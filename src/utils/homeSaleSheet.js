@@ -280,6 +280,13 @@ export async function getSaleMediaByListingId(listingId) {
   return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MEDIA_HEADER_MAP)) : [];
 }
 
+export async function getPublicSaleMediaByListingId(listingId) {
+  ensureHomeSaleApiConnected();
+  if (!listingId) throw new Error("Missing Listing ID for media lookup.");
+  const data = await homeSaleApiGet({ action: "getSaleMediaByListingId", listingId });
+  return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MEDIA_HEADER_MAP)) : [];
+}
+
 export async function createSaleMediaAsset(values) {
   ensureHomeSaleApiConnected();
   return homeSaleApiPost({

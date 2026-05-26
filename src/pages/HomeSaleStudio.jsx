@@ -5,7 +5,10 @@ import ShareButton from "../components/ShareButton";
 import { readTrialAccess } from "../utils/trialAccess";
 import { buildHomeSalePublicUrl } from "../utils/publicUrls";
 import {
+  extractHomeSaleDriveFileId,
   getPublicSaleListings,
+  getPublicSaleMediaByListingId,
+  getSalePhotoData,
   resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
 
@@ -20,15 +23,65 @@ function formatPrice(value) {
 export default function HomeSaleStudio() {
   const trialSession = readTrialAccess();
   const [listings, setListings] = useState([]);
+  const [listingImages, setListingImages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [brokenImages, setBrokenImages] = useState({});
 
   useEffect(() => {
+    let cancelled = false;
+
     getPublicSaleListings()
-      .then((rows) => setListings(rows))
-      .catch((err) => setError(err.message || "Unable to load sale listings right now."))
-      .finally(() => setLoading(false));
+      .then((rows) => {
+        if (cancelled) return;
+        setListings(rows);
+        setLoading(false);
+
+        Promise.all(
+          rows.map(async (listing) => {
+            const listingId = listing.id || listing.listingId || "";
+            if (!listingId) return [listingId, ""];
+
+            const mediaRows = await getPublicSaleMediaByListingId(listingId).catch(() => []);
+            const fallbackUrl = resolveHomeSaleImageUrl(listing, mediaRows);
+            const fileId = extractHomeSaleDriveFileId(fallbackUrl);
+
+            if (!fileId) return [listingId, fallbackUrl];
+
+            try {
+              const result = await getSalePhotoData({ listingId, fileId });
+              if (result?.data) {
+                return [listingId, `data:${result.mimeType || "image/jpeg"};base64,${result.data}`];
+              }
+            } catch {
+              // Fall back to the Drive thumbnail URL below.
+            }
+
+            return [listingId, fallbackUrl];
+          })
+        ).then((entries) => {
+          if (cancelled) return;
+          const nextImages = Object.fromEntries(entries.filter(([id]) => id));
+          setListingImages(nextImages);
+          setBrokenImages((prev) => {
+            const next = { ...prev };
+            Object.keys(nextImages).forEach((id) => {
+              if (nextImages[id]) delete next[id];
+            });
+            return next;
+          });
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "Unable to load sale listings right now.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -83,11 +136,12 @@ export default function HomeSaleStudio() {
             <div className="rental-card-list">
               {listings.map((listing) => {
                 const imageKey = listing.id || listing.address;
-                const imageSrc = resolveHomeSaleImageUrl(listing);
+                const imageSrc = listingImages[listing.id] || resolveHomeSaleImageUrl(listing);
+                const isDataImage = String(imageSrc || "").startsWith("data:");
 
                 return (
                   <article key={imageKey} className="rental-card">
-                    {imageSrc && !brokenImages[imageKey] ? (
+                    {imageSrc && (isDataImage || !brokenImages[imageKey]) ? (
                     <div style={{ marginBottom: 16, borderRadius: 12, overflow: "hidden", background: "#eef2f0" }}>
                       <img
                         src={imageSrc}

@@ -2182,9 +2182,6 @@ function resolveListingFolderIdForAccess_(folderId, listingId, auth) {
 
 function assertFolderAccess_(folderId, listingId, auth) {
   if (auth && auth.mode === "admin") return;
-  if (!auth || auth.mode !== "trial") {
-    throw new Error("Access denied for this listing folder.");
-  }
   if (listingId) {
     var listing = findListingById_(listingId);
     if (!listing || !canAccessListingRecord_(listing, auth)) {
@@ -2192,6 +2189,9 @@ function assertFolderAccess_(folderId, listingId, auth) {
     }
     var expected = extractDriveFolderId_(listing.driveFolderLink || "");
     if (expected && expected === folderId) return;
+  }
+  if (!auth || auth.mode !== "trial") {
+    throw new Error("Access denied for this listing folder.");
   }
   var ownedListing = findListingByFolderId_(folderId, auth.email);
   if (!ownedListing) throw new Error("Access denied for this listing folder.");
@@ -2244,7 +2244,43 @@ function listDriveMediaFiles_(folder, options) {
       files.push(entry);
     }
   }
-  return files;
+  return files.sort(function(a, b) {
+    return compareDriveFileNames_(a.name, b.name);
+  });
+}
+
+function compareDriveFileNames_(a, b) {
+  var left = driveFileNameParts_(a);
+  var right = driveFileNameParts_(b);
+  var length = Math.max(left.length, right.length);
+
+  for (var i = 0; i < length; i++) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+
+    if (left[i].type === "number" && right[i].type === "number") {
+      if (left[i].value !== right[i].value) return left[i].value - right[i].value;
+      continue;
+    }
+
+    if (left[i].type !== right[i].type) {
+      return left[i].type === "number" ? -1 : 1;
+    }
+
+    var textCompare = String(left[i].value).localeCompare(String(right[i].value));
+    if (textCompare !== 0) return textCompare;
+  }
+
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function driveFileNameParts_(name) {
+  var text = String(name || "").toLowerCase();
+  var parts = text.match(/\d+|\D+/g) || [text];
+  return parts.map(function(part) {
+    if (/^\d+$/.test(part)) return { type: "number", value: Number(part) };
+    return { type: "text", value: part };
+  });
 }
 
 // ── Rental Application Intake ─────────────────────────────────────────────────

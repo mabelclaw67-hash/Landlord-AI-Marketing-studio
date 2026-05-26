@@ -45,10 +45,35 @@ function extractFolderId(link) {
 // Falls back to first file if none match.
 function sortByFilenameNumber(photos) {
   return [...photos].sort((a, b) => {
-    const numA = parseInt((a.name.match(/\d+/) || ['0'])[0], 10);
-    const numB = parseInt((b.name.match(/\d+/) || ['0'])[0], 10);
-    return numA !== numB ? numA - numB : a.name.localeCompare(b.name);
+    return compareFileNames(a.name, b.name);
   });
+}
+
+function compareFileNames(a = "", b = "") {
+  const left = splitFileName(a);
+  const right = splitFileName(b);
+  const length = Math.max(left.length, right.length);
+
+  for (let i = 0; i < length; i += 1) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+    if (left[i].type === "number" && right[i].type === "number") {
+      if (left[i].value !== right[i].value) return left[i].value - right[i].value;
+      continue;
+    }
+    if (left[i].type !== right[i].type) return left[i].type === "number" ? -1 : 1;
+    const textCompare = String(left[i].value).localeCompare(String(right[i].value));
+    if (textCompare !== 0) return textCompare;
+  }
+
+  return String(a).localeCompare(String(b));
+}
+
+function splitFileName(name = "") {
+  return (String(name).toLowerCase().match(/\d+|\D+/g) || [String(name).toLowerCase()])
+    .map((part) => (/^\d+$/.test(part)
+      ? { type: "number", value: Number(part) }
+      : { type: "text", value: part }));
 }
 
 function detectCoverPhoto(files) {
@@ -345,7 +370,7 @@ export default function ListingDetail({ lang: langProp }) {
     setFolderLoading(true);
     try {
       const files = await getListingFolderFiles(folderId, id);
-      const resolved = files || [];
+      const resolved = sortByFilenameNumber(files || []);
       setFolderFiles(resolved);
       setPhotoOrder(resolved.map((f) => f.fileId));
     } catch {
@@ -1233,12 +1258,16 @@ export default function ListingDetail({ lang: langProp }) {
     if (l.available && String(l.available).trim()) {
       date = `Available: ${String(l.available).trim().slice(0, 10)}`;
     }
+    const contactName = l.contactName || l.ownerName || "";
+    const contactPhone = l.contactPhone || l.ownerPhone || l.phone || "";
+    const contact = [contactName, contactPhone].filter(Boolean).join(" · ") || null;
     return {
       badge:      "FOR RENT",
       title,
       location:   loc,
       address:    l.address   || null,
       priceLabel: price,
+      contactLine: contact,
       dateLabel:  date,
     };
   }

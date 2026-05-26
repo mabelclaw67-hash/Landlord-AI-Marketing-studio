@@ -55,6 +55,39 @@ function assetMatchesPrimaryPhoto(item, primaryPhotoUrl) {
   return target === normalizeAssetRef(item?.driveUrl) || target === normalizeAssetRef(item?.publicUrl);
 }
 
+function isOriginalPhotoAsset(item) {
+  if (!item || item.assetType !== "Photo") return false;
+  if (item.assetRole === "Virtual Staging") return false;
+  return !String(item.fileName || "").startsWith("virtual_staging");
+}
+
+function compareFileNames(a = "", b = "") {
+  const left = splitFileName(a);
+  const right = splitFileName(b);
+  const length = Math.max(left.length, right.length);
+
+  for (let i = 0; i < length; i += 1) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+    if (left[i].type === "number" && right[i].type === "number") {
+      if (left[i].value !== right[i].value) return left[i].value - right[i].value;
+      continue;
+    }
+    if (left[i].type !== right[i].type) return left[i].type === "number" ? -1 : 1;
+    const textCompare = String(left[i].value).localeCompare(String(right[i].value));
+    if (textCompare !== 0) return textCompare;
+  }
+
+  return String(a).localeCompare(String(b));
+}
+
+function splitFileName(name = "") {
+  return (String(name).toLowerCase().match(/\d+|\D+/g) || [String(name).toLowerCase()])
+    .map((part) => (/^\d+$/.test(part)
+      ? { type: "number", value: Number(part) }
+      : { type: "text", value: part }));
+}
+
 // dataUrl: base64 loaded via backend (takes priority over Drive thumbnail URL)
 function SalePhotoCard({ item, isCurrentCover, showDriveLink, dataUrl }) {
   const [failed, setFailed] = useState(false);
@@ -188,24 +221,32 @@ export default function HomeSaleMedia() {
     return () => { active = false; };
   }, [listingId, mediaRows.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const orderedMediaRows = useMemo(() => {
-    return [...mediaRows].sort((a, b) => {
-      const aIsCurrentCover = assetMatchesPrimaryPhoto(a, listing?.primaryPhotoUrl);
-      const bIsCurrentCover = assetMatchesPrimaryPhoto(b, listing?.primaryPhotoUrl);
-      if (aIsCurrentCover && !bIsCurrentCover) return -1;
-      if (!aIsCurrentCover && bIsCurrentCover) return 1;
-      if (a.assetRole === "Cover" && b.assetRole !== "Cover") return -1;
-      if (a.assetRole !== "Cover" && b.assetRole === "Cover") return 1;
+  const originalPhotoRows = useMemo(
+    () => mediaRows.filter(isOriginalPhotoAsset),
+    [mediaRows]
+  );
+
+  const orderedOriginalPhotoRows = useMemo(() => {
+    return [...originalPhotoRows].sort((a, b) => {
       const sortA = Number(a.sortOrder || 9999);
       const sortB = Number(b.sortOrder || 9999);
       if (sortA !== sortB) return sortA - sortB;
-      return String(a.fileName || "").localeCompare(String(b.fileName || ""));
+      return compareFileNames(a.fileName, b.fileName);
     });
-  }, [listing?.primaryPhotoUrl, mediaRows]);
+  }, [originalPhotoRows]);
 
-  const coverPhoto = orderedMediaRows.find((item) => assetMatchesPrimaryPhoto(item, listing?.primaryPhotoUrl))
-    || orderedMediaRows.find((m) => m.assetRole === "Cover");
-  const activePhotos = orderedMediaRows.filter((item) => !coverPhoto || item.assetId !== coverPhoto.assetId);
+  const orderedAllMediaRows = useMemo(() => {
+    return [...mediaRows].sort((a, b) => {
+      const sortA = Number(a.sortOrder || 9999);
+      const sortB = Number(b.sortOrder || 9999);
+      if (sortA !== sortB) return sortA - sortB;
+      return compareFileNames(a.fileName, b.fileName);
+    });
+  }, [mediaRows]);
+
+  const coverPhoto = orderedOriginalPhotoRows.find((item) => assetMatchesPrimaryPhoto(item, listing?.primaryPhotoUrl))
+    || orderedOriginalPhotoRows.find((m) => m.assetRole === "Cover");
+  const activePhotos = orderedOriginalPhotoRows.filter((item) => !coverPhoto || item.assetId !== coverPhoto.assetId);
 
   async function refresh() {
     const [listingRow, media] = await Promise.all([
@@ -221,9 +262,16 @@ export default function HomeSaleMedia() {
   }
 
   useEffect(() => {
-    refresh()
-      .catch((err) => setError(err.message || "Failed to load media workflow."))
-      .finally(() => setLoading(false));
+    let active = true;
+    Promise.resolve()
+      .then(() => refresh())
+      .catch((err) => {
+        if (active) setError(err.message || "Failed to load media workflow.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [listingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateField = (key) => (event) => {
@@ -255,13 +303,17 @@ export default function HomeSaleMedia() {
 
   async function handleBulkSync(event) {
     event.preventDefault();
+    await syncOriginalPhotosFromDrive(bulkForm.folderUrl);
+  }
+
+  async function syncOriginalPhotosFromDrive(folderUrlOverride = "") {
     setSyncing(true);
     setError("");
     setSyncResult(null);
     try {
       const result = await syncSaleMediaFromDriveFolder({
         listingId,
-        folderUrl: bulkForm.folderUrl,
+        folderUrl: folderUrlOverride || bulkForm.folderUrl || listing?.googleDriveFolderUrl || "",
         startingSortOrder: bulkForm.startingSortOrder,
         defaultAssetType: bulkForm.defaultAssetType,
         defaultAssetRole: bulkForm.defaultAssetRole,
@@ -356,7 +408,7 @@ export default function HomeSaleMedia() {
       )}
 
       {/* Review Status Summary — mirrors Rental photo review cards */}
-      {orderedMediaRows.length > 0 && (
+      {orderedOriginalPhotoRows.length > 0 && (
         <div className="card mb-24" style={{ background: "#f8fafc" }}>
           <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
             📋 {L.photoReviewStatus}
@@ -380,7 +432,7 @@ export default function HomeSaleMedia() {
                 Total Photos
               </p>
               <p style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)" }}>
-                {orderedMediaRows.length}
+                {orderedOriginalPhotoRows.length}
               </p>
             </div>
             <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
@@ -450,14 +502,31 @@ export default function HomeSaleMedia() {
             📸 {lang === "zh" ? "广告照片集" : "Photo Package"}
           </h3>
           <span className="text-muted text-sm">
-            {orderedMediaRows.length} asset(s) · Sort order: cover first, then by sort number
+            {orderedOriginalPhotoRows.length} original photo(s) · Drive folder is the source of truth
           </span>
+          {isAdmin && listing?.googleDriveFolderUrl && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={syncing}
+              onClick={() => syncOriginalPhotosFromDrive(listing.googleDriveFolderUrl)}
+            >
+              {syncing ? "Syncing..." : "Refresh from Drive"}
+            </button>
+          )}
         </div>
-        {orderedMediaRows.length === 0 ? (
+        {syncResult && (
+          <div className="notice notice--success" style={{ marginBottom: 14 }}>
+            <p>
+              Synced from Google Drive: {syncResult.foundCount ?? orderedOriginalPhotoRows.length} original photos found.
+            </p>
+          </div>
+        )}
+        {orderedOriginalPhotoRows.length === 0 ? (
           <p className="text-muted text-sm">No photos yet. Sync from Drive folder below.</p>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {orderedMediaRows.map((item) => {
+            {orderedOriginalPhotoRows.map((item) => {
               const photoKey = item.assetId || extractHomeSaleDriveFileId(item.driveUrl || "");
               return (
                 <SalePhotoCard
@@ -592,7 +661,8 @@ export default function HomeSaleMedia() {
           <div className="notice notice--success" style={{ marginTop: 16 }}>
             <h4>{lang === "zh" ? "同步完成" : "Drive sync completed"}</h4>
             <p>
-              Imported: {syncResult.importedCount || 0} photo(s). Skipped duplicates: {syncResult.skippedDuplicateCount || 0}.
+              Synced from Google Drive: {syncResult.foundCount ?? 0} original photos found.
+              Imported: {syncResult.importedCount || 0}. Removed stale records: {syncResult.removedStaleCount || 0}.
             </p>
           </div>
         )}
@@ -694,7 +764,7 @@ export default function HomeSaleMedia() {
                 </tr>
               </thead>
               <tbody>
-                {orderedMediaRows.map((item) => (
+                {orderedAllMediaRows.map((item) => (
                   <tr key={item.assetId || item.publicUrl}>
                     <td><code style={{ fontSize: "0.75rem" }}>{item.assetId || "Pending"}</code></td>
                     <td>

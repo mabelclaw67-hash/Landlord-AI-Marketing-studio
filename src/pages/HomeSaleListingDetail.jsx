@@ -176,7 +176,7 @@ function CoverPhoto({ file, alt }) {
       src={src}
       alt={alt}
       onError={() => setFailed(true)}
-      style={{ width: "100%", maxHeight: 420, objectFit: "cover", display: "block" }}
+      style={{ width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }}
     />
   );
 }
@@ -186,7 +186,7 @@ function ThumbPhoto({ file, alt }) {
   const [failed, setFailed] = useState(false);
 
   return (
-    <div style={{ flexShrink: 0, width: 180, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)" }}>
+    <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)" }}>
       {!failed && src ? (
         <img
           src={src}
@@ -487,10 +487,23 @@ export default function HomeSaleListingDetail() {
                       <CoverPhoto file={orderedPhotos[0]} alt={listing.address || "Sale listing"} />
                     </div>
                     {orderedPhotos.length > 1 && (
-                      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingTop: 12 }}>
-                        {orderedPhotos.slice(1).map((file) => (
-                          <ThumbPhoto key={file.key || file.fileId || file.url} file={file} alt={listing.address || "Sale listing"} />
-                        ))}
+                      <div style={{ paddingTop: 12 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <span style={{ color: "var(--color-text-muted)", fontSize: "0.84rem" }}>
+                            {orderedPhotos.length} photos
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))",
+                            gap: 12,
+                          }}
+                        >
+                          {orderedPhotos.slice(1).map((file) => (
+                            <ThumbPhoto key={file.key || file.fileId || file.url} file={file} alt={listing.address || "Sale listing"} />
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

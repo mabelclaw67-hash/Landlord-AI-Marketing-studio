@@ -7,7 +7,6 @@ import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
 import { buildRentalListingPublicUrl } from "../utils/publicUrls";
 import {
-  extractDriveFolderId,
   getListingStatusMeta,
   getOpenHouseInfo,
   resolveRentalListingCover,
@@ -79,7 +78,7 @@ function CoverPhoto({ file }) {
       src={src}
       alt="Property cover"
       onError={() => setFailed(true)}
-      style={{ width: "100%", maxHeight: 420, objectFit: "cover", display: "block" }}
+      style={{ width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }}
     />
   );
 }
@@ -89,7 +88,7 @@ function ThumbPhoto({ file }) {
   const [failed, setFailed] = useState(false);
 
   return (
-    <div style={{ flexShrink: 0, width: 180, borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)" }}>
+    <div style={{ borderRadius: 8, overflow: "hidden", border: "1px solid var(--color-border)" }}>
       {!failed && src ? (
         <img
           src={src}
@@ -131,14 +130,11 @@ export default function PublicListing() {
         if (!l) { setError("Listing not found."); return; }
         setListing(l);
         setPhotosLoading(true);
-        const folderId = extractDriveFolderId(l.driveFolderLink);
         Promise.all([
           getListingFolderFiles("", id).catch(() => []),
-          folderId
-            ? getListingSubfolderFiles(folderId, "03_Cover_Images", id)
-                .then((res) => res?.files || [])
-                .catch(() => [])
-            : Promise.resolve([]),
+          getListingSubfolderFiles("", "03_Cover_Images", id)
+            .then((res) => res?.files || [])
+            .catch(() => []),
         ])
           .then(([rootFiles, subFiles]) => {
             setPhotos(rootFiles || []);
@@ -621,8 +617,19 @@ export default function PublicListing() {
                   <CoverPhoto file={orderedPhotos[0]} />
                 </div>
                 {orderedPhotos.length > 1 && (
-                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, WebkitOverflowScrolling: "touch" }}>
-                    {orderedPhotos.slice(1).map((f) => <ThumbPhoto key={f.fileId} file={f} />)}
+                  <div>
+                    <div style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginBottom: 8 }}>
+                      {orderedPhotos.length} photos
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))",
+                        gap: 12,
+                      }}
+                    >
+                      {orderedPhotos.slice(1).map((f) => <ThumbPhoto key={f.fileId || f.url || f.name} file={f} />)}
+                    </div>
                   </div>
                 )}
               </div>

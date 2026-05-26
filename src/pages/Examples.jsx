@@ -6,7 +6,6 @@ import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import {
-  extractDriveFolderId,
   getListingStatusMeta,
   resolveRentalListingCover,
   resolveRentalListingImageSrc,
@@ -113,10 +112,9 @@ export default function Examples() {
         Promise.all(
           active.map(async (listing) => {
             try {
-              const folderId = extractDriveFolderId(listing.driveFolderLink);
               const [rootFiles, subfolder] = await Promise.all([
-                getListingFolderFiles(folderId || "", listing.id).catch(() => []),
-                getListingSubfolderFiles(folderId || "", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
+                getListingFolderFiles("", listing.id).catch(() => []),
+                getListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
               ]);
               const coverPhoto = resolveRentalListingCover(
                 rootFiles || [],

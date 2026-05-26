@@ -211,12 +211,14 @@ export default function HomeSaleCoverImage() {
       const n = Number(String(l.askingPrice).replace(/[^0-9.]/g, ""));
       if (!isNaN(n) && n > 0) price = `$${n.toLocaleString()}`;
     }
+    const contact = [l.contactName, l.contactPhone].filter(Boolean).join(" · ") || null;
     return {
       badge:      "FOR SALE",
       title,
       location:   loc,
       address:    l.address   || null,
       priceLabel: price,
+      contactLine: contact,
       dateLabel:  null,
     };
   }

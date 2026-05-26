@@ -40,7 +40,7 @@ function doPost(e) {
   try {
     var body = JSON.parse((e.postData && e.postData.contents) || "{}");
     var action = body.action || "";
-    var publicPostActions = ["getSaleListings", "getSaleListingById", "submitBuyerInquiry"];
+    var publicPostActions = ["getSaleListings", "getSaleListingById", "getSalePhotoData", "submitBuyerInquiry"];
     var isPublicPost = publicPostActions.indexOf(action) >= 0;
     var auth = homeSaleResolveAccess_(body || {}, "sale", isPublicPost);
 
@@ -74,8 +74,7 @@ function doPost(e) {
 function homeSaleResolveAccess_(payload, moduleName, allowPublic) {
   payload = payload || {};
   var adminAccessCode = String(payload.adminAccessCode || "").trim();
-  var expectedAdminCode = homeSaleGetAdminAccessCode_();
-  if (adminAccessCode && expectedAdminCode && adminAccessCode === expectedAdminCode) {
+  if (homeSaleIsValidAdminAccessCode_(adminAccessCode)) {
     return { mode: "admin", module: moduleName || "" };
   }
 
@@ -95,6 +94,14 @@ function homeSaleResolveAccess_(payload, moduleName, allowPublic) {
 
   if (allowPublic) return { mode: "public", module: moduleName || "" };
   throw new Error("Access denied. Please sign in with an approved trial access code.");
+}
+
+function homeSaleIsValidAdminAccessCode_(adminAccessCode) {
+  if (!adminAccessCode) return false;
+  var expectedAdminCode = homeSaleGetAdminAccessCode_();
+  if (expectedAdminCode && adminAccessCode === expectedAdminCode) return true;
+  var bootstrap = String(HOME_SALE_ADMIN_ACCESS_CODE || "").trim();
+  return !!bootstrap && adminAccessCode === bootstrap;
 }
 
 function homeSaleGetAdminAccessCode_() {
@@ -398,7 +405,10 @@ function getSalePhotoData_(body, auth) {
   if (!listingId) throw new Error("getSalePhotoData: listingId required");
   if (!fileId)    throw new Error("getSalePhotoData: fileId required");
 
-  homeSaleAssertListingAccess_(listingId, auth);
+  var match = homeSaleAssertListingAccess_(listingId, auth);
+  if (auth && auth.mode === "public" && !homeSalePhotoFileBelongsToListing_(listingId, match.record, fileId)) {
+    throw new Error("Access denied for this listing photo.");
+  }
 
   var file     = DriveApp.getFileById(fileId);
   var blob     = file.getBlob();
@@ -406,6 +416,41 @@ function getSalePhotoData_(body, auth) {
   var data     = Utilities.base64Encode(blob.getBytes());
 
   return { success: true, data: data, mimeType: mimeType, fileName: file.getName() };
+}
+
+function homeSalePhotoFileBelongsToListing_(listingId, listingRecord, fileId) {
+  if (!fileId) return false;
+
+  var primaryFileId = homeSaleExtractDriveFileId_(listingRecord["Primary Photo URL"] || "");
+  if (primaryFileId && primaryFileId === fileId) return true;
+
+  var mediaRows = homeSaleGetDataRows_(HOME_SALE_MEDIA_SHEET);
+  for (var i = 0; i < mediaRows.length; i++) {
+    var record = mediaRows[i].record || {};
+    if (String(record["Listing ID"] || "").trim() !== String(listingId).trim()) continue;
+    var mediaFileId = homeSaleExtractDriveFileId_(record["Drive URL"] || record["Public URL"] || "");
+    if (mediaFileId && mediaFileId === fileId) return true;
+  }
+
+  var folderId = homeSaleExtractDriveFolderId_(listingRecord["Google Drive Folder URL"] || "");
+  if (!folderId) return false;
+
+  try {
+    var file = DriveApp.getFileById(fileId);
+    var parents = file.getParents();
+    while (parents.hasNext()) {
+      var parent = parents.next();
+      if (parent.getId() === folderId) return true;
+      var grandparents = parent.getParents();
+      while (grandparents.hasNext()) {
+        if (grandparents.next().getId() === folderId) return true;
+      }
+    }
+  } catch (e) {
+    return false;
+  }
+
+  return false;
 }
 
 function uploadSaleEnhancedPhoto_(body, auth) {
@@ -507,15 +552,19 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
   var existingRows = homeSaleGetDataRows_(HOME_SALE_MEDIA_SHEET);
   var existingDriveUrls = {};
   var existingDriveFileIds = {};
+  var existingRowsByFileId = {};
   var hasCover = false;
 
   for (var i = 0; i < existingRows.length; i++) {
     var existingRecord = homeSaleMediaFromRecord_(existingRows[i].record, auth);
     if (existingRecord.listingId !== listingId) continue;
-    if (existingRecord.assetType && existingRecord.assetType !== "Photo") continue;
+    if (!homeSaleIsOriginalPhotoRecord_(existingRecord)) continue;
     if (existingRecord.driveUrl) existingDriveUrls[existingRecord.driveUrl] = true;
     var existingFileId = homeSaleExtractDriveFileId_(existingRecord.driveUrl || existingRecord.publicUrl || "");
-    if (existingFileId) existingDriveFileIds[existingFileId] = true;
+    if (existingFileId) {
+      existingDriveFileIds[existingFileId] = true;
+      existingRowsByFileId[existingFileId] = existingRows[i];
+    }
     if (existingRecord.assetRole === "Cover") hasCover = true;
   }
 
@@ -524,7 +573,6 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
   var listingRecordUpdate = {};
   var importedCount = 0;
   var skippedDuplicateCount = 0;
-  var nextSortOrder = startingSortOrder;
   var importedFiles = [];
   var currentFiles = [];
   var filesToImport = [];
@@ -537,7 +585,7 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
   }
 
   filesToImport.sort(function(a, b) {
-    return String(a.getName() || "").localeCompare(String(b.getName() || ""));
+    return homeSaleCompareFileNames_(a.getName(), b.getName());
   });
 
   for (var j = 0; j < filesToImport.length; j++) {
@@ -545,16 +593,27 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
     var currentFileId = currentFile.getId();
     var driveUrl = currentFile.getUrl();
     var publicUrl = homeSaleBuildDriveImagePublicUrl_(currentFileId);
+    var currentSortOrder = startingSortOrder + j;
     currentDriveFileIds[currentFileId] = true;
     currentFiles.push({
       fileId: currentFileId,
       fileName: currentFile.getName(),
       driveUrl: driveUrl,
       publicUrl: publicUrl,
-      sortOrder: nextSortOrder,
+      sortOrder: currentSortOrder,
     });
 
     if (existingDriveUrls[driveUrl] || existingDriveFileIds[currentFileId]) {
+      var existingRow = existingRowsByFileId[currentFileId];
+      if (existingRow) {
+        homeSaleUpdateRecord_(mediaSheet, mediaHeaders, existingRow.rowIndex, {
+          "File Name": currentFile.getName(),
+          "Drive URL": driveUrl,
+          "Public URL": publicUrl,
+          "Sort Order": currentSortOrder,
+          "Alt Text": currentFile.getName(),
+        }, { setUpdatedAt: true });
+      }
       skippedDuplicateCount += 1;
       continue;
     }
@@ -568,7 +627,7 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
       "File Name": currentFile.getName(),
       "Drive URL": driveUrl,
       "Public URL": publicUrl,
-      "Sort Order": nextSortOrder,
+      "Sort Order": currentSortOrder,
       "Caption EN": "",
       "Caption CN": "",
       "Alt Text": currentFile.getName(),
@@ -579,7 +638,6 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
     existingDriveUrls[driveUrl] = true;
     existingDriveFileIds[currentFileId] = true;
     importedCount += 1;
-    nextSortOrder += 1;
     if (assetRole === "Cover") hasCover = true;
 
     if (!listingMatch.record["Google Drive Folder URL"] && !listingRecordUpdate["Google Drive Folder URL"]) {
@@ -603,7 +661,7 @@ function syncSaleMediaFromDriveFolder_(payload, auth) {
   for (var r = existingRows.length - 1; r >= 0; r--) {
     var staleRecord = homeSaleMediaFromRecord_(existingRows[r].record, auth);
     if (staleRecord.listingId !== listingId) continue;
-    if (staleRecord.assetType && staleRecord.assetType !== "Photo") continue;
+    if (!homeSaleIsOriginalPhotoRecord_(staleRecord)) continue;
     var staleFileId = homeSaleExtractDriveFileId_(staleRecord.driveUrl || staleRecord.publicUrl || "");
     if (!staleFileId || currentDriveFileIds[staleFileId]) continue;
     mediaSheet.deleteRow(existingRows[r].rowIndex);
@@ -1501,6 +1559,12 @@ function homeSaleMediaFromRecord_(record, auth) {
   return homeSaleSanitizeMediaForAccess_(result, auth);
 }
 
+function homeSaleIsOriginalPhotoRecord_(record) {
+  if (!record || record.assetType !== "Photo") return false;
+  if (record.assetRole === "Virtual Staging") return false;
+  return String(record.fileName || "").indexOf("virtual_staging") !== 0;
+}
+
 function homeSaleMarketingFromRecord_(record, auth) {
   var result = {
     copyId: record["Copy ID"] || "",
@@ -1626,6 +1690,40 @@ function homeSaleExtractDriveFileId_(fileUrl) {
   if (idMatch) return idMatch[1];
 
   return "";
+}
+
+function homeSaleCompareFileNames_(a, b) {
+  var left = homeSaleFileNameParts_(a);
+  var right = homeSaleFileNameParts_(b);
+  var length = Math.max(left.length, right.length);
+
+  for (var i = 0; i < length; i++) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+
+    if (left[i].type === "number" && right[i].type === "number") {
+      if (left[i].value !== right[i].value) return left[i].value - right[i].value;
+      continue;
+    }
+
+    if (left[i].type !== right[i].type) {
+      return left[i].type === "number" ? -1 : 1;
+    }
+
+    var textCompare = String(left[i].value).localeCompare(String(right[i].value));
+    if (textCompare !== 0) return textCompare;
+  }
+
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function homeSaleFileNameParts_(name) {
+  var text = String(name || "").toLowerCase();
+  var parts = text.match(/\d+|\D+/g) || [text];
+  return parts.map(function(part) {
+    if (/^\d+$/.test(part)) return { type: "number", value: Number(part) };
+    return { type: "text", value: part };
+  });
 }
 
 function homeSaleIsImportableImage_(file) {

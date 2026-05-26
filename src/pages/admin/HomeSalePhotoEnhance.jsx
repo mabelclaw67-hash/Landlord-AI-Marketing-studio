@@ -14,9 +14,35 @@ function extractFolderId(link) {
 
 function sortByFilenameNumber(files) {
   return [...files].sort((a, b) => {
-    const n = s => { const m = s.match(/^(\d+)/); return m ? Number(m[1]) : Infinity; };
-    return n(a.name) - n(b.name);
+    return compareFileNames(a.name, b.name);
   });
+}
+
+function compareFileNames(a = "", b = "") {
+  const left = splitFileName(a);
+  const right = splitFileName(b);
+  const length = Math.max(left.length, right.length);
+
+  for (let i = 0; i < length; i += 1) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+    if (left[i].type === "number" && right[i].type === "number") {
+      if (left[i].value !== right[i].value) return left[i].value - right[i].value;
+      continue;
+    }
+    if (left[i].type !== right[i].type) return left[i].type === "number" ? -1 : 1;
+    const textCompare = String(left[i].value).localeCompare(String(right[i].value));
+    if (textCompare !== 0) return textCompare;
+  }
+
+  return String(a).localeCompare(String(b));
+}
+
+function splitFileName(name = "") {
+  return (String(name).toLowerCase().match(/\d+|\D+/g) || [String(name).toLowerCase()])
+    .map((part) => (/^\d+$/.test(part)
+      ? { type: "number", value: Number(part) }
+      : { type: "text", value: part }));
 }
 
 function PhotoThumb({ file }) {

@@ -24,6 +24,7 @@
  *   location    "Nanaimo, BC"
  *   address     "693 3rd St"
  *   priceLabel  "$1,700/month"
+ *   contactLine "Mabel Chen · 672-514-8866"
  *   dateLabel   "Available: 2025-07-01"
  */
 
@@ -160,6 +161,7 @@ function drawOverlay(ctx, data, x, y, w, h) {
   const loc   = clean(data.location);
   const addr  = clean(data.address);
   const price = clean(data.priceLabel);
+  const contact = clean(data.contactLine);
   const date  = clean(data.dateLabel);
 
   // ── Dark gradient over lower portion of main photo ────────────────────────
@@ -182,6 +184,7 @@ function drawOverlay(ctx, data, x, y, w, h) {
 
   // ── Build text lines (rendered bottom-up) ─────────────────────────────────
   const lines = [];
+  if (contact) lines.push({ text: contact, size: base * 0.70, weight: "600", alpha: 0.92 });
   if (date)  lines.push({ text: date,  size: base * 0.82, weight: "400", alpha: 0.88 });
   if (price) lines.push({ text: price, size: base * 1.02, weight: "700", alpha: 1.0  });
   if (addr)  lines.push({ text: addr,  size: base * 0.80, weight: "400", alpha: 0.88 });
