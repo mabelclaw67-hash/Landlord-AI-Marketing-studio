@@ -39,6 +39,7 @@ import PhotoTips from "./pages/admin/PhotoTips";
 import Faq from "./pages/admin/Faq";
 import RentalApplication from "./pages/RentalApplication";
 import PublicListing from "./pages/PublicListing";
+import PublicVideoPage from "./pages/PublicVideoPage";
 import TenantContact from "./pages/TenantContact";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 import { LangContext } from "./contexts/LangContext";
@@ -59,6 +60,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
         <Route path="/home-sale-studio" element={<HomeSaleStudio lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail lang={lang} />} />
+        <Route path="/home-sale-studio/listings/:listingId/video" element={<PublicVideoPage type="homeSale" />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
           <Route index element={<Dashboard lang={lang} />} />
           <Route path="rental" element={<Dashboard lang={lang} mode="rental" />} />
@@ -92,6 +94,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/faq" element={<Faq />} />
         <Route path="/apply/:listingId" element={<RentalApplication />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
+        <Route path="/listings/:id/video" element={<PublicVideoPage type="rental" />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

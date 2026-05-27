@@ -14,20 +14,7 @@ import {
   extractHomeSaleDriveFileId,
 } from "../utils/homeSaleSheet";
 import { getStudioRequestAuth } from "../utils/trialAccess";
-import { normalizePublicFacingUrl, buildHomeSalePublicUrl } from "../utils/publicUrls";
-
-function extractDriveFileId(url) {
-  if (!url) return "";
-  const m = url.match(/\/file\/d\/([^/?#]+)/) || url.match(/[?&]id=([^&]+)/);
-  return m ? m[1] : "";
-}
-
-function buildSaleVideoWatchUrl(videoUrl) {
-  if (!videoUrl) return "";
-  const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
-  return videoUrl;
-}
+import { normalizePublicFacingUrl, buildHomeSalePublicUrl, buildHomeSaleVideoPublicUrl } from "../utils/publicUrls";
 
 function formatPrice(value) {
   const digits = String(value || "").replace(/[^\d.]/g, "");
@@ -259,7 +246,7 @@ export default function HomeSaleListingDetail() {
       const rawVideoUrl = row.videoUrl ||
         (Array.isArray(videoScripts) && videoScripts.find(s => s.outputMp4Url)?.outputMp4Url) || "";
       setRawVideoUrl(rawVideoUrl);
-      setVideoWatchUrl(buildSaleVideoWatchUrl(rawVideoUrl));
+      setVideoWatchUrl(rawVideoUrl ? buildHomeSaleVideoPublicUrl(listingId) : "");
 
       // Extract Website channel body copy for public display
       const websiteEn = copy.find(c => c.channel === "Website" && c.language === "English");
@@ -362,15 +349,15 @@ export default function HomeSaleListingDetail() {
     const shareTitle = listing?.address || "Property Video";
     try {
       if (navigator.share) {
-        await navigator.share({ title: shareTitle, text: "Check out this property video", url: rawVideoUrl });
+        await navigator.share({ title: shareTitle, text: "Check out this property video", url: videoWatchUrl });
       } else {
-        await navigator.clipboard.writeText(rawVideoUrl);
+        await navigator.clipboard.writeText(videoWatchUrl);
         setSaleVideoCopied(true);
         setTimeout(() => setSaleVideoCopied(false), 2000);
       }
     } catch (e) {
       if (e.name !== "AbortError") {
-        await navigator.clipboard.writeText(rawVideoUrl).catch(() => {});
+        await navigator.clipboard.writeText(videoWatchUrl).catch(() => {});
         setSaleVideoCopied(true);
         setTimeout(() => setSaleVideoCopied(false), 2000);
       }

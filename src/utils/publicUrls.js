@@ -19,6 +19,11 @@ export function buildRentalListingPublicUrl(listingId) {
   return buildPublicSiteUrl(`/listings/${listingId}`);
 }
 
+export function buildRentalVideoPublicUrl(listingId) {
+  if (!listingId) return "";
+  return buildPublicSiteUrl(`/listings/${listingId}/video`);
+}
+
 export function buildRentalApplyUrl(listingId) {
   if (!listingId) return buildPublicSiteUrl("/examples");
   return buildPublicSiteUrl(`/apply/${listingId}`);
@@ -27,6 +32,11 @@ export function buildRentalApplyUrl(listingId) {
 export function buildHomeSalePublicUrl(listingId) {
   if (!listingId) return "";
   return buildPublicSiteUrl(`/home-sale-studio/listings/${listingId}`);
+}
+
+export function buildHomeSaleVideoPublicUrl(listingId) {
+  if (!listingId) return "";
+  return buildPublicSiteUrl(`/home-sale-studio/listings/${listingId}/video`);
 }
 
 export function normalizePublicFacingUrl(url, fallbackPath = "") {

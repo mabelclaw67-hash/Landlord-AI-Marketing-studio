@@ -5,7 +5,7 @@ import { getListing, getListingFolderFiles, getListingSubfolderFiles } from "../
 import ShareButton from "../components/ShareButton";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
-import { buildRentalListingPublicUrl } from "../utils/publicUrls";
+import { buildRentalListingPublicUrl, buildRentalVideoPublicUrl } from "../utils/publicUrls";
 import {
   getListingStatusMeta,
   getOpenHouseInfo,
@@ -241,6 +241,7 @@ export default function PublicListing() {
     letterSpacing: "0.06em", marginBottom: 3,
   };
   const listingUrl = buildRentalListingPublicUrl(id);
+  const publicVideoUrl = buildRentalVideoPublicUrl(id);
 
   function getQrSvgHtml() {
     return qrRef.current?.querySelector("svg")?.outerHTML || "";
@@ -341,19 +342,18 @@ export default function PublicListing() {
     const beds = listing?.bedrooms;
     const baths = listing?.bathrooms;
     const shareTitle = beds && baths ? `${beds} Bed / ${baths} Bath — ${title}` : title;
-    const videoUrl = listing?.videoUrl;
-    if (!videoUrl) return;
+    if (!listing?.videoUrl) return;
     try {
       if (navigator.share) {
-        await navigator.share({ title: shareTitle, text: 'Check out this property video', url: videoUrl });
+        await navigator.share({ title: shareTitle, text: 'Check out this property video', url: publicVideoUrl });
       } else {
-        await navigator.clipboard.writeText(videoUrl);
+        await navigator.clipboard.writeText(publicVideoUrl);
         setVideoCopied(true);
         setTimeout(() => setVideoCopied(false), 2000);
       }
     } catch (e) {
       if (e.name !== 'AbortError') {
-        await navigator.clipboard.writeText(videoUrl).catch(() => {});
+        await navigator.clipboard.writeText(publicVideoUrl).catch(() => {});
         setVideoCopied(true);
         setTimeout(() => setVideoCopied(false), 2000);
       }
@@ -853,7 +853,7 @@ export default function PublicListing() {
             <div className="action-btn-grid">
               {/* Row 1 */}
               <a
-                href={listing.videoUrl}
+                href={publicVideoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="action-btn"
