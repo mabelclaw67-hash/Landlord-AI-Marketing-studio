@@ -13,7 +13,7 @@ function extractDriveFileId(url) {
 
 function buildVideoEmbedUrl(videoUrl) {
   const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
+  if (fileId) return `https://drive.google.com/file/d/${fileId}/preview?autoplay=1`;
   return videoUrl || "";
 }
 
