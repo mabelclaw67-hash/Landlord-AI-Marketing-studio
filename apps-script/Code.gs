@@ -186,7 +186,7 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "syncDailyMarketBrief"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
@@ -194,6 +194,7 @@ function doGet(e) {
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
+    if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
     if (action === "getContactRequests")  return ok(getContactRequests_(auth));
     return err("Unknown GET action: " + action);
@@ -543,6 +544,11 @@ function parseBriefDateFromText_(text) {
     return new Date(Number(dashed[1]), Number(dashed[2]) - 1, Number(dashed[3]));
   }
 
+  var chineseDate = value.match(/(20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+  if (chineseDate) {
+    return new Date(Number(chineseDate[1]), Number(chineseDate[2]) - 1, Number(chineseDate[3]));
+  }
+
   return null;
 }
 
@@ -756,9 +762,9 @@ function parseDailyMarketBriefRecord_(file) {
   var titleMatch = text.match(/^#\s+(.+)$/m);
   var title = titleMatch ? normalizeCellText_(titleMatch[1]) : normalizeCellText_(file.getName());
 
-  var dateValue = parseBriefDateFromText_(title) ||
+  var dateValue = parseBriefDateFromText_(file.getName()) ||
+    parseBriefDateFromText_(title) ||
     parseBriefDateFromText_(text) ||
-    parseBriefDateFromText_(file.getName()) ||
     file.getLastUpdated();
   var dateText = Utilities.formatDate(dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd");
 
