@@ -121,6 +121,7 @@ function DrivePhoto({ file }) {
 function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManual,
   onMoveUp, onMoveDown, onExclude, onSetCover,
   inCollage, canAddToCollage, onToggleCollage }) {
+  const lang = useLang();
   const [failed, setFailed] = useState(false);
   // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
   const src = file.dataUrl
