@@ -21,21 +21,24 @@ export function resolveStaticVideoUrl(listingId) {
 }
 
 export function resolvePlayableVideoUrl(input) {
-  const listingId = typeof input === "object" ? input?.listingId : "";
-  const staticUrl = resolveStaticVideoUrl(listingId);
-  if (staticUrl) return staticUrl;
-
+  // 1. Cloudinary CDN — preferred: directly playable, no Drive auth issues
   const publicVideoUrl = typeof input === "object"
     ? String(input?.publicVideoUrl || "").trim()
     : "";
   if (publicVideoUrl) return publicVideoUrl;
 
+  // 2. Local static file bundled with the app
+  const listingId = typeof input === "object" ? input?.listingId : "";
+  const staticUrl = resolveStaticVideoUrl(listingId);
+  if (staticUrl) return staticUrl;
+
+  // 3. Non-Drive direct URL (last resort)
   const sourceUrl = typeof input === "object" ? input?.sourceUrl : input;
   const cleanUrl = String(sourceUrl || "").trim();
   if (!cleanUrl) return "";
 
   const fileId = extractDriveVideoFileId(cleanUrl);
-  if (fileId) return "";
+  if (fileId) return ""; // Drive links can't be embedded; return empty → triggers error state
 
   return cleanUrl;
 }

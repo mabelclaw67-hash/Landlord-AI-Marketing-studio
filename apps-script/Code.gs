@@ -174,6 +174,7 @@ var LISTING_HEADERS = [
   "Drive Files",          // AB 27 JSON
   "Enhanced Folder ID",   // AC 28 — 02_AI_Enhanced_Photos subfolder Drive ID
   "videoUrl",             // AD 29 — generated MP4 video URL (Google Drive link)
+  "publicVideoUrl",       //        Cloudinary CDN URL for playback (set by uploadVideoToCloudinary_)
   "Cover Image File ID",  //        fileId of the selected/generated cover image
   "Created By Email",
   "Created By Access Code",
@@ -225,6 +226,8 @@ function doPost(e) {
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
     if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId, auth));
     if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
+    if (action === "uploadVideoToCloudinary") return ok(uploadVideoToCloudinary_(body.driveFileId, body.listingId));
+    if (action === "migrateExistingVideos")  return ok(migrateExistingVideos_());
     if (action === "saveRentalApplication")  return ok(saveRentalApplication_(body.data));
     if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId, auth));
     if (action === "getAllApplications")     return ok(getAllApplications_(auth));
@@ -1377,6 +1380,7 @@ function rowToListing_(row, headerMap) {
     driveFiles:      tryParse_(col("Drive Files"),     []),
     enhancedFolderId: col("Enhanced Folder ID") || null,
     videoUrl:         col("videoUrl")           || null,
+    publicVideoUrl:   col("publicVideoUrl")     || null,
     coverImageFileId: col("Cover Image File ID") || null,
     createdByEmail:   col("Created By Email")   || "",
     createdByAccessCode: col("Created By Access Code") || "",
@@ -1712,12 +1716,22 @@ function syncVideoUrl_(listingId, auth) {
   SpreadsheetApp.flush();
   Logger.log("[syncVideoUrl] Wrote to row " + rowNumber + ", col " + (videoColIdx + 1) + " (videoUrl)");
 
+  // Upload to Cloudinary for CDN playback (non-blocking — failures are logged, not thrown).
+  var cloudinaryResult = null;
+  try {
+    cloudinaryResult = uploadVideoToCloudinary_(fileId, listingId);
+    Logger.log("[syncVideoUrl] Cloudinary upload result: " + JSON.stringify(cloudinaryResult));
+  } catch (e) {
+    Logger.log("[syncVideoUrl] Cloudinary upload failed (non-fatal): " + e.message);
+  }
+
   return {
     success:   true,
     id:        listingId,
     fileId:    fileId,
     fileName:  targetFileName,
     videoUrl:  fileUrl,
+    publicVideoUrl: cloudinaryResult && cloudinaryResult.publicVideoUrl || null,
     sheetName: LISTINGS_SHEET,
     rowNumber: rowNumber,
     colName:   "videoUrl",
@@ -2814,4 +2828,222 @@ function uploadToSubfolder_(body, auth) {
     subfolderFolderId: target.getId(),
     subfolderUrl:    target.getUrl(),
   };
+}
+
+// ── Cloudinary Video Upload ───────────────────────────────────────────────────
+//
+// Uploads a Google Drive video file to Cloudinary by URL (Cloudinary fetches
+// the file directly — no byte transfer through Apps Script).
+// On success, writes the Cloudinary secure_url to the publicVideoUrl column.
+// On failure, logs the error and returns { success: false, error: ... }.
+//
+// Requires these rows in "08 System Settings":
+//   CLOUDINARY_CLOUD_NAME   → your cloud name
+//   CLOUDINARY_API_KEY      → numeric API key
+//   CLOUDINARY_API_SECRET   → API secret
+//
+function uploadVideoToCloudinary_(driveFileId, listingId) {
+  if (!driveFileId) throw new Error("uploadVideoToCloudinary: driveFileId required");
+  if (!listingId)   throw new Error("uploadVideoToCloudinary: listingId required");
+
+  // ── 1. Read Cloudinary credentials from System Settings ──────────────────
+  var cloudName = getSystemSetting_("CLOUDINARY_CLOUD_NAME");
+  var apiKey    = getSystemSetting_("CLOUDINARY_API_KEY");
+  var apiSecret = getSystemSetting_("CLOUDINARY_API_SECRET");
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    Logger.log("[uploadVideoToCloudinary] Missing Cloudinary credentials in 08 System Settings");
+    return { success: false, error: "Missing Cloudinary credentials" };
+  }
+
+  // ── 2. Build the Drive direct-download URL ────────────────────────────────
+  var fileUrl = "https://drive.google.com/uc?export=download&id=" + driveFileId;
+
+  // ── 3. Build signed upload parameters ────────────────────────────────────
+  var publicId  = "listings/" + listingId + "/video";
+  var timestamp = Math.floor(Date.now() / 1000).toString();
+
+  // Parameters to sign: ONLY the params that go into the signature string.
+  // Exclude: file, api_key, resource_type, cloud_name — Cloudinary ignores those.
+  var sigParams = {
+    overwrite:  "true",
+    public_id:  publicId,
+    timestamp:  timestamp,
+  };
+
+  // Build the string-to-sign: "key1=val1&key2=val2...{secret}" (no trailing &)
+  var paramKeys = Object.keys(sigParams).sort();
+  var sigStr = paramKeys.map(function(k) { return k + "=" + sigParams[k]; }).join("&") + apiSecret;
+
+  // Cloudinary requires SHA-1, not SHA-256.
+  var sigBytes  = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, sigStr, Utilities.Charset.UTF_8);
+  var signature = sigBytes.map(function(b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+
+  // ── 4. POST to Cloudinary Upload API (resource_type: video) ──────────────
+  var uploadUrl = "https://api.cloudinary.com/v1_1/" + cloudName + "/video/upload";
+
+  var payload = {
+    file:          fileUrl,
+    public_id:     publicId,
+    overwrite:     "true",
+    api_key:       apiKey,
+    timestamp:     timestamp,
+    signature:     signature,
+    resource_type: "video",
+  };
+
+  Logger.log("[uploadVideoToCloudinary] listingId   : " + listingId);
+  Logger.log("[uploadVideoToCloudinary] driveFileId : " + driveFileId);
+  Logger.log("[uploadVideoToCloudinary] public_id   : " + publicId);
+
+  var response;
+  try {
+    response = UrlFetchApp.fetch(uploadUrl, {
+      method:             "post",
+      payload:            payload,
+      muteHttpExceptions: true,
+    });
+  } catch (fetchErr) {
+    Logger.log("[uploadVideoToCloudinary] UrlFetch error: " + fetchErr.message);
+    return { success: false, error: fetchErr.message };
+  }
+
+  var code = response.getResponseCode();
+  var body = response.getContentText();
+  Logger.log("[uploadVideoToCloudinary] HTTP " + code + " — " + body.substring(0, 300));
+
+  if (code !== 200) {
+    return { success: false, error: "Cloudinary HTTP " + code, body: body };
+  }
+
+  var parsed;
+  try { parsed = JSON.parse(body); } catch (_) {
+    return { success: false, error: "Cloudinary response not JSON", body: body };
+  }
+
+  var secureUrl = parsed.secure_url;
+  if (!secureUrl) {
+    return { success: false, error: "Cloudinary response missing secure_url", body: body };
+  }
+
+  // ── 5. Write publicVideoUrl back to the sheet ─────────────────────────────
+  try {
+    updatePublicVideoUrl_(listingId, secureUrl);
+    Logger.log("[uploadVideoToCloudinary] publicVideoUrl written: " + secureUrl);
+  } catch (writeErr) {
+    Logger.log("[uploadVideoToCloudinary] Failed to write publicVideoUrl: " + writeErr.message);
+    return { success: false, error: writeErr.message };
+  }
+
+  return { success: true, listingId: listingId, publicVideoUrl: secureUrl };
+}
+
+// Write the Cloudinary CDN URL to the publicVideoUrl column.
+function updatePublicVideoUrl_(listingId, publicVideoUrl) {
+  var sheet = getSheet_(LISTINGS_SHEET);
+  addMissingHeaders_(sheet, LISTING_HEADERS);
+  var headerMap = getHeaderMap_(sheet);
+  var colIdx    = headerMap["publicVideoUrl"];
+  if (colIdx === undefined) throw new Error("publicVideoUrl column not found after addMissingHeaders_");
+
+  var last = sheet.getLastRow();
+  if (last < 2) throw new Error("No listing rows found");
+
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === listingId) {
+      sheet.getRange(i + 2, colIdx + 1).setValue(publicVideoUrl);
+      SpreadsheetApp.flush();
+      return;
+    }
+  }
+  throw new Error("Listing not found: " + listingId);
+}
+
+// ── Migration: upload existing Drive videos to Cloudinary ────────────────────
+//
+// Run once from the Apps Script editor:
+//   1. Open Extensions → Apps Script
+//   2. Select "migrateExistingVideos" from the function dropdown
+//   3. Click Run
+//   4. View → Logs to see progress
+//
+// Skips rows with no listingId, no videoUrl, or publicVideoUrl already set.
+//
+function migrateExistingVideos() {
+  return migrateExistingVideos_();
+}
+
+function migrateExistingVideos_() {
+  var sheet     = getSheet_(LISTINGS_SHEET);
+  var headerMap = getHeaderMap_(sheet);
+  var last      = sheet.getLastRow();
+  if (last < 2) { Logger.log("[migrateExistingVideos] No rows found"); return []; }
+
+  var numCols = sheet.getLastColumn();
+  var rows    = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  var results = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    var row       = rows[i];
+    var listingId = String(row[headerMap["Listing ID"]] || "").trim();
+    var videoUrl  = String(row[headerMap["videoUrl"]]   || "").trim();
+    var pubUrl    = String(row[headerMap["publicVideoUrl"]] || "").trim();
+
+    if (!listingId) {
+      Logger.log("[migrateExistingVideos] row " + (i + 2) + ": no listingId, skip");
+      continue;
+    }
+    if (!videoUrl) {
+      Logger.log("[migrateExistingVideos] " + listingId + ": no videoUrl, skip");
+      results.push({ id: listingId, skipped: true, reason: "no videoUrl" });
+      continue;
+    }
+    if (pubUrl) {
+      Logger.log("[migrateExistingVideos] " + listingId + ": publicVideoUrl already set, skip");
+      results.push({ id: listingId, skipped: true, reason: "already has publicVideoUrl" });
+      continue;
+    }
+
+    var fileId = extractDriveVideoFileId_(videoUrl);
+    if (!fileId) {
+      Logger.log("[migrateExistingVideos] " + listingId + ": could not extract fileId from: " + videoUrl);
+      results.push({ id: listingId, success: false, error: "cannot extract Drive fileId" });
+      continue;
+    }
+
+    Logger.log("[migrateExistingVideos] " + listingId + ": uploading fileId=" + fileId);
+    try {
+      var r = uploadVideoToCloudinary_(fileId, listingId);
+      Logger.log("[migrateExistingVideos] " + listingId + ": " + JSON.stringify(r));
+      results.push(r);
+    } catch (e) {
+      Logger.log("[migrateExistingVideos] " + listingId + " error: " + e.message);
+      results.push({ id: listingId, success: false, error: e.message });
+    }
+
+    if (i < rows.length - 1) Utilities.sleep(2000);
+  }
+
+  Logger.log("[migrateExistingVideos] Done. " + results.length + " processed.");
+  return results;
+}
+
+// Extract a Google Drive file ID from common Drive URL formats:
+//   https://drive.google.com/file/d/{id}/view...
+//   https://drive.google.com/open?id={id}
+//   https://drive.google.com/uc?id={id}
+function extractDriveVideoFileId_(url) {
+  if (!url) return null;
+  var m;
+  // /file/d/{id}
+  m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  // ?id={id} or &id={id}
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
 }
