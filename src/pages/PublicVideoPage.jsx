@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getListing } from "../utils/storage";
 import { getHomeSaleListing, getPublicSaleVideoScripts } from "../utils/homeSaleSheet";
-import { resolveDownloadVideoUrl, resolvePlayableVideoUrl } from "../utils/videoUrls";
+import { resolveDownloadVideoUrl, resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
 
 export default function PublicVideoPage({ type = "rental" }) {
   const params = useParams();
@@ -10,6 +10,7 @@ export default function PublicVideoPage({ type = "rental" }) {
   const [listing, setListing] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [publicVideoUrl, setPublicVideoUrl] = useState("");
+  const [videoPreviewError, setVideoPreviewError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -36,10 +37,15 @@ export default function PublicVideoPage({ type = "rental" }) {
       .finally(() => setLoading(false));
   }, [listingId, type]);
 
+  useEffect(() => {
+    setVideoPreviewError(false);
+  }, [listingId]);
+
   const title = listing?.address || listingId || "Property Video";
-  const playerUrl = resolvePlayableVideoUrl({ publicVideoUrl, sourceUrl: videoUrl });
+  const playerUrl = resolvePlayableVideoUrl({ listingId, publicVideoUrl, sourceUrl: videoUrl });
   const downloadUrl = resolveDownloadVideoUrl(videoUrl);
-  const hasVideoSource = Boolean(publicVideoUrl || videoUrl);
+  const staticVideoUrl = resolveStaticVideoUrl(listingId);
+  const hasVideoSource = Boolean(staticVideoUrl || publicVideoUrl || videoUrl);
   const listingPath = type === "homeSale"
     ? `/home-sale-studio/listings/${listingId}`
     : `/listings/${listingId}`;
@@ -83,8 +89,14 @@ export default function PublicVideoPage({ type = "rental" }) {
                   src={playerUrl}
                   title={`${title} video`}
                   style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
+                  onError={() => setVideoPreviewError(true)}
                 />
               </div>
+              {videoPreviewError && (
+                <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 10, marginTop: -8 }}>
+                  Video preview is not available. Please use Download MP4.
+                </p>
+              )}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <a href={downloadUrl || videoUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
                   Download MP4

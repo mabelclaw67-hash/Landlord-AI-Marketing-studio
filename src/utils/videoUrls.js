@@ -14,7 +14,17 @@ export function extractDriveVideoFileId(url) {
   return "";
 }
 
+export function resolveStaticVideoUrl(listingId) {
+  const cleanId = String(listingId || "").trim();
+  if (!cleanId) return "";
+  return `/videos/${encodeURIComponent(cleanId)}.mp4`;
+}
+
 export function resolvePlayableVideoUrl(input) {
+  const listingId = typeof input === "object" ? input?.listingId : "";
+  const staticUrl = resolveStaticVideoUrl(listingId);
+  if (staticUrl) return staticUrl;
+
   const publicVideoUrl = typeof input === "object"
     ? String(input?.publicVideoUrl || "").trim()
     : "";
@@ -25,9 +35,7 @@ export function resolvePlayableVideoUrl(input) {
   if (!cleanUrl) return "";
 
   const fileId = extractDriveVideoFileId(cleanUrl);
-  if (fileId) {
-    return `/.netlify/functions/video-proxy?url=${encodeURIComponent(resolveDownloadVideoUrl(cleanUrl))}`;
-  }
+  if (fileId) return "";
 
   return cleanUrl;
 }
