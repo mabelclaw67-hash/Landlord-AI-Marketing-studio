@@ -13,7 +13,7 @@ function extractDriveFileId(url) {
 
 function buildVideoPlayerUrl(videoUrl) {
   const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
+  if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
   return videoUrl || "";
 }
 
@@ -30,6 +30,7 @@ export default function PublicVideoPage({ type = "rental" }) {
   const [videoUrl, setVideoUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -90,20 +91,27 @@ export default function PublicVideoPage({ type = "rental" }) {
           )}
           {!loading && !error && playerUrl && (
             <>
-              <div style={{ width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
-                <video
-                  controls
-                  playsInline
-                  preload="metadata"
-                  title={`${title} video`}
-                  style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
-                >
-                  <source src={playerUrl} type="video/mp4" />
-                  Your browser does not support MP4 video playback.
-                </video>
-              </div>
+              {videoError ? (
+                <div className="notice notice--warm" style={{ marginBottom: 14 }}>
+                  <p style={{ margin: 0 }}>Video preview is not available. Please click <strong>Download MP4</strong> to view the video.</p>
+                </div>
+              ) : (
+                <div style={{ width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+                  <video
+                    controls
+                    playsInline
+                    preload="metadata"
+                    title={`${title} video`}
+                    style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
+                    onError={() => setVideoError(true)}
+                  >
+                    <source src={playerUrl} type="video/mp4" onError={() => setVideoError(true)} />
+                    Your browser does not support MP4 video playback.
+                  </video>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a href={downloadUrl || videoUrl} target="_blank" rel="noopener noreferrer" className="btn btn--primary">
+                <a href={downloadUrl || videoUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
                   Download MP4
                 </a>
                 <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
