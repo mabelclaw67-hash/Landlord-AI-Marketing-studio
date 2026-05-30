@@ -11,9 +11,9 @@ function extractDriveFileId(url) {
   return idMatch ? idMatch[1] : "";
 }
 
-function buildVideoEmbedUrl(videoUrl) {
+function buildVideoPlayerUrl(videoUrl) {
   const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/file/d/${fileId}/preview?autoplay=1`;
+  if (fileId) return `https://drive.google.com/uc?export=view&id=${fileId}`;
   return videoUrl || "";
 }
 
@@ -53,7 +53,7 @@ export default function PublicVideoPage({ type = "rental" }) {
   }, [listingId, type]);
 
   const title = listing?.address || listingId || "Property Video";
-  const embedUrl = buildVideoEmbedUrl(videoUrl);
+  const playerUrl = buildVideoPlayerUrl(videoUrl);
   const downloadUrl = buildVideoDownloadUrl(videoUrl);
   const listingPath = type === "homeSale"
     ? `/home-sale-studio/listings/${listingId}`
@@ -82,22 +82,25 @@ export default function PublicVideoPage({ type = "rental" }) {
               <p>{error}</p>
             </div>
           )}
-          {!loading && !error && !embedUrl && (
+          {!loading && !error && !playerUrl && (
             <div className="notice notice--warm">
               <h4>Video Not Available</h4>
               <p>This listing does not have a published video yet.</p>
             </div>
           )}
-          {!loading && !error && embedUrl && (
+          {!loading && !error && playerUrl && (
             <>
               <div style={{ width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
-                <iframe
-                  src={embedUrl}
-                  allow="autoplay; fullscreen"
-                  allowFullScreen
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
                   title={`${title} video`}
-                  style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-                />
+                  style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
+                >
+                  <source src={playerUrl} type="video/mp4" />
+                  Your browser does not support MP4 video playback.
+                </video>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <a href={downloadUrl || videoUrl} target="_blank" rel="noopener noreferrer" className="btn btn--primary">
