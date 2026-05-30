@@ -13,7 +13,7 @@ function extractDriveFileId(url) {
 
 function buildVideoPlayerUrl(videoUrl) {
   const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  if (fileId) return `https://drive.usercontent.google.com/download?id=${fileId}&export=download&confirm=t`;
   return videoUrl || "";
 }
 
