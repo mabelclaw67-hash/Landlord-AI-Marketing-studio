@@ -2,35 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getListing } from "../utils/storage";
 import { getHomeSaleListing, getPublicSaleVideoScripts } from "../utils/homeSaleSheet";
-
-function extractDriveFileId(url) {
-  const text = String(url || "");
-  const fileMatch = text.match(/\/file\/d\/([^/?#]+)/);
-  if (fileMatch) return fileMatch[1];
-  const idMatch = text.match(/[?&]id=([^&]+)/);
-  return idMatch ? idMatch[1] : "";
-}
-
-function buildVideoPlayerUrl(videoUrl) {
-  const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
-  return videoUrl || "";
-}
-
-function buildVideoDownloadUrl(videoUrl) {
-  const fileId = extractDriveFileId(videoUrl);
-  if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
-  return videoUrl || "";
-}
+import { resolveDownloadVideoUrl, resolvePlayableVideoUrl } from "../utils/videoUrls";
 
 export default function PublicVideoPage({ type = "rental" }) {
   const params = useParams();
   const listingId = params.listingId || params.id;
   const [listing, setListing] = useState(null);
   const [videoUrl, setVideoUrl] = useState("");
+  const [publicVideoUrl, setPublicVideoUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -39,13 +20,15 @@ export default function PublicVideoPage({ type = "rental" }) {
         const scripts = await getPublicSaleVideoScripts(listingId).catch(() => []);
         const fallback = Array.isArray(scripts) ? scripts.find((item) => item.outputMp4Url)?.outputMp4Url : "";
         setListing(row);
-        setVideoUrl(row?.videoUrl || fallback || "");
+        setVideoUrl(row?.videoUrl || "");
+        setPublicVideoUrl(row?.publicVideoUrl || fallback || "");
         return;
       }
 
       const row = await getListing(listingId);
       setListing(row);
       setVideoUrl(row?.videoUrl || "");
+      setPublicVideoUrl(row?.publicVideoUrl || row?.outputs?.publicVideoUrl || "");
     }
 
     load()
@@ -54,8 +37,9 @@ export default function PublicVideoPage({ type = "rental" }) {
   }, [listingId, type]);
 
   const title = listing?.address || listingId || "Property Video";
-  const playerUrl = buildVideoPlayerUrl(videoUrl);
-  const downloadUrl = buildVideoDownloadUrl(videoUrl);
+  const playerUrl = resolvePlayableVideoUrl({ publicVideoUrl, sourceUrl: videoUrl });
+  const downloadUrl = resolveDownloadVideoUrl(videoUrl);
+  const hasVideoSource = Boolean(publicVideoUrl || videoUrl);
   const listingPath = type === "homeSale"
     ? `/home-sale-studio/listings/${listingId}`
     : `/listings/${listingId}`;
@@ -83,33 +67,24 @@ export default function PublicVideoPage({ type = "rental" }) {
               <p>{error}</p>
             </div>
           )}
-          {!loading && !error && !playerUrl && (
+          {!loading && !error && !hasVideoSource && (
             <div className="notice notice--warm">
               <h4>Video Not Available</h4>
               <p>This listing does not have a published video yet.</p>
             </div>
           )}
-          {!loading && !error && playerUrl && (
+          {!loading && !error && hasVideoSource && (
             <>
-              {videoError ? (
-                <div className="notice notice--warm" style={{ marginBottom: 14 }}>
-                  <p style={{ margin: 0 }}>Video preview is not available. Please click <strong>Download MP4</strong> to view the video.</p>
-                </div>
-              ) : (
-                <div style={{ width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
-                  <video
-                    controls
-                    playsInline
-                    preload="metadata"
-                    title={`${title} video`}
-                    style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
-                    onError={() => setVideoError(true)}
-                  >
-                    <source src={playerUrl} type="video/mp4" onError={() => setVideoError(true)} />
-                    Your browser does not support MP4 video playback.
-                  </video>
-                </div>
-              )}
+              <div style={{ width: "100%", aspectRatio: "16 / 9", background: "#000", borderRadius: 8, overflow: "hidden", marginBottom: 14 }}>
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  src={playerUrl}
+                  title={`${title} video`}
+                  style={{ width: "100%", height: "100%", border: "none", display: "block", background: "#000" }}
+                />
+              </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <a href={downloadUrl || videoUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
                   Download MP4

@@ -22,6 +22,7 @@ import {
   uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
 import { buildHomeSalePublicUrl } from "../../utils/publicUrls";
+import { extractDriveVideoFileId, resolveDownloadVideoUrl, resolvePlayableVideoUrl } from "../../utils/videoUrls";
 
 const MUSIC_NO_MUSIC_EN = { label: "No music", file: "none" };
 const MUSIC_NO_MUSIC_ZH = { label: "不加音乐", file: "none" };
@@ -33,12 +34,7 @@ function extractFolderId(link) {
 }
 
 function extractDriveFileId(url) {
-  const text = String(url || "");
-  const fileMatch = text.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return fileMatch[1];
-  const idMatch = text.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idMatch) return idMatch[1];
-  return "";
+  return extractDriveVideoFileId(url);
 }
 
 function buildDriveVideoPreviewUrl(file) {
@@ -48,12 +44,12 @@ function buildDriveVideoPreviewUrl(file) {
 
 function buildDriveVideoStreamUrl(file) {
   const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
-  return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : "";
+  return fileId ? resolvePlayableVideoUrl({ sourceUrl: `https://drive.google.com/file/d/${fileId}/view` }) : "";
 }
 
 function buildDriveVideoDownloadUrl(file) {
   const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
-  return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : (file?.url || "");
+  return fileId ? resolveDownloadVideoUrl(`https://drive.google.com/file/d/${fileId}/view`) : (file?.url || "");
 }
 
 function sortByFilenameNumber(files) {
