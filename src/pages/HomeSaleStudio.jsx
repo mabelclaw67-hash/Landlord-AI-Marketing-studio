@@ -11,6 +11,7 @@ import {
   getSalePhotoData,
   resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
+import { sortSaleListings } from "../utils/listingSort";
 
 function formatPrice(value) {
   const digits = String(value || "").replace(/[^\d.]/g, "");
@@ -34,7 +35,7 @@ export default function HomeSaleStudio() {
     getPublicSaleListings()
       .then((rows) => {
         if (cancelled) return;
-        setListings(rows);
+        setListings(sortSaleListings(rows));
         setLoading(false);
 
         Promise.all(

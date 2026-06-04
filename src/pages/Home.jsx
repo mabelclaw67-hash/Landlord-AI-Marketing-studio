@@ -303,6 +303,11 @@ const LANDLORD_SHARE_MESSAGES = [
   },
 ];
 
+// Keys that are written fresh each day (policy, actions, summary)
+const DAILY_FLASH_KEYS = new Set(["policySummary", "landlordActionNotes", "websiteSummary"]);
+// Keys backed by monthly/quarterly data sources (CMHC, REBGV, Zumper)
+const WEEKLY_DATA_KEYS = new Set(["bcRentalSummary", "bcSaleSummary", "nanaimoRentalSummary", "nanaimoSaleSummary"]);
+
 const DAILY_BRIEF_CARD_META = {
   policySummary:        { icon: "📄", className: "" },
   bcRentalSummary:      { icon: "🏢", className: "" },
@@ -447,8 +452,15 @@ export default function Home({ lang }) {
                 <h3>{brief.title || "Untitled Brief"}</h3>
               </div>
 
+              {/* ── Today's Update (policy, actions, summary — written fresh daily) ── */}
+              <div className="lh-daily-brief__section-head">
+                <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--flash">
+                  {safeLang === "zh" ? "今日更新" : "Today's Update"}
+                </span>
+                <span className="lh-daily-brief__section-meta">{brief.date}</span>
+              </div>
               <div className="lh-daily-brief__grid">
-                {s.briefFields.map((field) => {
+                {s.briefFields.filter(f => DAILY_FLASH_KEYS.has(f.key)).map((field) => {
                   const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
                   return (
                     <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
@@ -457,11 +469,33 @@ export default function Home({ lang }) {
                         <div className="lh-daily-brief__label">{field.label}</div>
                       </div>
                       <p>{brief[field.key] || "—"}</p>
-                      {field.key !== "landlordActionNotes" && field.key !== "websiteSummary" ? (
-                        <div className="lh-daily-brief__detail-link">
-                          {safeLang === "zh" ? "查看详情 →" : "View details →"}
-                        </div>
-                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+
+              {/* ── Market Data (CMHC / REBGV / Zumper — updated monthly) ── */}
+              <div className="lh-daily-brief__section-head" style={{ marginTop: 28 }}>
+                <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--data">
+                  {safeLang === "zh" ? "市场数据" : "Market Data"}
+                </span>
+                <span className="lh-daily-brief__section-meta">
+                  {safeLang === "zh" ? "每月更新" : "Updated monthly"}
+                </span>
+              </div>
+              <div className="lh-daily-brief__grid">
+                {s.briefFields.filter(f => WEEKLY_DATA_KEYS.has(f.key)).map((field) => {
+                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                  return (
+                    <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                      <div className="lh-daily-brief__card-head">
+                        <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                        <div className="lh-daily-brief__label">{field.label}</div>
+                      </div>
+                      <p>{brief[field.key] || "—"}</p>
+                      <div className="lh-daily-brief__detail-link">
+                        {safeLang === "zh" ? "查看详情 →" : "View details →"}
+                      </div>
                     </article>
                   );
                 })}

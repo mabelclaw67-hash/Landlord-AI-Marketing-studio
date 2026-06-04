@@ -10,6 +10,7 @@ import {
   resolveRentalListingCover,
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
+import { sortRentalListings } from "../utils/listingSort";
 
 const TENANT_SHARE_MESSAGES = [
   {
@@ -100,7 +101,7 @@ export default function Examples() {
           (listing.status || "").trim().toLowerCase() === "published"
         );
         if (cancelled) return;
-        setListings(active);
+        setListings(sortRentalListings(active));
         setCoverPhotos(Object.fromEntries(
           active.map((listing) => [
             listing.id,
