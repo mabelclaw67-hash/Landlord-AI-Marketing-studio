@@ -22,19 +22,15 @@ const TENANT_NAV = {
     brand: "Vanisland Rentals",
     home: "Home",
     rentalListings: "Rental Listings",
-    rentalsMobile: "Rentals",
     contact: "Contact",
     applyNow: "Apply Now",
-    applyMobile: "Apply",
   },
   zh: {
     brand: "Vanisland 出租",
     home: "首页",
     rentalListings: "出租房源",
-    rentalsMobile: "出租",
     contact: "联系",
     applyNow: "立即申请",
-    applyMobile: "申请",
   },
 };
 
@@ -114,25 +110,6 @@ export default function Navbar({ lang, setLang }) {
           </div>
         </nav>
 
-        {/* ── Mobile bottom nav — tenant pages only ─────────────────────────── */}
-        <nav className="mobile-bottom-nav" aria-label="Tenant navigation">
-          <Link to="/" className={`mobile-bottom-nav__item${pathname === "/" ? " active" : ""}`}>
-            <span className="mobile-bottom-nav__icon">🏠</span>
-            <span className="mobile-bottom-nav__label">{tenantLabels.home}</span>
-          </Link>
-          <Link to="/examples" className={`mobile-bottom-nav__item${pathname === "/examples" ? " active" : ""}`}>
-            <span className="mobile-bottom-nav__icon">🏘</span>
-            <span className="mobile-bottom-nav__label">{tenantLabels.rentalsMobile}</span>
-          </Link>
-          <Link to="/tenant-contact" className={`mobile-bottom-nav__item${pathname === "/tenant-contact" ? " active" : ""}`}>
-            <span className="mobile-bottom-nav__icon">📞</span>
-            <span className="mobile-bottom-nav__label">{tenantLabels.contact}</span>
-          </Link>
-          <Link to={applyTo} className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
-            <span className="mobile-bottom-nav__icon">📋</span>
-            <span className="mobile-bottom-nav__label">{tenantLabels.applyMobile}</span>
-          </Link>
-        </nav>
       </>
     );
   }

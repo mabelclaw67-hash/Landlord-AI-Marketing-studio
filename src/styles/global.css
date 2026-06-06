@@ -3272,6 +3272,10 @@ tr:hover td { background: #F9F6F0; }
    Landlord Home — Responsive
    ===================== */
 @media (max-width: 860px) {
+  body {
+    padding-bottom: 92px;
+  }
+
   .landlord-app {
     display: block;
   }

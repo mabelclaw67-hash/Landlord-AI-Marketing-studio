@@ -4,6 +4,7 @@ import "./styles/global.css";
 
 import Navbar from "./components/Navbar";
 import LandlordHomeLayout from "./components/LandlordHomeLayout";
+import MobileBottomNav from "./components/MobileBottomNav";
 import Services from "./pages/Services";
 import Examples from "./pages/Examples";
 import Resources from "./pages/Resources";
@@ -98,6 +99,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <MobileBottomNav lang={lang} />
     </>
   );
 }
