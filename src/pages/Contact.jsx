@@ -3,14 +3,67 @@ import { t } from "../translations";
 import Footer from "../components/Footer";
 import { saveContact } from "../utils/storage";
 import { isApiConnected } from "../utils/api";
+import { normalizeLang } from "../utils/lang";
 
-const SERVICE_OPTIONS = [
-  "Rental Listing Studio / 出租房源推广",
-  "Home Sale Studio / 出售房源推广",
-  "Both / 两者都需要",
-];
+const CONTACT_COPY = {
+  en: {
+    requestTitle: "Request Access",
+    requestDesc: "You can request Rental Listing Studio, Home Sale Studio, or both.",
+    prepareTitle: "What we prepare for you:",
+    prepareItems: [
+      "🏘️ Rental listing promotion workflow",
+      "🏡 Home sale marketing workflow",
+      "📝 Bilingual marketing copy",
+      "📲 Share kit and QR code",
+      "🎬 Short video and media support",
+    ],
+    serving: "Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.",
+    submitAnother: "Submit another",
+    wechat: "WeChat ID",
+    wechatPlaceholder: "e.g. mabel_wechat",
+    interestedModule: "Interested Module",
+    select: "-- Select --",
+    services: [
+      { value: "Rental Listing Studio / 出租房源推广", label: "Rental Listing Studio / 出租房源推广" },
+      { value: "Home Sale Studio / 出售房源推广", label: "Home Sale Studio / 出售房源推广" },
+      { value: "Both / 两者都需要", label: "Both / 两者都需要" },
+    ],
+    submitFailed: "Submission failed",
+    sending: "Sending...",
+    saved: "Your request will be saved to our system.",
+    prototype: "Prototype mode: form is not transmitted.",
+  },
+  zh: {
+    requestTitle: "申请使用",
+    requestDesc: "您可以申请出租房源工作台、出售房源工作台，或两个模块都申请。",
+    prepareTitle: "我们会为您准备：",
+    prepareItems: [
+      "🏘️ 出租房源推广流程",
+      "🏡 出售房源营销流程",
+      "📝 中英文营销文案",
+      "📲 分享素材包和二维码",
+      "🎬 短视频和媒体支持",
+    ],
+    serving: "服务范围包括 Nanaimo、Victoria、Greater Vancouver 以及 BC 各地区房东。",
+    submitAnother: "再提交一份",
+    wechat: "微信 ID",
+    wechatPlaceholder: "例如：mabel_wechat",
+    interestedModule: "感兴趣的模块",
+    select: "-- 请选择 --",
+    services: [
+      { value: "Rental Listing Studio / 出租房源推广", label: "出租房源工作台 / Rental Listing Studio" },
+      { value: "Home Sale Studio / 出售房源推广", label: "出售房源工作台 / Home Sale Studio" },
+      { value: "Both / 两者都需要", label: "两个都需要 / Both" },
+    ],
+    submitFailed: "提交失败",
+    sending: "正在发送...",
+    saved: "您的申请会保存到我们的系统。",
+    prototype: "原型模式：表单不会发送到线上系统。",
+  },
+};
 
 export default function Contact({ lang }) {
+  const copy = CONTACT_COPY[normalizeLang(lang)] || CONTACT_COPY.en;
   const [form,      setForm]      = useState({ name: "", email: "", phone: "", wechat: "", city: "", service: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting,setSubmitting]= useState(false);
@@ -52,26 +105,24 @@ export default function Contact({ lang }) {
             {/* Left: Info */}
             <div>
               <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-                <h4>Request Access</h4>
+                <h4>{copy.requestTitle}</h4>
                 <p>{t(lang, "contact.betaNotice")}</p>
                 <p style={{ marginTop: 6 }}>
-                  You can request Rental Listing Studio, Home Sale Studio, or both.
+                  {copy.requestDesc}
                 </p>
               </div>
 
               <div className="card" style={{ marginBottom: 16, borderColor: "#e5dfd6" }}>
-                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>What we prepare for you:</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: 12, color: "#3e5b4b" }}>{copy.prepareTitle}</h3>
                 <ul style={{ paddingLeft: 16, fontSize: "0.88rem", lineHeight: 2 }}>
-                  <li>🏘️ Rental listing promotion workflow</li>
-                  <li>🏡 Home sale marketing workflow</li>
-                  <li>📝 Bilingual marketing copy</li>
-                  <li>📲 Share kit and QR code</li>
-                  <li>🎬 Short video and media support</li>
+                  {copy.prepareItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
 
               <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-                <p>Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.</p>
+                <p>{copy.serving}</p>
               </div>
             </div>
 
@@ -86,7 +137,7 @@ export default function Contact({ lang }) {
                     style={{ marginTop: 20 }}
                     onClick={() => { setSubmitted(false); setForm({ name: "", email: "", phone: "", wechat: "", city: "", service: "", message: "" }); }}
                   >
-                    Submit another
+                    {copy.submitAnother}
                   </button>
                 </div>
               ) : (
@@ -125,12 +176,12 @@ export default function Contact({ lang }) {
                       />
                     </div>
                     <div className="form-group">
-                      <label>WeChat ID</label>
+                      <label>{copy.wechat}</label>
                       <input
                         className="form-control"
                         value={form.wechat}
                         onChange={set("wechat")}
-                        placeholder="e.g. mabel_wechat"
+                        placeholder={copy.wechatPlaceholder}
                       />
                     </div>
                   </div>
@@ -146,11 +197,11 @@ export default function Contact({ lang }) {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Interested Module</label>
+                    <label>{copy.interestedModule}</label>
                     <select className="form-control" value={form.service} onChange={set("service")}>
-                      <option value="">— Select —</option>
-                      {SERVICE_OPTIONS.map((o) => (
-                        <option key={o} value={o}>{o}</option>
+                      <option value="">{copy.select}</option>
+                      {copy.services.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
                   </div>
@@ -166,16 +217,16 @@ export default function Contact({ lang }) {
                   </div>
                   {submitErr && (
                     <div className="notice notice--error" style={{ marginBottom: 12 }}>
-                      <p>Submission failed: {submitErr}</p>
+                      <p>{copy.submitFailed}: {submitErr}</p>
                     </div>
                   )}
                   <button type="submit" className="btn btn--sage btn--full" disabled={submitting}>
-                    {submitting ? "Sending…" : t(lang, "contact.submit")}
+                    {submitting ? copy.sending : t(lang, "contact.submit")}
                   </button>
                   <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 10, textAlign: "center" }}>
                     {isApiConnected()
-                      ? "Your request will be saved to our system."
-                      : "Prototype mode: form is not transmitted."}
+                      ? copy.saved
+                      : copy.prototype}
                   </p>
                 </form>
               )}
