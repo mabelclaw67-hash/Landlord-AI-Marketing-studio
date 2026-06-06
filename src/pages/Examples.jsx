@@ -43,9 +43,64 @@ const TENANT_SHARE_MESSAGES = [
   },
 ];
 
+const RENTAL_PUBLIC_TEXT = {
+  en: {
+    pageTitle: "Public Rental Listings",
+    studio: "Rental Studio",
+    pageDesc: "Browse current rentals and apply online.",
+    shareKit: "Share Kit",
+    shareKitTitle: "Tenant Rental Listings Share Kit",
+    shareKitSub: "For tenants, applicants, and public rental listing sharing only.",
+    shareLink: "Copy Current Page Link",
+    loading: "Loading listings...",
+    loadError: "Failed to load listings:",
+    emptyTitle: "No listings available right now.",
+    emptyDesc: "Please check back later.",
+    photoUnavailable: "Photo unavailable",
+    rent: "Rent",
+    beds: "Beds",
+    baths: "Baths",
+    available: "Available",
+    statusAvailable: "Available",
+    applicationsClosed: "Applications closed",
+    viewDetailsApply: "View Details / Apply →",
+    viewDetailsStatus: "View Details / Status →",
+    shareListing: "Share Listing",
+    copied: "✓ Link copied",
+    shareTextPrefix: "Check out this rental listing:",
+    perMonth: "/mo",
+  },
+  zh: {
+    pageTitle: "出租房源列表",
+    studio: "出租工作台",
+    pageDesc: "浏览当前出租房源并在线申请。",
+    shareKit: "分享工具",
+    shareKitTitle: "出租房源分享工具",
+    shareKitSub: "仅供租客、申请人和公开出租房源分享使用。",
+    shareLink: "复制当前页面链接",
+    loading: "正在加载出租房源...",
+    loadError: "出租房源加载失败：",
+    emptyTitle: "目前暂无可租房源。",
+    emptyDesc: "请稍后再查看。",
+    photoUnavailable: "照片暂不可用",
+    rent: "租金",
+    beds: "卧室",
+    baths: "卫生间",
+    available: "可入住日期",
+    statusAvailable: "可租",
+    applicationsClosed: "申请已关闭",
+    viewDetailsApply: "查看详情 / 申请 →",
+    viewDetailsStatus: "查看详情 / 状态 →",
+    shareListing: "分享房源",
+    copied: "✓ 已复制链接",
+    shareTextPrefix: "查看这个出租房源：",
+    perMonth: "每月",
+  },
+};
+
 // Show the cover image for a rental listing card.
 // Always renders the photo area — shows a placeholder when no URL or image fails to load.
-function ListingCardCover({ coverPhoto }) {
+function ListingCardCover({ coverPhoto, label }) {
   const src = resolveRentalListingImageSrc(coverPhoto);
   const [failed, setFailed] = useState(false);
 
@@ -70,7 +125,7 @@ function ListingCardCover({ coverPhoto }) {
         }}>
           <span style={{ fontSize: "2.5rem", opacity: 0.45 }}>🏠</span>
           <span style={{ fontSize: "0.78rem", color: "#8a9e90", fontWeight: 500 }}>
-            Photo unavailable
+            {label}
           </span>
         </div>
       )}
@@ -85,7 +140,9 @@ function formatDate(val) {
   return s;
 }
 
-export default function Examples() {
+export default function Examples({ lang = "en" }) {
+  const safeLang = lang === "zh" ? "zh" : "en";
+  const labels = RENTAL_PUBLIC_TEXT[safeLang];
   const [listings, setListings] = useState([]);
   const [coverPhotos, setCoverPhotos] = useState({});
   const [loading,  setLoading]  = useState(true);
@@ -150,18 +207,18 @@ export default function Examples() {
 
       {/* Hero */}
       <section className="tenant-hero">
-        <h1 className="tenant-hero__title">Public Rental Listings</h1>
-        <p className="tenant-hero__sub">Rental Studio</p>
+        <h1 className="tenant-hero__title">{labels.pageTitle}</h1>
+        <p className="tenant-hero__sub">{labels.studio}</p>
         <p className="tenant-hero__desc">
-          Browse current rentals and apply online.
+          {labels.pageDesc}
         </p>
         <div className="tenant-share-kit-wrap">
           <ShareKit
-            buttonLabel="Share Kit"
-            title="Tenant Rental Listings Share Kit"
-            subtitle="For tenants, applicants, and public rental listing sharing only."
+            buttonLabel={labels.shareKit}
+            title={labels.shareKitTitle}
+            subtitle={labels.shareKitSub}
             messages={TENANT_SHARE_MESSAGES}
-            linkLabel="Copy Current Page Link"
+            linkLabel={labels.shareLink}
           />
         </div>
       </section>
@@ -169,21 +226,21 @@ export default function Examples() {
       <div className="tenant-listings-body">
 
         {loading && (
-          <p className="tenant-loading">Loading listings…</p>
+          <p className="tenant-loading">{labels.loading}</p>
         )}
 
         {error && (
           <div className="notice notice--error" style={{ margin: "16px 0" }}>
-            <p>Failed to load listings: {error}</p>
+            <p>{labels.loadError} {error}</p>
           </div>
         )}
 
         {!loading && !error && listings.length === 0 && (
           <div className="tenant-empty">
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏘</div>
-            <p style={{ fontWeight: 700, marginBottom: 4 }}>No listings available right now.</p>
+            <p style={{ fontWeight: 700, marginBottom: 4 }}>{labels.emptyTitle}</p>
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-              Please check back later.
+              {labels.emptyDesc}
             </p>
           </div>
         )}
@@ -207,7 +264,7 @@ export default function Examples() {
                   return (
                     <div key={listing.id} className="rental-card">
                       {/* Cover photo — resolved with the same cover-selection logic as the detail page */}
-                      <ListingCardCover coverPhoto={coverPhoto} />
+                      <ListingCardCover coverPhoto={coverPhoto} label={labels.photoUnavailable} />
                       {/* Card header */}
                       <div className="rental-card__header">
                         <div>
@@ -222,7 +279,7 @@ export default function Examples() {
                             border: `1px solid ${statusMeta.border}`,
                           }}
                         >
-                          {statusMeta.label}
+                          {safeLang === "zh" && statusMeta.status === "Available" ? labels.statusAvailable : statusMeta.label}
                         </span>
                       </div>
 
@@ -230,25 +287,25 @@ export default function Examples() {
                       <div className="rental-card__facts">
                         {listing.rent && (
                           <div className="rental-card__fact">
-                            <span className="rental-card__fact-label">Rent</span>
-                            <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>/mo</small></span>
+                            <span className="rental-card__fact-label">{labels.rent}</span>
+                            <span className="rental-card__fact-value">${Number(listing.rent).toLocaleString()}<small>{labels.perMonth}</small></span>
                           </div>
                         )}
                         {listing.bedrooms && (
                           <div className="rental-card__fact">
-                            <span className="rental-card__fact-label">Beds</span>
+                            <span className="rental-card__fact-label">{labels.beds}</span>
                             <span className="rental-card__fact-value">{listing.bedrooms}</span>
                           </div>
                         )}
                         {listing.bathrooms && (
                           <div className="rental-card__fact">
-                            <span className="rental-card__fact-label">Baths</span>
+                            <span className="rental-card__fact-label">{labels.baths}</span>
                             <span className="rental-card__fact-value">{listing.bathrooms}</span>
                           </div>
                         )}
                         {avail && (
                           <div className="rental-card__fact">
-                            <span className="rental-card__fact-label">Available</span>
+                            <span className="rental-card__fact-label">{labels.available}</span>
                             <span className="rental-card__fact-value rental-card__fact-value--date">{avail}</span>
                           </div>
                         )}
@@ -261,7 +318,7 @@ export default function Examples() {
 
                       {statusMeta.applicationsClosed && (
                         <p style={{ fontSize: "0.82rem", color: statusMeta.color, fontWeight: 700, marginBottom: 10 }}>
-                          Applications closed
+                          {labels.applicationsClosed}
                         </p>
                       )}
 
@@ -271,13 +328,16 @@ export default function Examples() {
                         className="rental-card__cta"
                       >
                         {statusMeta.applicationsClosed
-                          ? "View Details / Status →"
-                          : "View Details / Apply →"}
+                          ? labels.viewDetailsStatus
+                          : labels.viewDetailsApply}
                       </Link>
                       <ShareButton
                         title={listing.address}
-                        text={`Check out this rental listing: ${listing.address}, ${listing.city}, BC`}
+                        text={`${labels.shareTextPrefix} ${listing.address}, ${listing.city}, BC`}
                         url={`${window.location.origin}/listings/${listing.id}`}
+                        label={labels.shareListing}
+                        copiedLabel={labels.copied}
+                        ariaLabel={labels.shareListing}
                       />
                     </div>
                   );

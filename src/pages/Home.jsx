@@ -304,7 +304,7 @@ const LANDLORD_SHARE_MESSAGES = [
 ];
 
 // Keys that are written fresh each day (policy, actions, summary)
-const DAILY_FLASH_KEYS = new Set(["policySummary", "landlordActionNotes", "websiteSummary"]);
+const DAILY_FLASH_TOP_KEYS = new Set(["policySummary", "landlordActionNotes"]);
 // Keys backed by monthly/quarterly data sources (CMHC, REBGV, Zumper)
 const WEEKLY_DATA_KEYS = new Set(["bcRentalSummary", "bcSaleSummary", "nanaimoRentalSummary", "nanaimoSaleSummary"]);
 
@@ -314,7 +314,7 @@ const DAILY_BRIEF_CARD_META = {
   bcSaleSummary:        { icon: "🏠", className: "" },
   nanaimoRentalSummary: { icon: "📍", className: "" },
   nanaimoSaleSummary:   { icon: "🏡", className: "" },
-  landlordActionNotes:  { icon: "💡", className: "lh-daily-brief__card--wide" },
+  landlordActionNotes:  { icon: "💡", className: "" },
   websiteSummary:       { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
 };
 
@@ -459,8 +459,22 @@ export default function Home({ lang }) {
                 </span>
                 <span className="lh-daily-brief__section-meta">{brief.date}</span>
               </div>
-              <div className="lh-daily-brief__grid">
-                {s.briefFields.filter(f => DAILY_FLASH_KEYS.has(f.key)).map((field) => {
+              <div className="lh-daily-brief__flash-grid">
+                {s.briefFields.filter(f => DAILY_FLASH_TOP_KEYS.has(f.key)).map((field) => {
+                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                  return (
+                    <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                      <div className="lh-daily-brief__card-head">
+                        <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                        <div className="lh-daily-brief__label">{field.label}</div>
+                      </div>
+                      <p>{brief[field.key] || "—"}</p>
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="lh-daily-brief__grid lh-daily-brief__grid--summary">
+                {s.briefFields.filter(f => f.key === "websiteSummary").map((field) => {
                   const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
                   return (
                     <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>

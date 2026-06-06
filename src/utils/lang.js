@@ -7,25 +7,16 @@ export function normalizeLang(value, fallback = "en") {
   return VALID_LANGS.includes(text) ? text : fallback;
 }
 
-function detectBrowserLang() {
-  if (typeof navigator === "undefined") return "en";
-  const values = [...(navigator.languages || []), navigator.language]
-    .map((item) => String(item || "").trim().toLowerCase())
-    .filter(Boolean);
-  return values.some((item) => item.startsWith("zh")) ? "zh" : "en";
-}
-
 export function readPreferredLang() {
-  const fallback = detectBrowserLang();
   try {
-    return normalizeLang(localStorage.getItem(LANG_STORAGE_KEY), fallback);
+    return normalizeLang(localStorage.getItem(LANG_STORAGE_KEY), "en");
   } catch {
-    return fallback;
+    return "en";
   }
 }
 
 export function persistLang(value) {
-  const normalized = normalizeLang(value, detectBrowserLang());
+  const normalized = normalizeLang(value, "en");
   try {
     localStorage.setItem(LANG_STORAGE_KEY, normalized);
   } catch {
@@ -36,6 +27,6 @@ export function persistLang(value) {
 
 export function applyDocumentLang(value) {
   if (typeof document === "undefined") return;
-  const normalized = normalizeLang(value, detectBrowserLang());
+  const normalized = normalizeLang(value, "en");
   document.documentElement.lang = normalized === "zh" ? "zh-CN" : "en";
 }

@@ -17,11 +17,33 @@ function isTenantRoute(pathname) {
   );
 }
 
+const TENANT_NAV = {
+  en: {
+    brand: "Vanisland Rentals",
+    home: "Home",
+    rentalListings: "Rental Listings",
+    rentalsMobile: "Rentals",
+    contact: "Contact",
+    applyNow: "Apply Now",
+    applyMobile: "Apply",
+  },
+  zh: {
+    brand: "Vanisland 出租",
+    home: "首页",
+    rentalListings: "出租房源",
+    rentalsMobile: "出租",
+    contact: "联系",
+    applyNow: "立即申请",
+    applyMobile: "申请",
+  },
+};
+
 export default function Navbar({ lang, setLang }) {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const safeLang = normalizeLang(lang);
   const tenant = isTenantRoute(pathname);
+  const tenantLabels = TENANT_NAV[safeLang] || TENANT_NAV.en;
   // When on a specific listing or apply page, route Apply Now to the in-app form for that listing.
   const listingId = pathname.startsWith("/listings/") ? pathname.replace("/listings/", "")
     : pathname.startsWith("/apply/") ? pathname.replace("/apply/", "")
@@ -36,23 +58,59 @@ export default function Navbar({ lang, setLang }) {
           <div className="navbar__inner">
             <Link to="/" className="navbar__brand tenant-brand" onClick={() => setOpen(false)}>
               <span>🏠</span>
-              Vanisland Rentals
+              {tenantLabels.brand}
             </Link>
             {/* Desktop tenant links */}
             <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
-              <li><Link to="/" onClick={() => setOpen(false)}>Home</Link></li>
-              <li><Link to="/examples" onClick={() => setOpen(false)}>Rental Listings</Link></li>
-              <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>Contact</Link></li>
+              <li><Link to="/" onClick={() => setOpen(false)}>{tenantLabels.home}</Link></li>
+              <li><Link to="/examples" onClick={() => setOpen(false)}>{tenantLabels.rentalListings}</Link></li>
+              <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>{tenantLabels.contact}</Link></li>
               <li>
                 <Link
                   to={applyTo}
                   className="tenant-apply-link"
                   onClick={() => setOpen(false)}
                 >
-                  Apply Now
+                  {tenantLabels.applyNow}
                 </Link>
               </li>
+              <li className="navbar__lang navbar__lang--tenant">
+                <button
+                  className={safeLang === "en" ? "active" : ""}
+                  onClick={() => { setLang("en"); setOpen(false); }}
+                  translate="no"
+                  lang="en"
+                >
+                  EN
+                </button>
+                <button
+                  className={safeLang === "zh" ? "active" : ""}
+                  onClick={() => { setLang("zh"); setOpen(false); }}
+                  translate="no"
+                  lang="zh-CN"
+                >
+                  中文
+                </button>
+              </li>
             </ul>
+            <div className="tenant-mobile-lang">
+              <button
+                className={safeLang === "en" ? "active" : ""}
+                onClick={() => setLang("en")}
+                translate="no"
+                lang="en"
+              >
+                EN
+              </button>
+              <button
+                className={safeLang === "zh" ? "active" : ""}
+                onClick={() => setLang("zh")}
+                translate="no"
+                lang="zh-CN"
+              >
+                中文
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -60,19 +118,19 @@ export default function Navbar({ lang, setLang }) {
         <nav className="mobile-bottom-nav" aria-label="Tenant navigation">
           <Link to="/" className={`mobile-bottom-nav__item${pathname === "/" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">🏠</span>
-            <span className="mobile-bottom-nav__label">Home</span>
+            <span className="mobile-bottom-nav__label">{tenantLabels.home}</span>
           </Link>
           <Link to="/examples" className={`mobile-bottom-nav__item${pathname === "/examples" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">🏘</span>
-            <span className="mobile-bottom-nav__label">Rentals</span>
+            <span className="mobile-bottom-nav__label">{tenantLabels.rentalsMobile}</span>
           </Link>
           <Link to="/tenant-contact" className={`mobile-bottom-nav__item${pathname === "/tenant-contact" ? " active" : ""}`}>
             <span className="mobile-bottom-nav__icon">📞</span>
-            <span className="mobile-bottom-nav__label">Contact</span>
+            <span className="mobile-bottom-nav__label">{tenantLabels.contact}</span>
           </Link>
           <Link to={applyTo} className="mobile-bottom-nav__item mobile-bottom-nav__item--apply">
             <span className="mobile-bottom-nav__icon">📋</span>
-            <span className="mobile-bottom-nav__label">Apply</span>
+            <span className="mobile-bottom-nav__label">{tenantLabels.applyMobile}</span>
           </Link>
         </nav>
       </>

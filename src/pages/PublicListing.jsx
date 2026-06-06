@@ -17,6 +17,61 @@ const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
 const FORM_URL_READY  = RENTAL_FORM_URL &&
   !RENTAL_FORM_URL.startsWith("PASTE_MY");
 
+const PUBLIC_LISTING_TEXT = {
+  en: {
+    loadingListing: "Loading listing...",
+    listingNotFound: "Listing not found.",
+    backHome: "← Back to Home",
+    rent: "Rent",
+    monthlyRent: "Monthly Rent",
+    available: "Available",
+    bedrooms: "Bedrooms",
+    bathrooms: "Bathrooms",
+    perMonthLong: " / month",
+    perMonthShort: "/mo",
+    propertyDetails: "Property Details",
+    keyFeatures: "Key Features",
+    loadingPhotos: "Loading photos...",
+    photos: "photos",
+    applyTitle: "Apply for This Rental",
+    applyDesc: "Interested applicants may apply online using the rental application form. Please have proof of income, credit information, references, and tenant insurance details ready.",
+    applyingFor: "Applying for:",
+    listingId: "Listing ID:",
+    status: "Status:",
+    applyNow: "Apply Now →",
+    applicationsClosed: "Applications Closed",
+    closedNote: "This listing remains visible, but it is not currently accepting new applications.",
+    shareListing: "Share Listing",
+    copied: "✓ Link copied",
+  },
+  zh: {
+    loadingListing: "正在加载房源...",
+    listingNotFound: "未找到房源。",
+    backHome: "← 返回首页",
+    rent: "租金",
+    monthlyRent: "租金",
+    available: "可入住日期",
+    bedrooms: "卧室",
+    bathrooms: "卫生间",
+    perMonthLong: " 每月",
+    perMonthShort: "每月",
+    propertyDetails: "房源详情",
+    keyFeatures: "主要特点",
+    loadingPhotos: "正在加载照片...",
+    photos: "张照片",
+    applyTitle: "申请此出租房源",
+    applyDesc: "感兴趣的申请人可以使用在线租赁申请表提交申请。请提前准备收入证明、信用资料、推荐人和租客保险相关信息。",
+    applyingFor: "申请房源：",
+    listingId: "房源编号：",
+    status: "状态：",
+    applyNow: "立即申请 →",
+    applicationsClosed: "申请已关闭",
+    closedNote: "此房源仍可查看，但目前不接受新的申请。",
+    shareListing: "分享房源",
+    copied: "✓ 已复制链接",
+  },
+};
+
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
 // Build a prefilled Google Form URL for the given listing.
@@ -112,8 +167,10 @@ function ThumbPhoto({ file }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function PublicListing() {
+export default function PublicListing({ lang = "en" }) {
   const { id } = useParams();
+  const safeLang = lang === "zh" ? "zh" : "en";
+  const labels = PUBLIC_LISTING_TEXT[safeLang];
   const [listing,      setListing]      = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState(null);
@@ -188,7 +245,7 @@ export default function PublicListing() {
   if (loading) {
     return (
       <div className="page-wrapper" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <p style={{ color: "var(--color-text-muted)" }}>Loading listing…</p>
+        <p style={{ color: "var(--color-text-muted)" }}>{labels.loadingListing}</p>
       </div>
     );
   }
@@ -196,8 +253,8 @@ export default function PublicListing() {
   if (error || !listing) {
     return (
       <div className="page-wrapper" style={{ padding: "60px 20px", textAlign: "center" }}>
-        <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>{error || "Listing not found."}</p>
-        <Link to="/" className="btn btn--ghost btn--sm">← Back to Home</Link>
+        <p style={{ color: "var(--color-text-muted)", marginBottom: 16 }}>{error || labels.listingNotFound}</p>
+        <Link to="/" className="btn btn--ghost btn--sm">{labels.backHome}</Link>
       </div>
     );
   }
@@ -213,14 +270,14 @@ export default function PublicListing() {
     : photos;
 
   const detailRows = [
-    ["Monthly Rent",   listing.rent ? `$${Number(listing.rent).toLocaleString()} / month` : null],
-    ["Available",      formatDate(listing.available)],
-    ["Lease Term",     listing.leaseTerm],
-    ["Utilities",      listing.utilities],
-    ["Pets",           listing.pets],
-    ["Parking",        listing.parking],
-    ["Laundry",        listing.laundry],
-    ["Smoking Policy", listing.smoking],
+    [labels.monthlyRent, listing.rent ? `$${Number(listing.rent).toLocaleString()}${labels.perMonthLong}` : null],
+    [labels.available,   formatDate(listing.available)],
+    [safeLang === "zh" ? "租期" : "Lease Term", listing.leaseTerm],
+    [safeLang === "zh" ? "水电杂费" : "Utilities", listing.utilities],
+    [safeLang === "zh" ? "宠物" : "Pets", listing.pets],
+    [safeLang === "zh" ? "停车" : "Parking", listing.parking],
+    [safeLang === "zh" ? "洗衣" : "Laundry", listing.laundry],
+    [safeLang === "zh" ? "吸烟政策" : "Smoking Policy", listing.smoking],
   ].filter(([, v]) => v);
 
   const featureList = (listing.features || "")
@@ -583,10 +640,10 @@ export default function PublicListing() {
       <div style={{ background: "#fff", borderBottom: "1px solid #e5dfd6" }}>
         <div className="listing-facts-strip public-listing-shell" style={{ display: "flex", flexWrap: "wrap" }}>
           {[
-            ["Rent",      listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
-            ["Available", formatDate(listing.available)],
-            ["Bedrooms",  String(listing.bedrooms || "—")],
-            ["Bathrooms", String(listing.bathrooms || "—")],
+            [labels.rent,      listing.rent ? `$${Number(listing.rent).toLocaleString()}${labels.perMonthShort}` : "—"],
+            [labels.available, formatDate(listing.available)],
+            [labels.bedrooms,  String(listing.bedrooms || "—")],
+            [labels.bathrooms, String(listing.bathrooms || "—")],
           ].map(([label, val], i, arr) => (
             <div key={label} style={{
               flex: "1 1 120px", padding: "16px 16px 14px",
@@ -609,7 +666,7 @@ export default function PublicListing() {
 
             {/* ── Photos ──────────────────────────────────────────────────────── */}
             {photosLoading && (
-              <p style={{ marginTop: 24, color: "var(--color-text-muted)", fontSize: "0.88rem" }}>Loading photos…</p>
+              <p style={{ marginTop: 24, color: "var(--color-text-muted)", fontSize: "0.88rem" }}>{labels.loadingPhotos}</p>
             )}
             {!photosLoading && orderedPhotos.length > 0 && (
               <div style={{ marginTop: 24 }}>
@@ -619,7 +676,7 @@ export default function PublicListing() {
                 {orderedPhotos.length > 1 && (
                   <div>
                     <div style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginBottom: 8 }}>
-                      {orderedPhotos.length} photos
+                      {orderedPhotos.length} {labels.photos}
                     </div>
                     <div
                       style={{
@@ -638,7 +695,7 @@ export default function PublicListing() {
             {/* ── Property details ────────────────────────────────────────────── */}
             <div style={{ ...sectionCard, marginTop: 24 }}>
               <h2 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 16, color: "#3e5b4b" }}>
-                Property Details
+                {labels.propertyDetails}
               </h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "14px 24px" }}>
                 {detailRows.map(([label, val]) => (
@@ -651,7 +708,7 @@ export default function PublicListing() {
 
               {featureList.length > 0 && (
                 <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--color-border)" }}>
-                  <div style={{ ...labelStyle, marginBottom: 10 }}>Key Features</div>
+                  <div style={{ ...labelStyle, marginBottom: 10 }}>{labels.keyFeatures}</div>
                   <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                     {featureList.map((f, i) => (
                       <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.9rem", lineHeight: 1.55 }}>
@@ -670,18 +727,17 @@ export default function PublicListing() {
               border: "2px solid #3e5b4b", padding: "28px 20px",
             }}>
           <h2 style={{ fontWeight: 800, fontSize: "1.15rem", marginBottom: 10, color: "#3e5b4b" }}>
-            Apply for This Rental
+            {labels.applyTitle}
           </h2>
           <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75, marginBottom: 20 }}>
-            Interested applicants may apply online using the rental application form.
-            Please have proof of income, credit information, references, and tenant insurance details ready.
+            {labels.applyDesc}
           </p>
 
           {/* Listing context */}
           <div style={{ background: "#edf3ee", borderRadius: 8, padding: "12px 16px", marginBottom: 22, fontSize: "0.88rem", lineHeight: 1.9 }}>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Applying for: </span><strong>{title}</strong></div>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Listing ID: </span><code style={{ fontSize: "0.84rem" }}>{listing.id}</code></div>
-            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>Status: </span><strong>{statusMeta.label}</strong></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>{labels.applyingFor} </span><strong>{title}</strong></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>{labels.listingId} </span><code style={{ fontSize: "0.84rem" }}>{listing.id}</code></div>
+            <div><span style={{ color: "var(--color-text-muted)", fontWeight: 600 }}>{labels.status} </span><strong>{safeLang === "zh" && statusMeta.status === "Available" ? "可租" : statusMeta.label}</strong></div>
           </div>
 
           {/* Primary CTA */}
@@ -699,10 +755,10 @@ export default function PublicListing() {
                   border: "none", cursor: "not-allowed",
                 }}
               >
-                Applications Closed
+                {labels.applicationsClosed}
               </button>
               <p style={{ fontSize: "0.82rem", color: statusMeta.color, textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
-                This listing remains visible, but it is not currently accepting new applications.
+                {labels.closedNote}
               </p>
             </div>
           ) : (
@@ -718,7 +774,7 @@ export default function PublicListing() {
                 boxShadow: "0 3px 10px rgba(62,91,75,0.3)",
               }}
             >
-              Apply Now →
+              {labels.applyNow}
             </Link>
           )}
 
@@ -881,6 +937,9 @@ export default function PublicListing() {
                 title={title}
                 text={`Check out this rental listing: ${title}`}
                 url={window.location.href}
+                label={labels.shareListing}
+                copiedLabel={labels.copied}
+                ariaLabel={labels.shareListing}
               />
             </div>
           ) : (
@@ -889,6 +948,9 @@ export default function PublicListing() {
               title={title}
               text={`Check out this rental listing: ${title}`}
               url={window.location.href}
+              label={labels.shareListing}
+              copiedLabel={labels.copied}
+              ariaLabel={labels.shareListing}
             />
           )}
             </div>
@@ -936,7 +998,7 @@ export default function PublicListing() {
                     fontSize: "1rem", textDecoration: "none", textAlign: "center",
                   }}
                 >
-                  Apply Now →
+                  {labels.applyNow}
                 </Link>
               )}
             </div>

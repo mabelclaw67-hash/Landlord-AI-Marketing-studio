@@ -659,9 +659,32 @@ tr:hover td { background: #F9F6F0; }
 .tenant-brand { font-size: 1rem; }
 .navbar__links--tenant { gap: 4px; }
 .navbar__links--tenant a { padding: 8px 14px; font-size: 0.9rem; border-radius: 6px; }
+.navbar__lang--tenant { margin-left: 8px; }
+.tenant-mobile-lang { display: none; }
 /* On mobile, hide tenant top nav links — the bottom nav handles navigation */
 @media (max-width: 768px) {
   .navbar__links--tenant { display: none !important; }
+  .tenant-mobile-lang {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .tenant-mobile-lang button {
+    min-height: 32px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .tenant-mobile-lang button.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+  }
 }
 
 /* De-emphasise Admin Studio link in mobile hamburger menu */
@@ -2355,6 +2378,17 @@ tr:hover td { background: #F9F6F0; }
   gap: 14px;
 }
 
+.lh-daily-brief__flash-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(480px, 1.6fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.lh-daily-brief__grid--summary {
+  margin-top: 14px;
+}
+
 .lh-daily-brief__card--wide {
   grid-column: span 3;
 }
@@ -3347,6 +3381,15 @@ tr:hover td { background: #F9F6F0; }
 
   .lh-daily-brief__grid {
     grid-template-columns: 1fr;
+  }
+
+  .lh-daily-brief__flash-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .lh-daily-brief__grid--summary {
+    margin-top: 14px;
   }
 
   .lh-daily-brief__card--wide {

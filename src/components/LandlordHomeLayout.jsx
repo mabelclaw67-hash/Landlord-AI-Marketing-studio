@@ -2,17 +2,6 @@ import { NavLink, Link } from "react-router-dom";
 import Home from "../pages/Home";
 import { normalizeLang } from "../utils/lang";
 
-const FREE_CARDS = {
-  en: [
-    { icon: "📷", title: "Photo Tips", to: "/photo-tips" },
-    { icon: "❓", title: "FAQ",         to: "/faq" },
-  ],
-  zh: [
-    { icon: "📷", title: "拍照建议", to: "/photo-tips" },
-    { icon: "❓", title: "常见问题", to: "/faq" },
-  ],
-};
-
 const NAV = {
   en: {
     mainLabel: "MAIN",
@@ -20,8 +9,10 @@ const NAV = {
     services: "Services",
     rental: "Rental Studio",
     sale: "Home Sale Studio",
+    photoGuide: "Photo Guide",
+    faq: "FAQ",
     resources: "Resources",
-    contact: "Contact / Request",
+    contact: "Contact / Apply",
     workspaceLabel: "WORKSPACE",
     admin: "Admin Studio",
     requestAccess: "Request Access",
@@ -37,10 +28,12 @@ const NAV = {
   zh: {
     mainLabel: "导航",
     home: "首页",
-    services: "服务",
+    services: "服务介绍",
     rental: "出租工作台",
     sale: "出售工作台",
-    resources: "资源",
+    photoGuide: "拍照指南",
+    faq: "常见问题",
+    resources: "资源中心",
     contact: "联系 / 申请",
     workspaceLabel: "工作区",
     admin: "管理后台",
@@ -88,6 +81,14 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏠</span>
             <span><strong>{n.sale}</strong></span>
+          </NavLink>
+          <NavLink to="/photo-tips" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+            <span className="lh-nav-item__icon">📷</span>
+            <span><strong>{n.photoGuide}</strong></span>
+          </NavLink>
+          <NavLink to="/faq" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+            <span className="lh-nav-item__icon">❓</span>
+            <span><strong>{n.faq}</strong></span>
           </NavLink>
           <NavLink to="/resources" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">📚</span>
@@ -151,16 +152,6 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <Home lang={lang} />
       </main>
-
-      {/* Floating Resource Cards */}
-      <div className="lh-float-resources" aria-label="Free resources">
-        {FREE_CARDS[safeLang].map((card) => (
-          <Link key={card.to} to={card.to} className="lh-float-card">
-            <span className="lh-float-card__icon">{card.icon}</span>
-            <span className="lh-float-card__label">{card.title}</span>
-          </Link>
-        ))}
-      </div>
 
       {/* Mobile Bottom Navigation */}
       <nav className="lh-mobile-bottom" aria-label="Main navigation">
