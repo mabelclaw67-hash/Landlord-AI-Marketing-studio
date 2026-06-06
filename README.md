@@ -1,3 +1,11 @@
+# Legacy Notice
+
+This README is a legacy reference and does not fully describe the current production system.
+
+Current project purpose: Landlord AI Marketing Studio supports rental listing workflow, home sale workflow, photo upload/enhancement, Cloudinary/video/media flow, rental application / lead capture, PDF download, and Netlify deployment.
+
+---
+
 # Landlord AI Marketing Studio — v0.1 Prototype
 ### 房东 AI 广告工作台 — v0.1 原型
 

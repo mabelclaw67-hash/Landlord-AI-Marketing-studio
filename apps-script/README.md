@@ -1,3 +1,12 @@
+# Legacy Notice
+
+This Apps Script README is a legacy reference. The current system has both rental backend and home sale backend.
+
+- `apps-script/Code.gs` = rental/listing/application/contact/daily brief/Cloudinary backend
+- `apps-script/HomeSaleStudioRead.gs` = home sale listing/media/marketing/video/buyer inquiry backend
+
+---
+
 # Apps Script Deployment — Vanisland AI Studio v0.2
 
 ## Prerequisites

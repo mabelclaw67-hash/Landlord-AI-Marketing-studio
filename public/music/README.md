@@ -1,3 +1,11 @@
+# Outdated Notice
+
+This music README is outdated. The active source of truth is public/music/music-manifest.json.
+
+Do not rename MP3 files unless `public/music/music-manifest.json` and the video flow are updated together.
+
+---
+
 # Background Music for Real Estate Video Studio
 
 Place royalty-free MP3 files here to enable background music in generated listing videos.
