@@ -20,6 +20,7 @@ const NAV = {
     mobileFooter: "On mobile, the sidebar becomes a bottom navigation bar for seamless access across devices.",
     mobileFooterTitle: "Mobile Experience",
     mobileAdmin: "⚙️ Admin",
+    mobilePhotoGuide: "Photos",
     mobileRentals: "Rentals",
     mobileSale: "Sale",
     mobileTrial: "Trial",
@@ -42,6 +43,7 @@ const NAV = {
     mobileFooter: "在移动端，侧边栏将变为底部导航栏，方便随时访问。",
     mobileFooterTitle: "移动端体验",
     mobileAdmin: "⚙️ 后台",
+    mobilePhotoGuide: "拍照",
     mobileRentals: "出租",
     mobileSale: "出售",
     mobileTrial: "试用",
@@ -158,6 +160,10 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         <NavLink to="/" end className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>🏠</span>
           <span>{n.home}</span>
+        </NavLink>
+        <NavLink to="/photo-tips" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+          <span>📷</span>
+          <span>{n.mobilePhotoGuide}</span>
         </NavLink>
         <NavLink to="/examples" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>🏘️</span>
