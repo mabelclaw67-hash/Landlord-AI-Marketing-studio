@@ -518,35 +518,27 @@ export default function Home({ lang }) {
                   const title = safeLang === "zh" ? report.titleCn : report.titleEn;
                   const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
                   return (
-                    <article key={report.reportId || report.reportUrl} className="lh-daily-brief__card">
+                    <article key={report.reportId || report.reportPath} className="lh-daily-brief__card">
                       <div className="lh-daily-brief__card-head">
                         <div className="lh-daily-brief__card-icon" aria-hidden="true">📘</div>
                         <div className="lh-daily-brief__label">{title}</div>
                       </div>
                       <p>{desc}</p>
-                      <a
-                        href={report.reportUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <Link
+                        to={report.reportPath || `/reports/${report.reportId}`}
                         className="lh-daily-brief__detail-link"
                       >
                         {safeLang === "zh" ? "查看报告 →" : "View Report →"}
-                      </a>
+                      </Link>
                     </article>
                   );
                 })}
               </div>
 
               <div className="lh-daily-brief__actions">
-                {brief.fullReportUrl ? (
-                  <a href={brief.fullReportUrl} target="_blank" rel="noreferrer" className="lh-btn lh-btn--sand">
-                    {s.viewFullReport}
-                  </a>
-                ) : (
-                  <button type="button" className="lh-btn lh-btn--sand lh-btn--disabled" disabled>
-                    {s.viewFullReport}
-                  </button>
-                )}
+                <Link to="/reports/daily-market-brief" className="lh-btn lh-btn--sand">
+                  {s.viewFullReport}
+                </Link>
                 <button type="button" className="lh-btn lh-btn--white" onClick={handleCopyWechat}>
                   {wechatCopied ? s.copiedWechat : s.copyWechat}
                 </button>

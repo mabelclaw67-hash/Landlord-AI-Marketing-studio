@@ -188,7 +188,7 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "syncDailyMarketBrief"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getWebsiteReport", "syncDailyMarketBrief"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
@@ -196,6 +196,7 @@ function doGet(e) {
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
+    if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
     if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
     if (action === "getContactRequests")  return ok(getContactRequests_(auth));
@@ -383,7 +384,6 @@ function getDailyMarketBrief_() {
     }
   }
 
-  var fullReportHeader = firstHeaderMatch_(headerMap, ["Full Report URL", "Report URL", "Google Doc URL", "Doc URL"]);
   var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var displayValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
   var latest = null;
@@ -413,13 +413,6 @@ function getDailyMarketBrief_() {
 
   var latestRow = latest.row;
   var latestDisplayRow = latest.displayRow || latest.row;
-  var fullReportUrl = "";
-  if (fullReportHeader) {
-    fullReportUrl = normalizeCellText_(colVal_(latestRow, headerMap, fullReportHeader));
-  }
-  if (!fullReportUrl && headerMap["Source Doc Link"] !== undefined) {
-    fullReportUrl = normalizeCellText_(colVal_(latestRow, headerMap, "Source Doc Link"));
-  }
 
   return {
     date: normalizeCellText_(colVal_(latestDisplayRow, headerMap, dateHeader)) ||
@@ -433,7 +426,7 @@ function getDailyMarketBrief_() {
     landlordActionNotes: normalizeCellText_(colVal_(latestRow, headerMap, "Landlord Action Notes")),
     websiteSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Website Summary")),
     wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
-    fullReportUrl: fullReportUrl,
+    fullReportPath: "/reports/daily-market-brief",
     websiteReports: getPublishedWebsiteReports_(),
   };
 }
@@ -516,10 +509,93 @@ function getPublishedWebsiteReports_() {
       titleCn: report.titleCn,
       descriptionEn: report.descriptionEn,
       descriptionCn: report.descriptionCn,
-      reportUrl: report.reportUrl,
+      reportPath: "/reports/" + encodeURIComponent(report.reportId),
       sortOrder: report.sortOrder,
     };
   });
+}
+
+function getWebsiteReport_(reportId) {
+  reportId = normalizeCellText_(reportId);
+  if (!reportId) throw new Error("Missing reportId.");
+
+  var report = findPublishedWebsiteReport_(reportId);
+  if (!report) throw new Error("Published report not found: " + reportId);
+
+  var docId = extractGoogleDocId_(report.reportUrl);
+  if (!docId) throw new Error("Report URL is not a supported Google Doc URL.");
+
+  var bodyText = DocumentApp.openById(docId).getBody().getText();
+  var lines = normalizeReportBodyText_(bodyText);
+
+  return {
+    reportId: report.reportId,
+    date: report.date,
+    category: report.category,
+    titleEn: report.titleEn,
+    titleCn: report.titleCn,
+    descriptionEn: report.descriptionEn,
+    descriptionCn: report.descriptionCn,
+    lines: lines,
+  };
+}
+
+function findPublishedWebsiteReport_(reportId) {
+  var ss = getBriefSpreadsheet_();
+  var sheet = ss.getSheetByName(WEBSITE_REPORTS_SHEET);
+  if (!sheet) return null;
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return null;
+
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var displayRows = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var displayRow = displayRows[i];
+    var rowReportId = normalizeCellText_(colVal_(row, headerMap, "Report_ID"));
+    var status = normalizeCellText_(colVal_(row, headerMap, "Status")).toLowerCase();
+    if (rowReportId !== reportId || status !== "published") continue;
+
+    return {
+      reportId: rowReportId,
+      date: normalizeCellText_(colVal_(displayRow, headerMap, "Date")),
+      category: normalizeCellText_(colVal_(row, headerMap, "Category")),
+      titleEn: normalizeCellText_(colVal_(row, headerMap, "Title_EN")),
+      titleCn: normalizeCellText_(colVal_(row, headerMap, "Title_CN")),
+      descriptionEn: normalizeCellText_(colVal_(row, headerMap, "Description_EN")),
+      descriptionCn: normalizeCellText_(colVal_(row, headerMap, "Description_CN")),
+      reportUrl: normalizeCellText_(colVal_(row, headerMap, "Report_URL")),
+    };
+  }
+
+  return null;
+}
+
+function extractGoogleDocId_(url) {
+  var text = normalizeCellText_(url);
+  var match = text.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : "";
+}
+
+function normalizeReportBodyText_(text) {
+  var rawLines = String(text || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r/g, "\n")
+    .split("\n");
+  var lines = [];
+
+  for (var i = 0; i < rawLines.length; i++) {
+    var line = rawLines[i].replace(/\t/g, " ").replace(/\s+/g, " ").trim();
+    if (!line) continue;
+    if (line === "第 页") continue;
+    lines.push(line);
+  }
+
+  return lines;
 }
 
 function getBriefConfigValue_(key) {

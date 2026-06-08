@@ -2441,6 +2441,122 @@ tr:hover td { background: #F9F6F0; }
   margin-top: 16px;
 }
 
+.website-report {
+  min-height: 100vh;
+  background: #faf8f4;
+  padding: calc(var(--nav-height, 76px) + 30px) 18px 70px;
+}
+
+.website-report__inner {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.website-report__back {
+  display: inline-flex;
+  align-items: center;
+  color: #2d5a3d;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 18px;
+}
+
+.website-report__header,
+.website-report__content,
+.website-report__panel {
+  background: #fff;
+  border: 1px solid #e8e2d9;
+  border-radius: 8px;
+  box-shadow: 0 12px 34px rgba(30, 58, 47, 0.08);
+}
+
+.website-report__header {
+  padding: 30px;
+  margin-bottom: 18px;
+}
+
+.website-report__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #5c7a62;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.website-report__header h1 {
+  font-family: var(--lh-font-heading, Georgia, serif);
+  color: #1e3a2f;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.1;
+  margin: 0 0 12px;
+}
+
+.website-report__header p {
+  color: #44544a;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.website-report__content {
+  padding: 28px 30px;
+}
+
+.website-report__content h2 {
+  color: #1e3a2f;
+  font-size: 1.45rem;
+  line-height: 1.35;
+  margin: 28px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #c8a96a;
+}
+
+.website-report__content h2:first-child {
+  margin-top: 0;
+}
+
+.website-report__content h3 {
+  color: #2d5a3d;
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin: 22px 0 10px;
+}
+
+.website-report__content p,
+.website-report__content li {
+  color: #2f3f35;
+  font-size: 1rem;
+  line-height: 1.78;
+}
+
+.website-report__content p {
+  margin: 0 0 12px;
+}
+
+.website-report__list {
+  margin: 0 0 10px 22px;
+  padding: 0;
+}
+
+.website-report__callout {
+  background: #fff7d7;
+  border-left: 4px solid #c8a96a;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-weight: 650;
+}
+
+.website-report__panel {
+  padding: 26px;
+  color: #44544a;
+}
+
+.website-report__panel--error {
+  border-color: #e6b7b7;
+  color: #8a2d2d;
+}
+
 /* Section dividers — Today's Update / Market Data */
 .lh-daily-brief__section-head {
   display: flex;
