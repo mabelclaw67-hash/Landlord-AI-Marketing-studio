@@ -337,6 +337,7 @@ export default function Home({ lang }) {
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError] = useState("");
   const [wechatCopied, setWechatCopied] = useState(false);
+  const websiteReports = Array.isArray(brief?.websiteReports) ? brief.websiteReports : [];
   const homepageBriefDate = getVancouverTodayText();
 
   useEffect(() => {
@@ -510,6 +511,27 @@ export default function Home({ lang }) {
                       <div className="lh-daily-brief__detail-link">
                         {safeLang === "zh" ? "查看详情 →" : "View details →"}
                       </div>
+                    </article>
+                  );
+                })}
+                {websiteReports.map((report) => {
+                  const title = safeLang === "zh" ? report.titleCn : report.titleEn;
+                  const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
+                  return (
+                    <article key={report.reportId || report.reportUrl} className="lh-daily-brief__card">
+                      <div className="lh-daily-brief__card-head">
+                        <div className="lh-daily-brief__card-icon" aria-hidden="true">📘</div>
+                        <div className="lh-daily-brief__label">{title}</div>
+                      </div>
+                      <p>{desc}</p>
+                      <a
+                        href={report.reportUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="lh-daily-brief__detail-link"
+                      >
+                        {safeLang === "zh" ? "查看报告 →" : "View Report →"}
+                      </a>
                     </article>
                   );
                 })}

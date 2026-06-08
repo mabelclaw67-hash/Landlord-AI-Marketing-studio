@@ -15,6 +15,7 @@ var SYSTEM_SETTINGS_SHEET = "08 System Settings";
 var DAILY_MARKET_BRIEF_SHEET = "01 Daily Market Brief";
 var DAILY_MARKET_BRIEF_CONFIG_SHEET = "02 Config";
 var DAILY_MARKET_BRIEF_SYNC_LOG_SHEET = "03 Sync Log";
+var WEBSITE_REPORTS_SHEET = "Website Reports";
 var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
 
 var INTAKE_HEADERS = [
@@ -433,7 +434,92 @@ function getDailyMarketBrief_() {
     websiteSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Website Summary")),
     wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
     fullReportUrl: fullReportUrl,
+    websiteReports: getPublishedWebsiteReports_(),
   };
+}
+
+function getPublishedWebsiteReports_() {
+  var ss = getBriefSpreadsheet_();
+  var sheet = ss.getSheetByName(WEBSITE_REPORTS_SHEET);
+  if (!sheet) return [];
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) return [];
+
+  var headerMap = getHeaderMap_(sheet);
+  var requiredHeaders = [
+    "Report_ID",
+    "Date",
+    "Category",
+    "Title_EN",
+    "Title_CN",
+    "Description_EN",
+    "Description_CN",
+    "Report_URL",
+    "Status",
+    "Sort_Order",
+  ];
+  for (var i = 0; i < requiredHeaders.length; i++) {
+    if (headerMap[requiredHeaders[i]] === undefined) {
+      throw new Error('Website Reports sheet is missing required column: "' + requiredHeaders[i] + '".');
+    }
+  }
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var displayRows = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  var reports = [];
+
+  for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    var row = rows[rowIndex];
+    var displayRow = displayRows[rowIndex];
+    var status = normalizeCellText_(colVal_(row, headerMap, "Status")).toLowerCase();
+    if (status !== "published") continue;
+
+    var reportUrl = normalizeCellText_(colVal_(row, headerMap, "Report_URL"));
+    if (!reportUrl) continue;
+
+    var sortText = normalizeCellText_(colVal_(row, headerMap, "Sort_Order"));
+    var sortOrder = sortText === "" ? null : Number(sortText);
+    if (sortOrder !== null && isNaN(sortOrder)) sortOrder = null;
+
+    var dateText = normalizeCellText_(colVal_(displayRow, headerMap, "Date"));
+    var dateValue = normalizeBriefDateValue_(dateText);
+
+    reports.push({
+      reportId: normalizeCellText_(colVal_(row, headerMap, "Report_ID")),
+      date: dateText,
+      category: normalizeCellText_(colVal_(row, headerMap, "Category")),
+      titleEn: normalizeCellText_(colVal_(row, headerMap, "Title_EN")),
+      titleCn: normalizeCellText_(colVal_(row, headerMap, "Title_CN")),
+      descriptionEn: normalizeCellText_(colVal_(row, headerMap, "Description_EN")),
+      descriptionCn: normalizeCellText_(colVal_(row, headerMap, "Description_CN")),
+      reportUrl: reportUrl,
+      sortOrder: sortOrder,
+      dateTime: dateValue ? dateValue.getTime() : 0,
+    });
+  }
+
+  reports.sort(function(a, b) {
+    if (a.sortOrder !== null && b.sortOrder !== null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder !== null) return -1;
+    if (b.sortOrder !== null) return 1;
+    return b.dateTime - a.dateTime;
+  });
+
+  return reports.map(function(report) {
+    return {
+      reportId: report.reportId,
+      date: report.date,
+      category: report.category,
+      titleEn: report.titleEn,
+      titleCn: report.titleCn,
+      descriptionEn: report.descriptionEn,
+      descriptionCn: report.descriptionCn,
+      reportUrl: report.reportUrl,
+      sortOrder: report.sortOrder,
+    };
+  });
 }
 
 function getBriefConfigValue_(key) {

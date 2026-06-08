@@ -2426,6 +2426,7 @@ tr:hover td { background: #F9F6F0; }
 }
 
 .lh-daily-brief__detail-link {
+  display: inline-block;
   margin-top: 12px;
   color: #6c7f6c;
   font-size: 0.98rem;
