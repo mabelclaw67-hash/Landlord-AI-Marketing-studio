@@ -508,9 +508,12 @@ export default function Home({ lang }) {
                         <div className="lh-daily-brief__label">{field.label}</div>
                       </div>
                       <p>{brief[field.key] || "—"}</p>
-                      <div className="lh-daily-brief__detail-link">
+                      <Link
+                        to={`/reports/daily-market-brief#${field.key}`}
+                        className="lh-daily-brief__detail-link"
+                      >
                         {safeLang === "zh" ? "查看详情 →" : "View details →"}
-                      </div>
+                      </Link>
                     </article>
                   );
                 })}

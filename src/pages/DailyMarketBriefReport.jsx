@@ -47,6 +47,12 @@ export default function DailyMarketBriefReport({ lang }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (loading || error || !window.location.hash) return;
+    var target = document.getElementById(window.location.hash.slice(1));
+    if (target) target.scrollIntoView({ block: "start" });
+  }, [loading, error]);
+
   return (
     <main className="website-report">
       <div className="website-report__inner">
@@ -74,7 +80,7 @@ export default function DailyMarketBriefReport({ lang }) {
 
             <article className="website-report__content">
               {(FIELDS[safeLang] || FIELDS.en).map(([key, label]) => (
-                <section key={key}>
+                <section key={key} id={key} className="website-report__section">
                   <h2>{label}</h2>
                   <p>{brief?.[key] || "—"}</p>
                 </section>
