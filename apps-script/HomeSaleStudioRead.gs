@@ -10,7 +10,8 @@ var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
 var HOME_SALE_VIDEO_SHEET = "05 Video Scripts";
 var HOME_SALE_BUYER_INQUIRIES_SHEET = "04 Buyer Inquiries";
-var HOME_SALE_ADMIN_ACCESS_CODE = "246810"; // local security test only
+// No hardcoded code. Set 'HOME_SALE_ADMIN_ACCESS_CODE' in Apps Script -> Project Settings -> Script Properties.
+var HOME_SALE_ADMIN_ACCESS_CODE = PropertiesService.getScriptProperties().getProperty('HOME_SALE_ADMIN_ACCESS_CODE') || "";
 var HOME_SALE_LISTING_ACCESS_HEADERS = [
   "Created By Email",
   "Created By Access Code",
