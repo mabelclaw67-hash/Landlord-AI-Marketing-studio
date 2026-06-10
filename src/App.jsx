@@ -39,6 +39,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import PhotoTips from "./pages/admin/PhotoTips";
 import Faq from "./pages/admin/Faq";
 import RentalApplication from "./pages/RentalApplication";
+import SupportDocuments from "./pages/SupportDocuments";
 import PublicListing from "./pages/PublicListing";
 import PublicVideoPage from "./pages/PublicVideoPage";
 import TenantContact from "./pages/TenantContact";
@@ -96,6 +97,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/photo-tips" element={<PhotoTips />} />
         <Route path="/faq" element={<Faq />} />
         <Route path="/apply/:listingId" element={<RentalApplication />} />
+        <Route path="/support-documents/:listingId/:recordId" element={<SupportDocuments />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/listings/:id/video" element={<PublicVideoPage type="rental" />} />
         <Route path="/reports/daily-market-brief" element={<DailyMarketBriefReport lang={lang} />} />

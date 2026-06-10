@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLang } from "../../contexts/LangContext";
-import { AL } from "../../utils/adminLabels";
 import {
   getApplicationById,
   getListing,
+  generateDraftScreeningReport,
+  updateApplicationRetentionStatus,
+  cleanupExpiredApplicationsPreview,
+  deleteExpiredApplicantSensitiveFiles,
+  requestSupportingDocuments,
+  resendSupportingDocumentsEmail,
   updateApplicationStatus,
   updateApplicationNotes,
 } from "../../utils/storage";
@@ -63,6 +68,60 @@ function SectionCard({ title, children }) {
       {children}
     </div>
   );
+}
+
+function renderInlineMarkdown(text) {
+  const parts = String(text || "").split(/(\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((part, index) => {
+    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (!match) return part;
+    return (
+      <span key={index} style={{ fontWeight: 600 }}>
+        {match[1]}
+      </span>
+    );
+  });
+}
+
+function MarkdownReport({ markdown }) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  return (
+    <div style={{
+      border: "1px solid var(--color-border)",
+      borderRadius: 8,
+      padding: 18,
+      background: "#fffdf8",
+      lineHeight: 1.55,
+      maxHeight: 620,
+      overflow: "auto",
+    }}>
+      {lines.map((line, index) => {
+        if (!line.trim()) return <div key={index} style={{ height: 8 }} />;
+        if (line.startsWith("# ")) {
+          return <h2 key={index} style={{ fontSize: "1.25rem", fontWeight: 800, margin: "0 0 12px" }}>{line.slice(2)}</h2>;
+        }
+        if (line.startsWith("## ")) {
+          return <h3 key={index} style={{ fontSize: "1rem", fontWeight: 800, color: "var(--color-primary)", margin: "18px 0 8px" }}>{line.slice(3)}</h3>;
+        }
+        if (line.startsWith("  - ")) {
+          return <p key={index} style={{ margin: "3px 0 3px 20px", color: "var(--color-text-muted)" }}>- {renderInlineMarkdown(line.slice(4))}</p>;
+        }
+        if (line.startsWith("- ")) {
+          return <p key={index} style={{ margin: "4px 0 4px 10px" }}>- {renderInlineMarkdown(line.slice(2))}</p>;
+        }
+        return <p key={index} style={{ margin: "5px 0" }}>{renderInlineMarkdown(line)}</p>;
+      })}
+    </div>
+  );
+}
+
+function getDocumentRequestBlocker(app) {
+  if (String(app?.documentRequestSent || "").toLowerCase() === "yes") {
+    return "Document request already sent.";
+  }
+  if (!app?.email) return "Applicant email is missing.";
+  if (!app?.listingId) return "Listing ID is missing.";
+  return "";
 }
 
 function parseJointEmployment(rawValue) {
@@ -274,7 +333,6 @@ function buildFollowUpQuestions(app, listing) {
 export default function ApplicationReview() {
   const { applicationId } = useParams();
   const lang = useLang();
-  const L = AL[lang] ?? AL.en;
   const [app, setApp]           = useState(null);
   const [listing, setListing]   = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -285,6 +343,10 @@ export default function ApplicationReview() {
   const [savingNotes, setSavingNotes]   = useState(false);
   const [notesSaved, setNotesSaved]     = useState(false);
   const [adminPdfBusy, setAdminPdfBusy] = useState(false);
+  const [requestingDocs, setRequestingDocs] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [retentionBusy, setRetentionBusy] = useState("");
+  const [retentionPreview, setRetentionPreview] = useState(null);
 
   useEffect(() => {
     getApplicationById(applicationId)
@@ -322,6 +384,140 @@ export default function ApplicationReview() {
     } catch (e) {
       setMessage("Notes save failed: " + (e.message || "unknown error"));
     } finally { setSavingNotes(false); }
+  }
+
+  async function handleRequestDocuments() {
+    if (!app?.recordId) return;
+    const ok = window.confirm(`Send supporting document upload link to ${app.email}?`);
+    if (!ok) return;
+    setRequestingDocs(true);
+    setMessage("");
+    try {
+      const result = await requestSupportingDocuments(app.recordId);
+      setApp((prev) => ({
+        ...prev,
+        shortlistStatus: result?.shortlistStatus || "Shortlisted",
+        documentRequestSent: result?.documentRequestSent || "Yes",
+        documentRequestSentAt: result?.documentRequestSentAt || new Date().toISOString(),
+        uploadToken: result?.uploadToken || prev?.uploadToken,
+        uploadTokenExpiresAt: result?.uploadTokenExpiresAt || prev?.uploadTokenExpiresAt,
+        uploadLink: result?.uploadLink || prev?.uploadLink,
+        supportDocumentFolderUrl: result?.supportDocumentFolderUrl || prev?.supportDocumentFolderUrl,
+        documentUploadStatus: result?.documentUploadStatus || "Pending",
+      }));
+      setMessage("Supporting document request sent.");
+    } catch (e) {
+      setMessage("Document request failed: " + (e.message || "unknown error"));
+    } finally {
+      setRequestingDocs(false);
+    }
+  }
+
+  async function handleResendDocumentsEmail() {
+    if (!app?.recordId) return;
+    const ok = window.confirm(`Resend supporting document upload link to ${app.email}?`);
+    if (!ok) return;
+    setRequestingDocs(true);
+    setMessage("");
+    try {
+      const result = await resendSupportingDocumentsEmail(app.recordId);
+      setApp((prev) => ({
+        ...prev,
+        documentRequestSent: result?.documentRequestSent || "Yes",
+        documentRequestSentAt: result?.documentRequestSentAt || prev?.documentRequestSentAt,
+      }));
+      setMessage(`Supporting document email resent to ${result?.emailTo || app.email}.`);
+    } catch (e) {
+      setMessage("Resend failed: " + (e.message || "unknown error"));
+    } finally {
+      setRequestingDocs(false);
+    }
+  }
+
+  async function handleGenerateDraftReport() {
+    if (!app?.recordId) return;
+    const ok = window.confirm("Generate an AI draft screening report for internal review?");
+    if (!ok) return;
+    setGeneratingReport(true);
+    setMessage("");
+    try {
+      const result = await generateDraftScreeningReport(app.recordId);
+      setApp((prev) => ({
+        ...prev,
+        screeningReportStatus: result?.screeningReportStatus || "Draft Generated",
+        screeningReportGeneratedAt: result?.screeningReportGeneratedAt || new Date().toISOString(),
+        screeningReportUrl: result?.screeningReportUrl || prev?.screeningReportUrl,
+        screeningReportMarkdown: result?.screeningReportMarkdown || prev?.screeningReportMarkdown,
+      }));
+      setMessage("AI draft screening report generated.");
+    } catch (e) {
+      setMessage("Screening report failed: " + (e.message || "unknown error"));
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
+  async function handleRetentionStatus(retentionStatus) {
+    if (!app?.recordId) return;
+    const ok = window.confirm(`Set data retention status to "${retentionStatus}"?`);
+    if (!ok) return;
+    setRetentionBusy(retentionStatus);
+    setMessage("");
+    try {
+      const result = await updateApplicationRetentionStatus(app.recordId, retentionStatus);
+      setApp((prev) => ({
+        ...prev,
+        dataRetentionStatus: result?.dataRetentionStatus || prev?.dataRetentionStatus,
+        retentionExpiryDate: result?.retentionExpiryDate || "",
+        retentionAction: result?.retentionAction || prev?.retentionAction,
+        retentionNotes: result?.retentionNotes || prev?.retentionNotes,
+      }));
+      setMessage(`Data retention status updated to ${result?.dataRetentionStatus || retentionStatus}.`);
+    } catch (e) {
+      setMessage("Retention update failed: " + (e.message || "unknown error"));
+    } finally {
+      setRetentionBusy("");
+    }
+  }
+
+  async function handleRetentionPreview() {
+    setRetentionBusy("preview");
+    setMessage("");
+    try {
+      const result = await cleanupExpiredApplicationsPreview();
+      setRetentionPreview(result);
+      setMessage(`Expired retention preview found ${result?.count || 0} record(s).`);
+    } catch (e) {
+      setMessage("Retention preview failed: " + (e.message || "unknown error"));
+    } finally {
+      setRetentionBusy("");
+    }
+  }
+
+  async function handleDeleteSensitiveFiles() {
+    if (!app?.recordId) return;
+    const ok = window.confirm("This will delete sensitive applicant files from Google Drive. The application record will remain for audit purposes. Continue?");
+    if (!ok) return;
+    setRetentionBusy("delete");
+    setMessage("");
+    try {
+      const result = await deleteExpiredApplicantSensitiveFiles(app.recordId);
+      setApp((prev) => ({
+        ...prev,
+        supportDocumentFolderUrl: "",
+        uploadLink: "",
+        uploadToken: "",
+        uploadTokenExpiresAt: "",
+        documentUploadStatus: "Sensitive files deleted",
+        sensitiveFilesDeletedAt: result?.sensitiveFilesDeletedAt || new Date().toISOString(),
+        retentionAction: result?.retentionAction || "Sensitive files deleted",
+      }));
+      setMessage("Sensitive applicant files were moved to trash. Application row kept for audit.");
+    } catch (e) {
+      setMessage("Sensitive file cleanup failed: " + (e.message || "unknown error"));
+    } finally {
+      setRetentionBusy("");
+    }
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>Loading…</div>;
@@ -366,6 +562,21 @@ export default function ApplicationReview() {
   const followUpQuestions = buildFollowUpQuestions(app, listing);
   const hasJoint          = String(app.hasJointApplicant || "").includes("Yes");
   const jointEmployment   = parseJointEmployment(app.jointEmployment);
+  const canRequestDocs = Boolean(
+    app.email &&
+    app.listingId &&
+    String(app.documentRequestSent || "").toLowerCase() !== "yes"
+  );
+  const canResendDocsEmail = Boolean(
+    app.email &&
+    app.uploadLink &&
+    String(app.documentRequestSent || "").toLowerCase() === "yes"
+  );
+  const canGenerateDraftReport = Boolean(
+    app.supportDocumentFolderUrl &&
+    ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase())
+  );
+  const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
   // Admin: always allowed.
@@ -375,6 +586,7 @@ export default function ApplicationReview() {
   const _isAdmin      = isAdminSessionActive();
   const _trialSession = readTrialAccess();
   const _isTrial      = !!_trialSession && !_isAdmin;
+  const canSeeInternalDriveLinks = _isAdmin;
   const canAccessSubmittedPdf = _isAdmin
     || !_isTrial
     || (!listing && false)  // listing still loading → hold off
@@ -391,7 +603,27 @@ export default function ApplicationReview() {
         </div>
         <div className="flex gap-8">
           <Link to="/admin/leads" className="btn btn--ghost btn--sm">← Leads</Link>
-          {app.pdfUrl && canAccessSubmittedPdf && (
+          {_isAdmin && canRequestDocs && (
+            <button
+              type="button"
+              className="btn btn--sm"
+              disabled={requestingDocs}
+              onClick={handleRequestDocuments}
+            >
+              {requestingDocs ? "Sending..." : "Request Supporting Documents"}
+            </button>
+          )}
+          {_isAdmin && canResendDocsEmail && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={requestingDocs}
+              onClick={handleResendDocumentsEmail}
+            >
+              {requestingDocs ? "Sending..." : "Resend Email"}
+            </button>
+          )}
+          {canSeeInternalDriveLinks && app.pdfUrl && canAccessSubmittedPdf && (
             <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
               Download PDF
             </a>
@@ -428,6 +660,123 @@ export default function ApplicationReview() {
           </div>
         </div>
       </div>
+
+      <SectionCard title="Supporting Documents">
+        <div className="info-grid">
+          {_isAdmin && <InfoRow label="Shortlist Status" value={app.shortlistStatus || "New"} />}
+          {_isAdmin && <InfoRow label="Document Request Sent" value={app.documentRequestSent || "No"} />}
+          {_isAdmin && <InfoRow label="Document Request Sent At" value={app.documentRequestSentAt} />}
+          <InfoRow label="Document Upload Status" value={app.documentUploadStatus || "—"} />
+          <InfoRow label="Uploaded File Count" value={app.uploadedFileCount || "0"} />
+          {_isAdmin && <InfoRow label="Last Upload At" value={app.lastUploadAt} />}
+          {_isAdmin && <InfoRow label="Screening Report Status" value={app.screeningReportStatus || "—"} />}
+          {_isAdmin && <InfoRow label="Screening Report Generated At" value={app.screeningReportGeneratedAt} />}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+          {_isAdmin && canRequestDocs && (
+            <button
+              type="button"
+              className="btn btn--sm"
+              disabled={requestingDocs}
+              onClick={handleRequestDocuments}
+            >
+              {requestingDocs ? "Sending..." : "Request Supporting Documents"}
+            </button>
+          )}
+          {_isAdmin && canResendDocsEmail && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={requestingDocs}
+              onClick={handleResendDocumentsEmail}
+            >
+              {requestingDocs ? "Sending..." : "Resend Email"}
+            </button>
+          )}
+          {_isAdmin && !canRequestDocs && documentRequestBlocker && (
+            <span className="text-muted text-sm" style={{ alignSelf: "center" }}>
+              {documentRequestBlocker}
+            </span>
+          )}
+          {_isAdmin && canGenerateDraftReport && (
+            <button
+              type="button"
+              className="btn btn--sm"
+              disabled={generatingReport}
+              onClick={handleGenerateDraftReport}
+            >
+              {generatingReport ? "Generating..." : "Generate AI Draft Screening Report"}
+            </button>
+          )}
+          {canSeeInternalDriveLinks && app.supportDocumentFolderUrl && (
+            <a href={app.supportDocumentFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+              Open Support Folder
+            </a>
+          )}
+          {canSeeInternalDriveLinks && app.uploadLink && (
+            <a href={app.uploadLink} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+              Open Upload Link
+            </a>
+          )}
+          {canSeeInternalDriveLinks && app.screeningReportUrl && (
+            <a href={app.screeningReportUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+              Open Screening Report
+            </a>
+          )}
+        </div>
+      </SectionCard>
+
+      {app.screeningReportMarkdown && (
+        <SectionCard title="AI Draft Screening Report">
+          <MarkdownReport markdown={app.screeningReportMarkdown} />
+        </SectionCard>
+      )}
+
+      <SectionCard title="Data Retention">
+        <div className="info-grid">
+          <InfoRow label="Data Retention Status" value={app.dataRetentionStatus || "—"} />
+          <InfoRow label="Retention Expiry Date" value={app.retentionExpiryDate || "—"} />
+          {_isAdmin && <InfoRow label="Retention Action" value={app.retentionAction || "—"} />}
+          {_isAdmin && <InfoRow label="Sensitive Files Deleted At" value={app.sensitiveFilesDeletedAt || "—"} />}
+          {_isAdmin && <InfoRow label="Archived Tenant File URL" value={app.archivedTenantFileUrl || "—"} mono />}
+        </div>
+        {_isAdmin && (
+          <>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+              <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={() => handleRetentionStatus("Declined")}>
+                {retentionBusy === "Declined" ? "Saving..." : "Mark as Not Selected"}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={() => handleRetentionStatus("Withdrawn")}>
+                {retentionBusy === "Withdrawn" ? "Saving..." : "Mark as Withdrawn"}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={() => handleRetentionStatus("Incomplete")}>
+                {retentionBusy === "Incomplete" ? "Saving..." : "Mark as Incomplete"}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={() => handleRetentionStatus("Signed Tenant")}>
+                {retentionBusy === "Signed Tenant" ? "Saving..." : "Mark as Signed Tenant"}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={handleRetentionPreview}>
+                {retentionBusy === "preview" ? "Checking..." : "Preview Expired Retention"}
+              </button>
+              {app.supportDocumentFolderUrl && (
+                <button type="button" className="btn btn--ghost btn--sm" disabled={!!retentionBusy} onClick={handleDeleteSensitiveFiles}>
+                  {retentionBusy === "delete" ? "Deleting..." : "Delete Sensitive Files"}
+                </button>
+              )}
+            </div>
+            {retentionPreview && (
+              <div style={{ marginTop: 14, border: "1px solid var(--color-border)", borderRadius: 8, padding: 12, background: "#fffdf8" }}>
+                <strong>Expired retention preview: {retentionPreview.count || 0} record(s)</strong>
+                {(retentionPreview.records || []).slice(0, 8).map((item) => (
+                  <p key={item.recordId} style={{ margin: "6px 0", fontSize: "0.84rem" }}>
+                    {item.recordId} - {item.applicantName || "Applicant"} - {item.retentionStatus || "—"} - expires {item.expiryDate || "—"}
+                  </p>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </SectionCard>
 
       {/* ── 2. Applicant Information ──────────────────────────────────────────── */}
       <SectionCard title={lang === "zh" ? "申请人信息" : "Applicant Information"}>
@@ -562,7 +911,7 @@ export default function ApplicationReview() {
         {canAccessSubmittedPdf ? (
           <>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-              {app.pdfUrl && (
+              {canSeeInternalDriveLinks && app.pdfUrl && (
                 <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   Open PDF (Drive) →
                 </a>
@@ -616,7 +965,7 @@ export default function ApplicationReview() {
                 {adminPdfBusy ? (lang === "zh" ? "准备中…" : "Preparing…") : (lang === "zh" ? "📄 下载已提交申请表" : "📄 Download Submitted Application")}
               </button>
             </div>
-            {app.pdfUrl ? (
+            {canSeeInternalDriveLinks && app.pdfUrl ? (
               <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
                 Drive PDF: stored in listing folder under <code>Applications/</code>
               </p>

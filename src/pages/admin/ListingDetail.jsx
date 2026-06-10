@@ -86,7 +86,7 @@ function detectCoverPhoto(files) {
 }
 
 // Simple thumbnail + "Open in Drive" card — read-only display.
-function DrivePhoto({ file }) {
+function DrivePhoto({ file, canOpenDrive = false }) {
   const [failed, setFailed] = useState(false);
   // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
   const src = file.dataUrl
@@ -108,10 +108,12 @@ function DrivePhoto({ file }) {
         <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 3 }}>
           {file.name}
         </div>
-        <a href={file.url} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: "0.68rem", color: "var(--color-primary)", textDecoration: "none", fontWeight: 600 }}>
-          Open in Drive ↗
-        </a>
+        {canOpenDrive && file.url && (
+          <a href={file.url} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: "0.68rem", color: "var(--color-primary)", textDecoration: "none", fontWeight: 600 }}>
+            Open in Drive ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -1873,7 +1875,7 @@ export default function ListingDetail({ lang: langProp }) {
                 )}
                 {effectiveCover && (
                   <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <DrivePhoto file={effectiveCover} />
+                    <DrivePhoto file={effectiveCover} canOpenDrive={isAdmin} />
                     <div style={{ fontSize: "0.83rem", lineHeight: 2, color: "var(--color-text-muted)" }}>
                       {coverIsManual
                         ? <><strong style={{ color: "#f59e0b" }}>🟡 Manual Cover Selected</strong><br />File: <code>{effectiveCover.name}</code></>
@@ -1953,7 +1955,7 @@ export default function ListingDetail({ lang: langProp }) {
                 {collageStatus === "saved" && collageMsg && (
                   <div className="notice notice--sage" style={{ marginBottom: 10 }}>
                     <p>{collageMsg}</p>
-                    {collageFolderUrl && (
+                    {isAdmin && collageFolderUrl && (
                       <a href={collageFolderUrl} target="_blank" rel="noreferrer" style={{ fontSize: "0.82rem" }}>
                         Open 03_Cover_Images/ folder ↗
                       </a>
@@ -2054,7 +2056,7 @@ export default function ListingDetail({ lang: langProp }) {
                       <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
                         Run Again
                       </button>
-                      {enhancedFolderUrl && (
+                      {isAdmin && enhancedFolderUrl && (
                         <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
                           📂 Open Enhanced Photos Folder
                         </a>
@@ -2071,7 +2073,7 @@ export default function ListingDetail({ lang: langProp }) {
                       <button className="btn btn--ghost btn--sm" onClick={() => { setEnhanceStatus("idle"); setEnhanceMsg(null); }}>
                         Try Again
                       </button>
-                      {enhancedFolderUrl && (
+                      {isAdmin && enhancedFolderUrl && (
                         <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--outline btn--sm">
                           📂 Open Enhanced Photos Folder
                         </a>
@@ -2093,7 +2095,7 @@ export default function ListingDetail({ lang: langProp }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                   <p style={{ fontWeight: 700, fontSize: "0.9rem" }}>🖼️ {lang === "zh" ? "美化照片预览" : "Enhanced Photos Preview"}</p>
                   <div style={{ display: "flex", gap: 8 }}>
-                    {enhancedFolderUrl && (
+                    {isAdmin && enhancedFolderUrl && (
                       <a href={enhancedFolderUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
                         📂 Open Folder
                       </a>
@@ -2498,7 +2500,7 @@ export default function ListingDetail({ lang: langProp }) {
                     </div>
 
                     {/* Drive storage link — admin reference only, not primary workflow */}
-                    {videoFolderUrl && (
+                    {isAdmin && videoFolderUrl && (
                       <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 4 }}>
                         Drive storage (admin only):{" "}
                         <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer"

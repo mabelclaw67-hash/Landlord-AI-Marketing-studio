@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAllApplications } from "../../utils/storage";
+import { getAllApplications, requestSupportingDocuments } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -33,19 +34,48 @@ function isSetupErr(msg) {
   return !msg ? false : (msg.includes("Unknown POST action") || msg.includes("Unknown GET action") || msg.includes("Unknown action"));
 }
 
+function documentBadge(app) {
+  if (app.documentUploadStatus === "Complete") return { label: "Complete", bg: "#edf7ee", fg: "#2e7d4f", border: "#b8e4c4" };
+  if (app.documentUploadStatus === "Uploaded") return { label: "Documents Uploaded", bg: "#edf7ee", fg: "#2e7d4f", border: "#b8e4c4" };
+  if (app.documentRequestSent === "Yes") return { label: "Documents Pending", bg: "#fff8f3", fg: "#a05a00", border: "#f0cfa0" };
+  if (app.shortlistStatus === "Shortlisted") return { label: "Shortlisted", bg: "#edf3ff", fg: "#2856a3", border: "#bfd0ff" };
+  return { label: "New", bg: "#f5f8f5", fg: "#647067", border: "#dde7df" };
+}
+
 export default function Leads() {
   const lang = useLang();
   const [apps, setApps]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
   const [filter, setFilter]   = useState("");
+  const [busyId, setBusyId]   = useState("");
+  const canSeeInternalDriveLinks = isAdminSessionActive();
+
+  function refreshApplications() {
+    return getAllApplications().then(setApps);
+  }
 
   useEffect(() => {
-    getAllApplications()
-      .then(setApps)
+    refreshApplications()
       .catch((e) => setError(e.message || "Failed to load applications."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleRequestDocuments(app) {
+    if (!app.recordId) return;
+    const ok = window.confirm(`Send supporting document upload link to ${app.email}?`);
+    if (!ok) return;
+    setBusyId(app.recordId);
+    setError("");
+    try {
+      await requestSupportingDocuments(app.recordId);
+      await refreshApplications();
+    } catch (e) {
+      setError(e.message || "Failed to request supporting documents.");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   const setupError  = isSetupErr(error);
   const listingIds  = [...new Set(apps.map((a) => a.listingId).filter(Boolean))];
@@ -156,6 +186,9 @@ export default function Leads() {
                     "PDF",
                     lang === "zh" ? "初筛" : "Screening",
                     "Review Status",
+                    "Documents",
+                    "Support Folder",
+                    "Upload Link",
                     "",
                   ].map((h) => (
                     <th
@@ -177,6 +210,8 @@ export default function Leads() {
               <tbody>
                 {visible.map((app, i) => {
                   const screen = quickScreen(app);
+                  const doc = documentBadge(app);
+                  const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
                   const screenColor =
                     screen.type === "ok"
                       ? { bg: "#edf7ee", fg: "#2e7d4f", border: "#b8e4c4" }
@@ -202,7 +237,7 @@ export default function Leads() {
                         {fmt(app.submittedAt)}
                       </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {app.pdfUrl ? (
+                        {canSeeInternalDriveLinks && app.pdfUrl ? (
                           <a
                             href={app.pdfUrl}
                             target="_blank"
@@ -240,15 +275,68 @@ export default function Leads() {
                           {app.reviewStatus || "Pending"}
                         </span>
                       </td>
+                      <td style={{ padding: "10px 12px", minWidth: 180 }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "0.74rem",
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                            background: doc.bg,
+                            color: doc.fg,
+                            border: `1px solid ${doc.border}`,
+                            whiteSpace: "nowrap",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {doc.label}
+                        </span>
+                        <div style={{ color: "var(--color-text-muted)", fontSize: "0.76rem", lineHeight: 1.5 }}>
+                          Sent: {app.documentRequestSentAt ? fmt(app.documentRequestSentAt) : "No"}<br />
+                          Files: {app.uploadedFileCount || 0}<br />
+                          Last: {app.lastUploadAt ? fmt(app.lastUploadAt) : "—"}
+                        </div>
+                      </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {app.recordId && (
-                          <Link
-                            to={`/admin/application/${app.recordId}`}
-                            className="btn btn--ghost btn--sm"
-                          >
-                            Review →
-                          </Link>
+                        {canSeeInternalDriveLinks && app.supportDocumentFolderUrl ? (
+                          <a href={app.supportDocumentFolderUrl} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", fontWeight: 600, fontSize: "0.8rem" }}>
+                            Folder
+                          </a>
+                        ) : (
+                          <span style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}>—</span>
                         )}
+                      </td>
+                      <td style={{ padding: "10px 12px" }}>
+                        {app.uploadLink ? (
+                          <a href={app.uploadLink} target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", fontWeight: 600, fontSize: "0.8rem" }}>
+                            Upload
+                          </a>
+                        ) : (
+                          <span style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "10px 12px" }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          {canRequestDocs && (
+                            <button
+                              type="button"
+                              className="btn btn--sm"
+                              disabled={busyId === app.recordId}
+                              onClick={() => handleRequestDocuments(app)}
+                            >
+                              {busyId === app.recordId ? "Sending…" : "Request Supporting Documents"}
+                            </button>
+                          )}
+                          {app.recordId && (
+                            <Link
+                              to={`/admin/application/${app.recordId}`}
+                              className="btn btn--ghost btn--sm"
+                            >
+                              Review →
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

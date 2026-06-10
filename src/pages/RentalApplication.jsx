@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
+import { downloadApplicationPdf, getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
 import { downloadSubmittedAppPdf } from "../utils/rentalApplicationPdf";
 
 const LEASE_TERM_OPTIONS = [
@@ -208,6 +208,7 @@ export default function RentalApplication() {
   const [submitted, setSubmitted] = useState(null);
   const [error, setError] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
 
   useEffect(() => {
@@ -450,16 +451,63 @@ export default function RentalApplication() {
   if (submitted) {
     // Build the normalized data object for client-side PDF generation.
     // Uses the form state (still in memory) as source of truth.
-    function handleDownloadPdf() {
+    async function handleDownloadPdf() {
       if (pdfBusy) return;
-      // If backend returned a real Drive URL, open it directly.
-      if (submitted.pdfUrl) {
-        window.open(submitted.pdfUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-      // Otherwise generate client-side from the submitted form data.
       setPdfBusy(true);
+      setDownloadMessage("");
       try {
+        if (submitted.pdfUrl && submitted.recordId && submitted.applicationDownloadToken) {
+          await downloadApplicationPdf(submitted.recordId, submitted.applicationDownloadToken);
+          return;
+        }
+        const data = {
+          listingId:             listingId,
+          listingAddress:        listing?.address || "",
+          listingRent:           listing?.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "",
+          applicantName:         form.applicantName,
+          email:                 form.email,
+          phone:                 form.phone,
+          dateOfBirth:           form.dateOfBirth,
+          currentAddress:        form.currentResidenceAddress,
+          wechat:                form.wechat,
+          employmentStatus:      form.employmentStatus,
+          employer:              form.employer,
+          monthlyIncome:         form.monthlyIncome,
+          moveInDate:            form.moveInDate,
+          leaseTerm:             form.leaseTerm,
+          occupants:             form.totalOccupants,
+          adults:                form.adults,
+          minors:                form.minors,
+          occupantNamesAges:     form.occupantNamesAges,
+          landlordReference:     [
+            form.currentResidenceLandlordName && `Current landlord: ${form.currentResidenceLandlordName}`,
+            form.currentResidenceLandlordContact && `Contact: ${form.currentResidenceLandlordContact}`,
+            form.previousResidenceLandlordName && `Previous landlord: ${form.previousResidenceLandlordName}`,
+            form.referenceOneName && `Ref 1: ${form.referenceOneName}`,
+            form.referenceTwoName && `Ref 2: ${form.referenceTwoName}`,
+          ].filter(Boolean).join(" | "),
+          creditHistory:         form.creditHistory,
+          hasPets:               form.hasPets,
+          petDetails:            form.petDetails,
+          parkingRequest:        [
+            form.vehicleCount && `Vehicles: ${form.vehicleCount}`,
+            form.vehicleDetails,
+          ].filter(Boolean).join(" "),
+          hasTenantInsurance:    form.hasTenantInsurance,
+          depositFundsAvailable: form.depositFundsAvailable,
+          reasonForMoving:       form.currentResidenceReasonForLeaving,
+          additionalNotes:       form.additionalNotes,
+          recordId:              submitted.recordId,
+          submittedAt:           submitted.submittedAt,
+        };
+        downloadSubmittedAppPdf(data, submitted.recordId, submitted.recordId || listingId);
+      } catch (e) {
+        const expiredMessage = "This link has expired. Please contact property management.";
+        if (String(e?.message || "").includes(expiredMessage)) {
+          setDownloadMessage(expiredMessage);
+          return;
+        }
+        console.warn("[RentalApplication] Drive PDF download failed, generating local PDF copy.", e);
         const data = {
           listingId:             listingId,
           listingAddress:        listing?.address || "",
@@ -520,7 +568,7 @@ export default function RentalApplication() {
               lineHeight: 1.7,
             }}
           >
-            Thank you! Your application has been received and will be reviewed shortly.
+            Your application has been submitted. If shortlisted, you will receive a secure document upload link by email.
           </p>
           <div
             style={{
@@ -587,6 +635,11 @@ export default function RentalApplication() {
               ? "Downloads your completed application from our system."
               : "Saves a copy of your completed application to this device."}
           </p>
+          {downloadMessage && (
+            <p style={{ color: "#a05a00", fontSize: "0.84rem", fontWeight: 700, marginBottom: 16 }}>
+              {downloadMessage}
+            </p>
+          )}
 
           <p
             style={{

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getListing } from "../utils/storage";
 import { getHomeSaleListing, getPublicSaleVideoScripts } from "../utils/homeSaleSheet";
-import { resolveDownloadVideoUrl, resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
+import { resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
 
 export default function PublicVideoPage({ type = "rental" }) {
   const params = useParams();
@@ -37,14 +37,10 @@ export default function PublicVideoPage({ type = "rental" }) {
       .finally(() => setLoading(false));
   }, [listingId, type]);
 
-  useEffect(() => {
-    setVideoPreviewError(false);
-  }, [listingId]);
-
   const title = listing?.address || listingId || "Property Video";
   const playerUrl = resolvePlayableVideoUrl({ listingId, publicVideoUrl, sourceUrl: videoUrl });
-  const downloadUrl = resolveDownloadVideoUrl(videoUrl);
   const staticVideoUrl = resolveStaticVideoUrl(listingId);
+  const safeDownloadUrl = publicVideoUrl || staticVideoUrl || "";
   const hasVideoSource = Boolean(staticVideoUrl || publicVideoUrl || videoUrl);
   const listingPath = type === "homeSale"
     ? `/home-sale-studio/listings/${listingId}`
@@ -94,17 +90,16 @@ export default function PublicVideoPage({ type = "rental" }) {
               </div>
               {videoPreviewError && (
                 <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 10, marginTop: -8 }}>
-                  Video preview is not available. Please use Download MP4.
+                  Video preview is not available.
                 </p>
               )}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a href={downloadUrl || videoUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
-                  Download MP4
-                </a>
-                <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="btn btn--ghost">
-                  Open Source Video
-                </a>
-              </div>
+              {safeDownloadUrl && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <a href={safeDownloadUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
+                    Download MP4
+                  </a>
+                </div>
+              )}
             </>
           )}
         </div>

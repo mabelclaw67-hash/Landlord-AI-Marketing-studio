@@ -22,7 +22,7 @@ import {
   uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
 import { buildHomeSalePublicUrl } from "../../utils/publicUrls";
-import { extractDriveVideoFileId, resolveDownloadVideoUrl, resolvePlayableVideoUrl } from "../../utils/videoUrls";
+import { extractDriveVideoFileId, resolveDownloadVideoUrl } from "../../utils/videoUrls";
 
 const MUSIC_NO_MUSIC_EN = { label: "No music", file: "none" };
 const MUSIC_NO_MUSIC_ZH = { label: "不加音乐", file: "none" };
@@ -40,11 +40,6 @@ function extractDriveFileId(url) {
 function buildDriveVideoPreviewUrl(file) {
   const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
   return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : "";
-}
-
-function buildDriveVideoStreamUrl(file) {
-  const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
-  return fileId ? resolvePlayableVideoUrl({ sourceUrl: `https://drive.google.com/file/d/${fileId}/view` }) : "";
 }
 
 function buildDriveVideoDownloadUrl(file) {
@@ -740,10 +735,8 @@ export default function HomeSaleVideo() {
     ? enhancedPhotos : folderFiles;
   const canGenerate = folderId && activePhotos.length > 0
     && videoStatus !== "rendering" && videoStatus !== "uploading" && videoStatus !== "preparing";
-  const driveStreamUrl = buildDriveVideoStreamUrl(videoFileMeta);
   const drivePreviewUrl = buildDriveVideoPreviewUrl(videoFileMeta);
   const driveDownloadUrl = buildDriveVideoDownloadUrl(videoFileMeta);
-  const playableVideoUrl = videoBlobUrl || driveVideoBlobUrl || driveStreamUrl || videoFileUrl || "";
 
   return (
     <div>
@@ -929,28 +922,29 @@ export default function HomeSaleVideo() {
           )}
           {(videoFileUrl || listing?.videoUrl) ? (
             <>
-              {/* Primary action: open directly in Drive — embed playback is unreliable */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-                <a
-                  href={drivePreviewUrl || videoFileUrl || listing?.videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn--primary btn--sm"
-                >
-                  ▶ {lang === "zh" ? "在 Drive 中打开视频" : "Open Video in Drive"}
-                </a>
-                {listing?.videoUrl && listing.videoUrl !== drivePreviewUrl && listing.videoUrl !== videoFileUrl && (
+              {isAdmin && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                   <a
-                    href={listing.videoUrl}
+                    href={drivePreviewUrl || videoFileUrl || listing?.videoUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="btn btn--ghost btn--sm"
+                    className="btn btn--primary btn--sm"
                   >
-                    🔗 {lang === "zh" ? "表格中的视频链接" : "Video Link (from Sheet)"}
+                    ▶ {lang === "zh" ? "在 Drive 中打开视频" : "Open Video in Drive"}
                   </a>
-                )}
-              </div>
-              {/* Preview: local blob first, then Drive iframe (best-effort) */}
+                  {listing?.videoUrl && listing.videoUrl !== drivePreviewUrl && listing.videoUrl !== videoFileUrl && (
+                    <a
+                      href={listing.videoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn--ghost btn--sm"
+                    >
+                      🔗 {lang === "zh" ? "表格中的视频链接" : "Video Link (from Sheet)"}
+                    </a>
+                  )}
+                </div>
+              )}
+              {/* Preview inline; Trial users do not receive direct Drive open/download links. */}
               {(videoBlobUrl || driveVideoBlobUrl) ? (
                 <video
                   controls
@@ -960,7 +954,7 @@ export default function HomeSaleVideo() {
                 >
                   <source src={videoBlobUrl || driveVideoBlobUrl} type="video/mp4" />
                 </video>
-              ) : drivePreviewUrl ? (
+              ) : isAdmin && drivePreviewUrl ? (
                 <iframe
                   src={drivePreviewUrl}
                   allow="autoplay"
@@ -969,7 +963,7 @@ export default function HomeSaleVideo() {
                 />
               ) : null}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {driveDownloadUrl && (
+                {isAdmin && driveDownloadUrl && (
                   <a
                     href={driveDownloadUrl}
                     download={videoFileMeta?.name || `video__${listingId}__${videoFormat}.mp4`}
@@ -1111,7 +1105,7 @@ export default function HomeSaleVideo() {
                         <td>{item.videoType}</td>
                         <td>{item.language}</td>
                         <td>{item.status || "Draft"}</td>
-                        <td>{item.outputMp4Url ? <a href={item.outputMp4Url} target="_blank" rel="noreferrer">Open</a> : "—"}</td>
+                        <td>{isAdmin && item.outputMp4Url ? <a href={item.outputMp4Url} target="_blank" rel="noreferrer">Open</a> : "—"}</td>
                         <td>
                           <button type="button" className="btn btn--ghost btn--sm"
                             onClick={() => setForm({

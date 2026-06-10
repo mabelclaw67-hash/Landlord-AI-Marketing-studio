@@ -54,7 +54,7 @@ export async function getListing(id) {
       const all = await getListings();
       const match = all.find((l) => l.id === id) || null;
       if (!match) {
-        throw new Error(`Listing not found: ${id}`);
+        throw new Error(`Listing not found: ${id}`, { cause: error });
       }
       return match;
     }
@@ -244,6 +244,28 @@ export async function getApplicationById(applicationId) {
   return apiGet({ action: "getApplicationById", applicationId, ...getStudioRequestAuth("rental") });
 }
 
+export async function downloadApplicationPdf(recordId, token) {
+  if (!isApiConnected() || !recordId || !token) {
+    throw new Error("Submitted PDF download is not available.");
+  }
+  const result = await apiGet({ action: "getApplicationPdfDownloadData", recordId, token });
+  if (!result?.data) throw new Error("Submitted PDF file data is missing.");
+  const binary = atob(result.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: result.mimeType || "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const safeName = String(result.fileName || `${recordId}-application.pdf`).replace(/[\\/:*?"<>|]/g, "-");
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = safeName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return result;
+}
+
 export async function updateApplicationStatus(applicationId, reviewStatus) {
   if (isApiConnected()) {
     return apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus, ...getStudioRequestAuth("rental") });
@@ -256,6 +278,98 @@ export async function updateApplicationNotes(applicationId, notes) {
     return apiPost({ action: "updateApplicationNotes", applicationId, notes, ...getStudioRequestAuth("rental") });
   }
   console.info("[localStorage mode] updateApplicationNotes (not persisted):", applicationId);
+}
+
+export async function requestSupportingDocuments(recordId) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document requests require Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "requestSupportingDocuments",
+    recordId,
+    origin: window.location.origin,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function resendSupportingDocumentsEmail(recordId) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document requests require Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "resendSupportingDocumentsEmail",
+    recordId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function generateDraftScreeningReport(recordId) {
+  if (!isApiConnected()) {
+    throw new Error("Screening report generation requires Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "generateDraftScreeningReport",
+    recordId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function updateApplicationRetentionStatus(recordId, retentionStatus, notes = "") {
+  if (!isApiConnected()) {
+    throw new Error("Data retention actions require Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "updateApplicationRetentionStatus",
+    recordId,
+    retentionStatus,
+    notes,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function cleanupExpiredApplicationsPreview() {
+  if (!isApiConnected()) {
+    throw new Error("Data retention preview requires Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "cleanupExpiredApplicationsPreview",
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function deleteExpiredApplicantSensitiveFiles(recordId) {
+  if (!isApiConnected()) {
+    throw new Error("Sensitive file cleanup requires Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "deleteExpiredApplicantSensitiveFiles",
+    recordId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function validateUploadToken(listingId, recordId, token) {
+  if (!isApiConnected()) {
+    throw new Error("This upload link is invalid or expired.");
+  }
+  return apiGet({ action: "validateUploadToken", listingId, recordId, token });
+}
+
+export async function uploadSupportingDocument(listingId, recordId, token, category, file) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document upload requires Google Apps Script integration.");
+  }
+  const base64 = await fileToBase64(file);
+  return apiPost({
+    action: "uploadSupportingDocument",
+    listingId,
+    recordId,
+    token,
+    category,
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    data: base64,
+  });
 }
 
 // v0.3+ swap surface — replace these with API calls without touching components.

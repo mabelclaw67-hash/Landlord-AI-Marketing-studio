@@ -81,9 +81,31 @@ var INTAKE_HEADERS = [
   "Additional Notes",                // AT
   // Admin (managed by backend only)
   "PDF URL",                         // AU
+  "Application Download Token",
+  "Application Download Expires At",
   "Review Status",                   // AV
   "Internal Notes",                  // AW
   "Updated At",                      // AX
+  "Shortlist Status",
+  "Document Request Sent",
+  "Document Request Sent At",
+  "Upload Token",
+  "Upload Token Expires At",
+  "Upload Link",
+  "Support Document Folder URL",
+  "Document Upload Status",
+  "Uploaded File Count",
+  "Last Upload At",
+  "Screening Report Status",
+  "Screening Report Generated At",
+  "Screening Report URL",
+  "Screening Report Markdown",
+  "Data Retention Status",
+  "Retention Expiry Date",
+  "Retention Action",
+  "Retention Notes",
+  "Sensitive Files Deleted At",
+  "Archived Tenant File URL",
 ];
 
 var CONTACT_HEADERS = [
@@ -188,7 +210,7 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getWebsiteReport", "syncDailyMarketBrief"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
@@ -199,6 +221,8 @@ function doGet(e) {
     if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
     if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
+    if (action === "getApplicationPdfDownloadData") return ok(getApplicationPdfDownloadData_(e.parameter.recordId, e.parameter.token));
+    if (action === "validateUploadToken") return ok(validateUploadToken_(e.parameter.listingId, e.parameter.recordId, e.parameter.token));
     if (action === "getContactRequests")  return ok(getContactRequests_(auth));
     return err("Unknown GET action: " + action);
   } catch (ex) {
@@ -211,7 +235,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById"];
+    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -233,8 +257,18 @@ function doPost(e) {
     if (action === "saveRentalApplication")  return ok(saveRentalApplication_(body.data));
     if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId, auth));
     if (action === "getAllApplications")     return ok(getAllApplications_(auth));
+    if (action === "getApplicationPdfDownloadData") return ok(getApplicationPdfDownloadData_(body.recordId, body.token));
     if (action === "updateApplicationStatus") return ok(updateApplicationStatus_(body.applicationId, body.reviewStatus, auth));
     if (action === "updateApplicationNotes")  return ok(updateApplicationNotes_(body.applicationId, body.notes, auth));
+    if (action === "requestSupportingDocuments") return ok(requestSupportingDocuments_(body.recordId, body.origin || "", auth));
+    if (action === "resendSupportingDocumentsEmail") return ok(resendSupportingDocumentsEmail_(body.recordId, auth));
+    if (action === "generateDraftScreeningReport") return ok(generateDraftScreeningReport_(body.recordId, auth));
+    if (action === "updateApplicationRetentionStatus") return ok(updateApplicationRetentionStatus_(body.recordId, body.retentionStatus, body.notes, auth));
+    if (action === "cleanupExpiredApplicationsPreview") return ok(cleanupExpiredApplicationsPreview_(auth));
+    if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
+    if (action === "validateUploadToken") return ok(validateUploadToken_(body.listingId, body.recordId, body.token));
+    if (action === "uploadSupportingDocument") return ok(uploadSupportingDocument_(body));
+    if (action === "updateDocumentUploadStatus") return ok(updateDocumentUploadStatus_(body.recordId));
     if (action === "approveContactRequest")   return ok(approveContactRequest_(body, auth));
     if (action === "updateContactRequestNotes") return ok(updateContactRequestNotes_(body.rowNumber, body.notes, auth));
     if (action === "validateAccessCode")      return ok(validateAccessCode_(body.email, body.accessCode));
@@ -1762,6 +1796,15 @@ function extractDriveFolderId_(url) {
   return null;
 }
 
+function extractDriveFileId_(url) {
+  if (!url) return null;
+  var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
 function sanitizePdfFilePart_(value, fallback) {
   var cleaned = String(value || fallback || "")
     .replace(/[\\\/:*?"<>|#%\u0000-\u001F]/g, " ")
@@ -2533,9 +2576,635 @@ function rowToApplication_(row, headerMap) {
     additionalNotes: col("Additional Notes"),
     // Admin
     pdfUrl:        col("PDF URL"),
+    applicationDownloadToken: col("Application Download Token"),
+    applicationDownloadExpiresAt: col("Application Download Expires At"),
     reviewStatus:  col("Review Status") || "Pending",
     internalNotes: col("Internal Notes"),
     updatedAt:     col("Updated At"),
+    shortlistStatus: col("Shortlist Status"),
+    documentRequestSent: col("Document Request Sent"),
+    documentRequestSentAt: col("Document Request Sent At"),
+    uploadToken: col("Upload Token"),
+    uploadTokenExpiresAt: col("Upload Token Expires At"),
+    uploadLink: col("Upload Link"),
+    supportDocumentFolderUrl: col("Support Document Folder URL"),
+    documentUploadStatus: col("Document Upload Status"),
+    uploadedFileCount: col("Uploaded File Count"),
+    lastUploadAt: col("Last Upload At"),
+    screeningReportStatus: col("Screening Report Status"),
+    screeningReportGeneratedAt: col("Screening Report Generated At"),
+    screeningReportUrl: col("Screening Report URL"),
+    screeningReportMarkdown: col("Screening Report Markdown"),
+    dataRetentionStatus: col("Data Retention Status"),
+    retentionExpiryDate: col("Retention Expiry Date"),
+    retentionAction: col("Retention Action"),
+    retentionNotes: col("Retention Notes"),
+    sensitiveFilesDeletedAt: col("Sensitive Files Deleted At"),
+    archivedTenantFileUrl: col("Archived Tenant File URL"),
+  };
+}
+
+function findApplicationRowByRecordId_(recordId) {
+  if (!recordId) throw new Error("Application recordId required");
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) throw new Error("No application records found");
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var idCol = headerMap["Record ID"];
+  if (idCol === undefined) throw new Error('"07 Intake Records" is missing Record ID column.');
+  var ids = sheet.getRange(2, idCol + 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === String(recordId).trim()) {
+      var rowNumber = i + 2;
+      var row = sheet.getRange(rowNumber, 1, 1, numCols).getValues()[0];
+      return {
+        sheet: sheet,
+        rowNumber: rowNumber,
+        row: row,
+        headerMap: headerMap,
+        app: rowToApplication_(row, headerMap),
+      };
+    }
+  }
+  throw new Error("Application not found: " + recordId);
+}
+
+function setApplicationCells_(sheet, rowNumber, headerMap, values) {
+  for (var name in values) {
+    if (!Object.prototype.hasOwnProperty.call(values, name)) continue;
+    var colIdx = headerMap[name];
+    if (colIdx !== undefined) sheet.getRange(rowNumber, colIdx + 1).setValue(values[name]);
+  }
+}
+
+function getOrCreateChildFolder_(parent, name) {
+  var safeName = sanitizePdfFilePart_(name, "Applicant");
+  var it = parent.getFoldersByName(safeName);
+  return it.hasNext() ? it.next() : parent.createFolder(safeName);
+}
+
+function generateUploadToken_() {
+  var bytes = Utilities.getUuid() + "-" + Utilities.getUuid() + "-" + Date.now();
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes, Utilities.Charset.UTF_8);
+  return digest.map(function(b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+}
+
+function getExpiryIso_(days) {
+  return new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function isExpiredIso_(isoValue) {
+  if (!isoValue) return true;
+  var expiresAt = new Date(isoValue);
+  return isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime();
+}
+
+function expiredLinkError_() {
+  throw new Error("This link has expired. Please contact property management.");
+}
+
+function buildUploadPath_(listingId, recordId, token) {
+  return "/support-documents/" + encodeURIComponent(listingId) + "/" + encodeURIComponent(recordId) + "?token=" + encodeURIComponent(token);
+}
+
+function buildSupportingDocumentsEmailBody_(applicantName, propertyAddress, uploadLink) {
+  return [
+    "Dear " + applicantName + ",",
+    "",
+    "Thank you for submitting your rental application for " + propertyAddress + ".",
+    "",
+    "Your application has been shortlisted for further review. Please upload your supporting documents using the secure link below:",
+    "",
+    uploadLink,
+    "",
+    "Please upload the documents that apply to your situation, such as:",
+    "- Government-issued photo ID",
+    "- Proof of income or employment",
+    "- Recent pay stubs",
+    "- NOA / T4, if applicable",
+    "- Credit report",
+    "- Bank statements or proof of funds, if requested",
+    "- Landlord references",
+    "- Tenant insurance information, if available",
+    "- Any other supporting documents",
+    "",
+    "Please do not email sensitive documents separately unless requested.",
+    "",
+    "Thank you,",
+    "Vanisland Property Management"
+  ].join("\n");
+}
+
+function sendSupportingDocumentsEmail_(toEmail, applicantName, propertyAddress, uploadLink) {
+  if (!toEmail) throw new Error("Applicant email is missing.");
+  if (!uploadLink) throw new Error("Upload Link is missing.");
+  MailApp.sendEmail({
+    to: toEmail,
+    subject: "Supporting Documents Required for Your Rental Application",
+    body: buildSupportingDocumentsEmailBody_(applicantName || "Applicant", propertyAddress || "", uploadLink),
+  });
+}
+
+function requestSupportingDocuments_(recordId, origin, auth) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var app = found.app;
+  if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
+    throw new Error("Access denied for this listing.");
+  }
+  if (!app.email) throw new Error("Applicant email is missing.");
+  if (!app.listingId) throw new Error("Listing ID is missing.");
+
+  var listing = findListingById_(app.listingId);
+  if (!listing) throw new Error("Listing not found: " + app.listingId);
+  if (!listing.driveFolderLink) throw new Error("Drive Folder Link is missing for listing: " + app.listingId);
+  var listingFolderId = extractDriveFolderId_(listing.driveFolderLink);
+  if (!listingFolderId) throw new Error("Could not read Drive folder ID from listing Drive Folder Link.");
+
+  var listingFolder = DriveApp.getFolderById(listingFolderId);
+  var supportFolder = getOrCreateChildFolder_(listingFolder, "Supporting Documents");
+  var applicantFolder = getOrCreateChildFolder_(supportFolder, recordId + " - " + (app.applicantName || "Applicant"));
+  trySetDriveViewSharing_(applicantFolder, "supporting document folder");
+
+  var token = generateUploadToken_();
+  var tokenExpiresAt = getExpiryIso_(14);
+  var path = buildUploadPath_(app.listingId, recordId, token);
+  var cleanOrigin = String(origin || "").replace(/\/+$/, "");
+  var uploadLink = cleanOrigin ? cleanOrigin + path : path;
+  var now = new Date().toISOString();
+
+  sendSupportingDocumentsEmail_(app.email, app.applicantName || "Applicant", listing.address || app.listingId, uploadLink);
+
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Shortlist Status": "Shortlisted",
+    "Document Request Sent": "Yes",
+    "Document Request Sent At": now,
+    "Upload Token": token,
+    "Upload Token Expires At": tokenExpiresAt,
+    "Upload Link": uploadLink,
+    "Support Document Folder URL": applicantFolder.getUrl(),
+    "Document Upload Status": "Pending",
+    "Updated At": now,
+  });
+  SpreadsheetApp.flush();
+
+  return {
+    success: true,
+    recordId: recordId,
+    uploadLink: uploadLink,
+    supportDocumentFolderUrl: applicantFolder.getUrl(),
+    documentUploadStatus: "Pending",
+    documentRequestSent: "Yes",
+    documentRequestSentAt: now,
+    uploadTokenExpiresAt: tokenExpiresAt,
+    shortlistStatus: "Shortlisted",
+  };
+}
+
+function resendSupportingDocumentsEmail_(recordId, auth) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var app = found.app;
+  if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
+    throw new Error("Access denied for this listing.");
+  }
+  if (!app.email) throw new Error("Applicant email is missing.");
+  if (!app.listingId) throw new Error("Listing ID is missing.");
+  if (!app.uploadLink) throw new Error("Upload Link is missing. Please request supporting documents first.");
+  if (!app.uploadToken || isExpiredIso_(app.uploadTokenExpiresAt)) expiredLinkError_();
+
+  var listing = findListingById_(app.listingId);
+  if (!listing) throw new Error("Listing not found: " + app.listingId);
+
+  var now = new Date().toISOString();
+  sendSupportingDocumentsEmail_(app.email, app.applicantName || "Applicant", listing.address || app.listingId, app.uploadLink);
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Document Request Sent": "Yes",
+    "Document Request Sent At": now,
+    "Updated At": now,
+  });
+  SpreadsheetApp.flush();
+
+  return {
+    success: true,
+    recordId: recordId,
+    emailTo: app.email,
+    uploadLink: app.uploadLink,
+    documentRequestSent: "Yes",
+    documentRequestSentAt: now,
+  };
+}
+
+function validateUploadToken_(listingId, recordId, token) {
+  if (!listingId || !recordId || !token) throw new Error("This upload link is invalid or expired.");
+  var found = findApplicationRowByRecordId_(recordId);
+  var app = found.app;
+  if (String(app.listingId || "") !== String(listingId || "")) throw new Error("This upload link is invalid or expired.");
+  if (!app.uploadToken || String(app.uploadToken) !== String(token)) throw new Error("This upload link is invalid or expired.");
+  if (isExpiredIso_(app.uploadTokenExpiresAt)) expiredLinkError_();
+  var listing = findListingById_(listingId);
+  if (!listing) throw new Error("This upload link is invalid or expired.");
+  return {
+    valid: true,
+    listingId: listingId,
+    recordId: recordId,
+    applicantName: app.applicantName || "",
+    propertyAddress: listing.address || "",
+    documentUploadStatus: app.documentUploadStatus || "Pending",
+    uploadedFileCount: app.uploadedFileCount || 0,
+    lastUploadAt: app.lastUploadAt || "",
+    uploadTokenExpiresAt: app.uploadTokenExpiresAt || "",
+  };
+}
+
+function updateDocumentUploadStatus_(recordId) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var folderUrl = found.app.supportDocumentFolderUrl;
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+  var count = 0;
+  while (files.hasNext()) {
+    files.next();
+    count++;
+  }
+  var now = new Date().toISOString();
+  var status = count > 0 ? "Uploaded" : "Pending";
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Document Upload Status": status,
+    "Uploaded File Count": count,
+    "Last Upload At": count > 0 ? now : found.app.lastUploadAt,
+    "Updated At": now,
+  });
+  SpreadsheetApp.flush();
+  return { success: true, recordId: recordId, documentUploadStatus: status, uploadedFileCount: count, lastUploadAt: count > 0 ? now : found.app.lastUploadAt };
+}
+
+function uploadSupportingDocument_(body) {
+  validateUploadToken_(body.listingId, body.recordId, body.token);
+  if (!body.category) throw new Error("Document category is required.");
+  if (!body.data) throw new Error("File data is required.");
+  var found = findApplicationRowByRecordId_(body.recordId);
+  var folderUrl = found.app.supportDocumentFolderUrl;
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+
+  var folder = DriveApp.getFolderById(folderId);
+  var fileName = [
+    sanitizePdfFilePart_(body.category, "Document"),
+    sanitizePdfFilePart_(found.app.applicantName, "Applicant"),
+    sanitizePdfFilePart_(body.fileName, "upload")
+  ].join(" - ");
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(body.data),
+    body.mimeType || "application/octet-stream",
+    fileName
+  );
+  var file = folder.createFile(blob);
+  trySetDriveViewSharing_(file, "supporting document");
+  var status = updateDocumentUploadStatus_(body.recordId);
+  return {
+    success: true,
+    fileName: file.getName(),
+    fileUrl: file.getUrl(),
+    documentUploadStatus: status.documentUploadStatus,
+    uploadedFileCount: status.uploadedFileCount,
+    lastUploadAt: status.lastUploadAt,
+  };
+}
+
+var SCREENING_REPORT_CATEGORIES = [
+  "Government Photo ID",
+  "Income Proof / Pay Stubs",
+  "Employment Letter",
+  "NOA / T4",
+  "Credit Report",
+  "Bank Statements / Proof of Funds",
+  "Landlord Reference",
+  "Tenant Insurance",
+  "Other Documents"
+];
+
+function inferSupportDocumentCategory_(fileName) {
+  var lower = String(fileName || "").toLowerCase();
+  if (lower.indexOf("government photo id") >= 0 || lower.indexOf("photo id") >= 0 || lower.indexOf("passport") >= 0 || lower.indexOf("driver") >= 0) return "Government Photo ID";
+  if (lower.indexOf("income") >= 0 || lower.indexOf("pay") >= 0 || lower.indexOf("stub") >= 0) return "Income Proof / Pay Stubs";
+  if (lower.indexOf("employment") >= 0 || lower.indexOf("employer") >= 0 || lower.indexOf("letter") >= 0) return "Employment Letter";
+  if (lower.indexOf("noa") >= 0 || lower.indexOf("t4") >= 0) return "NOA / T4";
+  if (lower.indexOf("credit") >= 0) return "Credit Report";
+  if (lower.indexOf("bank") >= 0 || lower.indexOf("fund") >= 0) return "Bank Statements / Proof of Funds";
+  if (lower.indexOf("landlord") >= 0 || lower.indexOf("reference") >= 0) return "Landlord Reference";
+  if (lower.indexOf("insurance") >= 0) return "Tenant Insurance";
+  return "Other Documents";
+}
+
+function listUploadedSupportFiles_(folderUrl) {
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+  var uploaded = [];
+  while (files.hasNext()) {
+    var file = files.next();
+    uploaded.push({
+      name: file.getName(),
+      url: file.getUrl(),
+      category: inferSupportDocumentCategory_(file.getName()),
+    });
+  }
+  return uploaded;
+}
+
+function markdownValue_(value) {
+  var text = normalizeCellText_(value);
+  return text || "-";
+}
+
+function markdownBullet_(label, value) {
+  return "- " + label + ": " + markdownValue_(value);
+}
+
+function hasUploadedCategory_(uploadedFiles, category) {
+  for (var i = 0; i < uploadedFiles.length; i++) {
+    if (uploadedFiles[i].category === category) return true;
+  }
+  return false;
+}
+
+function uploadedFilesByCategory_(uploadedFiles, category) {
+  var lines = [];
+  for (var i = 0; i < uploadedFiles.length; i++) {
+    if (uploadedFiles[i].category === category) {
+      lines.push("  - [" + uploadedFiles[i].name + "](" + uploadedFiles[i].url + ")");
+    }
+  }
+  return lines.length ? lines : ["  - Not uploaded or not clearly categorized"];
+}
+
+function buildMissingScreeningItems_(record, uploadedFiles) {
+  var missing = [];
+  if (!hasUploadedCategory_(uploadedFiles, "Income Proof / Pay Stubs")) missing.push("Missing income proof - draft only, needs manual review.");
+  if (!hasUploadedCategory_(uploadedFiles, "Government Photo ID")) missing.push("Missing ID - draft only, needs manual review.");
+  if (!hasUploadedCategory_(uploadedFiles, "Credit Report")) missing.push("Missing credit report - draft only, needs manual review.");
+  if (!hasUploadedCategory_(uploadedFiles, "Landlord Reference") && !record.landlordReference) missing.push("Missing landlord reference - draft only, needs manual review.");
+  if (!hasUploadedCategory_(uploadedFiles, "NOA / T4")) missing.push("Outdated or missing NOA/T4 - verify manually if required.");
+  if (!hasUploadedCategory_(uploadedFiles, "Tenant Insurance") && !record.hasTenantInsurance && !record.proofInsuranceBeforeMoveIn) missing.push("Missing tenant insurance confirmation - draft only, needs manual review.");
+  if (!record.monthlyIncome || !record.employer) missing.push("Applicant income or employment information appears incomplete.");
+  if (!missing.length) missing.push("No obvious missing items detected by the draft checklist. Manual verification is still required.");
+  return missing;
+}
+
+function buildDraftScreeningReportMarkdown_(record, listing, uploadedFiles) {
+  var missingItems = buildMissingScreeningItems_(record, uploadedFiles);
+  var draftRecommendation = "Ready for manual review";
+  if (!uploadedFiles.length) draftRecommendation = "Not enough information for review";
+  else if (missingItems.length > 2) draftRecommendation = "Needs more documents";
+  else if (!record.monthlyIncome || !record.employer) draftRecommendation = "Needs clarification";
+
+  var lines = [
+    "# AI Draft Tenant Screening Report",
+    "",
+    "Generated At: " + new Date().toISOString(),
+    "Application ID: " + markdownValue_(record.recordId),
+    "",
+    "## 1. Applicant Basic Information",
+    markdownBullet_("Applicant Name", record.applicantName),
+    markdownBullet_("Email", record.email),
+    markdownBullet_("Phone", record.phone),
+    markdownBullet_("Listing ID", record.listingId),
+    markdownBullet_("Property Address", listing && listing.address),
+    markdownBullet_("Desired Move-in Date", record.moveInDate),
+    markdownBullet_("Occupants", record.occupants),
+    markdownBullet_("Pets", record.hasPets || record.petDetails),
+    markdownBullet_("Smoking", record.smokesVapesCannabis || record.noSmokingAgreement),
+    markdownBullet_("Tenant Insurance Status", record.hasTenantInsurance || record.proofInsuranceBeforeMoveIn || record.tenantInsuranceAgreement),
+    "",
+    "## 2. Application Summary",
+    markdownBullet_("Employment Status", record.employmentStatus),
+    markdownBullet_("Employer / Income Source", record.employer),
+    markdownBullet_("Monthly Income", record.monthlyIncome),
+    markdownBullet_("Current Address", record.currentAddress),
+    markdownBullet_("Current Landlord / Reference", record.landlordReference),
+    markdownBullet_("Reason for Moving", record.reasonForMoving),
+    markdownBullet_("Additional Notes", record.additionalNotes),
+    "",
+    "## 3. Uploaded Document Checklist"
+  ];
+
+  for (var i = 0; i < SCREENING_REPORT_CATEGORIES.length; i++) {
+    var category = SCREENING_REPORT_CATEGORIES[i];
+    lines.push("- " + category + ":");
+    lines = lines.concat(uploadedFilesByCategory_(uploadedFiles, category));
+  }
+
+  lines.push("");
+  lines.push("## 4. Missing / Unclear Items");
+  for (var j = 0; j < missingItems.length; j++) lines.push("- " + missingItems[j]);
+
+  lines = lines.concat([
+    "",
+    "## 5. Preliminary Risk Notes",
+    "- Needs manual review. This draft does not verify document authenticity.",
+    "- Potential concern: incomplete or unclear income, identity, credit, landlord reference, or insurance information should be reviewed manually.",
+    "- Document not yet verified. Uploaded files are listed for internal review only.",
+    "- Information appears incomplete where application fields or uploaded documents are missing.",
+    "",
+    "## 6. Recommended Follow-up Questions",
+    "- Please confirm any missing or unclear income information and provide supporting documents if required.",
+    "- Please confirm whether government photo ID and credit report have been provided and are current.",
+    "- Please confirm landlord reference details and whether the reference can be contacted.",
+    "- Please confirm tenant insurance status before move-in if applicable.",
+    "- Please clarify any incomplete application answers before a final decision is made.",
+    "",
+    "## 7. Draft Recommendation",
+    draftRecommendation,
+    "",
+    "## 8. Disclaimer",
+    "This is an AI-generated draft for internal property management review only.",
+    "It is not a final approval, rejection, legal opinion, or credit decision.",
+    "The property manager must verify all information manually before making a decision."
+  ]);
+
+  return lines.join("\n");
+}
+
+function saveScreeningReportToDrive_(folderUrl, markdown, recordId, applicantName) {
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+  var folder = DriveApp.getFolderById(folderId);
+  var safeName = String(applicantName || "Applicant").replace(/[\\/:*?"<>|#%{}]/g, " ").replace(/\s+/g, " ").trim();
+  var fileName = recordId + " - " + safeName + " - AI Draft Tenant Screening Report.md";
+  var existing = folder.getFilesByName(fileName);
+  while (existing.hasNext()) existing.next().setTrashed(true);
+  var file = folder.createFile(fileName, markdown, MimeType.PLAIN_TEXT);
+  return file.getUrl();
+}
+
+function updateScreeningReportStatus_(recordId, reportUrl, markdown) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var now = new Date().toISOString();
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Screening Report Status": "Draft Generated",
+    "Screening Report Generated At": now,
+    "Screening Report URL": reportUrl,
+    "Screening Report Markdown": markdown,
+    "Updated At": now,
+  });
+  SpreadsheetApp.flush();
+  return { status: "Draft Generated", generatedAt: now, reportUrl: reportUrl };
+}
+
+function generateDraftScreeningReport_(recordId, auth) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var record = found.app;
+  if (auth && auth.mode === "trial" && !findListingByIdForEmail_(record.listingId, auth.email)) {
+    throw new Error("Access denied for this listing.");
+  }
+  if (!record.supportDocumentFolderUrl) throw new Error("Support Document Folder URL is missing.");
+  var uploadStatus = String(record.documentUploadStatus || "").toLowerCase();
+  if (uploadStatus !== "uploaded" && uploadStatus !== "complete") {
+    throw new Error("Document Upload Status must be Uploaded or Complete before generating a screening report.");
+  }
+  var listing = findListingById_(record.listingId);
+  if (!listing) throw new Error("Listing not found: " + record.listingId);
+  var uploadedFiles = listUploadedSupportFiles_(record.supportDocumentFolderUrl);
+  var markdown = buildDraftScreeningReportMarkdown_(record, listing, uploadedFiles);
+  var reportUrl = saveScreeningReportToDrive_(record.supportDocumentFolderUrl, markdown, recordId, record.applicantName);
+  var updated = updateScreeningReportStatus_(recordId, reportUrl, markdown);
+  return {
+    success: true,
+    recordId: recordId,
+    screeningReportStatus: updated.status,
+    screeningReportGeneratedAt: updated.generatedAt,
+    screeningReportUrl: updated.reportUrl,
+    screeningReportMarkdown: markdown,
+  };
+}
+
+function requireAdminRetentionAuth_(auth) {
+  if (!auth || auth.mode !== "admin") {
+    throw new Error("Admin access is required for data retention actions.");
+  }
+}
+
+function retentionRuleForStatus_(status) {
+  var normalized = normalizeCellText_(status).toLowerCase();
+  if (normalized === "declined" || normalized === "not selected") {
+    return { status: "Declined", days: 180, action: "Pending deletion after expiry" };
+  }
+  if (normalized === "withdrawn") {
+    return { status: "Withdrawn", days: 90, action: "Pending deletion after expiry" };
+  }
+  if (normalized === "incomplete") {
+    return { status: "Incomplete", days: 60, action: "Pending deletion after expiry" };
+  }
+  if (normalized === "approved but not signed") {
+    return { status: "Approved but not signed", days: 180, action: "Pending deletion after expiry" };
+  }
+  if (normalized === "signed tenant" || normalized === "archived") {
+    return { status: "Archived", days: null, action: "Move to tenant file / keep" };
+  }
+  throw new Error("Unknown retention status: " + status);
+}
+
+function addDaysIsoDate_(days) {
+  var date = new Date();
+  date.setDate(date.getDate() + Number(days));
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function updateApplicationRetentionStatus_(recordId, retentionStatus, notes, auth) {
+  requireAdminRetentionAuth_(auth);
+  var rule = retentionRuleForStatus_(retentionStatus);
+  var found = findApplicationRowByRecordId_(recordId);
+  var now = new Date().toISOString();
+  var values = {
+    "Data Retention Status": rule.status,
+    "Retention Expiry Date": rule.days ? addDaysIsoDate_(rule.days) : "",
+    "Retention Action": rule.action,
+    "Retention Notes": notes || "",
+    "Updated At": now,
+  };
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, values);
+  SpreadsheetApp.flush();
+  return {
+    success: true,
+    recordId: recordId,
+    dataRetentionStatus: values["Data Retention Status"],
+    retentionExpiryDate: values["Retention Expiry Date"],
+    retentionAction: values["Retention Action"],
+    retentionNotes: values["Retention Notes"],
+  };
+}
+
+function parseRetentionDate_(value) {
+  if (!value) return null;
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  var date = new Date(value);
+  if (isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function cleanupExpiredApplicationsPreview_(auth) {
+  requireAdminRetentionAuth_(auth);
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) return { success: true, count: 0, records: [] };
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  var today = new Date();
+  today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  var records = [];
+  for (var i = 0; i < rows.length; i++) {
+    var app = rowToApplication_(rows[i], headerMap);
+    var expiry = parseRetentionDate_(app.retentionExpiryDate);
+    if (!expiry || expiry > today) continue;
+    if (app.sensitiveFilesDeletedAt) continue;
+    records.push({
+      recordId: app.recordId,
+      applicantName: app.applicantName,
+      email: app.email,
+      listingId: app.listingId,
+      retentionStatus: app.dataRetentionStatus,
+      expiryDate: app.retentionExpiryDate,
+      supportFolderUrl: app.supportDocumentFolderUrl,
+    });
+  }
+  return { success: true, count: records.length, records: records };
+}
+
+function deleteExpiredApplicantSensitiveFiles_(recordId, auth) {
+  requireAdminRetentionAuth_(auth);
+  var found = findApplicationRowByRecordId_(recordId);
+  var app = found.app;
+  var folderUrl = app.supportDocumentFolderUrl;
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+  DriveApp.getFolderById(folderId).setTrashed(true);
+  var now = new Date().toISOString();
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Support Document Folder URL": "",
+    "Upload Link": "",
+    "Upload Token": "",
+    "Upload Token Expires At": "",
+    "Document Upload Status": "Sensitive files deleted",
+    "Sensitive Files Deleted At": now,
+    "Retention Action": "Sensitive files deleted",
+    "Updated At": now,
+  });
+  SpreadsheetApp.flush();
+  return {
+    success: true,
+    recordId: recordId,
+    sensitiveFilesDeletedAt: now,
+    retentionAction: "Sensitive files deleted",
   };
 }
 
@@ -2553,6 +3222,8 @@ function saveRentalApplication_(body) {
   var num  = String(existingCount + 1).padStart(3, "0");
   var recordId = "APP-" + year + "-" + num;
   var submittedAt = new Date().toISOString();
+  var applicationDownloadToken = generateUploadToken_();
+  var applicationDownloadExpiresAt = getExpiryIso_(7);
   var supportingDocsValue = [
     body.proofOfIncome ? "Applicant: " + body.proofOfIncome : "",
     body.jointProofOfIncome ? "Joint Applicant: " + body.jointProofOfIncome : ""
@@ -2635,6 +3306,8 @@ function saveRentalApplication_(body) {
     "Additional Notes":  body.additionalNotes || "",
     // Admin
     "PDF URL":       "",
+    "Application Download Token": applicationDownloadToken,
+    "Application Download Expires At": applicationDownloadExpiresAt,
     "Review Status": "Pending",
     "Internal Notes": "",
     "Updated At":    submittedAt,
@@ -2714,6 +3387,8 @@ function saveRentalApplication_(body) {
     success:      true,
     recordId:     recordId,
     pdfUrl:       pdfUrl,
+    applicationDownloadToken: applicationDownloadToken,
+    applicationDownloadExpiresAt: applicationDownloadExpiresAt,
     pdfError:     pdfError,
     subfolderUrl: subfolderUrl,
     submittedAt:  submittedAt,
@@ -2876,6 +3551,28 @@ function getApplicationById_(applicationId, auth) {
     }
   }
   throw new Error("Application not found: " + applicationId);
+}
+
+function getApplicationPdfDownloadData_(recordId, token) {
+  if (!recordId) throw new Error("getApplicationPdfDownloadData: recordId required");
+  if (!token) throw new Error("This download link is invalid or expired.");
+  var found = findApplicationRowByRecordId_(recordId);
+  if (!found.app.applicationDownloadToken || String(found.app.applicationDownloadToken) !== String(token)) {
+    throw new Error("This download link is invalid or expired.");
+  }
+  if (isExpiredIso_(found.app.applicationDownloadExpiresAt)) expiredLinkError_();
+  var pdfUrl = found.app.pdfUrl;
+  if (!pdfUrl) throw new Error("No submitted application PDF found for: " + recordId);
+  var fileId = extractDriveFileId_(pdfUrl);
+  if (!fileId) throw new Error("Could not read PDF file ID from saved PDF URL.");
+  var file = DriveApp.getFileById(fileId);
+  var blob = file.getBlob();
+  return {
+    recordId: recordId,
+    fileName: sanitizePdfFilePart_(recordId, "application") + "-application.pdf",
+    mimeType: blob.getContentType() || "application/pdf",
+    data: Utilities.base64Encode(blob.getBytes()),
+  };
 }
 
 function updateApplicationStatus_(applicationId, reviewStatus, auth) {

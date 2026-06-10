@@ -150,7 +150,7 @@ export function resolveRentalListingCover(rootPhotos = [], coverFiles = [], cove
       name: "cover-image",
       thumbUrl: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w640-h480`,
       thumbUrlLg: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w1600`,
-      url: `https://drive.google.com/file/d/${coverImageFileId}/view`,
+      url: "",
     };
   }
 

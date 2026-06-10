@@ -485,7 +485,7 @@ export default function HomeSaleMedia() {
               <p style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: 4 }}>{coverPhoto.fileName || "Cover"}</p>
               {coverPhoto.captionEn && <p className="text-muted text-sm">EN: {coverPhoto.captionEn}</p>}
               {coverPhoto.captionCn && <p className="text-muted text-sm">CN: {coverPhoto.captionCn}</p>}
-              {coverPhoto.driveUrl && (
+              {isAdmin && coverPhoto.driveUrl && (
                 <a href={coverPhoto.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm" style={{ marginTop: 8 }}>
                   Open in Drive ↗
                 </a>

@@ -13,7 +13,7 @@ import {
   setSaleListingCoverPhoto,
   uploadSaleToSubfolder,
 } from "../../utils/homeSaleSheet";
-import { getStudioRequestAuth } from "../../utils/trialAccess";
+import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
 
 // Use canonical extractor imported from homeSaleSheet — handles /file/d/ID, /d/ID, and ?id=ID formats
@@ -37,6 +37,7 @@ function assetMatchesCoverUrl(asset, coverUrl) {
 export default function HomeSaleCoverImage() {
   const { listingId } = useParams();
   const lang = useLang();
+  const isAdmin = isAdminSessionActive();
   const L = AL[lang] ?? AL.en;
   const [listing, setListing] = useState(null);
   const [mediaRows, setMediaRows] = useState([]);
@@ -136,7 +137,7 @@ export default function HomeSaleCoverImage() {
       } catch { /* current cover can still fall back to thumbnail URL */ }
     })();
     return () => { active = false; };
-  }, [listingId, listing?.primaryPhotoUrl, mediaRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [listingId, listing?.primaryPhotoUrl, mediaRows]);
 
   /** Returns base64 dataUrl if loaded, falls back to Drive thumbnail URL. */
   function getPhotoSrc(asset) {
@@ -455,7 +456,7 @@ export default function HomeSaleCoverImage() {
           {(collageStatus === "saved") && collageMsg && (
             <div className="notice notice--sage" style={{ marginBottom: 10 }}>
               <p>{collageMsg}</p>
-              {collageFolderUrl && (
+              {isAdmin && collageFolderUrl && (
                 <a href={collageFolderUrl} target="_blank" rel="noreferrer" style={{ fontSize: "0.82rem" }}>
                   Open 03_Cover_Images/ folder ↗
                 </a>

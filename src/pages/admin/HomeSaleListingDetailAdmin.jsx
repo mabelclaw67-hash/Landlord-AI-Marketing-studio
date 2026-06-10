@@ -277,7 +277,7 @@ export default function HomeSaleListingDetailAdmin() {
                   📁 {L.openFolder}
                 </a>
               )}
-              {listing.videoUrl && (
+              {isAdminSessionActive() && listing.videoUrl && (
                 <a href={listing.videoUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   🎬 Video
                 </a>

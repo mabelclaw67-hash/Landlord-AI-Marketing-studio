@@ -13,10 +13,6 @@ import {
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
 
-const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
-const FORM_URL_READY  = RENTAL_FORM_URL &&
-  !RENTAL_FORM_URL.startsWith("PASTE_MY");
-
 const PUBLIC_LISTING_TEXT = {
   en: {
     loadingListing: "Loading listing...",
@@ -74,22 +70,6 @@ const PUBLIC_LISTING_TEXT = {
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
-// Build a prefilled Google Form URL for the given listing.
-// Entry 1083146033 = "Property Applied For / Listing ID"
-const PREFILL_ENTRY = "entry.1083146033";
-function buildPrefilledApplicationUrl(listing) {
-  if (!FORM_URL_READY) return RENTAL_FORM_URL;
-  try {
-    const base  = RENTAL_FORM_URL.split("?")[0];
-    const label = listing.id && listing.address
-      ? `${listing.id} — ${listing.address}`
-      : listing.id || "";
-    return `${base}?${PREFILL_ENTRY}=${encodeURIComponent(label)}&usp=pp_url`;
-  } catch {
-    return RENTAL_FORM_URL;
-  }
-}
-
 // Normalise ISO timestamps and Excel serial dates to YYYY-MM-DD for display.
 function formatDate(val) {
   if (!val) return "—";
@@ -121,10 +101,6 @@ function CoverPhoto({ file }) {
       <div style={{ width: "100%", height: 280, background: "#edf3ee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: "2.5rem" }}>🏠</span>
         <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 4 }}>{file.name}</p>
-        <a href={file.url} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: "0.82rem", color: "#3e5b4b", fontWeight: 600 }}>
-          Open photo in Drive ↗
-        </a>
       </div>
     );
   }
