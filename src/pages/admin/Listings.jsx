@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getListings } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
-import { AL } from "../../utils/adminLabels";
+import { AL, getStatusLabel } from "../../utils/adminLabels";
 
 export default function Listings() {
   const lang = useLang();
@@ -48,7 +48,7 @@ export default function Listings() {
           </div>
         ) : error ? (
           <div className="notice notice--error" style={{ margin: 16 }}>
-            <h4>Failed to load listings</h4>
+            <h4>{L.loadFailedListings}</h4>
             <p>{error}</p>
           </div>
         ) : listings.length === 0 ? (
@@ -73,14 +73,14 @@ export default function Listings() {
                     {l.address}
                   </div>
                   <span className={`badge ${statusClass[l.status] || "badge--draft"}`} style={{ flexShrink: 0 }}>
-                    {l.status}
+                    {getStatusLabel(l.status, lang)}
                   </span>
                 </div>
                 <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 4 }}>
                   {l.city}
                 </div>
                 <div style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: 4 }}>
-                  ${Number(l.rent).toLocaleString()}/mo
+                  ${Number(l.rent).toLocaleString()}{L.perMonth}
                 </div>
                 <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: 8 }}>
                   <code style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", background: "var(--color-bg-subtle, #f4f4f4)", padding: "2px 5px", borderRadius: 4 }}>
@@ -123,8 +123,8 @@ export default function Listings() {
                     <td><code style={{ fontSize: "0.8rem" }}>{l.id}</code></td>
                     <td>{l.address}</td>
                     <td>{l.city}</td>
-                    <td>${Number(l.rent).toLocaleString()}/mo</td>
-                    <td><span className={`badge ${statusClass[l.status] || "badge--draft"}`}>{l.status}</span></td>
+                    <td>${Number(l.rent).toLocaleString()}{L.perMonth}</td>
+                    <td><span className={`badge ${statusClass[l.status] || "badge--draft"}`}>{getStatusLabel(l.status, lang)}</span></td>
                     <td className="text-muted text-sm">{l.createdDate}</td>
                     <td>
                       <Link to={`/admin/listing/${l.id}`} className="btn btn--ghost btn--sm">

@@ -68,6 +68,12 @@ const en = {
   statusActive:       "Active",
   statusSold:         "Sold",
   statusArchived:     "Archived",
+  statusAvailable:        "Available",
+  statusOpenHouse:        "Open House",
+  statusPending:          "Pending",
+  statusRented:           "Rented",
+  statusApplicationClosed:"Application Closed",
+  perMonth:           "/mo",
 
   // ── Shared actions ───────────────────────────────────────────────────────
   save:               "Save",
@@ -141,6 +147,50 @@ const en = {
   regenerate:             "Regenerate",
   copyText:               "Copy Text",
 
+  // ── Rental Listing Detail — Property Info fields ─────────────────────────
+  publicStatus:            "Public Status",
+  editListingInfo:         "Edit Listing Info",
+  savedToSheet:            "Saved to Sheet",
+  openPublicListingPreview:"Open Public Listing Preview",
+  fieldOwnerName:               "Owner Name",
+  fieldPropertyAddress:         "Property Address",
+  fieldCity:                    "City",
+  fieldBedrooms:                "Bedrooms",
+  fieldBathrooms:               "Bathrooms",
+  fieldRent:                    "Rent",
+  fieldRentMonthly:             "Rent ($/mo)",
+  fieldAvailableDate:           "Available Date",
+  fieldLeaseTerm:               "Lease Term",
+  fieldUtilities:               "Utilities",
+  fieldPetPolicy:               "Pet Policy",
+  fieldParking:                 "Parking",
+  fieldLaundry:                 "Laundry",
+  fieldSmokingPolicy:           "Smoking Policy",
+  fieldDefaultLanguage:         "Default Language",
+  fieldTargetAudience:          "Target Audience",
+  fieldTenantListingStatus:     "Tenant Listing Status",
+  fieldTargetPlatforms:         "Target Platforms",
+  fieldKeyFeatures:             "Key Features / Headline",
+  fieldKeyFeaturesView:         "Key Features",
+  fieldOpenHouseSettings:       "Open House Settings",
+  fieldOpenHouseDateTime:       "Date / Time",
+  fieldOpenHouseViewingInstructions: "Viewing Instructions",
+  fieldOpenHouseParkingNotes:   "Parking / Access Notes",
+  openHouseDateTimePlaceholder:    "Sunday 2:00 PM - 4:00 PM",
+  openHouseViewingPlaceholder:     "Please enter from the side entrance and scan the QR code on arrival.",
+  openHouseParkingPlaceholder:     "Street parking only. Please keep the access area clear.",
+  openHouseHint:            "Open House content only appears on the tenant-facing page when Tenant Listing Status is set to Open House.",
+  editingNotice:            "Editing will update the Google Sheet row for {id}. No new columns or rows will be created.",
+  saveToSheet:              "Save to Sheet",
+  resetToSheetData:         "Reset to Sheet Data",
+  writesDirectlyNotice:     "Writes directly to Google Sheet — no separate sync needed.",
+
+  // ── Dashboard / listing card notices ──────────────────────────────────────
+  loadFailedRental:         "Failed to load rental listings",
+  loadFailedListings:       "Failed to load listings",
+  loadFailedDashboard:      "Failed to load platform dashboard.",
+  dashboardDataWarning:     "Dashboard data warning",
+
   // ── Home Sale pages ───────────────────────────────────────────────────────
   saleListingsTitle:          "Sale Listings",
   newSaleListingBtn:          "+ New Sale Listing",
@@ -205,6 +255,30 @@ const en = {
   trialRequestsTitle:   "Trial Requests",
   adminNotes:           "Admin Notes",
   paymentStatus:        "Payment Status",
+
+  // ── Dashboard v2 — Start Here + My Listings + Next Step ─────────────────
+  startNewListing:          "Start a New Listing",
+  startNewListingHint:      "Create a listing and follow the step-by-step workflow.",
+  newRentalListingCta:      "Rental Listing",
+  newSaleListingCta:        "Home Sale Listing",
+  myListings:               "My Listings",
+  filterAll:                "All",
+  filterDraft:              "Draft",
+  filterInProgress:         "In Progress",
+  filterPublished:          "Published",
+  dashNoListings:           "No listings yet",
+  dashNoListingsHint:       "Create your first listing to get started.",
+  filterNoResults:          "No listings match this filter.",
+  nextStepCompleteDetails:  "Complete listing details",
+  nextStepUploadPhotos:     "Upload photos",
+  nextStepGenerateCopy:     "Generate AI copy",
+  nextStepCreateVideo:      "Create video",
+  nextStepReviewPublish:    "Review and publish",
+  nextStepPublishNow:       "Publish now",
+  nextStepMonitorApps:      "Monitor applications",
+  nextStepMonitorInquiries: "Monitor inquiries",
+  recommendedNextStep:      "Recommended Next Step",
+  advancedTools:            "Quick Access",
 };
 
 const zh = {
@@ -265,6 +339,12 @@ const zh = {
   statusActive:       "上线中",
   statusSold:         "已售出",
   statusArchived:     "已归档",
+  statusAvailable:        "可入住",
+  statusOpenHouse:        "开放日",
+  statusPending:          "待定",
+  statusRented:           "已出租",
+  statusApplicationClosed:"申请已关闭",
+  perMonth:           "/月",
 
   // ── Shared actions ───────────────────────────────────────────────────────
   save:               "保存",
@@ -338,6 +418,50 @@ const zh = {
   regenerate:             "重新生成",
   copyText:               "复制文本",
 
+  // ── Rental Listing Detail — Property Info fields ─────────────────────────
+  publicStatus:            "公开状态",
+  editListingInfo:         "编辑房源信息",
+  savedToSheet:            "已保存到表格",
+  openPublicListingPreview:"打开公开预览页面",
+  fieldOwnerName:               "房东姓名",
+  fieldPropertyAddress:         "房源地址",
+  fieldCity:                    "城市",
+  fieldBedrooms:                "卧室数量",
+  fieldBathrooms:               "卫生间数量",
+  fieldRent:                    "租金",
+  fieldRentMonthly:             "月租金 ($/月)",
+  fieldAvailableDate:           "可入住日期",
+  fieldLeaseTerm:               "租约期限",
+  fieldUtilities:               "水电费",
+  fieldPetPolicy:               "宠物政策",
+  fieldParking:                 "停车位",
+  fieldLaundry:                 "洗衣设施",
+  fieldSmokingPolicy:           "吸烟政策",
+  fieldDefaultLanguage:         "默认语言",
+  fieldTargetAudience:          "目标租客",
+  fieldTenantListingStatus:     "租客可见状态",
+  fieldTargetPlatforms:         "目标平台",
+  fieldKeyFeatures:             "主要特色 / 标题",
+  fieldKeyFeaturesView:         "主要特色",
+  fieldOpenHouseSettings:       "开放日设置",
+  fieldOpenHouseDateTime:       "日期 / 时间",
+  fieldOpenHouseViewingInstructions: "看房须知",
+  fieldOpenHouseParkingNotes:   "停车 / 出入须知",
+  openHouseDateTimePlaceholder:    "周日 下午2:00 - 4:00",
+  openHouseViewingPlaceholder:     "请从侧门进入，到达后请扫描二维码登记。",
+  openHouseParkingPlaceholder:     "仅限路边停车，请保持出入通道畅通。",
+  openHouseHint:            "仅当「租客可见状态」设为「开放日」时，开放日信息才会显示在租客页面上。",
+  editingNotice:            "编辑将更新 Google 表格中 {id} 对应的行，不会新增列或行。",
+  saveToSheet:              "保存到表格",
+  resetToSheetData:         "重置为表格数据",
+  writesDirectlyNotice:     "将直接写入 Google 表格，无需额外同步。",
+
+  // ── Dashboard / listing card notices ──────────────────────────────────────
+  loadFailedRental:         "出租房源加载失败",
+  loadFailedListings:       "房源加载失败",
+  loadFailedDashboard:      "平台看板加载失败。",
+  dashboardDataWarning:     "看板数据加载警告",
+
   // ── Home Sale pages ───────────────────────────────────────────────────────
   saleListingsTitle:          "出售房源列表",
   newSaleListingBtn:          "+ 新增出售房源",
@@ -402,6 +526,56 @@ const zh = {
   trialRequestsTitle:   "试用申请",
   adminNotes:           "管理备注",
   paymentStatus:        "付款状态",
+
+  // ── Dashboard v2 — Start Here + My Listings + Next Step ─────────────────
+  startNewListing:          "新建房源",
+  startNewListingHint:      "创建房源并按步骤完成发布流程。",
+  newRentalListingCta:      "出租房源",
+  newSaleListingCta:        "出售房源",
+  myListings:               "我的房源",
+  filterAll:                "全部",
+  filterDraft:              "草稿",
+  filterInProgress:         "进行中",
+  filterPublished:          "已发布",
+  dashNoListings:           "暂无房源",
+  dashNoListingsHint:       "创建第一个房源，开始营销工作流。",
+  filterNoResults:          "没有符合条件的房源。",
+  nextStepCompleteDetails:  "完善房源信息",
+  nextStepUploadPhotos:     "上传照片",
+  nextStepGenerateCopy:     "生成 AI 文案",
+  nextStepCreateVideo:      "制作视频",
+  nextStepReviewPublish:    "审核并发布",
+  nextStepPublishNow:       "立即发布",
+  nextStepMonitorApps:      "查看租客申请",
+  nextStepMonitorInquiries: "查看买家咨询",
+  recommendedNextStep:      "建议下一步",
+  advancedTools:            "快速访问",
 };
 
 export const AL = { en, zh };
+
+/**
+ * Maps raw status values stored in the sheet (always English) to the
+ * localized label for display. Falls back to the raw value if no
+ * mapping exists, so unexpected statuses never disappear.
+ */
+const STATUS_LABEL_KEYS = {
+  "Draft":              "statusDraft",
+  "In Review":          "statusReview",
+  "Ready to Publish":   "statusReady",
+  "Published":          "statusPublished",
+  "Active":             "statusActive",
+  "Sold":               "statusSold",
+  "Archived":           "statusArchived",
+  "Available":          "statusAvailable",
+  "Open House":         "statusOpenHouse",
+  "Pending":            "statusPending",
+  "Rented":             "statusRented",
+  "Application Closed": "statusApplicationClosed",
+};
+
+export function getStatusLabel(status, lang) {
+  const L = AL[lang] ?? AL.en;
+  const key = STATUS_LABEL_KEYS[status];
+  return key ? L[key] : (status || "");
+}

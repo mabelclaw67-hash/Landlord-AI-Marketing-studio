@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
-import { AL } from "../../utils/adminLabels";
+import { AL, getStatusLabel } from "../../utils/adminLabels";
+import { formatListingDate, formatMonthlyRent } from "../../utils/listingFormat";
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
@@ -1379,19 +1380,19 @@ export default function ListingDetail({ lang: langProp }) {
           <p className="text-muted text-sm">{listing.id} — {listing.address}, {listing.city}</p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {saving && <span className="text-muted text-sm">Saving…</span>}
-          <span className={`badge ${statusBadgeClass[listing.status] || "badge--draft"}`}>{listing.status}</span>
+          {saving && <span className="text-muted text-sm">{L.saving}</span>}
+          <span className={`badge ${statusBadgeClass[listing.status] || "badge--draft"}`}>{getStatusLabel(listing.status, lang)}</span>
           <select className="select-control" value={listing.status}
             onChange={(e) => updateOverallStatus(e.target.value)} disabled={saving}>
-            {["Draft", "In Review", "Ready to Publish", "Published"].map((s) => <option key={s}>{s}</option>)}
+            {["Draft", "In Review", "Ready to Publish", "Published"].map((s) => <option key={s} value={s}>{getStatusLabel(s, lang)}</option>)}
           </select>
           <a href={`/listings/${listing.id}`} target="_blank" rel="noopener noreferrer"
             className="btn btn--ghost btn--sm" style={{ whiteSpace: "nowrap" }}>
-            🔗 Open Public Listing Preview
+            🔗 {L.openPublicListingPreview}
           </a>
           <Link to="/admin/rental" className="btn btn--ghost btn--sm"
             style={saving ? { pointerEvents: "none", opacity: 0.5 } : {}}>
-            ← Rental Dashboard
+            ← {L.rentalDashboard}
           </Link>
         </div>
       </div>
@@ -1413,16 +1414,16 @@ export default function ListingDetail({ lang: langProp }) {
               borderRadius: 999,
               padding: "3px 10px",
             }}>
-              Public Status: {publicListingStatus}
+              {L.publicStatus}: {getStatusLabel(publicListingStatus, lang)}
             </span>
             {infoEdited && !infoEditMode && (
               <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "#16a34a", border: "1px solid #86efac", borderRadius: 4, padding: "1px 7px" }}>
-                ✅ Saved to Sheet
+                ✅ {L.savedToSheet}
               </span>
             )}
             {!infoEditMode && (
               <button className="btn btn--ghost btn--sm" onClick={startEditInfo}>
-                ✏️ Edit Listing Info
+                ✏️ {L.editListingInfo}
               </button>
             )}
           </div>
@@ -1433,19 +1434,19 @@ export default function ListingDetail({ lang: langProp }) {
           <>
             <div className="notice notice--info" style={{ marginBottom: 14 }}>
               <p style={{ fontSize: "0.8rem" }}>
-                Editing will update the Google Sheet row for {listing.id}. No new columns or rows will be created.
+                {L.editingNotice.replace("{id}", listing.id)}
               </p>
             </div>
             <div className="info-grid">
               {/* Editable fields */}
               {[
-                ["Available Date", "available", "text"],
-                ["Rent ($/mo)", "rent", "number"],
-                ["Bedrooms", "bedrooms", "number"],
-                ["Bathrooms", "bathrooms", "number"],
-                ["Utilities", "utilities", "text"],
-                ["Pet Policy", "pets", "text"],
-                ["Parking", "parking", "text"],
+                [L.fieldAvailableDate, "available", "text"],
+                [L.fieldRentMonthly, "rent", "number"],
+                [L.fieldBedrooms, "bedrooms", "number"],
+                [L.fieldBathrooms, "bathrooms", "number"],
+                [L.fieldUtilities, "utilities", "text"],
+                [L.fieldPetPolicy, "pets", "text"],
+                [L.fieldParking, "parking", "text"],
               ].map(([label, field, type]) => (
                 <div key={field} className="info-item">
                   <label>{label}</label>
@@ -1462,7 +1463,7 @@ export default function ListingDetail({ lang: langProp }) {
                 </div>
               ))}
               <div className="info-item">
-                <label>Tenant Listing Status</label>
+                <label>{L.fieldTenantListingStatus}</label>
                 <select
                   value={infoDraft.listingStatus || "Available"}
                   onChange={(e) => setInfoDraft((p) => ({ ...p, listingStatus: e.target.value }))}
@@ -1472,15 +1473,15 @@ export default function ListingDetail({ lang: langProp }) {
                     background: "#fff", color: "var(--color-text)", boxSizing: "border-box",
                   }}
                 >
-                  {PUBLIC_LISTING_STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+                  {PUBLIC_LISTING_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{getStatusLabel(status, lang)}</option>)}
                 </select>
               </div>
               {/* Read-only fields */}
               {[
-                ["Owner Name", listing.ownerName], ["Property Address", listing.address],
-                ["City", listing.city], ["Lease Term", listing.leaseTerm],
-                ["Laundry", listing.laundry], ["Smoking Policy", listing.smoking],
-                ["Default Language", listing.language], ["Target Audience", listing.targetAudience],
+                [L.fieldOwnerName, listing.ownerName], [L.fieldPropertyAddress, listing.address],
+                [L.fieldCity, listing.city], [L.fieldLeaseTerm, listing.leaseTerm],
+                [L.fieldLaundry, listing.laundry], [L.fieldSmokingPolicy, listing.smoking],
+                [L.fieldDefaultLanguage, listing.language], [L.fieldTargetAudience, listing.targetAudience],
               ].map(([label, val]) => (
                 <div key={label} className="info-item"><label>{label}</label><p style={{ color: "var(--color-text-muted)" }}>{val || "—"}</p></div>
               ))}
@@ -1488,7 +1489,7 @@ export default function ListingDetail({ lang: langProp }) {
             {/* Key Features / Headline — full-width textarea */}
             <div style={{ marginTop: 12 }}>
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>
-                Key Features / Headline
+                {L.fieldKeyFeatures}
               </label>
               <textarea
                 value={infoDraft.features || ""}
@@ -1503,12 +1504,12 @@ export default function ListingDetail({ lang: langProp }) {
             </div>
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>
-                Open House Date / Time
+                {L.fieldOpenHouseDateTime}
               </label>
               <input
                 value={infoDraft.openHouseDateTime || ""}
                 onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseDateTime: e.target.value }))}
-                placeholder="Sunday 2:00 PM - 4:00 PM"
+                placeholder={L.openHouseDateTimePlaceholder}
                 style={{
                   width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
                   borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
@@ -1516,13 +1517,13 @@ export default function ListingDetail({ lang: langProp }) {
                 }}
               />
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginTop: 12, marginBottom: 4 }}>
-                Open House Viewing Instructions
+                {L.fieldOpenHouseViewingInstructions}
               </label>
               <textarea
                 value={infoDraft.openHouseViewingInstructions || ""}
                 onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseViewingInstructions: e.target.value }))}
                 rows={3}
-                placeholder="Please enter from the side entrance and scan the QR code on arrival."
+                placeholder={L.openHouseViewingPlaceholder}
                 style={{
                   width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
                   borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
@@ -1530,13 +1531,13 @@ export default function ListingDetail({ lang: langProp }) {
                 }}
               />
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginTop: 12, marginBottom: 4 }}>
-                Open House Parking / Access Notes
+                {L.fieldOpenHouseParkingNotes}
               </label>
               <textarea
                 value={infoDraft.openHouseParkingNotes || ""}
                 onChange={(e) => setInfoDraft((p) => ({ ...p, openHouseParkingNotes: e.target.value }))}
                 rows={3}
-                placeholder="Street parking only. Please keep the access area clear."
+                placeholder={L.openHouseParkingPlaceholder}
                 style={{
                   width: "100%", padding: "7px 10px", border: "1.5px solid var(--color-primary)",
                   borderRadius: 5, fontSize: "0.88rem", fontFamily: "inherit",
@@ -1544,23 +1545,23 @@ export default function ListingDetail({ lang: langProp }) {
                 }}
               />
               <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 8, lineHeight: 1.6 }}>
-                Open House content only appears on the tenant-facing page when Tenant Listing Status is set to Open House.
+                {L.openHouseHint}
               </p>
             </div>
             {/* Action buttons */}
             <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn btn--primary btn--sm" onClick={saveInfoToSheet} disabled={infoSaving}>
-                {infoSaving ? "Saving…" : "💾 Save to Sheet"}
+                {infoSaving ? L.saving : `💾 ${L.saveToSheet}`}
               </button>
               <button className="btn btn--ghost btn--sm" onClick={cancelEditInfo} disabled={infoSaving}>
-                Cancel
+                {L.cancel}
               </button>
               <button className="btn btn--ghost btn--sm" onClick={resetInfoToSheet} disabled={infoSaving}
                 style={{ color: "#dc2626" }}>
-                ↩ Reset to Sheet Data
+                ↩ {L.resetToSheetData}
               </button>
               <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>
-                Writes directly to Google Sheet — no separate sync needed.
+                {L.writesDirectlyNotice}
               </span>
             </div>
           </>
@@ -1569,21 +1570,21 @@ export default function ListingDetail({ lang: langProp }) {
           <>
             <div className="info-grid">
               {[
-                ["Owner Name", listing.ownerName], ["Property Address", listing.address],
-                ["City", listing.city], ["Bedrooms", listing.bedrooms], ["Bathrooms", listing.bathrooms],
-                ["Rent", listing.rent ? `$${Number(listing.rent).toLocaleString()}/mo` : "—"],
-                ["Available Date", listing.available], ["Lease Term", listing.leaseTerm],
-                ["Utilities", listing.utilities], ["Pet Policy", listing.pets],
-                ["Parking", listing.parking], ["Laundry", listing.laundry],
-                ["Smoking Policy", listing.smoking], ["Default Language", listing.language],
-                ["Target Audience", listing.targetAudience], ["Tenant Listing Status", publicListingStatus],
+                [L.fieldOwnerName, listing.ownerName], [L.fieldPropertyAddress, listing.address],
+                [L.fieldCity, listing.city], [L.fieldBedrooms, listing.bedrooms], [L.fieldBathrooms, listing.bathrooms],
+                [L.fieldRent, formatMonthlyRent(listing.rent, lang)],
+                [L.fieldAvailableDate, formatListingDate(listing.available, lang)], [L.fieldLeaseTerm, listing.leaseTerm],
+                [L.fieldUtilities, listing.utilities], [L.fieldPetPolicy, listing.pets],
+                [L.fieldParking, listing.parking], [L.fieldLaundry, listing.laundry],
+                [L.fieldSmokingPolicy, listing.smoking], [L.fieldDefaultLanguage, listing.language],
+                [L.fieldTargetAudience, listing.targetAudience], [L.fieldTenantListingStatus, getStatusLabel(publicListingStatus, lang)],
               ].map(([label, val]) => (
                 <div key={label} className="info-item"><label>{label}</label><p>{val || "—"}</p></div>
               ))}
             </div>
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
-                Target Platforms
+                {L.fieldTargetPlatforms}
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {Array.isArray(listing.platforms) && listing.platforms.length > 0
@@ -1595,7 +1596,7 @@ export default function ListingDetail({ lang: langProp }) {
             </div>
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
-                Key Features
+                {L.fieldKeyFeaturesView}
               </label>
               {listing.features?.trim()
                 ? <p style={{ fontSize: "0.9rem" }}>{listing.features}</p>
@@ -1603,17 +1604,17 @@ export default function ListingDetail({ lang: langProp }) {
             </div>
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
               <label style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
-                Open House Settings
+                {L.fieldOpenHouseSettings}
               </label>
               <div style={{ display: "grid", gap: 8 }}>
                 <p style={{ fontSize: "0.88rem", margin: 0 }}>
-                  <strong>Date / Time:</strong> {listing.openHouseDateTime || "—"}
+                  <strong>{L.fieldOpenHouseDateTime}:</strong> {listing.openHouseDateTime || "—"}
                 </p>
                 <p style={{ fontSize: "0.88rem", margin: 0 }}>
-                  <strong>Viewing Instructions:</strong> {listing.openHouseViewingInstructions || "—"}
+                  <strong>{L.fieldOpenHouseViewingInstructions}:</strong> {listing.openHouseViewingInstructions || "—"}
                 </p>
                 <p style={{ fontSize: "0.88rem", margin: 0 }}>
-                  <strong>Parking / Access Notes:</strong> {listing.openHouseParkingNotes || "—"}
+                  <strong>{L.fieldOpenHouseParkingNotes}:</strong> {listing.openHouseParkingNotes || "—"}
                 </p>
               </div>
             </div>
