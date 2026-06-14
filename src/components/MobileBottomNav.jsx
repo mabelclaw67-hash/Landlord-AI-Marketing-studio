@@ -1,31 +1,90 @@
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { normalizeLang } from "../utils/lang";
+import { AL } from "../utils/adminLabels";
 
-const MOBILE_NAV = {
-  en: {
-    home: "Home",
-    photoGuide: "Photos",
-    rentals: "Rentals",
-    sale: "Sale",
-    trial: "Trial",
-    contact: "Contact",
-  },
-  zh: {
-    home: "首页",
-    photoGuide: "拍照",
-    rentals: "出租",
-    sale: "出售",
-    trial: "试用",
-    contact: "联系",
-  },
+// ── Public nav labels (unchanged from original) ───────────────────────────────
+const PUBLIC_NAV = {
+  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", sale: "Sale", trial: "Trial", contact: "Contact" },
+  zh: { home: "首页", photoGuide: "拍照", rentals: "出租", sale: "出售", trial: "试用", contact: "联系" },
 };
 
-export default function MobileBottomNav({ lang }) {
-  const safeLang = normalizeLang(lang);
-  const labels = MOBILE_NAV[safeLang] || MOBILE_NAV.en;
+// ── Admin bottom nav ─────────────────────────────────────────────────────────
+function AdminMobileNav({ lang }) {
+  const L = AL[lang] ?? AL.en;
+  const [moreOpen, setMoreOpen] = useState(false);
 
   return (
-    <nav className="lh-mobile-bottom" aria-label={safeLang === "zh" ? "手机底部导航" : "Mobile navigation"}>
+    <>
+      {moreOpen && (
+        <div className="ambn-overlay" onClick={() => setMoreOpen(false)} aria-hidden="true">
+          <div className="ambn-more-menu" onClick={(e) => e.stopPropagation()} role="menu">
+            <NavLink to="/admin/home-sale" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              🏡 {L.ambnHomeSale}
+            </NavLink>
+            <NavLink to="/admin/photo-tips" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              📷 {L.ambnPhotoTips}
+            </NavLink>
+            <NavLink to="/admin/faq" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              ❓ {L.ambnFaq}
+            </NavLink>
+            <NavLink to="/admin/settings" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              ⚙️ {L.ambnSettings}
+            </NavLink>
+          </div>
+        </div>
+      )}
+
+      <nav className="admin-mobile-nav" aria-label={lang === "zh" ? "管理员底部导航" : "Admin navigation"}>
+        <NavLink
+          to="/admin"
+          end
+          className={({ isActive }) => `ambn-item${isActive ? " ambn-item--active" : ""}`}
+        >
+          <span className="ambn-icon">📊</span>
+          <span className="ambn-label">{L.ambnDashboard}</span>
+        </NavLink>
+
+        <NavLink
+          to="/admin/listings"
+          className={({ isActive }) => `ambn-item${isActive ? " ambn-item--active" : ""}`}
+        >
+          <span className="ambn-icon">📋</span>
+          <span className="ambn-label">{L.ambnListings}</span>
+        </NavLink>
+
+        <NavLink to="/admin/new" className="ambn-item ambn-item--new">
+          <span className="ambn-icon">➕</span>
+          <span className="ambn-label">{L.ambnNew}</span>
+        </NavLink>
+
+        <NavLink
+          to="/admin/rental"
+          className={({ isActive }) => `ambn-item${isActive ? " ambn-item--active" : ""}`}
+        >
+          <span className="ambn-icon">📩</span>
+          <span className="ambn-label">{L.ambnApplications}</span>
+        </NavLink>
+
+        <button
+          type="button"
+          className={`ambn-item${moreOpen ? " ambn-item--active" : ""}`}
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-expanded={moreOpen}
+        >
+          <span className="ambn-icon">☰</span>
+          <span className="ambn-label">{L.ambnMore}</span>
+        </button>
+      </nav>
+    </>
+  );
+}
+
+// ── Public nav (original, preserved exactly) ──────────────────────────────────
+function PublicMobileNav({ lang }) {
+  const labels = PUBLIC_NAV[lang] || PUBLIC_NAV.en;
+  return (
+    <nav className="lh-mobile-bottom" aria-label={lang === "zh" ? "手机底部导航" : "Mobile navigation"}>
       <NavLink to="/" end className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>🏠</span>
         <span>{labels.home}</span>
@@ -52,4 +111,14 @@ export default function MobileBottomNav({ lang }) {
       </NavLink>
     </nav>
   );
+}
+
+// ── Root export: picks admin vs public based on current route ─────────────────
+export default function MobileBottomNav({ lang }) {
+  const safeLang = normalizeLang(lang);
+  const { pathname } = useLocation();
+  const isAdmin = pathname.startsWith("/admin");
+
+  if (isAdmin) return <AdminMobileNav lang={safeLang} />;
+  return <PublicMobileNav lang={safeLang} />;
 }

@@ -4066,3 +4066,701 @@ tr:hover td { background: #F9F6F0; }
   color: var(--color-text-muted);
 }
 .admin-settings__rules ul { margin: 8px 0 0 16px; line-height: 1.8; }
+
+/* =====================
+   Dashboard v2
+   ===================== */
+
+/* Start New Listing Hero */
+.dash-start-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #2D5A3D 0%, #3D7050 100%);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.dash-start-hero__text { flex: 1; min-width: 0; }
+.dash-start-hero__title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.dash-start-hero__hint {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+}
+.dash-start-hero__btns {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.dash-start-hero__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+.dash-start-hero__btn--rental {
+  background: #fff;
+  color: var(--color-primary);
+}
+.dash-start-hero__btn--rental:hover {
+  background: rgba(255,255,255,0.9);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.dash-start-hero__btn--sale {
+  background: var(--color-accent);
+  color: #fff;
+}
+.dash-start-hero__btn--sale:hover {
+  background: #b8986d;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.dash-start-hero__btn-icon { font-size: 1.1rem; line-height: 1; }
+.dash-start-hero__btn-label { font-size: 0.9rem; font-weight: 700; }
+
+@media (max-width: 600px) {
+  .dash-start-hero {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+  }
+  .dash-start-hero__btns { flex-direction: column; }
+  .dash-start-hero__btn {
+    justify-content: center;
+    padding: 14px 20px;
+    font-size: 1rem;
+    min-height: 48px;
+  }
+}
+
+/* Section Header */
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.dash-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Filter Tabs */
+.dash-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.dash-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+.dash-filter-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(45, 90, 61, 0.04);
+}
+.dash-filter-tab--active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.dash-filter-tab--active:hover {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+.dash-filter-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.12);
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0 5px;
+  min-width: 18px;
+  height: 18px;
+}
+.dash-filter-tab--active .dash-filter-tab__count {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Listing List */
+.dash-listing-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Listing Card */
+.dash-listing-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(45, 90, 61, 0.04);
+  transition: box-shadow 0.2s;
+}
+.dash-listing-card:hover { box-shadow: 0 4px 16px rgba(45, 90, 61, 0.09); }
+.dash-listing-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.dash-listing-card__info { flex: 1; min-width: 0; }
+.dash-listing-card__address {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-listing-card__meta {
+  display: flex;
+  gap: 0;
+  margin-top: 3px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+.dash-listing-card__meta span { margin-right: 10px; }
+.dash-listing-card__badges {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dash-listing-card__type-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dash-listing-card__type-chip--rental {
+  background: rgba(45, 90, 61, 0.08);
+  color: var(--color-primary);
+}
+.dash-listing-card__type-chip--sale {
+  background: rgba(201, 169, 97, 0.12);
+  color: #8a6a2e;
+}
+.dash-listing-card__next-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+.dash-listing-card__next-text {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dash-listing-card__next-prefix { flex-shrink: 0; }
+.dash-listing-card__actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+@media (max-width: 600px) {
+  .dash-listing-card { padding: 14px 16px; }
+  .dash-listing-card__top { flex-direction: column; gap: 8px; }
+  .dash-listing-card__badges { justify-content: flex-start; }
+  .dash-listing-card__next-row { flex-direction: column; align-items: flex-start; }
+  .dash-listing-card__actions { width: 100%; }
+  .dash-listing-card__actions .btn { flex: 1; justify-content: center; }
+}
+
+/* Loading and Empty States */
+.dash-loading {
+  text-align: center;
+  padding: 32px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+.dash-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+}
+.dash-empty-state__icon { font-size: 2.5rem; margin-bottom: 10px; }
+.dash-empty-state__text {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.dash-empty-state__hint { font-size: 0.85rem; color: var(--color-text-muted); }
+
+/* Recommended Next Step Card */
+.dash-next-step-card {
+  background: linear-gradient(135deg, #fffbf0 0%, #fff8e8 100%);
+  border: 1.5px solid #e8d5a3;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+}
+.dash-next-step-card__eyebrow {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c9860a;
+  margin-bottom: 10px;
+}
+.dash-next-step-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-next-step-card__listing {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 3px;
+}
+.dash-next-step-card__type {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.dash-next-step-card__action {
+  font-size: 0.88rem;
+  color: #8a6a2e;
+}
+@media (max-width: 600px) {
+  .dash-next-step-card__body { flex-direction: column; align-items: stretch; }
+  .dash-next-step-card__body .btn { width: 100%; justify-content: center; }
+}
+
+/* Advanced Tools / Quick Access (collapsible) */
+.dash-advanced {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.dash-advanced__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--color-surface);
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+.dash-advanced__toggle:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.dash-advanced__chevron { font-size: 0.7rem; flex-shrink: 0; }
+.dash-advanced__content {
+  padding: 0 20px 20px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+
+/* === Rental Wizard Phase 2 === */
+
+/* ── RentalWorkflowNav ────────────────────────────────────────────────────── */
+.rental-workflow-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  background: #f8f9fa;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.rwn-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.rwn-step:hover {
+  background: #fff;
+  color: var(--color-primary);
+  border-color: var(--color-border);
+}
+
+.rwn-step--active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  font-weight: 700;
+}
+
+.rwn-step--active:hover {
+  background: #26503a;
+  color: #fff;
+}
+
+.rwn-step--done .rwn-step__dot {
+  background: #16a34a;
+  color: #fff;
+}
+
+.rwn-step__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.rwn-step--active .rwn-step__dot {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.rwn-step__label {
+  font-size: 0.76rem;
+}
+
+.rwn-step__tag {
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.rwn-step__tag--soon {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rwn-step--soon {
+  opacity: 0.65;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .rental-workflow-nav {
+    gap: 3px;
+    padding: 8px;
+  }
+  .rwn-step {
+    font-size: 0.7rem;
+    padding: 5px 7px;
+  }
+  .rwn-step__label {
+    font-size: 0.68rem;
+  }
+}
+
+/* ── ListingStatusBanner ─────────────────────────────────────────────────── */
+.listing-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: linear-gradient(135deg, #f0f7f2 0%, #e8f3ec 100%);
+  border: 1.5px solid #c3dac9;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+}
+
+.listing-status-banner--urgent {
+  background: linear-gradient(135deg, #fffbf0 0%, #fff8e8 100%);
+  border-color: #e8d5a3;
+}
+
+.listing-status-banner--published {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f0fe 100%);
+  border-color: #b8d0f5;
+}
+
+.listing-status-banner__status,
+.listing-status-banner__next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.listing-status-banner__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.listing-status-banner__value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+@media (max-width: 600px) {
+  .listing-status-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── CollapsibleCard ─────────────────────────────────────────────────────── */
+.ccard {
+  margin-bottom: 24px;
+}
+
+.ccard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+  padding: 0 4px 8px 0;
+  transition: opacity 0.15s;
+}
+
+.ccard__header:hover {
+  opacity: 0.75;
+}
+
+.ccard--closed .ccard__header {
+  background: var(--color-surface, #f9fafb);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  opacity: 1;
+}
+
+.ccard--closed .ccard__header:hover {
+  background: #f3f4f6;
+  opacity: 1;
+}
+
+.ccard__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ccard--closed .ccard__title {
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-primary);
+}
+
+.ccard__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ccard__chevron {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+.ccard__badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f0ea;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.ccard__body {
+  /* Inner .card handles its own padding/border — no extra wrapper needed */
+}
+
+
+/* === Admin Mobile Nav Phase 3 === */
+
+/* Hidden on desktop */
+.admin-mobile-nav { display: none; }
+.ambn-overlay     { display: none; }
+
+@media (max-width: 600px) {
+  /* ── Admin 5-tab bottom nav ────────────────────────────────────────────── */
+  .admin-mobile-nav {
+    display: flex;
+    align-items: stretch;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #fff;
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    z-index: 200;
+  }
+
+  .ambn-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px 2px;
+    font-size: 0.6rem;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ambn-item:hover,
+  .ambn-item--active {
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .ambn-icon {
+    font-size: 18px;
+    line-height: 1;
+    display: block;
+  }
+
+  .ambn-label {
+    font-size: 0.6rem;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Center "New" button — accent style */
+  .ambn-item--new {
+    flex: 0 0 72px;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 14px;
+    margin: 6px 4px;
+    padding: 4px 6px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(45, 90, 61, 0.3);
+  }
+
+  .ambn-item--new:hover {
+    background: #26503a;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  /* ── "More" overlay ────────────────────────────────────────────────────── */
+  .ambn-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0,0,0,0.35);
+  }
+
+  .ambn-more-menu {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+    left: 0;
+    background: #fff;
+    border-top: 1px solid var(--color-border);
+    border-radius: 16px 16px 0 0;
+    padding: 6px 0 8px;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+  }
+
+  .ambn-more-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border);
+    transition: background 0.12s;
+  }
+
+  .ambn-more-item:last-child { border-bottom: none; }
+  .ambn-more-item:hover { background: #f8f9fa; text-decoration: none; }
+
+  /* Ensure admin pages have bottom padding so content clears the nav */
+  .admin-content {
+    padding-bottom: 72px;
+  }
+}

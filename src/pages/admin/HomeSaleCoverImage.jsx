@@ -191,7 +191,7 @@ export default function HomeSaleCoverImage() {
       const next = new Set(prev);
       if (next.has(assetId)) {
         next.delete(assetId);
-      } else if (next.size < 4) {
+      } else if (next.size < 5) {
         next.add(assetId);
       }
       return next;
@@ -421,11 +421,11 @@ export default function HomeSaleCoverImage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.82rem", color: "var(--color-text-muted)" }}>
               {collageSelection.size === 0
-                ? (lang === "zh" ? "未选择照片，自动使用前 4 张。" : "No photos selected — auto-using first 4.")
-                : (lang === "zh" ? `已选 ${collageSelection.size} / 4 张` : `Selected for Collage: ${collageSelection.size} / 4`)}
-              {collageSelection.size >= 4 && (
+                ? (lang === "zh" ? "未选择照片，自动使用前 5 张。" : "No photos selected — auto-using first 5.")
+                : (lang === "zh" ? `已选 ${collageSelection.size} / 5 张` : `Selected for Collage: ${collageSelection.size} / 5`)}
+              {collageSelection.size >= 5 && (
                 <span style={{ marginLeft: 6, color: "#d97706", fontWeight: 600 }}>
-                  {lang === "zh" ? "已达上限" : "Max 4 reached"}
+                  {lang === "zh" ? "已达上限" : "Max 5 reached"}
                 </span>
               )}
             </span>
@@ -443,8 +443,8 @@ export default function HomeSaleCoverImage() {
 
           <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
             {lang === "zh"
-              ? "选择下方最多 4 张照片加入拼图，或留空自动使用前 4 张。上传至 03_Cover_Images/，不修改原始文件。"
-              : "Select up to 4 photos below (or leave empty for auto-first-4). Saved to 03_Cover_Images/. Original files are never modified."
+              ? "选择下方最多 5 张照片加入拼图，或留空自动使用前 5 张。上传至 03_Cover_Images/，不修改原始文件。"
+              : "Select up to 5 photos below (or leave empty for auto-first-5). Saved to 03_Cover_Images/. Original files are never modified."
             }
           </p>
 
@@ -537,7 +537,7 @@ export default function HomeSaleCoverImage() {
                     {(() => {
                       const aid = asset.assetId;
                       const inCollage  = collageSelection.has(aid);
-                      const atMax      = collageSelection.size >= 4;
+                      const atMax      = collageSelection.size >= 5;
                       return (
                         <button
                           type="button"

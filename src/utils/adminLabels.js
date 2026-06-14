@@ -279,6 +279,38 @@ const en = {
   nextStepMonitorInquiries: "Monitor inquiries",
   recommendedNextStep:      "Recommended Next Step",
   advancedTools:            "Quick Access",
+
+  // ── Rental Wizard (Phase 2) ───────────────────────────────────────────────
+  wiz_details:      "Property Details",
+  wiz_photos:       "Upload Photos",
+  wiz_enhance:      "Enhance Photos",
+  wiz_cover:        "Cover Image",
+  wiz_copy:         "Listing Copy",
+  wiz_video:        "Video",
+  wiz_review:       "Review Draft",
+  wiz_publish:      "Publish",
+  wiz_applications: "Applications",
+  wiz_leads:        "Leads",
+
+  wizBannerNextStep:   "Next step:",
+  wizSkippable:        "Optional",
+  wizComingSoon:       "Coming Soon",
+  wizViewApplications: "View Applications",
+  wizStatusLabel:      "Status",
+
+  // ── Admin Mobile Nav (Phase 3) ───────────────────────────────────────────
+  ambnDashboard:    "Dashboard",
+  ambnListings:     "Listings",
+  ambnNew:          "+ New",
+  ambnApplications: "Applications",
+  ambnMore:         "More",
+  ambnHomeSale:     "Home Sale Studio",
+  ambnPhotoTips:    "Photo Tips",
+  ambnFaq:          "FAQ",
+  ambnSettings:     "Settings",
+
+  // ── Listings page (Phase 3) ──────────────────────────────────────────────
+  listNextStep:     "Next step",
 };
 
 const zh = {
@@ -550,6 +582,38 @@ const zh = {
   nextStepMonitorInquiries: "查看买家咨询",
   recommendedNextStep:      "建议下一步",
   advancedTools:            "快速访问",
+
+  // ── Rental Wizard (Phase 2) ───────────────────────────────────────────────
+  wiz_details:      "房源信息",
+  wiz_photos:       "上传照片",
+  wiz_enhance:      "AI 照片优化",
+  wiz_cover:        "封面图片",
+  wiz_copy:         "文案生成",
+  wiz_video:        "视频脚本",
+  wiz_review:       "预览草稿",
+  wiz_publish:      "发布",
+  wiz_applications: "申请管理",
+  wiz_leads:        "潜在客户",
+
+  wizBannerNextStep:   "下一步：",
+  wizSkippable:        "可跳过",
+  wizComingSoon:       "即将上线",
+  wizViewApplications: "查看申请",
+  wizStatusLabel:      "状态",
+
+  // ── Admin Mobile Nav (Phase 3) ───────────────────────────────────────────
+  ambnDashboard:    "总览",
+  ambnListings:     "我的房源",
+  ambnNew:          "+ 新建",
+  ambnApplications: "申请",
+  ambnMore:         "更多",
+  ambnHomeSale:     "出售后台",
+  ambnPhotoTips:    "拍照建议",
+  ambnFaq:          "常见问题",
+  ambnSettings:     "系统设置",
+
+  // ── Listings page (Phase 3) ──────────────────────────────────────────────
+  listNextStep:     "下一步",
 };
 
 export const AL = { en, zh };

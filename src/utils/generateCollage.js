@@ -7,13 +7,15 @@
  * No external dependencies. Pure browser Canvas API.
  * No original Drive files are touched — output is a new JPEG blob/dataURL only.
  *
- * Layout (4-photo default, degrades gracefully to 3 / 2 / 1):
+ * Layout (5-photo default, degrades gracefully to 4 / 3 / 2 / 1):
  *   ┌─────────────────┬────────┐
  *   │  [badge]        │  #2    │
  *   │      #1         ├────────┤
  *   │   (main, 60%)   │  #3    │
  *   │  [text overlay] ├────────┤
  *   │                 │  #4    │
+ *   │                 ├────────┤
+ *   │                 │  #5    │
  *   └─────────────────┴────────┘
  *
  * Aspect ratio: 4:3 (1200 × 900) — mobile / social-media friendly.
@@ -32,19 +34,19 @@
  * Resolve which photos to pass to the collage generator.
  *
  * Rules (same for For Rent and For Sale):
- *  - If selection is empty  → auto-select first 4 from allPhotos
+ *  - If selection is empty  → auto-select first 5 from allPhotos
  *  - If selection has items → use selected first; if cover is among them, put it at position 0
- *  - Auto-fill remaining slots (up to 4) from non-selected photos in original order
+ *  - Auto-fill remaining slots (up to 5) from non-selected photos in original order
  *
  * @param {any[]}    allPhotos   Ordered pool of available photos
  * @param {Set}      selection   Set of selected photo IDs (assetId / fileId)
  * @param {Function} getId       (photo) => string — extract the photo's ID
  * @param {string}   [coverId]   ID of the current cover photo (placed first if selected)
- * @returns {any[]} Up to 4 photos in the order they should appear in the collage
+ * @returns {any[]} Up to 5 photos in the order they should appear in the collage
  */
 export function resolveCollagePhotos(allPhotos, selection, getId, coverId) {
   if (!selection || selection.size === 0) {
-    return allPhotos.slice(0, 4);
+    return allPhotos.slice(0, 5);
   }
 
   const selected    = allPhotos.filter((p) => selection.has(getId(p)));
@@ -60,11 +62,11 @@ export function resolveCollagePhotos(allPhotos, selection, getId, coverId) {
   // Fill remaining slots from unselected photos
   const result = [...selected];
   for (const p of unselected) {
-    if (result.length >= 4) break;
+    if (result.length >= 5) break;
     result.push(p);
   }
 
-  return result.slice(0, 4);
+  return result.slice(0, 5);
 }
 
 /**
@@ -93,8 +95,8 @@ export async function generateCollageDataUrl(
     throw new Error("No image sources provided to generateCollageDataUrl.");
   }
 
-  // Load up to 4 images; failed loads return null and are skipped
-  const loaded = await Promise.all(imageSrcs.slice(0, 4).map(loadImage));
+  // Load up to 5 images; failed loads return null and are skipped
+  const loaded = await Promise.all(imageSrcs.slice(0, 5).map(loadImage));
   const imgs   = loaded.filter(Boolean);
 
   if (imgs.length === 0) {
@@ -132,7 +134,7 @@ export async function generateCollageDataUrl(
     if (overlayData) drawOverlay(ctx, overlayData, 0, 0, mainW, height);
     coverFit(ctx, imgs[1], mainW + gap, 0,           sideW, halfH);
     coverFit(ctx, imgs[2], mainW + gap, halfH + gap, sideW, height - halfH - gap);
-  } else {
+  } else if (n === 4) {
     // 4-photo: 1 large left (60%) + 3 stacked right (40%)
     const mainW = Math.round(width * 0.6) - Math.round(gap / 2);
     const sideW = width - mainW - gap;
@@ -142,6 +144,17 @@ export async function generateCollageDataUrl(
     coverFit(ctx, imgs[1], mainW + gap, 0,                 sideW, slotH);
     coverFit(ctx, imgs[2], mainW + gap, slotH + gap,       sideW, slotH);
     coverFit(ctx, imgs[3], mainW + gap, (slotH + gap) * 2, sideW, height - (slotH + gap) * 2);
+  } else {
+    // 5-photo: 1 large left (60%) + 4 stacked right (40%)
+    const mainW = Math.round(width * 0.6) - Math.round(gap / 2);
+    const sideW = width - mainW - gap;
+    const slotH = Math.floor((height - gap * 3) / 4);
+    coverFit(ctx, imgs[0], 0, 0, mainW, height);
+    if (overlayData) drawOverlay(ctx, overlayData, 0, 0, mainW, height);
+    coverFit(ctx, imgs[1], mainW + gap, 0,                 sideW, slotH);
+    coverFit(ctx, imgs[2], mainW + gap, slotH + gap,       sideW, slotH);
+    coverFit(ctx, imgs[3], mainW + gap, (slotH + gap) * 2, sideW, slotH);
+    coverFit(ctx, imgs[4], mainW + gap, (slotH + gap) * 3, sideW, height - (slotH + gap) * 3);
   }
 
   return canvas.toDataURL("image/jpeg", quality);

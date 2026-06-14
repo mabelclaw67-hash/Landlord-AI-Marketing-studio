@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
@@ -14,6 +14,9 @@ import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
 import { buildRentalListingPublicUrl } from "../../utils/publicUrls";
+import RentalWorkflowNav, { getAutoStep } from "../../components/RentalWorkflowNav";
+import ListingStatusBanner from "../../components/ListingStatusBanner";
+import CollapsibleCard from "../../components/CollapsibleCard";
 
 function getTabLabels(lang) {
   const zh = lang === "zh";
@@ -251,6 +254,7 @@ export default function ListingDetail({ lang: langProp }) {
   const TAB_LABELS = getTabLabels(lang);
   const MUSIC_NO_MUSIC = lang === "zh" ? MUSIC_NO_MUSIC_ZH : MUSIC_NO_MUSIC_EN;
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
 
   // ── Core state ───────────────────────────────────────────────────────────────
   const [listing,       setListing]       = useState(null);
@@ -613,6 +617,9 @@ export default function ListingDetail({ lang: langProp }) {
   const isAdmin    = isAdminSessionActive();
   const outputKeys = Object.keys(listing.outputs || {});
   const currentTab = activeTab || outputKeys[0];
+
+  // Wizard step from URL (used by RentalWorkflowNav + CollapsibleCard defaults)
+  const activeStep = searchParams.get("step");
 
   // Build ordered + filtered photo arrays for all package sections
   const orderedPhotos = photoOrder.map((fid) => folderFiles.find((f) => f.fileId === fid)).filter(Boolean);
@@ -1281,7 +1288,7 @@ export default function ListingDetail({ lang: langProp }) {
       const next = new Set(prev);
       if (next.has(fileId)) {
         next.delete(fileId);
-      } else if (next.size < 4) {
+      } else if (next.size < 5) {
         next.add(fileId);
       }
       return next;
@@ -1397,8 +1404,20 @@ export default function ListingDetail({ lang: langProp }) {
         </div>
       </div>
 
+      {/* Rental Workflow Navigator */}
+      <RentalWorkflowNav listing={listing} />
+
+      {/* Status + Next Step Banner */}
+      <ListingStatusBanner listing={listing} />
+
       {/* Property Info */}
-      <div className="card mb-24">
+      <CollapsibleCard
+        title={t(lang, "detail.propertyInfo")}
+        icon="🏠"
+        defaultOpen={!activeStep || activeStep === "details"}
+        id="section-details"
+      >
+      <div className="card">
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
@@ -1621,9 +1640,16 @@ export default function ListingDetail({ lang: langProp }) {
           </>
         )}
       </div>
+      </CollapsibleCard>
 
       {/* Platform Outputs — with copy edit layer */}
-      <div className="card mb-24">
+      <CollapsibleCard
+        title={t(lang, "detail.outputs")}
+        icon="📤"
+        defaultOpen={!activeStep || activeStep === "copy"}
+        id="section-copy"
+      >
+      <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: infoEdited ? 8 : 16, flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
             📤 {t(lang, "detail.outputs")}
@@ -1736,9 +1762,16 @@ export default function ListingDetail({ lang: langProp }) {
           );
         })()}
       </div>
+      </CollapsibleCard>
 
       {/* Media Checklist */}
-      <div className="card mb-24">
+      <CollapsibleCard
+        title={t(lang, "detail.mediaChecklist")}
+        icon="🖼️"
+        defaultOpen={!activeStep || activeStep === "review" || activeStep === "publish"}
+        id="section-checklist"
+      >
+      <div className="card">
         <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
           🖼️ {t(lang, "detail.mediaChecklist")}
         </h3>
@@ -1753,6 +1786,7 @@ export default function ListingDetail({ lang: langProp }) {
           ))}
         </ul>
       </div>
+      </CollapsibleCard>
 
       {/* ── Review Status Summary ──────────────────────────────────────────────── */}
       {folderFiles.length > 0 && (
@@ -1822,6 +1856,12 @@ export default function ListingDetail({ lang: langProp }) {
       )}
 
       {/* Property Photos */}
+      <CollapsibleCard
+        title={L.photoAssets}
+        icon="📁"
+        defaultOpen={!activeStep || ["photos","enhance","cover","video"].includes(activeStep)}
+        id="section-photos"
+      >
       <div className="card">
         <h3 style={{ fontWeight: 700, marginBottom: 4, fontSize: "0.95rem", color: "var(--color-primary)" }}>
           📁 {L.photoAssets}
@@ -1839,7 +1879,7 @@ export default function ListingDetail({ lang: langProp }) {
         ) : (
           <>
             {/* Drive folder toolbar */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
               <p className="text-muted text-sm" style={{ margin: 0, flex: 1 }}>
                 {lang === "zh" ? "读取 Drive 文件夹，原始文件不变。" : "Reading from Drive. Original files are not modified."}
               </p>
@@ -1854,7 +1894,40 @@ export default function ListingDetail({ lang: langProp }) {
                   Open Folder ↗
                 </a>
               )}
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" multiple
+                style={{ display: "none" }} onChange={handleFileChange} />
+              <button className="btn btn--ghost btn--sm" disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ whiteSpace: "nowrap" }}>
+                {uploading ? (uploadProgress || "Uploading…") : "📤 Upload Photos"}
+              </button>
             </div>
+            {(previews.length > 0 || uploadMsg) && (
+              <div style={{ marginBottom: 14 }}>
+                {previews.length > 0 && (
+                  <>
+                    <p className="text-sm text-muted" style={{ marginBottom: 6 }}>
+                      {uploadProgress || `Preparing ${previews.length} file(s)… (max ${MAX_FILE_MB} MB each, up to ${MAX_BATCH} at once)`}
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                      {previews.map((p, i) => (
+                        <div key={i} style={{ width: 130, opacity: 0.65, border: "1px solid var(--color-border)", borderRadius: 7, overflow: "hidden", flexShrink: 0 }}>
+                          <img src={p.url} alt={p.name} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
+                          <div style={{ padding: "4px 7px", fontSize: "0.7rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {uploadMsg && (
+                  <div className={`notice notice--${uploadMsg.type === "error" ? "error" : "success"}`}>
+                    <p>{uploadMsg.text}</p>
+                  </div>
+                )}
+              </div>
+            )}
             {folderLoading && <p className="text-muted text-sm" style={{ marginBottom: 14 }}>Loading photos…</p>}
             {!folderLoading && folderFiles.length === 0 && (
               <p className="text-muted text-sm" style={{ marginBottom: 14 }}>No JPG/PNG files found in this folder.</p>
@@ -1908,7 +1981,7 @@ export default function ListingDetail({ lang: langProp }) {
                     <p style={{ fontWeight: 700, fontSize: "0.9rem", margin: 0 }}>🖼️ {lang === "zh" ? "生成拼图封面" : "Generate Collage Cover"}</p>
                     {collageSelection.size > 0 && (
                       <span style={{ fontSize: "0.78rem", color: "var(--color-primary)", marginTop: 2, display: "inline-block" }}>
-                        Selected for Collage: {collageSelection.size} / 4 &nbsp;
+                        Selected for Collage: {collageSelection.size} / 5 &nbsp;
                         <button
                           type="button"
                           style={{ fontSize: "0.72rem", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
@@ -1944,9 +2017,9 @@ export default function ListingDetail({ lang: langProp }) {
                   </div>
                 </div>
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10 }}>
-                  选择最多 4 张照片（点击下方"加入拼图"），或留空自动使用前 4 张。主图（Cover）优先显示在左侧大图位置。
+                  选择最多 5 张照片（点击下方"加入拼图"），或留空自动使用前 5 张。主图（Cover）优先显示在左侧大图位置。
                   <br />
-                  Select up to 4 photos using "Use in Collage" buttons below, or leave empty to auto-use the first 4. The cover photo is placed in the main left panel.
+                  Select up to 5 photos using "Use in Collage" buttons below, or leave empty to auto-use the first 5. The cover photo is placed in the main left panel.
                 </p>
                 {collageStatus === "error" && collageMsg && (
                   <div className="notice notice--error" style={{ marginBottom: 10 }}>
@@ -2004,7 +2077,7 @@ export default function ListingDetail({ lang: langProp }) {
                       onExclude={() => toggleExclude(f.fileId)}
                       onSetCover={() => setManualCover(f.fileId)}
                       inCollage={collageSelection.has(f.fileId)}
-                      canAddToCollage={collageSelection.size < 4}
+                      canAddToCollage={collageSelection.size < 5}
                       onToggleCollage={() => toggleCollagePhoto(f.fileId)}
                     />
                   ))}
@@ -2549,47 +2622,10 @@ export default function ListingDetail({ lang: langProp }) {
               </p>
             </div>
 
-            {/* ── Add More Photos ────────────────────────────────────────── */}
-            <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 14 }}>
-              <p style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6 }}>{lang === "zh" ? "补充上传照片" : "Add More Photos"}</p>
-              <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
-                {lang === "zh"
-                  ? <>上传至房源文件夹根目录，每次最多 {MAX_BATCH} 张，每张最大 {MAX_FILE_MB} MB。</>
-                  : <>Uploads go to your listing folder root. Max {MAX_FILE_MB} MB per file, up to {MAX_BATCH} at once.</>
-                }
-              </p>
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" multiple
-                style={{ display: "none" }} onChange={handleFileChange} />
-              <button className="btn btn--ghost btn--sm" disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}>
-                {uploading ? (uploadProgress || "Uploading…") : "📤 Upload Photos"}
-              </button>
-              {previews.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <p className="text-sm text-muted" style={{ marginBottom: 6 }}>
-                    {uploadProgress || `Preparing ${previews.length} file(s)…`}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {previews.map((p, i) => (
-                      <div key={i} style={{ width: 130, opacity: 0.65, border: "1px solid var(--color-border)", borderRadius: 7, overflow: "hidden", flexShrink: 0 }}>
-                        <img src={p.url} alt={p.name} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
-                        <div style={{ padding: "4px 7px", fontSize: "0.7rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {p.name}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {uploadMsg && (
-                <div className={`notice notice--${uploadMsg.type === "error" ? "error" : "success"}`} style={{ marginTop: 12 }}>
-                  <p>{uploadMsg.text}</p>
-                </div>
-              )}
-            </div>
           </>
         )}
       </div>
+      </CollapsibleCard>
     </div>
   );
 }
