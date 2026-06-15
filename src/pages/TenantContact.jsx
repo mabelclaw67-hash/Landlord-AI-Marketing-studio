@@ -90,10 +90,10 @@ export default function TenantContact() {
           </p>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
             <a
-              href="mailto:mabelclaw67@gmail.com"
+              href="mailto:support@vanislandproperty.ca"
               style={{ color: "var(--color-primary)", fontWeight: 700, fontSize: "0.95rem" }}
             >
-              📧 mabelclaw67@gmail.com
+              📧 support@vanislandproperty.ca
             </a>
             <a
               href="tel:6725148866"

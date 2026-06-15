@@ -7,8 +7,8 @@ export default function Footer({ tenant = false }) {
         </p>
         <p style={{ marginTop: 6 }}>
           Vancouver Island, BC &nbsp;|&nbsp; 📧{" "}
-          <a href="mailto:mabelclaw67@gmail.com" style={{ color: "rgba(255,255,255,0.8)" }}>
-            mabelclaw67@gmail.com
+          <a href="mailto:support@vanislandproperty.ca" style={{ color: "rgba(255,255,255,0.8)" }}>
+            support@vanislandproperty.ca
           </a>
           {" "}&nbsp;|&nbsp; 📞{" "}
           <a href="tel:6725148866" style={{ color: "rgba(255,255,255,0.8)" }}>
