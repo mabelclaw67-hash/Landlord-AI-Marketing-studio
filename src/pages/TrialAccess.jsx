@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import Footer from "../components/Footer";
 import { isApiConnected } from "../utils/api";
 import { validateAccessCode } from "../utils/storage";
 import {
@@ -17,7 +16,7 @@ const INVALID_ACCESS_MESSAGE = "Access code not found, expired, or not approved.
 function inferModuleFromPath(path) {
   if (!path) return "";
   if (path.startsWith("/home-sale-studio")) return "sale";
-  if (path === "/examples" || path.startsWith("/listings/") || path.startsWith("/apply/")) return "rental";
+  if (path === "/examples" || path === "/apply" || path === "/supporting-documents" || path.startsWith("/listings/") || path.startsWith("/apply/")) return "rental";
   return "";
 }
 
@@ -158,7 +157,6 @@ export default function TrialAccess() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

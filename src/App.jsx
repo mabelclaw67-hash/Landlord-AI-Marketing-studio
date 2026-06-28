@@ -5,6 +5,7 @@ import "./styles/global.css";
 import Navbar from "./components/Navbar";
 import LandlordHomeLayout from "./components/LandlordHomeLayout";
 import MobileBottomNav from "./components/MobileBottomNav";
+import Footer from "./components/Footer";
 import Services from "./pages/Services";
 import Examples from "./pages/Examples";
 import Resources from "./pages/Resources";
@@ -38,6 +39,7 @@ import ApplicationReview from "./pages/admin/ApplicationReview";
 import AdminSettings from "./pages/admin/AdminSettings";
 import PhotoTips from "./pages/admin/PhotoTips";
 import Faq from "./pages/admin/Faq";
+import RentalApplicationLanding from "./pages/RentalApplicationLanding";
 import RentalApplication from "./pages/RentalApplication";
 import SupportDocuments from "./pages/SupportDocuments";
 import PublicListing from "./pages/PublicListing";
@@ -96,7 +98,9 @@ function AppInner({ lang, setLang }) {
         </Route>
         <Route path="/photo-tips" element={<PhotoTips />} />
         <Route path="/faq" element={<Faq />} />
+        <Route path="/apply" element={<RentalApplicationLanding />} />
         <Route path="/apply/:listingId" element={<RentalApplication />} />
+        <Route path="/supporting-documents" element={<SupportDocuments />} />
         <Route path="/support-documents/:listingId/:recordId" element={<SupportDocuments />} />
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/listings/:id/video" element={<PublicVideoPage type="rental" />} />
@@ -105,6 +109,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Footer />
       <MobileBottomNav lang={lang} />
     </>
   );

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -869,7 +868,6 @@ export default function HomeSaleListingDetail() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

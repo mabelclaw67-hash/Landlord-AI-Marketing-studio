@@ -764,6 +764,30 @@ tr:hover td { background: #F9F6F0; }
 }
 .footer strong { color: #fff; }
 .footer a { color: rgba(255,255,255,0.8); }
+.footer__contact {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+  line-height: 1.7;
+}
+.footer__contact > * + *::before {
+  content: "|";
+  margin-right: 14px;
+  color: rgba(255,255,255,0.45);
+}
+
+@media (max-width: 520px) {
+  .footer__contact {
+    display: grid;
+    gap: 4px;
+  }
+  .footer__contact > * + *::before {
+    content: "";
+    margin: 0;
+  }
+}
 
 /* =====================
    Contact Form
@@ -1047,9 +1071,62 @@ tr:hover td { background: #F9F6F0; }
   max-width: 100%;
 }
 
+.rental-application-list {
+  display: grid;
+  gap: 14px;
+}
+
+.rental-application-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.rental-application-option h2 {
+  margin: 0 0 5px;
+  color: var(--color-primary);
+  font-size: 1.05rem;
+}
+
+.rental-application-option p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.rental-application-option__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rental-application-option__meta span {
+  border-radius: 999px;
+  background: #f3f6f4;
+  color: var(--color-text);
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 @media (max-width: 640px) {
   .support-upload-row {
     grid-template-columns: 1fr;
+  }
+
+  .rental-application-option {
+    display: grid;
+  }
+
+  .rental-application-option .btn {
+    width: 100%;
   }
 }
 

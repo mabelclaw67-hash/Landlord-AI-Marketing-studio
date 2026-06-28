@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import { readTrialAccess } from "../utils/trialAccess";
 import { buildHomeSalePublicUrl } from "../utils/publicUrls";
@@ -315,7 +314,6 @@ export default function HomeSaleStudio({ lang }) {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

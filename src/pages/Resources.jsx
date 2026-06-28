@@ -1,5 +1,4 @@
 import { t } from "../translations";
-import Footer from "../components/Footer";
 
 const RESOURCES = ["r1", "r2", "r3", "r4"];
 const ICONS = ["⚖️", "💰", "📸", "✅"];
@@ -45,7 +44,6 @@ export default function Resources({ lang }) {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

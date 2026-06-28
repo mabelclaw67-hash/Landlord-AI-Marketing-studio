@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { t } from "../translations";
-import Footer from "../components/Footer";
 import { saveContact } from "../utils/storage";
 import { isApiConnected } from "../utils/api";
 import { normalizeLang } from "../utils/lang";
@@ -235,7 +234,6 @@ export default function Contact({ lang }) {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { t } from "../translations";
-import Footer from "../components/Footer";
 
 const SERVICES = [
   { icon: "📝", key: "s1" },
@@ -50,7 +49,6 @@ export default function Services({ lang }) {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

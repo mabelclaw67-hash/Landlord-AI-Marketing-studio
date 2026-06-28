@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } from "../utils/storage";
-import Footer from "../components/Footer";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
@@ -350,7 +349,6 @@ export default function Examples({ lang = "en" }) {
         )}
       </div>
 
-      <Footer tenant />
     </div>
   );
 }

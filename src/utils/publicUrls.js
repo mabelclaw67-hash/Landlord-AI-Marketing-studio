@@ -25,7 +25,7 @@ export function buildRentalVideoPublicUrl(listingId) {
 }
 
 export function buildRentalApplyUrl(listingId) {
-  if (!listingId) return buildPublicSiteUrl("/examples");
+  if (!listingId) return buildPublicSiteUrl("/apply");
   return buildPublicSiteUrl(`/apply/${listingId}`);
 }
 

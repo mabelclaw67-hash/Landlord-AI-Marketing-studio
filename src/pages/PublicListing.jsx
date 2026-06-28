@@ -35,6 +35,7 @@ const PUBLIC_LISTING_TEXT = {
     listingId: "Listing ID:",
     status: "Status:",
     applyNow: "Apply Now →",
+    submitDocuments: "Submit Supporting Documents →",
     applicationsClosed: "Applications Closed",
     closedNote: "This listing remains visible, but it is not currently accepting new applications.",
     shareListing: "Share Listing",
@@ -61,6 +62,7 @@ const PUBLIC_LISTING_TEXT = {
     listingId: "房源编号：",
     status: "状态：",
     applyNow: "立即申请 →",
+    submitDocuments: "提交补充材料 →",
     applicationsClosed: "申请已关闭",
     closedNote: "此房源仍可查看，但目前不接受新的申请。",
     shareListing: "分享房源",
@@ -754,6 +756,23 @@ export default function PublicListing({ lang = "en" }) {
             </Link>
           )}
 
+          {!statusMeta.applicationsClosed && (
+            <Link
+              to={`/supporting-documents?listing=${encodeURIComponent(listing.id)}`}
+              className="listing-apply-btn"
+              style={{
+                display: "block", width: "100%", textAlign: "center",
+                background: "#fff", color: "#3e5b4b",
+                border: "1.5px solid #3e5b4b",
+                padding: "16px 20px", borderRadius: 9, fontWeight: 800,
+                fontSize: "1rem",
+                textDecoration: "none", marginBottom: 12,
+              }}
+            >
+              {labels.submitDocuments}
+            </Link>
+          )}
+
           {openHouseInfo && (
             <div style={{
               marginTop: 14,
@@ -964,18 +983,33 @@ export default function PublicListing({ lang = "en" }) {
                 If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
               </p>
               {!statusMeta.applicationsClosed && (
-                <Link
-                  to={`/apply/${listing.id}`}
-                  className="listing-apply-btn"
-                  style={{
-                    display: "block", marginTop: 14,
-                    background: "#3e5b4b", color: "#fff",
-                    padding: "14px 28px", borderRadius: 8, fontWeight: 700,
-                    fontSize: "1rem", textDecoration: "none", textAlign: "center",
-                  }}
-                >
-                  {labels.applyNow}
-                </Link>
+                <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                  <Link
+                    to={`/apply/${listing.id}`}
+                    className="listing-apply-btn"
+                    style={{
+                      display: "block",
+                      background: "#3e5b4b", color: "#fff",
+                      padding: "14px 28px", borderRadius: 8, fontWeight: 700,
+                      fontSize: "1rem", textDecoration: "none", textAlign: "center",
+                    }}
+                  >
+                    {labels.applyNow}
+                  </Link>
+                  <Link
+                    to={`/supporting-documents?listing=${encodeURIComponent(listing.id)}`}
+                    className="listing-apply-btn"
+                    style={{
+                      display: "block",
+                      background: "#fff", color: "#3e5b4b",
+                      border: "1.5px solid #3e5b4b",
+                      padding: "14px 28px", borderRadius: 8, fontWeight: 700,
+                      fontSize: "1rem", textDecoration: "none", textAlign: "center",
+                    }}
+                  >
+                    {labels.submitDocuments}
+                  </Link>
+                </div>
               )}
             </div>
 

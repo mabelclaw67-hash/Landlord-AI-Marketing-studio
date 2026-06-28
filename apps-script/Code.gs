@@ -235,7 +235,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument"];
+    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -268,6 +268,7 @@ function doPost(e) {
     if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
     if (action === "validateUploadToken") return ok(validateUploadToken_(body.listingId, body.recordId, body.token));
     if (action === "uploadSupportingDocument") return ok(uploadSupportingDocument_(body));
+    if (action === "uploadPublicSupportingDocument") return ok(uploadPublicSupportingDocument_(body));
     if (action === "updateDocumentUploadStatus") return ok(updateDocumentUploadStatus_(body.recordId));
     if (action === "approveContactRequest")   return ok(approveContactRequest_(body, auth));
     if (action === "updateContactRequestNotes") return ok(updateContactRequestNotes_(body.rowNumber, body.notes, auth));
@@ -2874,6 +2875,132 @@ function uploadSupportingDocument_(body) {
     documentUploadStatus: status.documentUploadStatus,
     uploadedFileCount: status.uploadedFileCount,
     lastUploadAt: status.lastUploadAt,
+  };
+}
+
+var SUPPORTING_DOCUMENT_ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+var SUPPORTING_DOCUMENT_ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+];
+var SUPPORTING_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+function isPublicRentalListingOpenForDocuments_(listing) {
+  if (!listing) return false;
+  if (String(listing.status || "").trim() !== "Published") return false;
+  var values = [
+    listing.tenantListingStatus,
+    listing.listingStatus,
+    listing.publicStatus,
+    listing.availabilityStatus,
+    listing.rentalStatus,
+    listing.tenantStatus
+  ].map(function(value) {
+    return String(value || "").trim().toLowerCase();
+  }).filter(Boolean);
+  var closedWords = ["rented", "closed", "inactive", "removed", "old", "leased", "unavailable", "application closed", "applications closed", "not available", "off market", "off-market", "archived", "deleted"];
+  for (var i = 0; i < values.length; i++) {
+    for (var c = 0; c < closedWords.length; c++) {
+      if (values[i].indexOf(closedWords[c]) >= 0) return false;
+    }
+  }
+  if (!values.length) return true;
+  var openWords = ["available", "active", "accepting applications", "accepting application", "applications open", "application open", "open house", "open"];
+  for (var j = 0; j < values.length; j++) {
+    for (var o = 0; o < openWords.length; o++) {
+      if (values[j].indexOf(openWords[o]) >= 0) return true;
+    }
+  }
+  return false;
+}
+
+function getFileExtension_(fileName) {
+  var match = String(fileName || "").toLowerCase().match(/\.([a-z0-9]+)$/);
+  return match ? match[1] : "";
+}
+
+function validateSupportingDocumentFile_(fileName, mimeType, fileSize) {
+  var ext = getFileExtension_(fileName);
+  var cleanMime = String(mimeType || "").trim().toLowerCase();
+  var size = Number(fileSize || 0);
+  if (SUPPORTING_DOCUMENT_ALLOWED_EXTENSIONS.indexOf(ext) < 0) {
+    throw new Error("Unsupported file type. Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.");
+  }
+  if (cleanMime && cleanMime !== "application/octet-stream" && SUPPORTING_DOCUMENT_ALLOWED_MIME_TYPES.indexOf(cleanMime) < 0) {
+    throw new Error("Unsupported file type. Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.");
+  }
+  if (size > SUPPORTING_DOCUMENT_MAX_BYTES) {
+    throw new Error("File is too large. Please upload files up to 10 MB each.");
+  }
+}
+
+function todayIsoDate_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function buildPublicSupportingDocumentFileName_(applicantName, category, fileName) {
+  return [
+    sanitizePdfFilePart_(applicantName, "Applicant"),
+    sanitizePdfFilePart_(category, "Document"),
+    todayIsoDate_(),
+    sanitizePdfFilePart_(fileName, "upload")
+  ].join(" - ");
+}
+
+function getPublicSupportingDocumentsFolder_(listing) {
+  var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var applicationsFolder = getOrCreateChildFolder_(root, "Rental Applications");
+  var listingFolderName = (listing.id || "Listing") + " - " + (listing.address || "Property Address");
+  var listingFolder = getOrCreateChildFolder_(applicationsFolder, listingFolderName);
+  return getOrCreateChildFolder_(listingFolder, "Supporting Documents");
+}
+
+function uploadPublicSupportingDocument_(body) {
+  var listingId = String(body.listingId || "").trim();
+  var applicantName = String(body.applicantName || "").trim();
+  var email = String(body.email || "").trim();
+  var phone = String(body.phone || "").trim();
+  var category = String(body.category || "").trim();
+  var originalFileName = String(body.fileName || "").trim();
+  if (!listingId) throw new Error("Listing ID is required.");
+  if (!applicantName) throw new Error("Full name is required.");
+  if (!email) throw new Error("Email is required.");
+  if (!phone) throw new Error("Phone number is required.");
+  if (!category) throw new Error("Document type is required.");
+  if (!body.data) throw new Error("File data is required.");
+
+  var listing = findListingById_(listingId);
+  if (!isPublicRentalListingOpenForDocuments_(listing)) {
+    throw new Error("This listing is not currently accepting supporting documents.");
+  }
+  validateSupportingDocumentFile_(originalFileName, body.mimeType, body.fileSize);
+
+  var folder = getPublicSupportingDocumentsFolder_(listing);
+  var fileName = buildPublicSupportingDocumentFileName_(applicantName, category, originalFileName);
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(body.data),
+    body.mimeType || "application/octet-stream",
+    fileName
+  );
+  var file = folder.createFile(blob);
+  file.setDescription([
+    "Listing ID: " + listingId,
+    "Property Address: " + (listing.address || ""),
+    "Applicant Name: " + applicantName,
+    "Applicant Email: " + email,
+    "Applicant Phone: " + phone,
+    "Document Type: " + category,
+    "Uploaded At: " + new Date().toISOString(),
+    "Notes: " + String(body.notes || "").trim()
+  ].join("\n"));
+  return {
+    success: true,
+    listingId: listingId,
+    fileName: file.getName(),
+    uploadedAt: new Date().toISOString()
   };
 }
 

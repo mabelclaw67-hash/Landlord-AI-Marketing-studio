@@ -1,31 +1,22 @@
-export default function Footer({ tenant = false }) {
-  if (tenant) {
-    return (
-      <footer className="footer">
-        <p>
-          &copy; {new Date().getFullYear()} <strong>Vanisland Property Management</strong>
-        </p>
-        <p style={{ marginTop: 6 }}>
-          Vancouver Island, BC &nbsp;|&nbsp; 📧{" "}
-          <a href="mailto:support@vanislandproperty.ca" style={{ color: "rgba(255,255,255,0.8)" }}>
-            support@vanislandproperty.ca
-          </a>
-          {" "}&nbsp;|&nbsp; 📞{" "}
-          <a href="tel:6725148866" style={{ color: "rgba(255,255,255,0.8)" }}>
-            672-514-8866
-          </a>
-        </p>
-      </footer>
-    );
-  }
+export const COMPANY_FOOTER = {
+  year: "2026",
+  name: "Vanisland Property Management",
+  location: "Vancouver Island, BC",
+  email: "support@vanislandproperty.ca",
+  phone: "672-514-8866",
+  phoneHref: "6725148866",
+};
 
+export default function Footer() {
   return (
     <footer className="footer">
       <p>
-        &copy; {new Date().getFullYear()} <strong>Vanisland Property Management</strong> — AI Marketing Studio v0.1 Prototype
+        &copy; {COMPANY_FOOTER.year} <strong>{COMPANY_FOOTER.name}</strong>
       </p>
-      <p style={{ marginTop: 6 }}>
-        All AI-generated content must be reviewed before publishing.
+      <p className="footer__contact">
+        <span>{COMPANY_FOOTER.location}</span>
+        <a href={`mailto:${COMPANY_FOOTER.email}`}>{COMPANY_FOOTER.email}</a>
+        <a href={`tel:${COMPANY_FOOTER.phoneHref}`}>{COMPANY_FOOTER.phone}</a>
       </p>
     </footer>
   );

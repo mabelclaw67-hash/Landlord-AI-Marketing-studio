@@ -1,8 +1,5 @@
 import { Link } from "react-router-dom";
-import Footer from "../components/Footer";
-
-const RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
-const FORM_READY = RENTAL_FORM_URL && !RENTAL_FORM_URL.startsWith("PASTE");
+import { COMPANY_FOOTER } from "../components/Footer";
 
 export default function TenantContact() {
   return (
@@ -24,33 +21,29 @@ export default function TenantContact() {
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 20px" }}>
 
         {/* Apply online — primary action */}
-        {FORM_READY && (
-          <div style={{
-            background: "#fff", border: "2px solid var(--color-primary)",
-            borderRadius: 12, padding: "28px 24px", marginBottom: 20,
-          }}>
-            <h2 style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--color-primary)", marginBottom: 8 }}>
-              Apply Online
-            </h2>
-            <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", marginBottom: 20, lineHeight: 1.7 }}>
-              Use our online application form to apply for a rental. It takes about 5 minutes.
-            </p>
-            <a
-              href={RENTAL_FORM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "block", textAlign: "center", width: "100%",
-                background: "var(--color-accent)", color: "#fff",
-                padding: "18px 24px", borderRadius: 9, fontWeight: 800,
-                fontSize: "1.1rem", textDecoration: "none",
-                boxShadow: "0 3px 10px rgba(224,123,57,0.35)",
-              }}
-            >
-              Apply Now →
-            </a>
-          </div>
-        )}
+        <div style={{
+          background: "#fff", border: "2px solid var(--color-primary)",
+          borderRadius: 12, padding: "28px 24px", marginBottom: 20,
+        }}>
+          <h2 style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--color-primary)", marginBottom: 8 }}>
+            Apply Online
+          </h2>
+          <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", marginBottom: 20, lineHeight: 1.7 }}>
+            Choose a currently available rental first, then complete the application inside our website.
+          </p>
+          <Link
+            to="/apply"
+            style={{
+              display: "block", textAlign: "center", width: "100%",
+              background: "var(--color-accent)", color: "#fff",
+              padding: "18px 24px", borderRadius: 9, fontWeight: 800,
+              fontSize: "1.1rem", textDecoration: "none",
+              boxShadow: "0 3px 10px rgba(224,123,57,0.35)",
+            }}
+          >
+            Apply Now →
+          </Link>
+        </div>
 
         {/* Browse listings */}
         <div style={{
@@ -90,23 +83,22 @@ export default function TenantContact() {
           </p>
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
             <a
-              href="mailto:support@vanislandproperty.ca"
+              href={`mailto:${COMPANY_FOOTER.email}`}
               style={{ color: "var(--color-primary)", fontWeight: 700, fontSize: "0.95rem" }}
             >
-              📧 support@vanislandproperty.ca
+              📧 {COMPANY_FOOTER.email}
             </a>
             <a
-              href="tel:6725148866"
+              href={`tel:${COMPANY_FOOTER.phoneHref}`}
               style={{ color: "var(--color-primary)", fontWeight: 700, fontSize: "0.95rem" }}
             >
-              📞 672-514-8866
+              📞 {COMPANY_FOOTER.phone}
             </a>
           </div>
         </div>
 
       </div>
 
-      <Footer tenant />
     </div>
   );
 }

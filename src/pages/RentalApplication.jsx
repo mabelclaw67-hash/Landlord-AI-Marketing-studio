@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { downloadApplicationPdf, getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
 import { downloadSubmittedAppPdf } from "../utils/rentalApplicationPdf";
+import { isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
 
 const LEASE_TERM_OPTIONS = [
   "Month-to-Month / 月租",
@@ -444,6 +445,24 @@ export default function RentalApplication() {
         }}
       >
         Loading…
+      </div>
+    );
+  }
+
+  if (!listing || !isRentalListingAcceptingApplications(listing)) {
+    return (
+      <div style={{ maxWidth: 620, margin: "60px auto", padding: "0 20px" }}>
+        <div className="card" style={{ textAlign: "center", padding: "40px 32px" }}>
+          <h1 style={{ fontWeight: 800, fontSize: "1.35rem", marginBottom: 10 }}>
+            Application Not Available
+          </h1>
+          <p style={{ color: "var(--color-text-muted)", lineHeight: 1.7, marginBottom: 22 }}>
+            This rental listing is not currently accepting applications. Please choose from the currently available listings.
+          </p>
+          <Link to="/apply" className="btn btn--primary">
+            View Available Rentals
+          </Link>
+        </div>
       </div>
     );
   }

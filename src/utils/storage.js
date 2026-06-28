@@ -372,6 +372,26 @@ export async function uploadSupportingDocument(listingId, recordId, token, categ
   });
 }
 
+export async function uploadPublicSupportingDocument({ listingId, applicantName, email, phone, notes, category, file }) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document upload requires Google Apps Script integration.");
+  }
+  const base64 = await fileToBase64(file);
+  return apiPost({
+    action: "uploadPublicSupportingDocument",
+    listingId,
+    applicantName,
+    email,
+    phone,
+    notes,
+    category,
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    fileSize: file.size || 0,
+    data: base64,
+  });
+}
+
 // v0.3+ swap surface — replace these with API calls without touching components.
 export const storageAdapter = {
   getListings,

@@ -56,6 +56,34 @@ const STATUS_FIELDS = [
   "status",
 ];
 
+const PUBLICATION_CLOSED_WORDS = [
+  "rented",
+  "closed",
+  "inactive",
+  "removed",
+  "old",
+  "leased",
+  "unavailable",
+  "application closed",
+  "applications closed",
+  "not available",
+  "off market",
+  "off-market",
+  "archived",
+  "deleted",
+];
+
+const APPLICATION_OPEN_WORDS = [
+  "available",
+  "active",
+  "accepting applications",
+  "accepting application",
+  "applications open",
+  "application open",
+  "open house",
+  "open",
+];
+
 function firstNonEmpty(...values) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -63,9 +91,13 @@ function firstNonEmpty(...values) {
   return "";
 }
 
+function normalizedText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function normalizeStatus(value) {
   if (!value) return "";
-  const normalized = String(value).trim().toLowerCase();
+  const normalized = normalizedText(value);
   return STATUS_VALUE_MAP[normalized] || "";
 }
 
@@ -84,12 +116,34 @@ export function getListingDisplayStatus(listing) {
   return "Available";
 }
 
+export function isRentalListingAcceptingApplications(listing) {
+  const statusValues = STATUS_FIELDS
+    .map((field) => normalizedText(listing?.[field]))
+    .filter(Boolean);
+
+  if (statusValues.some((value) => PUBLICATION_CLOSED_WORDS.some((word) => value.includes(word)))) {
+    return false;
+  }
+
+  const knownDisplayStatus = statusValues.map(normalizeStatus).find(Boolean);
+  if (knownDisplayStatus) {
+    return knownDisplayStatus === "Available" || knownDisplayStatus === "Open House";
+  }
+
+  if (statusValues.some((value) => APPLICATION_OPEN_WORDS.some((word) => value.includes(word)))) {
+    return true;
+  }
+
+  const publishStatus = normalizedText(listing?.status || listing?.listingStatus);
+  return publishStatus === "published";
+}
+
 export function getListingStatusMeta(listing) {
   const status = getListingDisplayStatus(listing);
   return {
     status,
     ...STATUS_META[status],
-    applicationsClosed: status === "Rented" || status === "Application Closed",
+    applicationsClosed: !isRentalListingAcceptingApplications(listing),
   };
 }
 

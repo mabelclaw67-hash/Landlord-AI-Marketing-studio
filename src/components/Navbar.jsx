@@ -3,18 +3,23 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 import { normalizeLang } from "../utils/lang";
 
-// Keep env var available (used elsewhere), but Apply Now now uses the in-app route.
-// eslint-disable-next-line no-unused-vars
-const _RENTAL_FORM_URL = import.meta.env.VITE_RENTAL_FORM_URL || "";
-
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
   return (
     pathname === "/examples" ||
     pathname === "/tenant-contact" ||
+    pathname === "/apply" ||
+    pathname === "/supporting-documents" ||
     pathname.startsWith("/listings/") ||
     pathname.startsWith("/apply/")
   );
+}
+
+function getListingIdFromPath(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] === "listings" && parts[1] && parts[2] !== "video") return parts[1];
+  if (parts[0] === "apply" && parts[1]) return parts[1];
+  return "";
 }
 
 const TENANT_NAV = {
@@ -40,11 +45,9 @@ export default function Navbar({ lang, setLang }) {
   const safeLang = normalizeLang(lang);
   const tenant = isTenantRoute(pathname);
   const tenantLabels = TENANT_NAV[safeLang] || TENANT_NAV.en;
-  // When on a specific listing or apply page, route Apply Now to the in-app form for that listing.
-  const listingId = pathname.startsWith("/listings/") ? pathname.replace("/listings/", "")
-    : pathname.startsWith("/apply/") ? pathname.replace("/apply/", "")
-    : null;
-  const applyTo = listingId ? `/apply/${listingId}` : "/examples";
+  // When on a specific listing page, route Apply Now to the in-app form for that listing.
+  const listingId = getListingIdFromPath(pathname);
+  const applyTo = listingId ? `/apply/${listingId}` : "/apply";
 
   // ── Tenant top nav ─────────────────────────────────────────────────────────
   if (tenant) {
