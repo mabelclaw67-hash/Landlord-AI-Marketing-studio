@@ -101,15 +101,37 @@ const STATUS_VALUE_MAP = PUBLIC_LISTING_STATUS_OPTIONS.reduce((map, status) => {
   return map;
 }, {});
 
-const STATUS_FIELDS = [
+Object.assign(STATUS_VALUE_MAP, {
+  "可申请": "Accepting Applications",
+  "开放申请": "Accepting Applications",
+  "开放看房": "Open House",
+  "已出租": "Rented",
+  "已关闭": "Application Closed",
+  "不可申请": "Application Closed",
+  "停止申请": "Application Closed",
+});
+
+const APPLICATION_STATUS_FIELDS = [
   "tenantListingStatus",
   "listingStatus",
-  "publicStatus",
-  "publicListingStatus",
   "availabilityStatus",
   "rentalStatus",
   "tenantStatus",
-  "status",
+  "applicationStatus",
+  "applicationAvailabilityStatus",
+];
+
+const LEGACY_APPLICATION_STATUS_FIELDS = [
+  "publicStatus",
+  "publicListingStatus",
+];
+
+const VISIBILITY_STATUS_WORDS = [
+  "published",
+  "已发布",
+  "draft",
+  "unpublished",
+  "未发布",
 ];
 
 const PUBLICATION_CLOSED_WORDS = [
@@ -127,6 +149,10 @@ const PUBLICATION_CLOSED_WORDS = [
   "off-market",
   "archived",
   "deleted",
+  "已出租",
+  "已关闭",
+  "不可申请",
+  "停止申请",
 ];
 
 const APPLICATION_OPEN_WORDS = [
@@ -135,6 +161,9 @@ const APPLICATION_OPEN_WORDS = [
   "accepting applications",
   "accepting application",
   "open house",
+  "可申请",
+  "开放申请",
+  "开放看房",
 ];
 
 function firstNonEmpty(...values) {
@@ -154,6 +183,24 @@ function normalizeStatus(value) {
   return STATUS_VALUE_MAP[normalized] || "";
 }
 
+function isVisibilityStatusValue(value) {
+  const normalized = normalizedText(value);
+  return VISIBILITY_STATUS_WORDS.some((word) => normalized === word || normalized.includes(word));
+}
+
+function getApplicationStatusValues(listing) {
+  const values = APPLICATION_STATUS_FIELDS
+    .map((field) => listing?.[field])
+    .filter((value) => typeof value === "string" && value.trim());
+
+  if (values.length > 0) return values.map(normalizedText);
+
+  return LEGACY_APPLICATION_STATUS_FIELDS
+    .map((field) => listing?.[field])
+    .filter((value) => typeof value === "string" && value.trim() && !isVisibilityStatusValue(value))
+    .map(normalizedText);
+}
+
 function joinDateTime(date, time) {
   const cleanDate = firstNonEmpty(date);
   const cleanTime = firstNonEmpty(time);
@@ -162,17 +209,16 @@ function joinDateTime(date, time) {
 }
 
 export function getListingDisplayStatus(listing) {
-  for (const field of STATUS_FIELDS) {
-    const normalized = normalizeStatus(listing?.[field]);
+  const values = getApplicationStatusValues(listing);
+  for (const value of values) {
+    const normalized = normalizeStatus(value);
     if (normalized) return normalized;
   }
-  return "Available";
+  return "Application Closed";
 }
 
 export function isRentalListingAcceptingApplications(listing) {
-  const statusValues = STATUS_FIELDS
-    .map((field) => normalizedText(listing?.[field]))
-    .filter(Boolean);
+  const statusValues = getApplicationStatusValues(listing);
 
   if (statusValues.some((value) => PUBLICATION_CLOSED_WORDS.some((word) => value.includes(word)))) {
     return false;

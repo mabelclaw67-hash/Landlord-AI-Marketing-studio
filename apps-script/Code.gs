@@ -2890,29 +2890,68 @@ var SUPPORTING_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 function isPublicRentalListingOpenForDocuments_(listing) {
   if (!listing) return false;
-  if (String(listing.status || "").trim() !== "Published") return false;
-  var values = [
+  if (isRentalListingHiddenFromPublic_(listing)) return false;
+
+  var applicationValues = [
     listing.tenantListingStatus,
     listing.listingStatus,
-    listing.publicStatus,
-    listing.publicListingStatus,
     listing.availabilityStatus,
     listing.rentalStatus,
-    listing.tenantStatus
+    listing.tenantStatus,
+    listing.applicationStatus,
+    listing.applicationAvailabilityStatus
   ].map(function(value) {
     return String(value || "").trim().toLowerCase();
   }).filter(Boolean);
-  var closedWords = ["rented", "closed", "inactive", "removed", "old", "leased", "unavailable", "application closed", "applications closed", "not available", "off market", "off-market", "archived", "deleted"];
-  for (var i = 0; i < values.length; i++) {
+
+  if (!applicationValues.length) {
+    applicationValues = [
+      listing.publicStatus,
+      listing.publicListingStatus
+    ].filter(function(value) {
+      return value && !isRentalVisibilityStatusValue_(value);
+    }).map(function(value) {
+      return String(value || "").trim().toLowerCase();
+    }).filter(Boolean);
+  }
+
+  var closedWords = ["rented", "closed", "inactive", "removed", "old", "leased", "unavailable", "application closed", "applications closed", "not available", "off market", "off-market", "archived", "deleted", "已出租", "已关闭", "不可申请", "停止申请"];
+  for (var i = 0; i < applicationValues.length; i++) {
     for (var c = 0; c < closedWords.length; c++) {
-      if (values[i].indexOf(closedWords[c]) >= 0) return false;
+      if (applicationValues[i].indexOf(closedWords[c]) >= 0) return false;
     }
   }
-  if (!values.length) return false;
-  var openWords = ["available", "active", "accepting applications", "accepting application", "open house"];
-  for (var j = 0; j < values.length; j++) {
+  if (!applicationValues.length) return false;
+  var openWords = ["available", "active", "accepting applications", "accepting application", "open house", "可申请", "开放申请", "开放看房"];
+  for (var j = 0; j < applicationValues.length; j++) {
     for (var o = 0; o < openWords.length; o++) {
-      if (values[j].indexOf(openWords[o]) >= 0) return true;
+      if (applicationValues[j].indexOf(openWords[o]) >= 0) return true;
+    }
+  }
+  return false;
+}
+
+function isRentalVisibilityStatusValue_(value) {
+  var normalized = String(value || "").trim().toLowerCase();
+  var visibilityWords = ["published", "已发布", "draft", "unpublished", "未发布"];
+  for (var i = 0; i < visibilityWords.length; i++) {
+    if (normalized === visibilityWords[i] || normalized.indexOf(visibilityWords[i]) >= 0) return true;
+  }
+  return false;
+}
+
+function isRentalListingHiddenFromPublic_(listing) {
+  var values = [
+    listing.status,
+    listing.workflowStatus,
+    listing.publicVisibilityStatus
+  ].map(function(value) {
+    return String(value || "").trim().toLowerCase();
+  }).filter(Boolean);
+  var hiddenWords = ["draft", "unpublished", "未发布"];
+  for (var i = 0; i < values.length; i++) {
+    for (var h = 0; h < hiddenWords.length; h++) {
+      if (values[i] === hiddenWords[h] || values[i].indexOf(hiddenWords[h]) >= 0) return true;
     }
   }
   return false;
