@@ -2950,11 +2950,25 @@ function buildPublicSupportingDocumentFileName_(applicantName, category, fileNam
   ].join(" - ");
 }
 
-function getPublicSupportingDocumentsFolder_(listing) {
+function findExistingRentalListingMediaFolder_(listing) {
+  var listingId = String(listing && listing.id || "").trim();
+  if (!listingId) throw new Error("Listing ID is required.");
+
+  var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (folderId) return DriveApp.getFolderById(folderId);
+
   var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  var applicationsFolder = getOrCreateChildFolder_(root, "Rental Applications");
-  var listingFolderName = (listing.id || "Listing") + " - " + (listing.address || "Property Address");
-  var listingFolder = getOrCreateChildFolder_(applicationsFolder, listingFolderName);
+  var folders = root.getFolders();
+  while (folders.hasNext()) {
+    var folder = folders.next();
+    if (String(folder.getName() || "").indexOf(listingId) === 0) return folder;
+  }
+
+  throw new Error("Existing listing media folder not found for listing: " + listingId);
+}
+
+function getPublicSupportingDocumentsFolder_(listing) {
+  var listingFolder = findExistingRentalListingMediaFolder_(listing);
   return getOrCreateChildFolder_(listingFolder, "Supporting Documents");
 }
 
