@@ -26,6 +26,8 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const CLOSED_MESSAGE = "This listing is no longer accepting applications or supporting documents.";
+const SUCCESS_MESSAGE = "Thank you. Your supporting documents have been received.";
 
 function PrivacySecurityNote() {
   return (
@@ -129,7 +131,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
         lastUploadAt: latest?.lastUploadAt || prev?.lastUploadAt,
       }));
       setSelected((prev) => ({ ...prev, [category]: [] }));
-      setMessage("Thank you. Your supporting documents have been received. You may return to this page later if you need to upload additional documents.");
+      setMessage(SUCCESS_MESSAGE);
     } catch (e) {
       const text = e.message || "Upload failed. Please try again.";
       setMessage(text.includes(expiredMessage) ? expiredMessage : text);
@@ -299,7 +301,7 @@ export default function SupportDocuments() {
   async function handlePublicUpload(category) {
     const files = Array.from(selected[category] || []);
     if (!isListingOpen) {
-      setMessage("This listing is not currently accepting supporting documents.");
+      setMessage(CLOSED_MESSAGE);
       return;
     }
     if (!clean(form.applicantName) || !clean(form.email) || !clean(form.phone)) {
@@ -331,7 +333,7 @@ export default function SupportDocuments() {
         });
       }
       setSelected((prev) => ({ ...prev, [category]: [] }));
-      setMessage("Thank you. Your supporting documents have been received. You may return to this page later if you need to upload additional documents.");
+      setMessage(SUCCESS_MESSAGE);
     } catch (err) {
       setMessage(err.message || "Upload failed. Please try again.");
     } finally {
@@ -365,7 +367,7 @@ export default function SupportDocuments() {
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
           <h2 style={{ fontSize: "1.15rem", fontWeight: 800, marginBottom: 8 }}>Document Upload Not Available</h2>
           <p style={{ color: "var(--color-text-muted)", lineHeight: 1.7, marginBottom: 16 }}>
-            This listing is not currently accepting supporting documents.
+            {CLOSED_MESSAGE}
           </p>
           <Link to="/examples" className="btn btn--primary">View Available Rentals</Link>
         </div>

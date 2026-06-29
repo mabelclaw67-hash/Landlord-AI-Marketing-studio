@@ -1,9 +1,17 @@
 export const PUBLIC_LISTING_STATUS_OPTIONS = [
   "Available",
+  "Active",
   "Open House",
+  "Accepting Applications",
   "Pending",
   "Rented",
   "Application Closed",
+  "Closed",
+  "Inactive",
+  "Removed",
+  "Unavailable",
+  "Archived",
+  "Old",
 ];
 
 const STATUS_META = {
@@ -13,11 +21,23 @@ const STATUS_META = {
     color: "#20623d",
     border: "#b8e1c7",
   },
+  Active: {
+    label: "Active",
+    background: "#e7f7ed",
+    color: "#20623d",
+    border: "#b8e1c7",
+  },
   "Open House": {
     label: "Open House",
     background: "#fff4df",
     color: "#8a4b16",
     border: "#efd09b",
+  },
+  "Accepting Applications": {
+    label: "Accepting Applications",
+    background: "#e7f7ed",
+    color: "#20623d",
+    border: "#b8e1c7",
   },
   Pending: {
     label: "Pending",
@@ -36,6 +56,42 @@ const STATUS_META = {
     background: "#fce7e7",
     color: "#9b2c2c",
     border: "#efb6b6",
+  },
+  Closed: {
+    label: "Closed",
+    background: "#fce7e7",
+    color: "#9b2c2c",
+    border: "#efb6b6",
+  },
+  Inactive: {
+    label: "Inactive",
+    background: "#edf2f7",
+    color: "#455468",
+    border: "#ced6e0",
+  },
+  Removed: {
+    label: "Removed",
+    background: "#edf2f7",
+    color: "#455468",
+    border: "#ced6e0",
+  },
+  Unavailable: {
+    label: "Unavailable",
+    background: "#edf2f7",
+    color: "#455468",
+    border: "#ced6e0",
+  },
+  Archived: {
+    label: "Archived",
+    background: "#edf2f7",
+    color: "#455468",
+    border: "#ced6e0",
+  },
+  Old: {
+    label: "Old",
+    background: "#edf2f7",
+    color: "#455468",
+    border: "#ced6e0",
   },
 };
 
@@ -78,10 +134,7 @@ const APPLICATION_OPEN_WORDS = [
   "active",
   "accepting applications",
   "accepting application",
-  "applications open",
-  "application open",
   "open house",
-  "open",
 ];
 
 function firstNonEmpty(...values) {
@@ -127,15 +180,17 @@ export function isRentalListingAcceptingApplications(listing) {
 
   const knownDisplayStatus = statusValues.map(normalizeStatus).find(Boolean);
   if (knownDisplayStatus) {
-    return knownDisplayStatus === "Available" || knownDisplayStatus === "Open House";
+    return knownDisplayStatus === "Available"
+      || knownDisplayStatus === "Active"
+      || knownDisplayStatus === "Open House"
+      || knownDisplayStatus === "Accepting Applications";
   }
 
   if (statusValues.some((value) => APPLICATION_OPEN_WORDS.some((word) => value.includes(word)))) {
     return true;
   }
 
-  const publishStatus = normalizedText(listing?.status || listing?.listingStatus);
-  return publishStatus === "published";
+  return false;
 }
 
 export function getListingStatusMeta(listing) {

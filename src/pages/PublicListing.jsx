@@ -9,6 +9,7 @@ import { buildRentalListingPublicUrl, buildRentalVideoPublicUrl } from "../utils
 import {
   getListingStatusMeta,
   getOpenHouseInfo,
+  isRentalListingAcceptingApplications,
   resolveRentalListingCover,
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
@@ -261,6 +262,7 @@ export default function PublicListing({ lang = "en" }) {
   const featureList = (listing.features || "")
     .split(/[,\n]/).map((f) => f.trim()).filter(Boolean);
   const statusMeta = getListingStatusMeta(listing);
+  const acceptsApplications = isRentalListingAcceptingApplications(listing);
   const openHouseInfo = getOpenHouseInfo(listing);
 
   // ── Shared styles ──────────────────────────────────────────────────────────
@@ -719,22 +721,19 @@ export default function PublicListing({ lang = "en" }) {
           </div>
 
           {/* Primary CTA */}
-          {statusMeta.applicationsClosed ? (
+          {!acceptsApplications ? (
             <div style={{ marginBottom: 12 }}>
-              <button
-                type="button"
-                disabled
-                className="listing-apply-btn"
+              <div
                 style={{
                   display: "block", width: "100%", textAlign: "center",
                   background: "#d7dce1", color: "#5f6b76",
                   padding: "20px 24px", borderRadius: 9, fontWeight: 800,
                   fontSize: "1.05rem", letterSpacing: "0.01em",
-                  border: "none", cursor: "not-allowed",
+                  border: "none",
                 }}
               >
                 {labels.applicationsClosed}
-              </button>
+              </div>
               <p style={{ fontSize: "0.82rem", color: statusMeta.color, textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
                 {labels.closedNote}
               </p>
@@ -756,7 +755,7 @@ export default function PublicListing({ lang = "en" }) {
             </Link>
           )}
 
-          {!statusMeta.applicationsClosed && (
+          {acceptsApplications && (
             <Link
               to={`/supporting-documents?listing=${encodeURIComponent(listing.id)}`}
               className="listing-apply-btn"
@@ -982,7 +981,7 @@ export default function PublicListing({ lang = "en" }) {
               <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
                 If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
               </p>
-              {!statusMeta.applicationsClosed && (
+              {acceptsApplications && (
                 <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
                   <Link
                     to={`/apply/${listing.id}`}

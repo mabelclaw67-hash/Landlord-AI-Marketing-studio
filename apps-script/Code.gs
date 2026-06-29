@@ -2895,6 +2895,7 @@ function isPublicRentalListingOpenForDocuments_(listing) {
     listing.tenantListingStatus,
     listing.listingStatus,
     listing.publicStatus,
+    listing.publicListingStatus,
     listing.availabilityStatus,
     listing.rentalStatus,
     listing.tenantStatus
@@ -2907,8 +2908,8 @@ function isPublicRentalListingOpenForDocuments_(listing) {
       if (values[i].indexOf(closedWords[c]) >= 0) return false;
     }
   }
-  if (!values.length) return true;
-  var openWords = ["available", "active", "accepting applications", "accepting application", "applications open", "application open", "open house", "open"];
+  if (!values.length) return false;
+  var openWords = ["available", "active", "accepting applications", "accepting application", "open house"];
   for (var j = 0; j < values.length; j++) {
     for (var o = 0; o < openWords.length; o++) {
       if (values[j].indexOf(openWords[o]) >= 0) return true;
@@ -2988,7 +2989,7 @@ function uploadPublicSupportingDocument_(body) {
 
   var listing = findListingById_(listingId);
   if (!isPublicRentalListingOpenForDocuments_(listing)) {
-    throw new Error("This listing is not currently accepting supporting documents.");
+    throw new Error("This listing is no longer accepting applications or supporting documents.");
   }
   validateSupportingDocumentFile_(originalFileName, body.mimeType, body.fileSize);
 
