@@ -66,7 +66,6 @@ const RENTAL_PUBLIC_TEXT = {
     viewDetailsStatus: "View Details / Status →",
     shareListing: "Share Listing",
     copied: "✓ Link copied",
-    shareTextPrefix: "Check out this rental listing:",
     perMonth: "/mo",
   },
   zh: {
@@ -92,7 +91,6 @@ const RENTAL_PUBLIC_TEXT = {
     viewDetailsStatus: "查看详情 / 状态 →",
     shareListing: "分享房源",
     copied: "✓ 已复制链接",
-    shareTextPrefix: "查看这个出租房源：",
     perMonth: "每月",
   },
 };
@@ -331,9 +329,7 @@ export default function Examples({ lang = "en" }) {
                           : labels.viewDetailsApply}
                       </Link>
                       <ShareButton
-                        title={listing.address}
-                        text={`${labels.shareTextPrefix} ${listing.address}, ${listing.city}, BC`}
-                        url={`${window.location.origin}/listings/${listing.id}`}
+                        listing={listing}
                         label={labels.shareListing}
                         copiedLabel={labels.copied}
                         ariaLabel={labels.shareListing}

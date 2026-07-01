@@ -406,13 +406,12 @@ export default function ListingDetail({ lang: langProp }) {
   const updateComplianceFlag = (key, val) => persist({ ...listing, complianceFlag: { ...listing.complianceFlag, [key]: val } });
 
   const updateOverallStatus = async (val) => {
-    const base = window.location.origin;
     const update = {
       ...listing,
       status: val,
       // When publishing, stamp the public URL and admin package URL into the sheet
-      publishedLink:    val === "Published" ? (listing.publishedLink    || `${base}/listings/${listing.id}`)      : listing.publishedLink,
-      finalPackageLink: val === "Published" ? (listing.finalPackageLink || `${base}/admin/listing/${listing.id}`) : listing.finalPackageLink,
+      publishedLink:    val === "Published" ? (listing.publishedLink    || buildRentalListingPublicUrl(listing.id)) : listing.publishedLink,
+      finalPackageLink: val === "Published" ? (listing.finalPackageLink || `${window.location.origin}/admin/listing/${listing.id}`) : listing.finalPackageLink,
     };
     await persist(update);
     // Re-read from Google Sheet to confirm the write landed in column V

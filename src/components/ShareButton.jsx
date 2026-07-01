@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { shareListing } from "../utils/shareListing";
 
 export default function ShareButton({
+  listing,
+  listingId,
   title,
   text,
   url,
@@ -12,13 +15,28 @@ export default function ShareButton({
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
+    const hasListingShare = Boolean(listing || listingId);
+    if (hasListingShare) {
+      try {
+        const result = await shareListing(listing || listingId);
+        if (result === "copied") {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } catch {
+        // user cancelled or sharing blocked — do nothing
+      }
+      return;
+    }
+
     const shareUrl = url || window.location.href;
     const shareText = text && !text.includes(shareUrl)
       ? `${text}\n${shareUrl}`
       : text;
+    const payload = { title, text: shareText || shareUrl, url: shareUrl };
     if (navigator.share) {
       try {
-        await navigator.share({ title, text: shareText || shareUrl });
+        await navigator.share(payload);
       } catch {
         // user cancelled — do nothing
       }

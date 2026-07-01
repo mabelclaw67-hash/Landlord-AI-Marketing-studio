@@ -1,4 +1,4 @@
-export const PUBLIC_SITE_BASE_URL = "https://vanislandproperty.ca";
+export const PUBLIC_SITE_BASE_URL = "https://www.vanislandproperty.ca";
 export const OLD_PUBLIC_SITE_BASE_URL = "https://landlord-ai-marketing-studio.netlify.app";
 
 const REWRITABLE_HOSTS = new Set([

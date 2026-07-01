@@ -928,9 +928,7 @@ export default function PublicListing({ lang = "en" }) {
                 ⬇️ Download MP4
               </button>
               <ShareButton
-                title={title}
-                text={`Check out this rental listing: ${title}`}
-                url={window.location.href}
+                listing={listing}
                 label={labels.shareListing}
                 copiedLabel={labels.copied}
                 ariaLabel={labels.shareListing}
@@ -939,9 +937,7 @@ export default function PublicListing({ lang = "en" }) {
           ) : (
             <ShareButton
               className="share-btn--detail"
-              title={title}
-              text={`Check out this rental listing: ${title}`}
-              url={window.location.href}
+              listing={listing}
               label={labels.shareListing}
               copiedLabel={labels.copied}
               ariaLabel={labels.shareListing}
