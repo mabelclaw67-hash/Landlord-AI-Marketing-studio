@@ -39,7 +39,7 @@ function extractDriveFileId(url) {
 
 function buildDriveVideoPreviewUrl(file) {
   const fileId = String(file?.fileId || "").trim() || extractDriveFileId(file?.url || "");
-  return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : "";
+  return fileId ? resolveDownloadVideoUrl(`https://drive.google.com/file/d/${fileId}/view`) : "";
 }
 
 function buildDriveVideoDownloadUrl(file) {
@@ -925,21 +925,19 @@ export default function HomeSaleVideo() {
               {isAdmin && (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                   <a
-                    href={drivePreviewUrl || videoFileUrl || listing?.videoUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                    href={driveDownloadUrl || resolveDownloadVideoUrl(videoFileUrl || listing?.videoUrl)}
+                    download={videoFileMeta?.name || `video__${listingId}.mp4`}
                     className="btn btn--primary btn--sm"
                   >
-                    ▶ {lang === "zh" ? "在 Drive 中打开视频" : "Open Video in Drive"}
+                    ⬇️ {lang === "zh" ? "下载视频" : "Download Video"}
                   </a>
                   {listing?.videoUrl && listing.videoUrl !== drivePreviewUrl && listing.videoUrl !== videoFileUrl && (
                     <a
-                      href={listing.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                      href={resolveDownloadVideoUrl(listing.videoUrl)}
+                      download={`video__${listingId}.mp4`}
                       className="btn btn--ghost btn--sm"
                     >
-                      🔗 {lang === "zh" ? "表格中的视频链接" : "Video Link (from Sheet)"}
+                      ⬇️ {lang === "zh" ? "下载表格中的视频" : "Download Sheet Video"}
                     </a>
                   )}
                 </div>
@@ -955,11 +953,12 @@ export default function HomeSaleVideo() {
                   <source src={videoBlobUrl || driveVideoBlobUrl} type="video/mp4" />
                 </video>
               ) : isAdmin && drivePreviewUrl ? (
-                <iframe
+                <video
+                  controls
+                  preload="metadata"
+                  playsInline
                   src={drivePreviewUrl}
-                  allow="autoplay"
                   style={{ width: "100%", maxWidth: 560, height: 320, borderRadius: 8, border: "none", marginBottom: 10, background: "#000" }}
-                  title="Drive Video Preview"
                 />
               ) : null}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

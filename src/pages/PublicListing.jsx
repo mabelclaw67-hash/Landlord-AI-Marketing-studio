@@ -6,6 +6,7 @@ import ShareButton from "../components/ShareButton";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
 import { buildRentalListingPublicUrl, buildRentalVideoPublicUrl } from "../utils/publicUrls";
+import { resolveDownloadVideoUrl } from "../utils/videoUrls";
 import {
   getListingStatusMeta,
   getOpenHouseInfo,
@@ -353,21 +354,11 @@ export default function PublicListing({ lang = "en" }) {
   }
 
   function handleDownloadVideo() {
-    const videoUrl = listing?.videoUrl;
+    const videoUrl = resolveDownloadVideoUrl(listing?.publicVideoUrl || listing?.outputs?.publicVideoUrl || listing?.videoUrl);
     if (!videoUrl) return;
-    // Mobile / iOS: open in new tab so user can long-press → Save Video
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(videoUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    // Desktop: create a temporary <a download> to trigger save dialog.
-    // For same-origin URLs the browser downloads directly; for cross-origin it
-    // opens in a new tab — both are acceptable.
     const a = document.createElement('a');
     a.href = videoUrl;
     a.download = `property-video-${listing.id || 'listing'}.mp4`;
-    a.target = '_blank';
     a.rel = 'noopener noreferrer';
     document.body.appendChild(a);
     a.click();

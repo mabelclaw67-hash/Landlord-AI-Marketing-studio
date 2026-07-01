@@ -14,6 +14,7 @@ import {
 } from "../utils/homeSaleSheet";
 import { getStudioRequestAuth } from "../utils/trialAccess";
 import { normalizePublicFacingUrl, buildHomeSalePublicUrl, buildHomeSaleVideoPublicUrl } from "../utils/publicUrls";
+import { resolveDownloadVideoUrl } from "../utils/videoUrls";
 
 function formatPrice(value) {
   const digits = String(value || "").replace(/[^\d.]/g, "");
@@ -364,16 +365,11 @@ export default function HomeSaleListingDetail() {
   }
 
   function handleDownloadSaleVideo() {
-    if (!rawVideoUrl) return;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.open(rawVideoUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
+    const videoUrl = resolveDownloadVideoUrl(listing?.publicVideoUrl || rawVideoUrl);
+    if (!videoUrl) return;
     const a = document.createElement("a");
-    a.href = rawVideoUrl;
+    a.href = videoUrl;
     a.download = `property-video-${listingId || "sale"}.mp4`;
-    a.target = "_blank";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();

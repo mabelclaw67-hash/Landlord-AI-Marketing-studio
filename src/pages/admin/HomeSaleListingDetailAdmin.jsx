@@ -12,6 +12,7 @@ import {
   updateSaleListing,
 } from "../../utils/homeSaleSheet";
 import { buildHomeSalePublicUrl, normalizePublicFacingUrl } from "../../utils/publicUrls";
+import { resolveDownloadVideoUrl } from "../../utils/videoUrls";
 import { useLang } from "../../contexts/LangContext";
 import { AL } from "../../utils/adminLabels";
 
@@ -278,8 +279,8 @@ export default function HomeSaleListingDetailAdmin() {
                 </a>
               )}
               {isAdminSessionActive() && listing.videoUrl && (
-                <a href={listing.videoUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                  🎬 Video
+                <a href={resolveDownloadVideoUrl(listing.videoUrl)} download={`video__${listingId}.mp4`} className="btn btn--ghost btn--sm">
+                  🎬 Download Video
                 </a>
               )}
             </div>

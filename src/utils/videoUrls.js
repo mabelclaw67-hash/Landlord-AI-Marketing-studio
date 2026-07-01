@@ -38,7 +38,7 @@ export function resolvePlayableVideoUrl(input) {
   if (!cleanUrl) return "";
 
   const fileId = extractDriveVideoFileId(cleanUrl);
-  if (fileId) return ""; // Drive links can't be embedded; return empty → triggers error state
+  if (fileId) return resolveDownloadVideoUrl(cleanUrl);
 
   return cleanUrl;
 }

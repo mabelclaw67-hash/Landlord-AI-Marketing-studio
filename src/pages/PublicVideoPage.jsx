@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPublicListing } from "../utils/storage";
 import { getHomeSaleListing, getPublicSaleVideoScripts } from "../utils/homeSaleSheet";
-import { resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
+import { resolveDownloadVideoUrl, resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
 
 export default function PublicVideoPage({ type = "rental" }) {
   const params = useParams();
@@ -40,7 +40,7 @@ export default function PublicVideoPage({ type = "rental" }) {
   const title = listing?.address || listingId || "Property Video";
   const playerUrl = resolvePlayableVideoUrl({ listingId, publicVideoUrl, sourceUrl: videoUrl });
   const staticVideoUrl = resolveStaticVideoUrl(listingId);
-  const safeDownloadUrl = publicVideoUrl || staticVideoUrl || "";
+  const safeDownloadUrl = publicVideoUrl || staticVideoUrl || resolveDownloadVideoUrl(videoUrl);
   const hasVideoSource = Boolean(staticVideoUrl || publicVideoUrl || videoUrl);
   const listingPath = type === "homeSale"
     ? `/home-sale-studio/listings/${listingId}`
