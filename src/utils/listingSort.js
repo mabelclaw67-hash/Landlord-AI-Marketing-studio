@@ -60,7 +60,7 @@ export function sortListingsByStatusAndDate(listings, statusFields, closedWords,
 
 const RENTAL_STATUS_FIELDS = ["status", "listingStatus", "tenantListingStatus", "publicStatus"];
 const RENTAL_CLOSED_WORDS   = ["rented", "closed", "unavailable", "leased"];
-const RENTAL_DATE_FIELDS    = ["createdAt", "listingDate", "availableDate", "updatedAt"];
+const RENTAL_DATE_FIELDS    = ["createdDate", "createdAt", "listingDate", "available", "availableDate", "updatedAt"];
 
 /**
  * Sort public rental listings.
