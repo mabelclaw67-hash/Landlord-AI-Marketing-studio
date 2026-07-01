@@ -327,5 +327,5 @@ export function resolveRentalListingCover(rootPhotos = [], coverFiles = [], cove
 
 export function resolveRentalListingImageSrc(file) {
   if (!file) return "";
-  return file.dataUrl || file.thumbUrlLg || file.thumbUrl || file.url || "";
+  return file.dataUrl || file.thumbUrlLg || file.thumbUrl || "";
 }

@@ -95,7 +95,7 @@ export default function PublicVideoPage({ type = "rental" }) {
               )}
               {safeDownloadUrl && (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <a href={safeDownloadUrl} download target="_blank" rel="noopener noreferrer" className="btn btn--primary">
+                  <a href={safeDownloadUrl} download rel="noopener noreferrer" className="btn btn--primary">
                     Download MP4
                   </a>
                 </div>

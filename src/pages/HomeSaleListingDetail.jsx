@@ -13,7 +13,7 @@ import {
   extractHomeSaleDriveFileId,
 } from "../utils/homeSaleSheet";
 import { getStudioRequestAuth } from "../utils/trialAccess";
-import { normalizePublicFacingUrl, buildHomeSalePublicUrl, buildHomeSaleVideoPublicUrl } from "../utils/publicUrls";
+import { buildHomeSalePublicUrl, buildHomeSaleVideoPublicUrl } from "../utils/publicUrls";
 import { resolveDownloadVideoUrl } from "../utils/videoUrls";
 
 function formatPrice(value) {
@@ -29,12 +29,6 @@ function normalizeExternalUrl(value) {
   if (!text) return "";
   if (/^https?:\/\//i.test(text)) return text;
   return "";
-}
-
-function isInternalHomeSalePublicUrl(value) {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  return /\/home-sale-studio\/listings\/[^/]+$/i.test(text);
 }
 
 function stripGeneratedMissingInfoNote(value) {
@@ -73,7 +67,7 @@ function compareSalePhotoAssets(a, b, primaryPhotoUrl) {
 
 function resolveSalePhotoSrc(file) {
   if (!file) return "";
-  return file.dataUrl || file.thumbUrlLg || file.thumbUrl || file.url || "";
+  return file.dataUrl || file.thumbUrlLg || file.thumbUrl || "";
 }
 
 function buildStandalonePrimaryPhoto(listing, photoDataUrls = {}) {
@@ -148,12 +142,6 @@ function CoverPhoto({ file, alt }) {
       <div style={{ width: "100%", height: 280, background: "#edf3ee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <span style={{ fontSize: "2.5rem" }}>🏠</span>
         <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 4 }}>{file?.name || "Sale photo"}</p>
-        {file?.url ? (
-          <a href={file.url} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: "0.82rem", color: "#3e5b4b", fontWeight: 600 }}>
-            Open photo ↗
-          </a>
-        ) : null}
       </div>
     );
   }
@@ -187,12 +175,6 @@ function ThumbPhoto({ file, alt }) {
           <span style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.3, wordBreak: "break-all" }}>
             {file?.name || "Sale photo"}
           </span>
-          {file?.url ? (
-            <a href={file.url} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: "0.65rem", color: "#3e5b4b", fontWeight: 600 }}>
-              Open ↗
-            </a>
-          ) : null}
         </div>
       )}
     </div>
@@ -331,14 +313,13 @@ export default function HomeSaleListingDetail() {
   }, [listingId, listing?.primaryPhotoUrl, mediaRows]);
 
   const orderedPhotos = buildOrderedSalePhotos(listing, mediaRows, photoDataUrls);
-  const rawPublicListingUrl = normalizeExternalUrl(listing?.publicListingUrl);
-  const safeMlsUrl = normalizeExternalUrl(listing?.mlsUrl)
-    || (!isInternalHomeSalePublicUrl(rawPublicListingUrl) ? rawPublicListingUrl : "");
+  const safeMlsUrl = normalizeExternalUrl(listing?.mlsUrl);
   const hasMlsInfo = !!(listing?.mlsNumber || safeMlsUrl);
   const marketingZh = stripGeneratedMissingInfoNote(marketing.zh);
   const marketingEn = stripGeneratedMissingInfoNote(marketing.en);
   const contactPhoneHref = listing?.contactPhone ? `tel:${String(listing.contactPhone).replace(/[^\d+]/g, "")}` : "";
   const contactEmailHref = listing?.contactEmail ? `mailto:${String(listing.contactEmail).trim()}` : "";
+  const publicListingUrl = buildHomeSalePublicUrl(listingId);
 
   function handleScrollToInquiry() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -690,14 +671,14 @@ export default function HomeSaleListingDetail() {
                       <ShareButton
                         title={listing.address || "Home Sale Listing"}
                         text={`Home sale listing: ${listing.address || listing.id}`}
-                        url={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))}
+                        url={publicListingUrl}
                       />
                     </div>
                   ) : (
                     <ShareButton
                       title={listing.address || "Home Sale Listing"}
                       text={`Home sale listing: ${listing.address || listing.id}`}
-                      url={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))}
+                      url={publicListingUrl}
                       className="share-btn--detail"
                     />
                   )}
@@ -711,16 +692,16 @@ export default function HomeSaleListingDetail() {
                 <div style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10 }}>
                   {/* Hidden ref — print handler extracts SVG HTML from here */}
                   <div ref={saleQrRef} style={{ display: "none" }}>
-                    <QRCodeSVG value={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} size={200} fgColor="#2f4338" bgColor="#ffffff" />
+                    <QRCodeSVG value={publicListingUrl} size={200} fgColor="#2f4338" bgColor="#ffffff" />
                   </div>
-                  <QRCodeSVG value={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} size={180} fgColor="#2f4338" bgColor="#ffffff" />
+                  <QRCodeSVG value={publicListingUrl} size={180} fgColor="#2f4338" bgColor="#ffffff" />
                 </div>
                 <p style={{ fontSize: "0.84rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.6, marginBottom: 12 }}>
                   Scan to view the sale listing and buyer inquiry page
                 </p>
                 <div className="flex" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
                   <button type="button" className="btn btn--ghost" onClick={handlePrintQrCode}>Print QR Code</button>
-                  <a href={normalizePublicFacingUrl(listing.publicListingUrl || buildHomeSalePublicUrl(listing.id))} target="_blank" rel="noreferrer" className="btn btn--ghost">
+                  <a href={publicListingUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">
                     Open Public Page
                   </a>
                 </div>

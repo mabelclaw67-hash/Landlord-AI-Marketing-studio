@@ -154,15 +154,6 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
-          <li>
-            <NavLink
-              to="/admin"
-              className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
-              onClick={() => setOpen(false)}
-            >
-              {t(lang, "nav.admin")}
-            </NavLink>
-          </li>
           <li className="navbar__lang">
             <button
               className={safeLang === "en" ? "active" : ""}

@@ -94,10 +94,6 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">{n.workspaceLabel}</div>
-          <Link to="/admin" className="lh-nav-item lh-nav-item--admin">
-            <span className="lh-nav-item__icon">⚙️</span>
-            <span><strong>{n.admin}</strong></span>
-          </Link>
           <div className="lh-nav-item lh-lang-row">
             🌐
             <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
@@ -131,9 +127,6 @@ export default function LandlordHomeLayout({ lang, setLang }) {
             <strong>🏠 Vanisland AI Studio</strong>
           </div>
           <div className="lh-mobile-actions">
-            <Link to="/admin" className="lh-mobile-admin">
-              {n.mobileAdmin}
-            </Link>
             <div className="lh-mobile-lang">
               <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
               <span>/</span>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ShareButton from "../components/ShareButton";
-import { readTrialAccess } from "../utils/trialAccess";
 import { buildHomeSalePublicUrl } from "../utils/publicUrls";
 import {
   extractHomeSaleDriveFileId,
@@ -20,10 +19,6 @@ const LABELS = {
     heroTitle: "Home Sale Studio",
     heroSub: "Public Sale Listings",
     heroDesc: "Bilingual home sale marketing tools for sellers, FSBO owners, and realtors.",
-    adminEyebrow: "Home Sale Admin Studio",
-    adminTitle: "Manage the Home Sale Studio",
-    adminDesc: "Access Home Sale Admin to manage the sale listings database, public listing pages, and listing details.",
-    adminBtn: "Home Sale Admin",
     loading: "Loading sale listings...",
     unableTitle: "Unable to Load Listings",
     emptyTitle: "No Sale Listings Yet",
@@ -51,10 +46,6 @@ const LABELS = {
     heroTitle: "出售房源工作台",
     heroSub: "公开出售房源",
     heroDesc: "为卖家、自售业主和地产经纪准备的中英文出售房源营销工具。",
-    adminEyebrow: "出售房源管理",
-    adminTitle: "管理出售房源工作台",
-    adminDesc: "进入出售房源后台，管理出售房源数据库、公开房源页面和房源详情。",
-    adminBtn: "进入出售后台",
     loading: "正在加载出售房源...",
     unableTitle: "无法加载房源",
     emptyTitle: "还没有出售房源",
@@ -88,7 +79,6 @@ function formatPrice(value, labels) {
 
 export default function HomeSaleStudio({ lang }) {
   const labels = LABELS[normalizeLang(lang)] || LABELS.en;
-  const trialSession = readTrialAccess();
   const [listings, setListings] = useState([]);
   const [listingImages, setListingImages] = useState({});
   const [loading, setLoading] = useState(true);
@@ -163,22 +153,6 @@ export default function HomeSaleStudio({ lang }) {
 
       <section className="section">
         <div className="container">
-          {!trialSession && (
-            <div className="card home-sale-admin-entry" style={{ marginBottom: 24 }}>
-              <div>
-                <div className="home-sale-admin-entry__eyebrow">{labels.adminEyebrow}</div>
-                <h2>{labels.adminTitle}</h2>
-                <p>
-                  {labels.adminDesc}
-                </p>
-              </div>
-              <Link to="/admin/home-sale" className="btn btn--sage">
-                {labels.adminBtn}
-              </Link>
-            </div>
-          )}
-
-
           {loading && (
             <div className="card" style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
               {labels.loading}
@@ -298,7 +272,7 @@ export default function HomeSaleStudio({ lang }) {
                     <ShareButton
                       title={listing.address || labels.shareTitle}
                       text={`${labels.shareText}: ${listing.address || listing.id}`}
-                      url={listing.publicListingUrl || buildHomeSalePublicUrl(listing.id)}
+                      url={buildHomeSalePublicUrl(listing.id)}
                     />
                   </article>
                 );

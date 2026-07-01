@@ -119,7 +119,7 @@ function CoverPhoto({ file }) {
 }
 
 function ThumbPhoto({ file }) {
-  const src = file.dataUrl || file.thumbUrl || file.thumbUrlLg || file.url;
+  const src = file.dataUrl || file.thumbUrl || file.thumbUrlLg;
   const [failed, setFailed] = useState(false);
 
   return (
@@ -135,10 +135,6 @@ function ThumbPhoto({ file }) {
         <div style={{ width: "100%", height: 120, background: "#edf3ee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, gap: 4 }}>
           <span style={{ fontSize: "1.3rem" }}>🖼️</span>
           <span style={{ fontSize: "0.62rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.3, wordBreak: "break-all" }}>{file.name}</span>
-          <a href={file.url} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: "0.65rem", color: "#3e5b4b", fontWeight: 600 }}>
-            Open ↗
-          </a>
         </div>
       )}
     </div>
