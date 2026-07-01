@@ -13,16 +13,19 @@ export default function ShareButton({
 
   async function handleShare() {
     const shareUrl = url || window.location.href;
+    const shareText = text && !text.includes(shareUrl)
+      ? `${text}\n${shareUrl}`
+      : text;
     if (navigator.share) {
       try {
-        await navigator.share({ title, text, url: shareUrl });
+        await navigator.share({ title, text: shareText, url: shareUrl });
       } catch {
         // user cancelled — do nothing
       }
       return;
     }
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(shareText || shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
