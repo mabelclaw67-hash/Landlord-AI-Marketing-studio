@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getListing, getListingFolderFiles, getListingSubfolderFiles } from "../utils/storage";
+import { getPublicListing, getPublicListingFolderFiles, getPublicListingSubfolderFiles } from "../utils/storage";
 import ShareButton from "../components/ShareButton";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
 import { downloadRentalApplicationPdf } from "../utils/rentalApplicationPdf";
@@ -161,14 +161,14 @@ export default function PublicListing({ lang = "en" }) {
   const qrRef = useRef(null);
 
   useEffect(() => {
-    getListing(id)
+    getPublicListing(id)
       .then((l) => {
         if (!l) { setError("Listing not found."); return; }
         setListing(l);
         setPhotosLoading(true);
         Promise.all([
-          getListingFolderFiles("", id).catch(() => []),
-          getListingSubfolderFiles("", "03_Cover_Images", id)
+          getPublicListingFolderFiles("", id).catch(() => []),
+          getPublicListingSubfolderFiles("", "03_Cover_Images", id)
             .then((res) => res?.files || [])
             .catch(() => []),
         ])

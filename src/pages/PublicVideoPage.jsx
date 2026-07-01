@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getListing } from "../utils/storage";
+import { getPublicListing } from "../utils/storage";
 import { getHomeSaleListing, getPublicSaleVideoScripts } from "../utils/homeSaleSheet";
 import { resolvePlayableVideoUrl, resolveStaticVideoUrl } from "../utils/videoUrls";
 
@@ -26,7 +26,7 @@ export default function PublicVideoPage({ type = "rental" }) {
         return;
       }
 
-      const row = await getListing(listingId);
+      const row = await getPublicListing(listingId);
       setListing(row);
       setVideoUrl(row?.videoUrl || "");
       setPublicVideoUrl(row?.publicVideoUrl || row?.outputs?.publicVideoUrl || "");
