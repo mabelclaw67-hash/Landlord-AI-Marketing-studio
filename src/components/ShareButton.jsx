@@ -18,7 +18,7 @@ export default function ShareButton({
       : text;
     if (navigator.share) {
       try {
-        await navigator.share({ title, text: shareText, url: shareUrl });
+        await navigator.share({ title, text: shareText || shareUrl });
       } catch {
         // user cancelled — do nothing
       }
