@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAllApplications, requestSupportingDocuments } from "../../utils/storage";
+import { getAllApplications, getListing, getListingSubfolderFiles, requestSupportingDocuments } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
 import { isAdminSessionActive } from "../../utils/trialAccess";
+import { downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
+import {
+  formatSupportDocumentStatus,
+  formatSupportDocumentTypes,
+  matchSupportDocumentsForApplicant,
+} from "../../utils/applicantSupportDocuments";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -49,6 +55,9 @@ export default function Leads() {
   const [error, setError]     = useState("");
   const [filter, setFilter]   = useState("");
   const [busyId, setBusyId]   = useState("");
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [summaryReportLink, setSummaryReportLink] = useState(null);
+  const [supportDocsByListing, setSupportDocsByListing] = useState({});
   const canSeeInternalDriveLinks = isAdminSessionActive();
 
   function refreshApplications() {
@@ -60,6 +69,29 @@ export default function Leads() {
       .catch((e) => setError(e.message || "Failed to load applications."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const ids = [...new Set(apps.map((a) => a.listingId).filter(Boolean))];
+    if (!ids.length) {
+      let active = true;
+      Promise.resolve().then(() => {
+        if (active) setSupportDocsByListing({});
+      });
+      return () => { active = false; };
+    }
+    let active = true;
+    Promise.all(ids.map(async (listingId) => {
+      try {
+        const result = await getListingSubfolderFiles("", "Supporting Documents", listingId);
+        return [listingId, result?.files || []];
+      } catch {
+        return [listingId, []];
+      }
+    })).then((entries) => {
+      if (active) setSupportDocsByListing(Object.fromEntries(entries));
+    });
+    return () => { active = false; };
+  }, [apps]);
 
   async function handleRequestDocuments(app) {
     if (!app.recordId) return;
@@ -77,9 +109,31 @@ export default function Leads() {
     }
   }
 
+  async function handleGenerateInitialSummary(listingId) {
+    if (!listingId) return;
+    setSummaryBusy(true);
+    setError("");
+    setSummaryReportLink(null);
+    try {
+      console.info("[Generate Initial Screening Summary clicked]", { listingId });
+      const listing = await getListing(listingId);
+      const applications = apps.filter((app) => app.listingId === listingId);
+      console.info("[Generate Initial Screening Summary applications]", { listingId, count: applications.length });
+      const result = await downloadApplicantInitialScreeningSummary({ listing: listing || { id: listingId }, applications, lang });
+      if (result?.saveResult?.url) {
+        setSummaryReportLink({ url: result.saveResult.url, fileName: result.saveResult.fileName || result.fileName });
+      }
+    } catch (e) {
+      setError(e.message || (lang === "zh" ? "初步筛选汇总生成失败。" : "Failed to generate initial screening summary."));
+    } finally {
+      setSummaryBusy(false);
+    }
+  }
+
   const setupError  = isSetupErr(error);
   const listingIds  = [...new Set(apps.map((a) => a.listingId).filter(Boolean))];
   const visible     = filter ? apps.filter((a) => a.listingId === filter) : apps;
+  const selectedListingId = filter || (listingIds.length === 1 ? listingIds[0] : "");
 
   return (
     <div>
@@ -94,7 +148,28 @@ export default function Leads() {
             {!loading && !setupError && ` · ${apps.length} total`}
           </p>
         </div>
-        <Link to="/admin/listings" className="btn btn--ghost btn--sm">← Listings</Link>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            disabled={!selectedListingId || summaryBusy}
+            onClick={() => handleGenerateInitialSummary(selectedListingId)}
+            title={selectedListingId ? "" : (lang === "zh" ? "请先选择一个房源。" : "Select one listing first.")}
+          >
+            {summaryBusy
+              ? (lang === "zh" ? "生成中..." : "Generating...")
+              : (lang === "zh" ? "生成初步筛选汇总" : "Generate Initial Screening Summary")}
+          </button>
+          {!selectedListingId && !loading && listingIds.length > 1 && (
+            <span className="text-muted text-sm">{lang === "zh" ? "请先选择一个房源。" : "Select one listing first."}</span>
+          )}
+          {summaryReportLink?.url && (
+            <a href={summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+              {lang === "zh" ? "已保存到 Google Drive：打开报告" : "Report saved to Google Drive: Open Report"}
+            </a>
+          )}
+          <Link to="/admin/listings" className="btn btn--ghost btn--sm">← Listings</Link>
+        </div>
       </div>
 
       {/* Setup notice — shown when Apps Script not yet redeployed */}
@@ -211,6 +286,7 @@ export default function Leads() {
                 {visible.map((app, i) => {
                   const screen = quickScreen(app);
                   const doc = documentBadge(app);
+                  const supportSummary = matchSupportDocumentsForApplicant(app, supportDocsByListing[app.listingId] || []);
                   const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
                   const screenColor =
                     screen.type === "ok"
@@ -294,8 +370,10 @@ export default function Leads() {
                         </span>
                         <div style={{ color: "var(--color-text-muted)", fontSize: "0.76rem", lineHeight: 1.5 }}>
                           Sent: {app.documentRequestSentAt ? fmt(app.documentRequestSentAt) : "No"}<br />
-                          Files: {app.uploadedFileCount || 0}<br />
-                          Last: {app.lastUploadAt ? fmt(app.lastUploadAt) : "—"}
+                          {formatSupportDocumentStatus(supportSummary, lang)}<br />
+                          Files found: {supportSummary.count}<br />
+                          {formatSupportDocumentTypes(supportSummary, lang)}<br />
+                          Last: {supportSummary.latestModifiedAt ? fmt(supportSummary.latestModifiedAt) : (app.lastUploadAt ? fmt(app.lastUploadAt) : "—")}
                         </div>
                       </td>
                       <td style={{ padding: "10px 12px" }}>

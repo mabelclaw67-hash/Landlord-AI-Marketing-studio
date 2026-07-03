@@ -253,6 +253,7 @@ function doPost(e) {
     if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
+    if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
     if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId, auth));
     if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
@@ -267,6 +268,7 @@ function doPost(e) {
     if (action === "requestSupportingDocuments") return ok(requestSupportingDocuments_(body.recordId, body.origin || "", auth));
     if (action === "resendSupportingDocumentsEmail") return ok(resendSupportingDocumentsEmail_(body.recordId, auth));
     if (action === "generateDraftScreeningReport") return ok(generateDraftScreeningReport_(body.recordId, auth));
+    if (action === "analyzeApplicantSupportDocuments") return ok(analyzeApplicantSupportDocuments_(body, auth));
     if (action === "updateApplicationRetentionStatus") return ok(updateApplicationRetentionStatus_(body.recordId, body.retentionStatus, body.notes, auth));
     if (action === "cleanupExpiredApplicationsPreview") return ok(cleanupExpiredApplicationsPreview_(auth));
     if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
@@ -2520,6 +2522,10 @@ function getListingFolderFiles_(folderId, listingId, auth) {
 
 function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
   if (!subfolderName) throw new Error("getListingSubfolder: subfolderName required");
+  var isTenantReportsFolder = String(subfolderName || "").toLowerCase() === "tenant screening reports";
+  if (isTenantReportsFolder && (!auth || (auth.mode !== "admin" && auth.mode !== "trial"))) {
+    throw new Error("Access denied for tenant screening reports.");
+  }
   var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
   var parent = DriveApp.getFolderById(resolvedFolderId);
   var folders = parent.getFoldersByName(subfolderName);
@@ -2531,10 +2537,15 @@ function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
     };
   }
   var folder = folders.next();
+  var isSupportDocumentsFolder = String(subfolderName || "").toLowerCase() === "supporting documents";
   return {
     subfolderFolderId: auth && auth.mode === "admin" ? folder.getId() : "",
     subfolderUrl: auth && auth.mode === "admin" ? folder.getUrl() : "",
-    files: listDriveMediaFiles_(folder, { includeVideos: true }),
+    files: listDriveMediaFiles_(folder, {
+      includeVideos: true,
+      includeDocuments: isSupportDocumentsFolder || isTenantReportsFolder,
+      exposeDriveLinks: (!isSupportDocumentsFolder && !isTenantReportsFolder) || (auth && auth.mode === "admin"),
+    }),
   };
 }
 
@@ -2590,6 +2601,8 @@ function findListingByFolderId_(folderId, ownerEmail) {
 
 function listDriveMediaFiles_(folder, options) {
   var includeVideos = !!(options && options.includeVideos);
+  var includeDocuments = !!(options && options.includeDocuments);
+  var exposeDriveLinks = !options || options.exposeDriveLinks !== false;
   var files  = [];
   var it     = folder.getFiles();
   while (it.hasNext()) {
@@ -2597,16 +2610,28 @@ function listDriveMediaFiles_(folder, options) {
     var mime = file.getMimeType();
     var isImage = mime === "image/jpeg" || mime === "image/png";
     var isVideo = includeVideos && mime === "video/mp4";
-    if (isImage || isVideo) {
+    var isDocument = includeDocuments && (
+      mime === "application/pdf" ||
+      mime === "application/msword" ||
+      mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mime === "application/vnd.google-apps.document" ||
+      mime === "application/vnd.google-apps.spreadsheet" ||
+      mime === "application/vnd.google-apps.presentation"
+    );
+    if (isImage || isVideo || isDocument) {
       var fileId = file.getId();
       var entry = {
         name:       file.getName(),
-        fileId:     fileId,
+        fileId:     exposeDriveLinks ? fileId : "",
         mimeType:   mime,
-        url:        file.getUrl(),
-        thumbUrl:   "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800",
-        thumbUrlLg: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600",
+        modifiedAt: file.getLastUpdated ? file.getLastUpdated().toISOString() : "",
+        size:       file.getSize ? file.getSize() : "",
       };
+      if (exposeDriveLinks) {
+        entry.url = file.getUrl();
+        entry.thumbUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
+        entry.thumbUrlLg = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600";
+      }
       if (isImage) {
       var blob = file.getBlob();
       var contentType = blob.getContentType();
@@ -4015,6 +4040,544 @@ function uploadToSubfolder_(body, auth) {
     subfolderFolderId: target.getId(),
     subfolderUrl:    target.getUrl(),
   };
+}
+
+function saveApplicantReportPdf_(body, auth) {
+  if (!body || !body.listingId) throw new Error("saveApplicantReportPdf: listingId required");
+  if (!body.data && !body.html) throw new Error("saveApplicantReportPdf: report payload required");
+  if (!auth || (auth.mode !== "admin" && auth.mode !== "trial")) {
+    throw new Error("Access denied for applicant report save.");
+  }
+
+  Logger.log("[saveApplicantReportPdf] listingId=" + body.listingId);
+  Logger.log("[saveApplicantReportPdf] fileName=" + body.fileName);
+  Logger.log("[saveApplicantReportPdf] reportType=" + (body.reportType || ""));
+  Logger.log("[saveApplicantReportPdf] payloadMimeType=" + (body.payloadMimeType || (body.html ? "text/html" : "")));
+  Logger.log("[saveApplicantReportPdf] payloadLength=" + (body.data ? String(body.data).length : String(body.html || "").length));
+
+  var listing = getListingById_(body.listingId, auth);
+  var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (!folderId) throw new Error("Drive folder not found for this listing.");
+  Logger.log("[saveApplicantReportPdf] resolvedListingFolderId=" + folderId);
+
+  var parent = DriveApp.getFolderById(folderId);
+  var folders = parent.getFoldersByName("Tenant Screening Reports");
+  var reportsFolder = folders.hasNext() ? folders.next() : parent.createFolder("Tenant Screening Reports");
+  Logger.log("[saveApplicantReportPdf] reportsFolderId=" + reportsFolder.getId());
+  var safeName = sanitizeApplicantReportFileName_(body.fileName || ("Applicant_Report_" + body.listingId + ".pdf"));
+  if (!/\.pdf$/i.test(safeName)) safeName += ".pdf";
+
+  var html = body.html ? String(body.html) : Utilities.newBlob(Utilities.base64Decode(String(body.data)), body.payloadMimeType || "text/html").getDataAsString("UTF-8");
+  var htmlBlob = Utilities.newBlob(html, "text/html", safeName.replace(/\.pdf$/i, ".html"));
+  var pdfBlob = htmlBlob.getAs("application/pdf").setName(safeName);
+  var existing = reportsFolder.getFilesByName(safeName);
+  while (existing.hasNext()) {
+    existing.next().setTrashed(true);
+  }
+  var file = reportsFolder.createFile(pdfBlob);
+
+  return {
+    fileId: file.getId(),
+    url: file.getUrl(),
+    fileName: file.getName(),
+    reportType: body.reportType || "",
+    folderId: reportsFolder.getId(),
+    folderName: "Tenant Screening Reports",
+    folderUrl: reportsFolder.getUrl(),
+  };
+}
+
+function sanitizeApplicantReportFileName_(name) {
+  return String(name || "Applicant_Report.pdf")
+    .replace(/[\\\/:*?"<>|#%{}~&]/g, "-")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .substring(0, 180);
+}
+
+function analyzeApplicantSupportDocuments_(body, auth) {
+  if (!body || !body.listingId) throw new Error("analyzeApplicantSupportDocuments: listingId required");
+  if (!auth || (auth.mode !== "admin" && auth.mode !== "trial")) {
+    throw new Error("Access denied for supporting document analysis.");
+  }
+
+  var listing = getListingById_(body.listingId, auth);
+  var listingFolderId = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (!listingFolderId) {
+    return {
+      listingId: body.listingId,
+      recordId: body.recordId || "",
+      applicantName: body.applicantName || "",
+      files: [],
+      extractedSummary: buildEmptyApplicantDocumentAnalysis_(),
+      limitations: ["Supporting Documents folder could not be located. This document set could not be automatically verified. Manual verification required."],
+      debug: buildApplicantDocumentDebug_(body, [], [], false, "Drive folder not found"),
+    };
+  }
+
+  var matchedFiles = [];
+  var supportFolderFound = false;
+  var supportFolderError = "";
+  try {
+    var listingFolder = DriveApp.getFolderById(listingFolderId);
+    var folders = listingFolder.getFoldersByName("Supporting Documents");
+    if (folders.hasNext()) {
+      supportFolderFound = true;
+      matchedFiles = matchApplicantSupportFiles_(folders.next(), body.recordId || "", body.applicantName || "");
+    } else {
+      supportFolderError = "Supporting Documents folder not found";
+    }
+  } catch (e) {
+    supportFolderError = e.message || "Supporting Documents folder read failed";
+  }
+
+  var analyzedFiles = matchedFiles.map(function(file) {
+    try {
+      return analyzeApplicantSupportFile_(file, auth && auth.mode === "admin");
+    } catch (e) {
+      return buildManualReviewFileAnalysis_(file, "File analysis failed: " + (e.message || "unknown error"), auth && auth.mode === "admin");
+    }
+  });
+  var extractedSummary = buildApplicantDocumentAnalysis_(analyzedFiles, body.application || {});
+  var limitations = [];
+  if (supportFolderError) {
+    limitations.push(supportFolderError + ". This document set could not be automatically verified. Manual verification required.");
+  }
+  analyzedFiles.forEach(function(item) {
+    if (!item.extractedText) {
+      limitations.push(item.name + ": This document could not be automatically verified. Manual verification required.");
+    }
+  });
+  if (!analyzedFiles.length) limitations.push("No matching supporting documents found for this applicant. Manual verification required.");
+
+  return {
+    listingId: body.listingId,
+    recordId: body.recordId || "",
+    applicantName: body.applicantName || "",
+    files: analyzedFiles,
+    extractedSummary: extractedSummary,
+    limitations: limitations,
+    debug: buildApplicantDocumentDebug_(body, matchedFiles, analyzedFiles, supportFolderFound, supportFolderError),
+  };
+}
+
+function buildEmptyApplicantDocumentAnalysis_() {
+  return {
+    identity: { found: false, notes: ["Photo ID was not automatically verified. Manual verification required."] },
+    income: { found: false, estimatedMonthlyIncome: "", confidence: "Low", notes: ["Income document was not automatically verified. Manual verification required."] },
+    employment: { found: false, notes: ["Employment details were not automatically verified. Manual verification required."] },
+    bank: { found: false, notes: ["Bank statement was not automatically verified. Manual verification required."] },
+    credit: { found: false, notes: ["Credit/background document was not automatically verified. Manual verification required."] },
+    reference: { found: false, notes: ["Reference document was not automatically verified. Manual verification required."] },
+    inconsistencies: [],
+    recommendedDecision: "Request additional documents",
+  };
+}
+
+function matchApplicantSupportFiles_(folder, recordId, applicantName) {
+  var recordKey = compactApplicantMatchText_(recordId);
+  var nameParts = normalizeApplicantMatchText_(applicantName).split(/\s+/).filter(Boolean);
+  var firstName = nameParts.length ? nameParts[0] : "";
+  var lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  var fullName = compactApplicantMatchText_(applicantName);
+  var files = [];
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var file = it.next();
+    var compactName = compactApplicantMatchText_(file.getName());
+    var spacedName = normalizeApplicantMatchText_(file.getName());
+    var matched = false;
+    if (recordKey && compactName.indexOf(recordKey) >= 0) matched = true;
+    if (!matched && fullName && compactName.indexOf(fullName) >= 0) matched = true;
+    if (!matched && firstName && lastName && spacedName.indexOf(firstName) >= 0 && spacedName.indexOf(lastName) >= 0) matched = true;
+    if (matched) files.push(file);
+  }
+  return files;
+}
+
+function normalizeApplicantMatchText_(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function compactApplicantMatchText_(value) {
+  return normalizeApplicantMatchText_(value).replace(/\s+/g, "");
+}
+
+function classifyApplicantSupportFile_(fileName) {
+  var text = normalizeApplicantMatchText_(fileName);
+  if (/\b(photo id|drivers license|driver license|passport|identification|government id| id )\b/.test(" " + text + " ")) return "Photo ID";
+  if (/\b(proof of income|income|employment|employer|pay stub|paystub|pay stubs|paystubs|t4|notice of assessment|noa|job letter|work letter)\b/.test(text)) return "Proof of income / employment";
+  if (/\b(bank statement|bank|statement)\b/.test(text)) return "Bank statement";
+  if (/\b(credit|background|equifax|transunion)\b/.test(text)) return "Credit / background";
+  if (/\b(reference|landlord|tenancy)\b/.test(text)) return "Landlord / reference";
+  return "Other";
+}
+
+function analyzeApplicantSupportFile_(file, exposeDriveLink) {
+  var textResult = extractSupportDocumentText_(file);
+  var fileType = classifyApplicantSupportFile_(file.getName());
+  var extractedText = textResult.text || "";
+  return {
+    name: file.getName(),
+    fileId: exposeDriveLink ? file.getId() : "",
+    url: exposeDriveLink ? file.getUrl() : "",
+    mimeType: file.getMimeType(),
+    type: fileType,
+    modifiedAt: file.getLastUpdated ? file.getLastUpdated().toISOString() : "",
+    extractionStatus: textResult.status,
+    extractionMethod: textResult.method,
+    extractedText: extractedText.substring(0, 5000),
+    snippet: makeSupportDocumentSnippet_(extractedText),
+    extractedFields: extractApplicantDocumentFields_(fileType, extractedText),
+  };
+}
+
+function buildManualReviewFileAnalysis_(file, reason, exposeDriveLink) {
+  var name = "Unknown document";
+  var mime = "";
+  var fileId = "";
+  var url = "";
+  var modifiedAt = "";
+  try { name = file && file.getName ? file.getName() : name; } catch (ignore1) {}
+  try { mime = file && file.getMimeType ? file.getMimeType() : ""; } catch (ignore2) {}
+  try { fileId = exposeDriveLink && file && file.getId ? file.getId() : ""; } catch (ignore3) {}
+  try { url = exposeDriveLink && file && file.getUrl ? file.getUrl() : ""; } catch (ignore4) {}
+  try { modifiedAt = file && file.getLastUpdated ? file.getLastUpdated().toISOString() : ""; } catch (ignore5) {}
+  return {
+    name: name,
+    fileId: fileId,
+    url: url,
+    mimeType: mime,
+    type: classifyApplicantSupportFile_(name),
+    modifiedAt: modifiedAt,
+    extractionStatus: "Manual verification required",
+    extractionMethod: reason || "File could not be read",
+    extractedText: "",
+    snippet: "",
+    extractedFields: {},
+  };
+}
+
+function buildApplicantDocumentDebug_(body, matchedFiles, analyzedFiles, supportFolderFound, supportFolderError) {
+  return {
+    recordId: body.recordId || "",
+    applicantName: body.applicantName || "",
+    matchedDocumentCount: matchedFiles.length || 0,
+    supportFolderFound: !!supportFolderFound,
+    supportFolderError: supportFolderError || "",
+    documents: (analyzedFiles || []).map(function(file) {
+      return {
+        name: file.name || "",
+        type: file.type || "Other",
+        readStatus: file.extractionStatus || "Manual verification required",
+        method: file.extractionMethod || "",
+        ocrFallback: /ocr/i.test(file.extractionMethod || ""),
+        manualVerificationRequired: !file.extractedText || /manual|required|unavailable|failed/i.test((file.extractionStatus || "") + " " + (file.extractionMethod || "")),
+      };
+    }),
+  };
+}
+
+function extractSupportDocumentText_(file) {
+  var mime = file.getMimeType();
+  try {
+    if (mime === "application/vnd.google-apps.document") {
+      return { status: "Extracted", method: "Google Docs text", text: DocumentApp.openById(file.getId()).getBody().getText() };
+    }
+    if (mime === MimeType.PLAIN_TEXT || mime === "text/plain") {
+      return { status: "Extracted", method: "Plain text", text: file.getBlob().getDataAsString("UTF-8") };
+    }
+    if (mime === "application/pdf") {
+      var pdfText = file.getBlob().getDataAsString("UTF-8");
+      var cleaned = cleanExtractedDocumentText_(pdfText);
+      if (cleaned && cleaned.length > 120) {
+        return { status: "Extracted", method: "Text-based PDF", text: cleaned };
+      }
+      var ocr = tryDriveOcrExtraction_(file);
+      if (ocr.text) return ocr;
+      return { status: "Needs manual review", method: "PDF OCR unavailable", text: "" };
+    }
+    if (/^image\//.test(mime)) {
+      var imageOcr = tryDriveOcrExtraction_(file);
+      if (imageOcr.text) return imageOcr;
+      return { status: "Needs manual review", method: "Image OCR unavailable", text: "" };
+    }
+    return { status: "Needs manual review", method: "Unsupported file type", text: "" };
+  } catch (e) {
+    return { status: "Needs manual review", method: "Extraction error: " + e.message, text: "" };
+  }
+}
+
+function tryDriveOcrExtraction_(file) {
+  try {
+    if (typeof Drive === "undefined" || !Drive.Files || !Drive.Files.copy) {
+      return { status: "Needs manual review", method: "Advanced Drive OCR not enabled", text: "" };
+    }
+    var resource = {
+      title: "temp_ocr_" + file.getId(),
+      mimeType: "application/vnd.google-apps.document",
+    };
+    var converted = Drive.Files.copy(resource, file.getId(), { ocr: true, ocrLanguage: "en" });
+    var text = DocumentApp.openById(converted.id).getBody().getText();
+    try { DriveApp.getFileById(converted.id).setTrashed(true); } catch (ignore) {}
+    return { status: text ? "Extracted" : "Needs manual review", method: "Drive OCR conversion", text: text || "" };
+  } catch (e) {
+    return { status: "Needs manual review", method: "Drive OCR failed: " + e.message, text: "" };
+  }
+}
+
+function cleanExtractedDocumentText_(text) {
+  return String(text || "")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function makeSupportDocumentSnippet_(text) {
+  var cleaned = cleanExtractedDocumentText_(text);
+  if (!cleaned) return "";
+  return cleaned.substring(0, 900);
+}
+
+function extractApplicantDocumentFields_(fileType, text) {
+  var source = cleanExtractedDocumentText_(text);
+  var fields = {};
+  if (!source) return fields;
+  fields.names = extractLikelyNames_(source);
+  fields.dates = extractLikelyDates_(source);
+  fields.moneyAmounts = extractMoneyAmounts_(source).slice(0, 12);
+  if (fileType === "Proof of income / employment") {
+    fields.employer = extractLineAfterLabel_(source, ["Employer", "Company", "Business"]);
+    fields.position = extractLineAfterLabel_(source, ["Position", "Job Title", "Occupation"]);
+    fields.payFrequency = extractPayFrequency_(source);
+    fields.grossIncome = extractMoneyNearLabel_(source, ["gross", "gross pay", "gross earnings"]);
+    fields.netIncome = extractMoneyNearLabel_(source, ["net", "net pay"]);
+    fields.ytdIncome = extractMoneyNearLabel_(source, ["ytd", "year to date", "year-to-date"]);
+    fields.estimatedMonthlyIncome = estimateMonthlyIncomeFromDocument_(fields);
+  }
+  if (fileType === "Bank statement") {
+    fields.payrollDepositIndicators = /payroll|salary|direct deposit|deposit/i.test(source);
+    fields.rentPaymentIndicators = /rent|landlord|property management/i.test(source);
+    fields.nsfOverdraftIndicators = /nsf|overdraft|insufficient funds/i.test(source);
+  }
+  if (fileType === "Photo ID") {
+    fields.expiryDate = extractLineAfterLabel_(source, ["Expiry", "Expires", "Expiration"]);
+    fields.address = extractAddressLikeLine_(source);
+  }
+  if (fileType === "Credit / background") {
+    fields.creditCategory = extractCreditCategory_(source);
+    fields.redFlagIndicators = /collections|bankruptcy|judgment|late payment|delinquent/i.test(source);
+  }
+  if (fileType === "Landlord / reference") {
+    fields.landlordName = extractLineAfterLabel_(source, ["Landlord", "Reference"]);
+    fields.tenancyPeriod = extractLineAfterLabel_(source, ["Tenancy", "Period"]);
+    fields.rentAmount = extractMoneyNearLabel_(source, ["rent"]);
+  }
+  return fields;
+}
+
+function extractLikelyNames_(text) {
+  var matches = String(text || "").match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g) || [];
+  return Array.from(new Set(matches)).slice(0, 8);
+}
+
+function extractLikelyDates_(text) {
+  var matches = String(text || "").match(/\b(?:\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})\b/gi) || [];
+  return Array.from(new Set(matches)).slice(0, 10);
+}
+
+function extractMoneyAmounts_(text) {
+  var matches = String(text || "").match(/(?:C?\$)\s?\d[\d,]*(?:\.\d{2})?/gi) || [];
+  return Array.from(new Set(matches)).slice(0, 20);
+}
+
+function extractLineAfterLabel_(text, labels) {
+  var lines = String(text || "").split(/\r?\n/).map(function(line) { return line.trim(); }).filter(Boolean);
+  for (var i = 0; i < lines.length; i++) {
+    for (var j = 0; j < labels.length; j++) {
+      var label = labels[j];
+      var re = new RegExp("\\b" + label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b\\s*[:\\-]?\\s*(.+)$", "i");
+      var match = lines[i].match(re);
+      if (match && match[1]) return match[1].trim().substring(0, 140);
+    }
+  }
+  return "";
+}
+
+function extractMoneyNearLabel_(text, labels) {
+  var lower = String(text || "").toLowerCase();
+  for (var i = 0; i < labels.length; i++) {
+    var idx = lower.indexOf(labels[i].toLowerCase());
+    if (idx >= 0) {
+      var windowText = String(text || "").substring(idx, idx + 180);
+      var amounts = extractMoneyAmounts_(windowText);
+      if (amounts.length) return amounts[0];
+    }
+  }
+  return "";
+}
+
+function extractPayFrequency_(text) {
+  if (/biweekly|bi-weekly|every two weeks/i.test(text)) return "Bi-weekly";
+  if (/weekly/i.test(text)) return "Weekly";
+  if (/semi monthly|semi-monthly|twice monthly/i.test(text)) return "Semi-monthly";
+  if (/monthly/i.test(text)) return "Monthly";
+  return "";
+}
+
+function estimateMonthlyIncomeFromDocument_(fields) {
+  var amount = parseFirstMoneyNumber_(fields.netIncome || fields.grossIncome || "");
+  if (!amount) return "";
+  if (fields.payFrequency === "Weekly") return Math.round(amount * 52 / 12);
+  if (fields.payFrequency === "Bi-weekly") return Math.round(amount * 26 / 12);
+  if (fields.payFrequency === "Semi-monthly") return Math.round(amount * 2);
+  if (fields.payFrequency === "Monthly") return Math.round(amount);
+  return "";
+}
+
+function parseFirstMoneyNumber_(value) {
+  var match = String(value || "").match(/\d[\d,]*(?:\.\d+)?/);
+  return match ? Number(match[0].replace(/,/g, "")) : 0;
+}
+
+function extractAddressLikeLine_(text) {
+  var lines = String(text || "").split(/\r?\n/).map(function(line) { return line.trim(); }).filter(Boolean);
+  for (var i = 0; i < lines.length; i++) {
+    if (/\d{1,6}\s+[A-Za-z0-9 .'-]+\s+(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Way|Lane|Ln|Court|Ct|Place|Pl|Boulevard|Blvd)/i.test(lines[i])) {
+      return lines[i].substring(0, 160);
+    }
+  }
+  return "";
+}
+
+function extractCreditCategory_(text) {
+  if (/excellent/i.test(text)) return "Excellent";
+  if (/\bgood\b/i.test(text)) return "Good";
+  if (/\bfair\b/i.test(text)) return "Fair";
+  if (/\bpoor\b/i.test(text)) return "Poor";
+  return "";
+}
+
+function buildApplicantDocumentAnalysis_(files, application) {
+  var summary = buildEmptyApplicantDocumentAnalysis_();
+  summary.identity = summarizeIdentityDocuments_(files, application);
+  summary.income = summarizeIncomeDocuments_(files, application);
+  summary.employment = summarizeEmploymentDocuments_(files, application);
+  summary.bank = summarizeBankDocuments_(files);
+  summary.credit = summarizeCreditDocuments_(files, application);
+  summary.reference = summarizeReferenceDocuments_(files);
+  summary.inconsistencies = buildDocumentInconsistencies_(summary, application);
+  summary.recommendedDecision = chooseDocumentAuditRecommendation_(summary, files);
+  return summary;
+}
+
+function filesByType_(files, type) {
+  return files.filter(function(file) { return file.type === type; });
+}
+
+function summarizeIdentityDocuments_(files, application) {
+  var docs = filesByType_(files, "Photo ID");
+  var notes = [];
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.names && fields.names.length) notes.push("Names visible: " + fields.names.join(", "));
+    if (fields.expiryDate) notes.push("Expiry visible: " + fields.expiryDate);
+    if (fields.address) notes.push("Address visible: " + fields.address);
+  });
+  if (!docs.length) notes.push("Photo ID file was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Photo ID file matched, but this document could not be automatically verified. Manual verification required.");
+  return { found: docs.length > 0, notes: notes };
+}
+
+function summarizeIncomeDocuments_(files, application) {
+  var docs = filesByType_(files, "Proof of income / employment");
+  var notes = [];
+  var estimated = "";
+  var confidence = "Low";
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.grossIncome) notes.push(file.name + " gross income: " + fields.grossIncome);
+    if (fields.netIncome) notes.push(file.name + " net income: " + fields.netIncome);
+    if (fields.ytdIncome) notes.push(file.name + " YTD income: " + fields.ytdIncome);
+    if (fields.payFrequency) notes.push(file.name + " pay frequency: " + fields.payFrequency);
+    if (fields.estimatedMonthlyIncome && !estimated) estimated = fields.estimatedMonthlyIncome;
+  });
+  if (estimated) confidence = "Medium";
+  if (!docs.length) notes.push("Income/employment proof file was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Income file matched, but this document could not be automatically verified. Manual verification required.");
+  return { found: docs.length > 0, estimatedMonthlyIncome: estimated, confidence: confidence, notes: notes };
+}
+
+function summarizeEmploymentDocuments_(files, application) {
+  var docs = filesByType_(files, "Proof of income / employment");
+  var notes = [];
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.employer) notes.push(file.name + " employer/company: " + fields.employer);
+    if (fields.position) notes.push(file.name + " position: " + fields.position);
+  });
+  if (!docs.length) notes.push("Employment document was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Employment document matched, but employer/position text was not extracted. Manual verification required.");
+  return { found: docs.length > 0, notes: notes };
+}
+
+function summarizeBankDocuments_(files) {
+  var docs = filesByType_(files, "Bank statement");
+  var notes = [];
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.payrollDepositIndicators) notes.push(file.name + ": payroll/direct deposit wording visible.");
+    if (fields.rentPaymentIndicators) notes.push(file.name + ": rent/payment wording visible.");
+    if (fields.nsfOverdraftIndicators) notes.push(file.name + ": NSF/overdraft wording visible; verify context manually.");
+  });
+  if (!docs.length) notes.push("Bank statement file was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Bank statement matched, but deposit/balance details were not reliably extracted. Manual verification required.");
+  return { found: docs.length > 0, notes: notes };
+}
+
+function summarizeCreditDocuments_(files, application) {
+  var docs = filesByType_(files, "Credit / background");
+  var notes = [];
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.creditCategory) notes.push(file.name + " credit category: " + fields.creditCategory);
+    if (fields.redFlagIndicators) notes.push(file.name + ": potential risk wording visible; verify context manually.");
+  });
+  if (!docs.length) notes.push("Credit/background result file was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Credit/background file matched, but key fields were not extracted. Manual verification required.");
+  return { found: docs.length > 0, notes: notes };
+}
+
+function summarizeReferenceDocuments_(files) {
+  var docs = filesByType_(files, "Landlord / reference");
+  var notes = [];
+  docs.forEach(function(file) {
+    var fields = file.extractedFields || {};
+    if (fields.landlordName) notes.push(file.name + " landlord/reference: " + fields.landlordName);
+    if (fields.tenancyPeriod) notes.push(file.name + " tenancy period: " + fields.tenancyPeriod);
+    if (fields.rentAmount) notes.push(file.name + " rent amount: " + fields.rentAmount);
+  });
+  if (!docs.length) notes.push("Landlord/reference document was not matched. Manual verification required.");
+  if (docs.length && !notes.length) notes.push("Reference file matched, but key fields were not extracted. Manual verification required.");
+  return { found: docs.length > 0, notes: notes };
+}
+
+function buildDocumentInconsistencies_(summary, application) {
+  var notes = [];
+  if (summary.income.estimatedMonthlyIncome && application && application.monthlyIncome) {
+    notes.push("Potential inconsistency: compare extracted estimated monthly income with application stated income: " + application.monthlyIncome + ".");
+  }
+  if (!summary.identity.found) notes.push("Potential missing item: Photo ID still requires manual verification.");
+  if (!summary.income.found) notes.push("Potential missing item: income proof still requires manual verification.");
+  return notes;
+}
+
+function chooseDocumentAuditRecommendation_(summary, files) {
+  if (!files.length) return "Request additional documents";
+  if (!summary.identity.found || !summary.income.found) return "Request additional documents";
+  if (summary.inconsistencies && summary.inconsistencies.length) return "Proceed with conditions";
+  return "Proceed to owner review";
 }
 
 // ── Cloudinary Video Upload ───────────────────────────────────────────────────

@@ -198,6 +198,42 @@ export async function uploadToSubfolder(folderId, subfolderName, file, listingId
   });
 }
 
+export async function saveApplicantReportPdf({ listingId, fileName, html, reportType = "Applicant Report" }) {
+  if (!isApiConnected()) {
+    throw new Error("Report saving requires Google Drive integration.");
+  }
+  console.info("[Applicant Report Save Request]", {
+    action: "saveApplicantReportPdf",
+    listingId,
+    fileName,
+    reportType,
+    htmlPresent: Boolean(html),
+    payloadBytes: new TextEncoder().encode(String(html || "")).length,
+  });
+  return apiPost({
+    action: "saveApplicantReportPdf",
+    listingId,
+    fileName,
+    reportType,
+    html,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
+export async function analyzeApplicantSupportDocuments({ listingId, recordId, applicantName, application = {} }) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document analysis requires Google Drive integration.");
+  }
+  return apiPost({
+    action: "analyzeApplicantSupportDocuments",
+    listingId,
+    recordId,
+    applicantName,
+    application,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 // Upload a File object to Drive. Requires API connection.
 export async function uploadListingFile(listingId, file) {
   if (!isApiConnected()) {

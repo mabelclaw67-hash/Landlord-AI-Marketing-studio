@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 import { normalizeLang } from "../utils/lang";
+import { isAdminSessionActive } from "../utils/trialAccess";
 
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
@@ -48,6 +49,10 @@ export default function Navbar({ lang, setLang }) {
   // When on a specific listing page, route Apply Now to the in-app form for that listing.
   const listingId = getListingIdFromPath(pathname);
   const applyTo = listingId ? `/apply/${listingId}` : "/apply";
+  const showAdminEntry = isAdminSessionActive();
+  const adminNavLabel = showAdminEntry
+    ? (safeLang === "zh" ? "管理后台" : "Admin Studio")
+    : (safeLang === "zh" ? "管理登录" : "Admin Login");
 
   // ── Tenant top nav ─────────────────────────────────────────────────────────
   if (tenant) {
@@ -155,6 +160,15 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
+          <li>
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => (isActive ? "active" : "")}
+              onClick={() => setOpen(false)}
+            >
+              {adminNavLabel}
+            </NavLink>
+          </li>
           <li className="navbar__lang">
             <button
               className={safeLang === "en" ? "active" : ""}

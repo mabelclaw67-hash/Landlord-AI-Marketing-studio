@@ -113,6 +113,10 @@ export default function LandlordHomeLayout({ lang, setLang }) {
             <span className="lh-sidebar-cta__icon">🔐</span>
             <span><strong>{n.requestAccess}</strong></span>
           </Link>
+          <Link to="/admin" className="lh-sidebar-cta__btn">
+            <span className="lh-sidebar-cta__icon">⚙️</span>
+            <span><strong>{n.admin}</strong></span>
+          </Link>
           <Link to="/trial-access" className="lh-sidebar-cta__btn lh-sidebar-cta__btn--secondary">
             <span className="lh-sidebar-cta__icon">🗝️</span>
             <span><strong>{n.trialAccess}</strong></span>

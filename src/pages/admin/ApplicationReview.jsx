@@ -5,9 +5,11 @@ import {
   getApplicationById,
   getListing,
   generateDraftScreeningReport,
+  analyzeApplicantSupportDocuments,
   updateApplicationRetentionStatus,
   cleanupExpiredApplicationsPreview,
   deleteExpiredApplicantSensitiveFiles,
+  getListingSubfolderFiles,
   requestSupportingDocuments,
   resendSupportingDocumentsEmail,
   updateApplicationStatus,
@@ -15,6 +17,12 @@ import {
 } from "../../utils/storage";
 import { downloadSubmittedAppPdf } from "../../utils/rentalApplicationPdf";
 import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
+import { downloadFullApplicantAuditReport } from "../../utils/applicantScreeningReports";
+import {
+  formatSupportDocumentStatus,
+  formatSupportDocumentTypes,
+  matchSupportDocumentsForApplicant,
+} from "../../utils/applicantSupportDocuments";
 
 const REVIEW_STATUSES = ["Pending", "Reviewing", "Approved", "Rejected", "On Hold"];
 
@@ -345,6 +353,12 @@ export default function ApplicationReview() {
   const [adminPdfBusy, setAdminPdfBusy] = useState(false);
   const [requestingDocs, setRequestingDocs] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [fullAuditBusy, setFullAuditBusy] = useState(false);
+  const [fullAuditReportLink, setFullAuditReportLink] = useState(null);
+  const [fullAuditReport, setFullAuditReport] = useState(null);
+  const [fullAuditDebug, setFullAuditDebug] = useState(null);
+  const [supportFiles, setSupportFiles] = useState([]);
+  const [supportFilesLoading, setSupportFilesLoading] = useState(false);
   const [retentionBusy, setRetentionBusy] = useState("");
   const [retentionPreview, setRetentionPreview] = useState(null);
 
@@ -358,6 +372,27 @@ export default function ApplicationReview() {
       .catch((e) => setError(e.message || "Failed to load application."))
       .finally(() => setLoading(false));
   }, [applicationId]);
+
+  useEffect(() => {
+    const listingId = app?.listingId || listing?.id;
+    if (!listingId) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => {
+        if (active) setSupportFilesLoading(true);
+        return getListingSubfolderFiles("", "Supporting Documents", listingId);
+      })
+      .then((result) => {
+        if (active) setSupportFiles(result?.files || []);
+      })
+      .catch(() => {
+        if (active) setSupportFiles([]);
+      })
+      .finally(() => {
+        if (active) setSupportFilesLoading(false);
+      });
+    return () => { active = false; };
+  }, [app?.listingId, listing?.id]);
 
   async function handleStatusChange(newStatus) {
     if (!app) return;
@@ -454,6 +489,82 @@ export default function ApplicationReview() {
       setMessage("Screening report failed: " + (e.message || "unknown error"));
     } finally {
       setGeneratingReport(false);
+    }
+  }
+
+  async function handleGenerateFullAuditReport() {
+    if (!app?.recordId) return;
+    setFullAuditBusy(true);
+    setFullAuditReportLink(null);
+    setFullAuditReport(null);
+    setFullAuditDebug(null);
+    try {
+      console.info("[Generate Full Applicant Audit Report clicked]", { listingId: app.listingId || listing?.id, recordId: app.recordId });
+      let documentAnalysis;
+      try {
+        documentAnalysis = await analyzeApplicantSupportDocuments({
+          listingId: app.listingId || listing?.id,
+          recordId: app.recordId,
+          applicantName: app.applicantName,
+          application: app,
+        });
+      } catch (analysisError) {
+        documentAnalysis = {
+          files: supportSummary.files.map((file) => ({
+            ...file,
+            extractionStatus: "Manual verification required",
+            extractionMethod: analysisError?.message || "Document analysis unavailable",
+            snippet: "",
+          })),
+          extractedSummary: {
+            identity: { found: false, notes: ["Photo ID was not automatically verified. Manual verification required."] },
+            income: { found: false, confidence: "Low", notes: ["Income document was not automatically verified. Manual verification required."] },
+            employment: { found: false, notes: ["Employment details were not automatically verified. Manual verification required."] },
+            bank: { found: false, notes: ["Bank statement was not automatically verified. Manual verification required."] },
+            credit: { found: false, notes: ["Credit/background document was not automatically verified. Manual verification required."] },
+            reference: { found: false, notes: ["Reference document was not automatically verified. Manual verification required."] },
+            inconsistencies: ["Potential missing item: document analysis could not be completed. Manual verification required."],
+            recommendedDecision: "Request additional documents",
+          },
+          limitations: [`Document analysis unavailable: ${analysisError?.message || "unknown error"}. Manual verification required.`],
+          debug: {
+            recordId: app.recordId,
+            matchedDocumentCount: supportSummary.count,
+            documents: supportSummary.files.map((file) => ({
+              name: file.name,
+              type: file.type,
+              readStatus: "Manual verification required",
+              method: analysisError?.message || "Document analysis unavailable",
+              ocrFallback: false,
+              manualVerificationRequired: true,
+            })),
+          },
+        };
+      }
+      const result = await downloadFullApplicantAuditReport({ applicant: app, listing, lang, supportFiles, documentAnalysis });
+      const debugPayload = {
+        recordId: app.recordId,
+        matchedDocumentCount: documentAnalysis?.debug?.matchedDocumentCount ?? supportSummary.count,
+        documents: documentAnalysis?.debug?.documents || [],
+        manualVerificationRequired: Boolean((documentAnalysis?.limitations || []).length),
+        reportSaved: Boolean(result?.saveResult?.url),
+        saveResult: result?.saveResult || null,
+      };
+      if (_isAdmin) {
+        console.info("[Full Applicant Audit Debug]", debugPayload);
+        setFullAuditDebug(debugPayload);
+      }
+      setFullAuditReport(result || null);
+      if (result?.saveResult?.url) {
+        setFullAuditReportLink({ url: result.saveResult.url, fileName: result.saveResult.fileName || result.fileName });
+      }
+      setMessage(result?.saveResult?.url
+        ? (lang === "zh" ? "完整申请人审核报告已保存到 Google Drive。" : "Full applicant audit report saved to Google Drive.")
+        : (lang === "zh" ? "完整申请人审核报告已打开，可保存为 PDF。" : "Full applicant audit report opened for PDF download."));
+    } catch (e) {
+      setMessage((lang === "zh" ? "完整审核报告生成失败：" : "Full audit report failed: ") + (e.message || "unknown error"));
+    } finally {
+      setFullAuditBusy(false);
     }
   }
 
@@ -576,6 +687,8 @@ export default function ApplicationReview() {
     app.supportDocumentFolderUrl &&
     ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase())
   );
+  const supportSummary = matchSupportDocumentsForApplicant(app, supportFiles);
+  const canGenerateFullAuditReport = supportSummary.available;
   const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
@@ -587,6 +700,7 @@ export default function ApplicationReview() {
   const _trialSession = readTrialAccess();
   const _isTrial      = !!_trialSession && !_isAdmin;
   const canSeeInternalDriveLinks = _isAdmin;
+  const canGenerateApplicantReports = Boolean(_isAdmin || _isTrial);
   const canAccessSubmittedPdf = _isAdmin
     || !_isTrial
     || (!listing && false)  // listing still loading → hold off
@@ -632,6 +746,72 @@ export default function ApplicationReview() {
       </div>
 
       {message && <div className="notice notice--sage mb-24"><p>{message}</p></div>}
+      {fullAuditReport && (
+        <div className="notice notice--sage mb-24">
+          <p style={{ fontWeight: 700, marginBottom: 8 }}>
+            {lang === "zh" ? "完整申请人审核报告已生成" : "Full Applicant Audit Report generated"}
+          </p>
+          <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
+            {fullAuditReportLink?.url
+              ? (lang === "zh" ? "状态：已保存到安全 Drive 归档。" : "Status: Saved to secure Drive archive.")
+              : (lang === "zh" ? "状态：本地生成，可下载 PDF。" : "Status: Generated locally, PDF download available.")}
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => {
+              const win = window.open("", "_blank", "noopener,noreferrer");
+              if (win) {
+                win.document.open();
+                win.document.write(fullAuditReport.html);
+                win.document.close();
+              }
+            }}>
+              {lang === "zh" ? "查看报告" : "View Report"}
+            </button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => {
+              const win = window.open("", "_blank", "noopener,noreferrer");
+              if (win) {
+                win.document.open();
+                win.document.write(fullAuditReport.html);
+                win.document.close();
+                win.focus();
+                setTimeout(() => win.print(), 350);
+              }
+            }}>
+              {lang === "zh" ? "下载 PDF" : "Download PDF"}
+            </button>
+            {canSeeInternalDriveLinks && fullAuditReportLink?.url && (
+              <a href={fullAuditReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                Drive
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      {_isAdmin && fullAuditDebug && (
+        <div className="card mb-24" style={{ borderColor: "#d7e5da", background: "#fbfdf9" }}>
+          <h3 style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 10 }}>
+            Full Audit Debug
+          </h3>
+          <div className="info-grid">
+            <InfoRow label="Record ID" value={fullAuditDebug.recordId} mono />
+            <InfoRow label="Supporting Documents Found" value={String(fullAuditDebug.matchedDocumentCount || 0)} />
+            <InfoRow label="Manual Verification Required" value={fullAuditDebug.manualVerificationRequired ? "Yes" : "No"} />
+            <InfoRow label="Report Saved" value={fullAuditDebug.reportSaved ? "Yes" : "No"} />
+          </div>
+          {(fullAuditDebug.documents || []).length > 0 && (
+            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              {fullAuditDebug.documents.map((doc, index) => (
+                <div key={`${doc.name}-${index}`} style={{ border: "1px solid var(--color-border)", borderRadius: 8, padding: 10, background: "#fff" }}>
+                  <strong>{doc.type || "Other"}:</strong> {doc.name || "Document"}
+                  <div className="text-muted text-sm" style={{ marginTop: 4 }}>
+                    Read status: {doc.readStatus || "Manual verification required"} · Method: {doc.method || "—"} · OCR fallback: {doc.ocrFallback ? "Yes" : "No"} · Manual verification: {doc.manualVerificationRequired ? "Yes" : "No"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 1. Review Status ──────────────────────────────────────────────────── */}
       <div className="card mb-24">
@@ -668,6 +848,10 @@ export default function ApplicationReview() {
           {_isAdmin && <InfoRow label="Document Request Sent At" value={app.documentRequestSentAt} />}
           <InfoRow label="Document Upload Status" value={app.documentUploadStatus || "—"} />
           <InfoRow label="Uploaded File Count" value={app.uploadedFileCount || "0"} />
+          <InfoRow label={lang === "zh" ? "Supporting Documents" : "Supporting Documents"} value={supportFilesLoading ? (lang === "zh" ? "检查中..." : "Checking...") : formatSupportDocumentStatus(supportSummary, lang)} />
+          <InfoRow label={lang === "zh" ? "Matched Files" : "Matched Files"} value={String(supportSummary.count)} />
+          <InfoRow label={lang === "zh" ? "File Types" : "File Types"} value={formatSupportDocumentTypes(supportSummary, lang).replace(/^File types: |^文件类型: /, "")} />
+          <InfoRow label={lang === "zh" ? "Last Uploaded / Modified" : "Last Uploaded / Modified"} value={supportSummary.latestModifiedAt ? fmt(supportSummary.latestModifiedAt) : "—"} />
           {_isAdmin && <InfoRow label="Last Upload At" value={app.lastUploadAt} />}
           {_isAdmin && <InfoRow label="Screening Report Status" value={app.screeningReportStatus || "—"} />}
           {_isAdmin && <InfoRow label="Screening Report Generated At" value={app.screeningReportGeneratedAt} />}
@@ -707,6 +891,26 @@ export default function ApplicationReview() {
             >
               {generatingReport ? "Generating..." : "Generate AI Draft Screening Report"}
             </button>
+          )}
+          {canGenerateApplicantReports && (
+            <>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={fullAuditBusy || !canGenerateFullAuditReport}
+                onClick={handleGenerateFullAuditReport}
+                title={canGenerateFullAuditReport ? "" : (lang === "zh" ? "支持文件提交后可生成完整审核。" : "Full audit available after supporting documents are submitted.")}
+              >
+                {fullAuditBusy
+                  ? (lang === "zh" ? "生成中..." : "Generating...")
+                  : (lang === "zh" ? "生成完整申请人审核报告" : "Generate Full Applicant Audit Report")}
+              </button>
+              {!canGenerateFullAuditReport && (
+                <span className="text-muted text-sm" style={{ alignSelf: "center" }}>
+                  {lang === "zh" ? "支持文件提交后可生成完整审核。" : "Full audit available after supporting documents are submitted."}
+                </span>
+              )}
+            </>
           )}
           {canSeeInternalDriveLinks && app.supportDocumentFolderUrl && (
             <a href={app.supportDocumentFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
@@ -1014,7 +1218,7 @@ export default function ApplicationReview() {
         </div>
         <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
           {lang === "zh"
-            ? "仅为规则性初步整理，不自动批准或拒绝。所有最终决定由房东人工确认。"
+            ? "仅为规则性初步整理，不作出最终申请决定。所有最终决定由房东人工确认。"
             : "Rule-based checks only — no AI, no automated decisions. All final decisions are made by the landlord."
           }
         </p>
