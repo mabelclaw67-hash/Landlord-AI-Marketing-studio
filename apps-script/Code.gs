@@ -718,6 +718,26 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
   var consentToContact = data.consentToContact ? "Yes" : "";
   var privacyConsent = data.privacyConsent ? "Yes" : "";
   var photoFileNames = normalizeCellText_(data.photoFileNames);
+  var legalRiskFlag = normalizeCellText_(data.legalRiskFlag || data["Legal Risk Flag"]);
+  var ownerOccupancyRelated = normalizeCellText_(data.ownerOccupancyRelated || data["Owner Occupancy Related"]);
+  var occupied12Months = normalizeCellText_(data.occupied12Months || data["Occupied 12 Months"]);
+  var ownerOccupancyNotes = normalizeCellText_(data.ownerOccupancyNotes || data["Owner Occupancy Notes"]);
+  var followUpAnswers = normalizeCellText_(data.followUpAnswersText || data["Follow-up Answers"]);
+  var aiFlags = normalizeCellText_(data.aiFlags || data["AI Flags"]);
+  var aiConfidenceFlags = normalizeCellText_(data.aiConfidenceFlags || data["AI Confidence & Flags"]);
+  var servicePath = normalizeCellText_(data.servicePath || data["Service Path"]);
+  var suiteLegalStatus = normalizeCellText_(data.suiteLegalStatus || data["Suite Legal Status"]);
+  var suitePermitStatus = normalizeCellText_(data.suitePermitStatus || data["Suite Permit Status"]);
+  var suiteHydroMeter = normalizeCellText_(data.suiteHydroMeter || data["Suite Hydro Meter"]);
+  var suiteYardPrivacy = normalizeCellText_(data.suiteYardPrivacy || data["Suite Yard Privacy"]);
+  var suiteSharedAreas = normalizeCellText_(data.suiteSharedAreas || data["Suite Shared Areas"]);
+  var suiteRentImpactNotes = normalizeCellText_(data.suiteRentImpactNotes || data["Suite Rent Impact Notes"]);
+  var nearbyCommercialCentre = normalizeCellText_(data.nearbyCommercialCentre || data["Nearby Commercial Centre"]);
+  var locationNotes = normalizeCellText_(data.locationNotes || data["Location Notes"]);
+  var locationRentPremium = normalizeCellText_(data.locationRentPremium || data["Location Rent Premium"]);
+  var rentAdjustmentFactors = normalizeCellText_(data.rentAdjustmentFactors || data["Rent Adjustment Factors"]);
+  var knownIssues = normalizeCellText_(data.knownIssues);
+  var aiStrategySummary = assessmentText;
 
   return {
     "Assessment ID": assessmentId,
@@ -747,17 +767,36 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "Separate Meter": normalizeCellText_(data.separateMeter),
     "Utilities Shared": normalizeCellText_(data.utilitiesShared),
     "Can Add Kitchen": normalizeCellText_(data.canAddKitchen),
+    "Suite Legal Status": suiteLegalStatus,
+    "Suite Permit Status": suitePermitStatus,
+    "Suite Hydro Meter": suiteHydroMeter,
+    "Suite Yard Privacy": suiteYardPrivacy,
+    "Suite Shared Areas": suiteSharedAreas,
+    "Suite Rent Impact Notes": suiteRentImpactNotes,
     "Owner Goal": normalizeCellText_(data.ownerGoal),
     "Target Rent": normalizeCellText_(data.targetRent),
     "Available Date": normalizeCellText_(data.availableDate),
+    "Nearby Commercial Centre": nearbyCommercialCentre,
+    "Location Notes": locationNotes,
+    "Location Rent Premium": locationRentPremium,
+    "Rent Adjustment Factors": rentAdjustmentFactors,
     "Airbnb Interest": normalizeCellText_(data.airbnbInterest),
     "Principal Residence": normalizeCellText_(data.principalResidence),
     "Owner Lives On Site": normalizeCellText_(data.ownerLivesOnSite),
     "STR Municipality": normalizeCellText_(data.strMunicipality),
     "Third-party Operator Interest": normalizeCellText_(data.thirdPartyOperatorInterest),
-    "Known Issues": normalizeCellText_(data.knownIssues),
+    "Known Issues": knownIssues,
     "Timeline Urgency": normalizeCellText_(data.timelineUrgency),
     "Next Step": normalizeCellText_(data.nextStep),
+    "Legal Risk Flag": legalRiskFlag,
+    "Owner Occupancy Related": ownerOccupancyRelated,
+    "Occupied 12 Months": occupied12Months,
+    "Owner Occupancy Notes": ownerOccupancyNotes,
+    "Follow-up Answers": followUpAnswers,
+    "AI Flags": aiFlags,
+    "AI Confidence & Flags": aiConfidenceFlags,
+    "Service Path": servicePath,
+    "AI Strategy Summary": aiStrategySummary,
     "Consent to Contact": consentToContact,
     "Privacy Consent": privacyConsent,
     "Photo File Names": photoFileNames,

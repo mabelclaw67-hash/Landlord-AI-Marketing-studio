@@ -59,11 +59,15 @@ const T = {
     strategyEyebrow: "For owners comparing rental options",
     strategyCardTitle: "AI Property Strategy Assessment",
     strategyCardDesc:
-      "Complete a landlord intake form for property details, suite potential, Airbnb / STR interest, and Mabel-style follow-up questions.",
+      "For landlords deciding how to rent their property: whole-house rental, split rental, Airbnb, rent positioning, and rental risks.",
     saleEyebrow: "For home sellers, FSBO owners, and realtors",
     saleCardTitle: "Home Sale Studio",
     saleCardDesc:
       "Create home sale listing pages, bilingual marketing copy, photo/video promotion materials, QR codes, and buyer inquiry links.",
+    knowledgeEyebrow: "For landlord reference and policy review",
+    knowledgeCardTitle: "Landlord Knowledge Center",
+    knowledgeCardDesc:
+      "Practical rental rules, local policy guides, STR reminders, suite notes, and Mabel's property management knowledge base.",
 
     // free resources
     freeKicker: "FREE RESOURCES",
@@ -195,11 +199,15 @@ const T = {
     strategyEyebrow: "适用于正在比较出租方案的业主",
     strategyCardTitle: "AI 房产出租策略初评",
     strategyCardDesc:
-      "填写房东信息、物业条件、套房潜力、Airbnb / 短租意向，以及 Mabel 风格的动态追问。",
+      "适合正在犹豫如何出租房源的业主：整租、分租、Airbnb、租金定位、出租风险，先做一次 AI 初评。",
     saleEyebrow: "适用于卖家、自售业主和房产经纪人",
     saleCardTitle: "出售房源工作台",
     saleCardDesc:
       "创建出售房源页面、双语营销文案、照片/视频推广素材、二维码和买家咨询链接。",
+    knowledgeEyebrow: "适用于房东参考和政策核查",
+    knowledgeCardTitle: "房东知识中心",
+    knowledgeCardDesc:
+      "实用出租法规、本地政策指南、短租提醒、套房说明，以及 Mabel 的物业管理经验知识库。",
 
     // free resources
     freeKicker: "免费资源",
@@ -591,6 +599,14 @@ export default function Home({ lang }) {
               <h3>{s.saleCardTitle}</h3>
               <p>{s.saleCardDesc}</p>
               <Link to="/home-sale-studio" className="lh-btn lh-btn--white">{s.saleCardTitle}</Link>
+            </article>
+
+            <article className="lh-platform-card">
+              <div className="lh-platform-card__icon">📚</div>
+              <div className="lh-platform-card__eyebrow">{s.knowledgeEyebrow}</div>
+              <h3>{s.knowledgeCardTitle}</h3>
+              <p>{s.knowledgeCardDesc}</p>
+              <Link to="/resources" className="lh-btn lh-btn--sand">{s.knowledgeCardTitle}</Link>
             </article>
           </div>
         </div>
