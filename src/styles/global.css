@@ -1616,6 +1616,145 @@ tr:hover td { background: #F9F6F0; }
   color: #3e5b4b;
 }
 
+/* =====================
+   AI Property Strategy Assessment
+   ===================== */
+.strategy-container {
+  max-width: 980px;
+}
+
+.strategy-form {
+  display: grid;
+  gap: 22px;
+}
+
+.strategy-section {
+  box-shadow: 0 2px 10px rgba(45, 90, 61, 0.05);
+}
+
+.strategy-section h2 {
+  font-size: 1.15rem;
+  color: #213128;
+  margin-bottom: 18px;
+}
+
+.strategy-row-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.strategy-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.strategy-help {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+.strategy-file-list {
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  padding-left: 18px;
+  line-height: 1.8;
+}
+
+.strategy-inline-notice {
+  margin: 0 0 18px;
+}
+
+.strategy-assessment-preview {
+  display: grid;
+  gap: 16px;
+}
+
+.strategy-report-block {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 14px;
+}
+
+.strategy-report-block:last-of-type {
+  border-bottom: 0;
+}
+
+.strategy-report-block h3 {
+  color: #3e5b4b;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.strategy-report-block p,
+.strategy-report-block li {
+  color: #4b5b52;
+  font-size: 0.9rem;
+}
+
+.strategy-report-block ul {
+  padding-left: 18px;
+}
+
+.strategy-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #3d4a42;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 14px 0;
+}
+
+.strategy-check input {
+  margin-top: 4px;
+}
+
+.strategy-submit {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.strategy-success {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.strategy-success__label {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.strategy-success h2 {
+  color: #213128;
+  margin: 6px 0 18px;
+}
+
+@media (max-width: 900px) {
+  .strategy-row-4,
+  .strategy-toggle-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .strategy-section {
+    padding: 20px;
+  }
+
+  .strategy-row-4,
+  .strategy-toggle-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .strategy-submit .btn {
+    width: 100%;
+  }
+}
+
 .home-sale-admin-entry {
   display: flex;
   align-items: center;

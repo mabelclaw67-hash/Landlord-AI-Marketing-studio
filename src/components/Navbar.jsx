@@ -139,6 +139,7 @@ export default function Navbar({ lang, setLang }) {
             ["home", "/"],
             ["services", "/services"],
             ["examples", "/examples"],
+            ["strategyAssessment", "/landlord-ai/strategy-assessment"],
             ["saleListing", "/home-sale-studio"],
             ["resources", "/resources"],
             ["contact", "/contact"],

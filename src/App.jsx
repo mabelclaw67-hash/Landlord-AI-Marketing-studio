@@ -12,6 +12,7 @@ import Resources from "./pages/Resources";
 import Contact from "./pages/Contact";
 import TrialAccess from "./pages/TrialAccess";
 import HomeSaleStudio from "./pages/HomeSaleStudio";
+import StrategyAssessment from "./pages/StrategyAssessment";
 import HomeSaleListingDetail from "./pages/HomeSaleListingDetail";
 import HomeSaleAdmin from "./pages/HomeSaleAdmin";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -65,6 +66,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/contact" element={<Contact lang={lang} />} />
         <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
         <Route path="/home-sale-studio" element={<HomeSaleStudio lang={lang} />} />
+        <Route path="/landlord-ai/strategy-assessment" element={<StrategyAssessment lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId/video" element={<PublicVideoPage type="homeSale" />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>

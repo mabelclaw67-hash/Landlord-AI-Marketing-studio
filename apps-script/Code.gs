@@ -7,6 +7,7 @@
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
+var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
@@ -16,6 +17,8 @@ var DAILY_MARKET_BRIEF_SHEET = "01 Daily Market Brief";
 var DAILY_MARKET_BRIEF_CONFIG_SHEET = "02 Config";
 var DAILY_MARKET_BRIEF_SYNC_LOG_SHEET = "03 Sync Log";
 var WEBSITE_REPORTS_SHEET = "Website Reports";
+var PROPERTY_STRATEGY_ASSESSMENTS_SHEET = "Strategy_Assessments";
+var PROPERTY_STRATEGY_FILES_SHEET = "Assessment_Files";
 var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
 
 var INTAKE_HEADERS = [
@@ -235,7 +238,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -247,6 +250,7 @@ function doPost(e) {
     if (action === "generateListingId") return ok({ listingId: generateListingId_() });
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
+    if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
@@ -300,6 +304,15 @@ function err(msg) {
 
 function getSheet_(name) {
   var ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) throw new Error(
+    "Sheet not found: \"" + name + "\". Please create it manually in the spreadsheet."
+  );
+  return sheet;
+}
+
+function getSheetBySpreadsheetId_(spreadsheetId, name) {
+  var ss = SpreadsheetApp.openById(spreadsheetId);
   var sheet = ss.getSheetByName(name);
   if (!sheet) throw new Error(
     "Sheet not found: \"" + name + "\". Please create it manually in the spreadsheet."
@@ -669,6 +682,101 @@ function logBriefSync_(source, action, status, notes, updatedBy) {
     notes || "",
     updatedBy || "",
   ]);
+}
+
+// ── AI Property Strategy Assessment ──────────────────────────────────────────
+
+function savePropertyStrategyAssessment_(data) {
+  data = data || {};
+  var sheet = getSheetBySpreadsheetId_(PROPERTY_STRATEGY_SPREADSHEET_ID, PROPERTY_STRATEGY_ASSESSMENTS_SHEET);
+  if (sheet.getLastRow() < 1 || sheet.getLastColumn() < 1) {
+    throw new Error('"' + PROPERTY_STRATEGY_ASSESSMENTS_SHEET + '" is missing a header row.');
+  }
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(header) {
+    return normalizeCellText_(header);
+  });
+  var assessmentId = normalizeCellText_(data.assessmentId) || generatePropertyStrategyAssessmentId_();
+  var submittedAt = normalizeCellText_(data.submittedAt) || new Date().toISOString();
+  var assessmentText = stringifyPropertyStrategyAssessment_(data.preliminaryAssessment);
+  var record = buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText);
+  var row = headers.map(function(header) {
+    return record.hasOwnProperty(header) ? record[header] : "";
+  });
+
+  sheet.appendRow(row);
+  SpreadsheetApp.flush();
+
+  return {
+    success: true,
+    assessmentId: assessmentId,
+    rowNumber: sheet.getLastRow(),
+  };
+}
+
+function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText) {
+  var consentToContact = data.consentToContact ? "Yes" : "";
+  var privacyConsent = data.privacyConsent ? "Yes" : "";
+  var photoFileNames = normalizeCellText_(data.photoFileNames);
+
+  return {
+    "Assessment ID": assessmentId,
+    "Status": "New",
+    "Submitted At": submittedAt,
+    "Owner Name": normalizeCellText_(data.ownerName),
+    "Email": normalizeCellText_(data.email),
+    "Phone": normalizeCellText_(data.phone),
+    "Preferred Contact": normalizeCellText_(data.preferredContact),
+    "Property Address": normalizeCellText_(data.propertyAddress),
+    "City": normalizeCellText_(data.city),
+    "Community / Area": normalizeCellText_(data.communityArea),
+    "Property Type": normalizeCellText_(data.propertyType),
+    "Bedrooms": normalizeCellText_(data.bedrooms),
+    "Bathrooms": normalizeCellText_(data.bathrooms),
+    "Garage Spaces": normalizeCellText_(data.garageSpaces),
+    "Driveway Parking": normalizeCellText_(data.drivewayParking),
+    "Furnished": normalizeCellText_(data.furnished),
+    "Ocean View": normalizeCellText_(data.oceanView),
+    "Fenced Backyard": normalizeCellText_(data.fencedBackyard),
+    "Private Yard": normalizeCellText_(data.privateYard),
+    "Pet Friendly": normalizeCellText_(data.petFriendly),
+    "Existing Suite": normalizeCellText_(data.existingSuite),
+    "Separate Entrance": normalizeCellText_(data.separateEntrance),
+    "Separate Kitchen": normalizeCellText_(data.separateKitchen),
+    "Separate Laundry": normalizeCellText_(data.separateLaundry),
+    "Separate Meter": normalizeCellText_(data.separateMeter),
+    "Utilities Shared": normalizeCellText_(data.utilitiesShared),
+    "Can Add Kitchen": normalizeCellText_(data.canAddKitchen),
+    "Owner Goal": normalizeCellText_(data.ownerGoal),
+    "Target Rent": normalizeCellText_(data.targetRent),
+    "Available Date": normalizeCellText_(data.availableDate),
+    "Airbnb Interest": normalizeCellText_(data.airbnbInterest),
+    "Principal Residence": normalizeCellText_(data.principalResidence),
+    "Owner Lives On Site": normalizeCellText_(data.ownerLivesOnSite),
+    "STR Municipality": normalizeCellText_(data.strMunicipality),
+    "Third-party Operator Interest": normalizeCellText_(data.thirdPartyOperatorInterest),
+    "Known Issues": normalizeCellText_(data.knownIssues),
+    "Timeline Urgency": normalizeCellText_(data.timelineUrgency),
+    "Next Step": normalizeCellText_(data.nextStep),
+    "Consent to Contact": consentToContact,
+    "Privacy Consent": privacyConsent,
+    "Photo File Names": photoFileNames,
+    "Photo Upload Notes": photoFileNames,
+    "AI Preliminary Assessment": assessmentText,
+    "Preliminary Assessment": assessmentText,
+    "Disclaimer": "This is an AI preliminary assessment based on Mabel Chen's rental management framework. Final recommendation requires Mabel's professional review."
+  };
+}
+
+function stringifyPropertyStrategyAssessment_(assessment) {
+  if (!assessment) return "";
+  if (typeof assessment === "string") return assessment;
+  return JSON.stringify(assessment);
+}
+
+function generatePropertyStrategyAssessmentId_() {
+  var tz = Session.getScriptTimeZone();
+  return "PSA-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
 }
 
 function getBriefSourceFolderId_() {
