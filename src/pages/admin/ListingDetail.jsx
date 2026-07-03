@@ -1024,7 +1024,7 @@ export default function ListingDetail({ lang: langProp }) {
         ctx.font = `700 50px ${FF}`; ctx.fillStyle = "#F59E0B";
         ctx.fillText("Apply Online", W / 2, cy + 10);
         ctx.font = `500 26px ${FF}`; ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.fillText("Contact Mabel", W / 2, cy + 76);
+        ctx.fillText("Contact Vanisland", W / 2, cy + 76);
         const uf = `400 18px monospace`;
         ctx.font = uf; ctx.fillStyle = "rgba(147,197,253,0.90)";
         ctx.fillText(fitText(pubUrl, W - 140, uf), W / 2, cy + 130);
@@ -1034,7 +1034,7 @@ export default function ListingDetail({ lang: langProp }) {
         ctx.font = `700 42px ${FF}`; ctx.fillStyle = "#F59E0B";
         ctx.fillText("Apply Online", W / 2, cy - 14);
         ctx.font = `500 24px ${FF}`; ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.fillText("Contact Mabel", W / 2, cy + 60);
+        ctx.fillText("Contact Vanisland", W / 2, cy + 60);
         const uf = `400 16px monospace`;
         ctx.font = uf; ctx.fillStyle = "rgba(147,197,253,0.90)";
         ctx.fillText(fitText(pubUrl, W - 80, uf), W / 2, cy + 118);

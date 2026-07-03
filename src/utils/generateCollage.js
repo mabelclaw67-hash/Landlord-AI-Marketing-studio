@@ -26,7 +26,7 @@
  *   location    "Nanaimo, BC"
  *   address     "693 3rd St"
  *   priceLabel  "$1,700/month"
- *   contactLine "Mabel Chen · 672-514-8866"
+ *   contactLine "Vanisland Property Management · 672-514-8866"
  *   dateLabel   "Available: 2025-07-01"
  */
 

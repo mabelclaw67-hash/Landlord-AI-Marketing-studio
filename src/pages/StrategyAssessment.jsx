@@ -117,8 +117,8 @@ const FIELD_LABELS = {
 const COPY = {
   en: {
     title: "AI Property Strategy Assessment",
-    subtitle: "Get a preliminary rental strategy assessment in 3-5 minutes, based on Mabel's property management framework.",
-    desc: "Answer a few focused questions, then review the AI preliminary assessment before submitting it to Mabel.",
+    subtitle: "Get a preliminary rental strategy assessment in 3-5 minutes, based on Vanisland Property Management's property management framework.",
+    desc: "Answer a few focused questions, then review the AI preliminary assessment before submitting it for professional review.",
     bullets: [
       "Recommended rental strategy",
       "Preliminary rent range",
@@ -127,13 +127,13 @@ const COPY = {
       "Suggestions to improve rental success",
     ],
     successTitle: "Assessment submitted successfully",
-    successDesc: "Mabel will review your intake before making a final recommendation.",
+    successDesc: "Vanisland will review your intake before making a final recommendation.",
     successThanks: "Thank you. Your property strategy intake has been submitted successfully.",
     assessmentId: "Assessment ID",
     nextStepSelected: "Next step selected by owner:",
     notSelected: "Not selected",
-    mabelReview: "Mabel will review your assessment before providing a final recommendation.",
-    nextStepContact: "Mabel may contact you for the next step.",
+    reviewNote: "Vanisland will review your assessment before providing a final recommendation.",
+    nextStepContact: "Vanisland may contact you for the next step.",
     progress: "Step {current} of {total}",
     back: "Back",
     next: "Next",
@@ -170,12 +170,12 @@ const COPY = {
     submitting: "Submitting...",
     select: "Select",
     shortAnswer: "Short answer",
-    followTitle: "Mabel-style Follow-up Questions",
-    followDesc: "These questions help the AI think more like Mabel before generating the assessment.",
+    followTitle: "Professional follow-up questions",
+    followDesc: "These questions help the AI apply a more professional property-management review before generating the assessment.",
     followEmpty: "Follow-up questions will appear after rental goal, suite, yard, pet, ocean view, or Airbnb / STR details are selected.",
     questionSingular: "question",
     questionPlural: "questions",
-    consentText: "I agree that Mabel may contact me about this assessment.",
+    consentText: "I agree that Vanisland may contact me about this assessment.",
     privacyText: "I consent to submitting this property information for review.",
     report: {
       executiveSummary: "Overall Assessment",
@@ -192,14 +192,14 @@ const COPY = {
       aiAssessmentConfidence: "AI 评估信心",
       knowledgeCenter: "Landlord Knowledge Center",
       marketingSuggestions: "Marketing Suggestions",
-      ownerGoalAlignment: "Mabel Professional Opinion",
+      ownerGoalAlignment: "Professional Preliminary Recommendation",
       recommendedNextStep: "Recommended Service",
       disclaimer: "Disclaimer",
     },
   },
   zh: {
     title: "AI 房产出租策略评估",
-    subtitle: "3-5 分钟获得一份基于 Mabel 多年物业管理经验的 AI 初步出租建议。",
+    subtitle: "3-5 分钟获得一份基于 Vanisland Property Management 物业管理经验的 AI 初步出租建议。",
     desc: "按步骤填写关键信息，提交前可先查看 AI 初步评估摘要。",
     bullets: [
       "推荐出租方式",
@@ -209,13 +209,13 @@ const COPY = {
       "提高出租成功率建议",
     ],
     successTitle: "初评已成功提交",
-    successDesc: "Mabel 会先审核您提交的信息，再给出最终建议。",
+    successDesc: "Vanisland 会先审核您提交的信息，再给出最终建议。",
     successThanks: "谢谢，您的房产出租策略初评表已成功提交。",
     assessmentId: "初评编号",
     nextStepSelected: "业主选择的下一步：",
     notSelected: "未选择",
-    mabelReview: "Mabel 会先审核您的评估，再提供最终建议。",
-    nextStepContact: "Mabel 可能会就下一步服务联系您。",
+    reviewNote: "Vanisland 会先审核您的评估，再提供最终建议。",
+    nextStepContact: "Vanisland 可能会就下一步服务联系您。",
     progress: "第 {current} 步，共 {total} 步",
     back: "上一步",
     next: "下一步",
@@ -252,12 +252,12 @@ const COPY = {
     submitting: "正在提交...",
     select: "请选择",
     shortAnswer: "简短回答",
-    followTitle: "Mabel 风格动态追问",
-    followDesc: "这些问题帮助 AI 更接近 Mabel 的实际判断方式。",
+    followTitle: "专业追问",
+    followDesc: "这些问题帮助 AI 更接近专业出租管理判断方式。",
     followEmpty: "选择出租目标、套房、院子、宠物、海景或 Airbnb / 短租信息后，这里会自动显示追问。",
     questionSingular: "个问题",
     questionPlural: "个问题",
-    consentText: "我同意 Mabel 就本次初评联系我。",
+    consentText: "我同意 Vanisland 就本次初评联系我。",
     privacyText: "我同意提交这些物业信息供审核使用。",
     report: {
       executiveSummary: "综合评估",
@@ -274,7 +274,7 @@ const COPY = {
       aiAssessmentConfidence: "AI 评估信心",
       knowledgeCenter: "房东知识中心",
       marketingSuggestions: "营销建议",
-      ownerGoalAlignment: "Mabel 专业建议",
+      ownerGoalAlignment: "专业初步建议",
       recommendedNextStep: "推荐下一步服务",
       disclaimer: "免责声明",
     },
@@ -324,13 +324,13 @@ const OWNER_GOALS = [
   {
     value: "Not Sure",
     enTitle: "Not Sure",
-    enDesc: "Use Mabel's framework to compare the options first.",
+    enDesc: "Use Vanisland property management framework to compare the options first.",
     zhTitle: "还不确定",
-    zhDesc: "先用 Mabel 的框架比较不同出租方案。",
+    zhDesc: "先用专业判断框架比较不同出租方案。",
   },
 ];
 const NEXT_STEPS = [
-  "Book Mabel's strategy review",
+  "Book a professional strategy review",
   "Request AI Marketing / Listing Service",
   "Request Full Property Management",
   "Request full rental market assessment",
@@ -372,8 +372,8 @@ const OPTION_LABELS_ZH = {
   "Compare long-term vs short-term rental": "比较长租和短租",
   "Rent part of the property": "出租部分物业",
   "Prepare property before listing": "出租前先整理物业",
-  "Unsure - need Mabel's advice": "不确定，需要 Mabel 建议",
-  "Book Mabel's strategy review": "预约 Mabel 策略审核",
+  "Unsure - need professional advice": "不确定，需要专业建议",
+  "Book a professional strategy review": "预约专业策略审核",
   "Request AI Marketing / Listing Service": "申请 AI 营销 / 房源发布服务",
   "Request Full Property Management": "申请完整物业管理服务",
   "Request full rental market assessment": "申请完整租赁市场评估",
@@ -736,7 +736,7 @@ export default function StrategyAssessment({ lang }) {
               <h2>{submitted.assessmentId}</h2>
               <p>{copy.successThanks}</p>
               <p><strong>{copy.nextStepSelected}</strong> {submitted.nextStep || copy.notSelected}</p>
-              <p>{copy.mabelReview}</p>
+              <p>{copy.reviewNote}</p>
               <div className="strategy-pdf-actions">
                 <button
                   type="button"
@@ -1080,7 +1080,7 @@ function buildAssessmentReportRows(assessment, copy) {
     [copy.report.legalComplianceRisk, assessment.legalComplianceRisk],
     [copy.report.aiAssessmentConfidence, assessment.aiAssessmentConfidence],
     [copy.report.marketingSuggestions, assessment.marketingSuggestions],
-    [copy.report.ownerGoalAlignment, assessment.mabelProfessionalOpinion || assessment.ownerGoalAlignment],
+    [copy.report.ownerGoalAlignment, assessment.professionalPreliminaryRecommendation || assessment.ownerGoalAlignment],
     [copy.report.recommendedNextStep, assessment.recommendedNextStep],
     [copy.report.knowledgeCenter, assessment.knowledgeLinks],
     [copy.report.disclaimer, assessment.disclaimer],

@@ -25,7 +25,7 @@ export default function HomeSaleListingForm({ mode }) {
   const isTrial = !!readTrialAccess();
   const [form, setForm] = useState(() =>
     createEmptySaleListingForm(
-      isTrial ? {} : { contactName: "Mabel Chen", contactPhone: "672-514-8866", contactEmail: "support@vanislandproperty.ca" }
+      isTrial ? {} : { contactName: "Vanisland Property Management", contactPhone: "672-514-8866", contactEmail: "support@vanislandproperty.ca" }
     )
   );
   const [loading, setLoading] = useState(isEdit);

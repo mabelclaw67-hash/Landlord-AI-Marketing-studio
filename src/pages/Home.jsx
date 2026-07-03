@@ -67,7 +67,7 @@ const T = {
     knowledgeEyebrow: "For landlord reference and policy review",
     knowledgeCardTitle: "Landlord Knowledge Center",
     knowledgeCardDesc:
-      "Practical rental rules, local policy guides, STR reminders, suite notes, and Mabel's property management knowledge base.",
+      "Practical rental rules, local policy guides, STR reminders, suite notes, and Vanisland Property Management's property management knowledge base.",
 
     // free resources
     freeKicker: "FREE RESOURCES",
@@ -207,7 +207,7 @@ const T = {
     knowledgeEyebrow: "适用于房东参考和政策核查",
     knowledgeCardTitle: "房东知识中心",
     knowledgeCardDesc:
-      "实用出租法规、本地政策指南、短租提醒、套房说明，以及 Mabel 的物业管理经验知识库。",
+      "实用出租法规、本地政策指南、短租提醒、套房说明，以及 Vanisland Property Management 的物业管理经验知识库。",
 
     // free resources
     freeKicker: "免费资源",

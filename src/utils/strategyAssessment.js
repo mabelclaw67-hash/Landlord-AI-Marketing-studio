@@ -3,14 +3,14 @@ import { apiPost, isApiConnected } from "./api";
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER =
-  "This is an AI preliminary assessment based on Mabel Chen's rental management framework. Final recommendation requires Mabel's professional review.";
+  "This is an AI preliminary assessment based on Vanisland Property Management's property management framework. Final recommendation requires professional review.";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER_ZH =
-  "本报告为基于 Mabel Chen 出租管理经验框架生成的 AI 初步评估，最终建议需由 Mabel 专业审核确认。";
+  "本报告为基于 Vanisland Property Management 物业管理经验框架生成的 AI 初步评估，最终建议需由专业审核确认。";
 
 const KNOWLEDGE_CENTER_GUIDE = {
-  en: "Please review the latest guide in the Landlord Knowledge Center and confirm with Mabel before making a final decision.",
-  zh: "请查看房东知识中心最新指南，并由 Mabel 核查后再作最终决定。",
+  en: "Please review the latest guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.",
+  zh: "请查看房东知识中心最新指南，并经专业审核后再作最终决定。",
 };
 
 const OPTION_LABELS_ZH = {
@@ -243,15 +243,15 @@ export function formatStrategyFollowUpAnswers(form, lang = "en") {
     })
     .filter(Boolean);
 
-  return lines.length ? [safeLang === "zh" ? "Mabel 风格追问答案：" : "Mabel-style Follow-up Answers:", ...lines].join("\n") : "";
+  return lines.length ? [safeLang === "zh" ? "专业追问答案：" : "Professional Follow-up Answers:", ...lines].join("\n") : "";
 }
 
 export function formatStrategyFollowUpAnswersPlain(form, lang = "en") {
   const text = formatStrategyFollowUpAnswers(form, lang);
   return text
     .replace(/^AI Follow-up Answers:\n?/, "")
-    .replace(/^Mabel-style Follow-up Answers:\n?/, "")
-    .replace(/^Mabel 风格追问答案：\n?/, "");
+    .replace(/^Professional Follow-up Answers:\n?/, "")
+    .replace(/^专业追问答案：\n?/, "");
 }
 
 export function formatLegalComplianceAnswers(form, lang = "en") {
@@ -323,11 +323,11 @@ export function buildAiConfidenceAndFlags(form, lang = "en") {
 
 export function buildServicePath(form) {
   if (form.nextStep) return form.nextStep;
-  if (hasOwnerOccupancyLegalWarning(form)) return "Mabel legal/compliance review before listing";
+  if (hasOwnerOccupancyLegalWarning(form)) return "Professional legal/compliance review before listing";
   if (form.airbnbInterest === "Yes") return "STR feasibility review";
   if (form.ownerGoal === "Rent ASAP") return "Fast rental listing preparation";
   if (form.ownerGoal === "Maximize rent") return "Full rental strategy and marketing review";
-  return "Mabel strategy review";
+  return "Professional strategy review";
 }
 
 export function buildKnownIssuesWithFollowUps(form, lang = "en") {
@@ -358,8 +358,8 @@ export function generatePreliminaryStrategySummary(form, lang = "en") {
     aiAssessmentConfidence: buildAiAssessmentConfidence(form, confidence, safeLang),
     servicePath: buildServicePath(form),
     marketingSuggestions: buildMarketingSuggestions(form, followUps, safeLang),
-    ownerGoalAlignment: buildMabelProfessionalOpinion(form, followUps, safeLang),
-    mabelProfessionalOpinion: buildMabelProfessionalOpinion(form, followUps, safeLang),
+    ownerGoalAlignment: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
+    professionalPreliminaryRecommendation: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
     recommendedNextStep: buildServiceRecommendation(form, safeLang),
     knowledgeLinks: buildKnowledgeLinks(form, safeLang),
     disclaimer: safeLang === "zh" ? STRATEGY_ASSESSMENT_DISCLAIMER_ZH : STRATEGY_ASSESSMENT_DISCLAIMER,
@@ -374,13 +374,13 @@ function buildExecutiveSummary(form, lang) {
     return [
       `${type}位于 ${city}，目前业主目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。`,
       "从已提供信息看，本物业适合先按高品质整租方向评估，同时保留合法分租和 Airbnb / 短租可行性复核。",
-      "最终租金、出租周期和合规结论，需要结合最新市场、照片、房屋状态和 Mabel 专业审核后确认。",
+      "最终租金、出租周期和合规结论，需要结合最新市场、照片、房屋状态和专业审核确认。",
     ];
   }
   return [
     `${type} in ${city} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with an owner target rent of ${target}/month.`,
     "Based on the submitted details, the first strategy to test is a premium whole-home rental, while keeping legal split-rental and STR feasibility under review.",
-    "Final rent, timeline, and compliance position require current market review, photos, condition, and Mabel's professional confirmation.",
+    "Final rent, timeline, and compliance position require current market review, photos, condition, and Vanisland professional confirmation.",
   ];
 }
 
@@ -443,8 +443,8 @@ function buildRentalChallenges(form, followUps, legalWarning, lang) {
   }
   if (legalWarning) {
     items.push(lang === "zh"
-      ? "已触发屋主自住相关法规风险，正式挂牌前必须先由 Mabel 核查当前规则。"
-      : "An owner-occupancy compliance risk was triggered; Mabel should verify current rules before listing.");
+      ? "已触发屋主自住相关法规风险，正式挂牌前必须先进行专业审核并核查当前规则。"
+      : "An owner-occupancy compliance risk was triggered; professional review should verify current rules before listing.");
   }
   return items.length ? items : [lang === "zh" ? "目前没有明显高风险项，但正式挂牌前仍需审核照片、状态、合规和市场价格。" : "No major high-risk issue was flagged, but photos, condition, compliance, and market rent still need review."];
 }
@@ -494,7 +494,7 @@ function buildRentPositioning(form, lang) {
   if (lang === "zh") {
     if (!form.targetRent) {
       return [
-        "目前未填写目标租金。建议先由 Mabel 对比当前 Lantzville / Nanaimo 同类房源、房屋状态、家具配置和照片质量后再定价。",
+        "目前未填写目标租金。建议先由专业团队对比当前 Lantzville / Nanaimo 同类房源、房屋状态、家具配置和照片质量后再定价。",
         "不要只按房屋面积或业主期望定价，必须结合目标租客数量和出租周期。",
       ];
     }
@@ -506,7 +506,7 @@ function buildRentPositioning(form, lang) {
   }
   if (!form.targetRent) {
     return [
-      "No target rent was entered. Mabel should compare current Lantzville / Nanaimo rentals, condition, furnishings, and photo quality before pricing.",
+      "No target rent was entered. A professional review should compare current Lantzville / Nanaimo rentals, condition, furnishings, and photo quality before pricing.",
       "Pricing should be based on tenant depth and leasing timeline, not only property size or owner preference.",
     ];
   }
@@ -531,8 +531,8 @@ function buildSuiteSplitPotential(form, followUps, lang = "en") {
         : "The existing suite has several independent-use features, so split-rental feasibility is stronger. Legality, safety, insurance, parking, and utilities still need review.";
     }
     return lang === "zh"
-      ? "现有套房具备分租可能，但独立入口、厨房、洗衣、电表或水电细节仍需 Mabel 审核。"
-      : "The existing suite can support a split-rental review, but entrance, kitchen, laundry, meter, or utility details need Mabel's review.";
+      ? "现有套房具备分租可能，但独立入口、厨房、洗衣、电表或水电细节仍需专业审核。"
+      : "The existing suite can support a split-rental review, but entrance, kitchen, laundry, meter, or utility details need professional review.";
   }
 
   if (form.existingSuite === "No") {
@@ -562,7 +562,7 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   if (form.suiteLegalStatus === "Legal") {
     notes.push(lang === "zh" ? "合法套间比未授权套间更容易稳定营销，合规风险较低。" : "Legal suite status supports steadier marketing and lower compliance risk than an unauthorized suite.");
   } else if (form.suiteLegalStatus === "Unauthorized no permit") {
-    notes.push(lang === "zh" ? "未授权 / 无许可套间需要更谨慎，正式营销前应由 Mabel 做合规审核。" : "Unauthorized suite status requires a cautious strategy and Mabel's compliance review before marketing.");
+    notes.push(lang === "zh" ? "未授权 / 无许可套间需要更谨慎，正式营销前应进行专业合规审核。" : "Unauthorized suite status requires a cautious strategy and professional compliance review before marketing.");
   } else if (form.suiteLegalStatus === "Not sure") {
     notes.push(lang === "zh" ? "套间合法状态未确认，不能作为广告卖点直接宣传。" : "Suite legal status is unclear and should not be promoted as a confirmed feature.");
   }
@@ -584,8 +584,8 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   }
   if (form.existingSuite === "Yes" || form.existingSuite === "No" || form.suiteLegalStatus) {
     notes.push(lang === "zh"
-      ? "请查看房东知识中心第二套房 / legal suite 指南，并由 Mabel 核查后再作最终决定。"
-      : "Please review the Secondary Suite / Legal Suite guide in the Landlord Knowledge Center and confirm with Mabel before making a final decision.");
+      ? "请查看房东知识中心第二套房 / legal suite 指南，并经专业审核后再作最终决定。"
+      : "Please review the Secondary Suite / Legal Suite guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.");
   }
   return notes.length ? notes : (lang === "zh" ? "suite 品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Suite quality, privacy, utilities, and yard conditions need layout and photo review.");
 }
@@ -655,7 +655,7 @@ function buildMarketingSuggestions(form, followUps, lang = "en") {
   return items;
 }
 
-function buildMabelProfessionalOpinion(form, followUps, lang = "en") {
+function buildProfessionalPreliminaryRecommendation(form, followUps, lang = "en") {
   if (lang === "zh") {
     return [
       "根据目前信息，如果我是这套物业的物业经理，我会先尝试整租，但不会只依赖一个高租金价格点。",
@@ -675,30 +675,30 @@ function buildMabelProfessionalOpinion(form, followUps, lang = "en") {
 function buildStrReminder(form, lang) {
   if (form.airbnbInterest !== "Yes") {
     return lang === "zh"
-      ? "目前未以短租作为主要方向。如后续考虑 Airbnb / STR，请查看房东知识中心最新短租政策，并由 Mabel 核查后再作最终决定。"
-      : "STR is not the main direction from the current answers. If Airbnb / STR is considered later, please review the latest guide in the Landlord Knowledge Center and confirm with Mabel before making a final decision.";
+      ? "目前未以短租作为主要方向。如后续考虑 Airbnb / STR，请查看房东知识中心最新短租政策，并经专业审核后再作最终决定。"
+      : "STR is not the main direction from the current answers. If Airbnb / STR is considered later, please review the latest guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.";
   }
   return lang === "zh"
-    ? ["已选择 Airbnb / STR 意向。请查看房东知识中心最新短租政策。", "短租策略需由 Mabel 核查后再作最终决定。"]
-    : ["Airbnb / STR interest was selected. Please review the latest STR guide in the Landlord Knowledge Center.", "Mabel should confirm the STR strategy before a final decision is made."];
+    ? ["已选择 Airbnb / STR 意向。请查看房东知识中心最新短租政策。", "短租策略需经专业审核后再作最终决定。"]
+    : ["Airbnb / STR interest was selected. Please review the latest STR guide in the Landlord Knowledge Center.", "Professional review should confirm the STR strategy before a final decision is made."];
 }
 
 function buildLegalComplianceRisk(form, lang) {
   const legalWarning = hasOwnerOccupancyLegalWarning(form);
   if (legalWarning) {
     return lang === "zh"
-      ? ["该物业可能存在与屋主自住相关的再出租限制。", "请查看房东知识中心相关指南，并由 Mabel 核查后再确认最终出租策略。"]
-      : ["This property may have owner-occupancy related re-rental restrictions.", "Please review the related Landlord Knowledge Center guide and have Mabel confirm the final rental strategy."];
+      ? ["该物业可能存在与屋主自住相关的再出租限制。", "请查看房东知识中心相关指南，并经专业审核后再确认最终出租策略。"]
+      : ["This property may have owner-occupancy related re-rental restrictions.", "Please review the related Landlord Knowledge Center guide and confirm the final rental strategy through professional review."];
   }
   const risk = getLegalRiskFlag(form);
   if (risk === "Not sure") {
     return lang === "zh"
-      ? ["未触发明确的屋主自住 12 个月风险提醒，但业主选择了不确定。", "请查看房东知识中心相关指南，并由 Mabel 核查后再确认。"]
-      : ["No clear owner-occupancy 12-month warning was triggered, but the owner selected Not sure.", "Please review the related Landlord Knowledge Center guide and have Mabel confirm before listing."];
+      ? ["未触发明确的屋主自住 12 个月风险提醒，但业主选择了不确定。", "请查看房东知识中心相关指南，并经专业审核后再确认。"]
+      : ["No clear owner-occupancy 12-month warning was triggered, but the owner selected Not sure.", "Please review the related Landlord Knowledge Center guide and confirm through professional review before listing."];
   }
   return lang === "zh"
-    ? "本次答案未触发屋主自住相关再出租 warning。正式挂牌前仍建议由 Mabel 做最终复核。"
-    : "No owner-occupancy re-rental warning was triggered from the submitted answers. Mabel should still complete the final review before listing.";
+    ? "本次答案未触发屋主自住相关再出租 warning。正式挂牌前仍建议由专业团队做最终复核。"
+    : "No owner-occupancy re-rental warning was triggered from the submitted answers. Professional review should still be completed before listing.";
 }
 
 function calculateAssessmentConfidence(form) {
@@ -720,7 +720,7 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
   const reasons = [];
   if (form.propertyAddress && form.city) reasons.push(lang === "zh" ? "✓ 地址和城市信息完整" : "✓ Address and city are complete");
   if (form.propertyType && form.bedrooms && form.bathrooms) reasons.push(lang === "zh" ? "✓ 房屋类型、卧室和卫生间信息完整" : "✓ Property type, bedrooms, and bathrooms are complete");
-  if (Object.values(form.followUpAnswers || {}).filter(Boolean).length >= 5) reasons.push(lang === "zh" ? "✓ Mabel 风格追问已填写" : "✓ Mabel-style follow-up answers were completed");
+  if (Object.values(form.followUpAnswers || {}).filter(Boolean).length >= 5) reasons.push(lang === "zh" ? "✓ 专业追问已填写" : "✓ Professional follow-up answers were completed");
   if (form.knownIssues) reasons.push(lang === "zh" ? "✓ 已提供业主关注点和已知问题" : "✓ Owner concerns and known issues were provided");
   if (form.airbnbInterest === "Yes") reasons.push(lang === "zh" ? "⚠ STR 法规需实时确认" : "⚠ STR rules need current verification");
   reasons.push(lang === "zh" ? "⚠ 最终租金仍需结合当前市场和照片状态确认" : "⚠ Final rent still needs current market and photo/condition review");
@@ -735,7 +735,7 @@ function buildServiceRecommendation(form, lang) {
       "★★★★★ Property Management：适合高租金、潜在分租、STR 法规和长期管理都需要专业把关的复杂物业。",
     ];
     if (form.airbnbInterest === "Yes" || form.existingSuite === "No" || hasOwnerOccupancyLegalWarning(form)) {
-      items.push("建议预约 Mabel 一对一咨询，先确认法规、租金定位和整租 / 分租路径。");
+      items.push("建议预约专业咨询，先确认法规、租金定位和整租 / 分租路径。");
     }
     return items;
   }
@@ -745,7 +745,7 @@ function buildServiceRecommendation(form, lang) {
     "★★★★★ Property Management: Best for a complex property with high rent, split-rental review, STR questions, and long-term oversight.",
   ];
   if (form.airbnbInterest === "Yes" || form.existingSuite === "No" || hasOwnerOccupancyLegalWarning(form)) {
-    items.push("A one-on-one Mabel strategy review is recommended before confirming the final path.");
+    items.push("Book a professional consultation before confirming the final path.");
   }
   return items;
 }
@@ -762,7 +762,7 @@ function buildKnowledgeLinks(form, lang) {
       links: [],
     },
     {
-      title: safeLang === "zh" ? "Mabel 专业指南链接" : "Mabel Guide links",
+      title: safeLang === "zh" ? "专业指南链接" : "Professional Guide links",
       links: [],
     },
   ];

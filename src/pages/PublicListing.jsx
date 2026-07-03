@@ -962,7 +962,7 @@ export default function PublicListing({ lang = "en" }) {
                 Contact Information
               </h3>
               <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
-                If interested, please contact <strong>Mabel</strong> with a brief introduction about yourself.
+                If interested, please contact <strong>Vanisland Property Management</strong> with a brief introduction about yourself.
               </p>
               {acceptsApplications && (
                 <div style={{ display: "grid", gap: 10, marginTop: 14 }}>

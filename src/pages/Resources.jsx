@@ -2,26 +2,26 @@ const COPY = {
   en: {
     title: "Landlord Knowledge Center",
     subtitle:
-      "A practical knowledge base for Vancouver Island landlords: government rules, local market observations, and Mabel's professional property management framework.",
+      "A practical knowledge base for Vancouver Island landlords: government rules, local market observations, and Vanisland Property Management's property management framework.",
     updated: "Last updated: July 2026",
-    status: "Status: General reference, Mabel review required",
+    status: "Status: General reference, professional review required",
     openGuide: "Open guide",
     categoryLabel: "Category",
     lastReviewed: "Last Reviewed: July 2026",
     nextReview: "Next Review: October 2026",
-    cardStatus: "Status: General reference, Mabel review required",
+    cardStatus: "Status: General reference, professional review required",
     sectionCta: "Reference card",
     disclaimerTitle: "Reference only",
     disclaimer:
-      "These guides are general references for landlords. Rules can change, and final rental strategy should be reviewed by Mabel before publishing or making a compliance decision.",
+      "These guides are general references for landlords. Rules can change, and final rental strategy should receive professional review before publishing or making a compliance decision.",
     detailLabels: {
       lastUpdated: "Last Updated: July 2026",
       officialSources: "Official Sources",
       keyPoints: "Key Points",
       landlordChecks: "What landlords should check",
-      mabelReview: "When Mabel review is recommended",
+      reviewNote: "When professional review is recommended",
       disclaimer:
-        "This content is for general reference only and is not legal advice. Rules may change. Final decisions should be based on government websites and Mabel's review.",
+        "This content is for general reference only and is not legal advice. Rules may change. Final decisions should be based on government websites and professional review.",
     },
     pillars: [
       {
@@ -38,7 +38,7 @@ const COPY = {
             id: "owner-occupancy",
             icon: "🏠",
             title: "Owner Occupancy",
-            body: "General guidance for owner-occupancy situations, re-rental timing, and when Mabel should review before listing.",
+            body: "General guidance for owner-occupancy situations, re-rental timing, and when professional review is recommended before listing.",
           },
           {
             id: "str",
@@ -81,8 +81,8 @@ const COPY = {
         ],
       },
       {
-        id: "mabel-guides",
-        title: "Mabel Professional Guides",
+        id: "professional-guides",
+        title: "Professional Guides",
         cards: [
           {
             id: "whole-house-vs-split-rental",
@@ -139,9 +139,9 @@ const COPY = {
             body: "Common causes include price mismatch, weak photos, unclear terms, low tenant depth, or property-specific friction.",
           },
           {
-            id: "faq-mabel-review",
+            id: "faq-professional-review",
             icon: "❓",
-            title: "When should I ask Mabel for review?",
+            title: "When should I ask for professional review?",
             body: "Ask for review before listing if there are STR questions, suite uncertainty, high rent targets, legal risk, or slow inquiry volume.",
           },
         ],
@@ -175,7 +175,7 @@ const COPY = {
           "Are parking, strata, insurance, fire safety, smoke alarms, and building requirements satisfied?",
           "Official information needs further confirmation if the local page does not clearly address the exact property and rental model.",
         ],
-        mabelReview: [
+        reviewNote: [
           "Whole-home Airbnb or VRBO is being considered.",
           "The owner will not live on site.",
           "The owner wants to use a third-party operator.",
@@ -209,7 +209,7 @@ const COPY = {
           "Are fire separation, smoke alarms, insurance, zoning, and building code requirements confirmed?",
           "Can the listing honestly describe the suite as legal or authorized, or should it be described more cautiously?",
         ],
-        mabelReview: [
+        reviewNote: [
           "The owner is not sure whether the suite is legal or authorized.",
           "The owner wants to add a kitchen or convert a lower level into a second rental unit.",
           "Utilities, laundry, parking, entrance, or yard use will be shared.",
@@ -221,26 +221,26 @@ const COPY = {
   },
   zh: {
     title: "房东知识中心",
-    subtitle: "面向温哥华岛房东的实用知识库：政府法规、本地市场观察，以及 Mabel 的物业管理专业判断框架。",
+    subtitle: "面向温哥华岛房东的实用知识库：政府法规、本地市场观察，以及 Vanisland Property Management 的物业管理经验框架。",
     updated: "最后更新：2026年7月",
-    status: "状态：一般参考，需 Mabel 审核确认",
+    status: "状态：一般参考，需专业审核确认",
     openGuide: "查看指南",
     categoryLabel: "分类",
     lastReviewed: "最后审核：2026年7月",
     nextReview: "下次审核：2026年10月",
-    cardStatus: "状态：一般参考，需 Mabel 审核确认",
+    cardStatus: "状态：一般参考，需专业审核确认",
     sectionCta: "参考卡片",
     disclaimerTitle: "仅供参考",
     disclaimer:
-      "这些内容是给房东使用的一般参考。法规和本地政策可能变化，正式挂牌、出租策略或合规判断前，仍需由 Mabel 审核确认。",
+      "这些内容是给房东使用的一般参考。法规和本地政策可能变化，正式挂牌、出租策略或合规判断前，仍需专业审核确认。",
     detailLabels: {
       lastUpdated: "最后更新：2026年7月",
       officialSources: "官方来源",
       keyPoints: "重点内容",
       landlordChecks: "房东需要核查什么",
-      mabelReview: "建议 Mabel 审核的情况",
+      reviewNote: "建议专业审核的情况",
       disclaimer:
-        "本内容仅作一般参考，不构成法律意见。法规可能变化，最终请以政府官网和 Mabel 审核为准。",
+        "本内容仅作一般参考，不构成法律意见。法规可能变化，最终请以政府官网和专业审核为准。",
     },
     pillars: [
       {
@@ -257,7 +257,7 @@ const COPY = {
             id: "owner-occupancy",
             icon: "🏠",
             title: "屋主自住规则",
-            body: "关于屋主自住、重新出租时间风险，以及哪些情况需要 Mabel 先审核的基础说明。",
+            body: "关于屋主自住、重新出租时间风险，以及哪些情况需要专业审核的基础说明。",
           },
           {
             id: "str",
@@ -300,8 +300,8 @@ const COPY = {
         ],
       },
       {
-        id: "mabel-guides",
-        title: "Mabel 专业指南",
+        id: "professional-guides",
+        title: "专业指南",
         cards: [
           {
             id: "whole-house-vs-split-rental",
@@ -358,10 +358,10 @@ const COPY = {
             body: "常见原因包括定价不匹配、照片弱、条款不清楚、目标租客少或物业本身有阻力。",
           },
           {
-            id: "faq-mabel-review",
+            id: "faq-professional-review",
             icon: "❓",
-            title: "什么时候需要 Mabel 审核？",
-            body: "涉及短租、suite 不确定、高租金、法规风险或咨询量不足时，建议先让 Mabel 审核。",
+            title: "什么时候需要专业审核？",
+            body: "涉及短租、suite 不确定、高租金、法规风险或咨询量不足时，建议先进行专业审核。",
           },
         ],
       },
@@ -393,7 +393,7 @@ const COPY = {
           "停车、strata、保险、fire safety、smoke alarms 和 building requirements 是否满足？",
           "如果官方页面没有明确对应这个地址和出租模式，应写作“官方信息需进一步核查”。",
         ],
-        mabelReview: [
+        reviewNote: [
           "考虑整套 Airbnb / VRBO。",
           "屋主不会住在现场。",
           "计划交给第三方运营。",
@@ -426,7 +426,7 @@ const COPY = {
           "Fire separation、smoke alarms、insurance、zoning 和 building code 是否已确认？",
           "广告中能否诚实写 legal / authorized suite，还是只能谨慎写作 future suite potential？",
         ],
-        mabelReview: [
+        reviewNote: [
           "业主不确定 suite 是否 legal / authorized。",
           "计划加厨房，或把楼下改成第二个出租单元。",
           "水电、洗衣、停车、入口或院子需要共用。",
@@ -526,7 +526,7 @@ function PolicySection({ section, labels }) {
 
       <PolicyList title={labels.keyPoints} items={section.keyPoints} />
       <PolicyList title={labels.landlordChecks} items={section.landlordChecks} />
-      <PolicyList title={labels.mabelReview} items={section.mabelReview} />
+      <PolicyList title={labels.reviewNote} items={section.reviewNote} />
 
       <div className="notice notice--warm knowledge-policy__notice">
         <p>{labels.disclaimer}</p>

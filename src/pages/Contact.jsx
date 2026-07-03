@@ -19,7 +19,7 @@ const CONTACT_COPY = {
     serving: "Serving landlords in Nanaimo, Victoria, Greater Vancouver, and across BC.",
     submitAnother: "Submit another",
     wechat: "WeChat ID",
-    wechatPlaceholder: "e.g. mabel_wechat",
+    wechatPlaceholder: "e.g. vanisland_wechat",
     interestedModule: "Interested Module",
     select: "-- Select --",
     services: [
@@ -46,7 +46,7 @@ const CONTACT_COPY = {
     serving: "服务范围包括 Nanaimo、Victoria、Greater Vancouver 以及 BC 各地区房东。",
     submitAnother: "再提交一份",
     wechat: "微信 ID",
-    wechatPlaceholder: "例如：mabel_wechat",
+    wechatPlaceholder: "例如：vanisland_wechat",
     interestedModule: "感兴趣的模块",
     select: "-- 请选择 --",
     services: [
