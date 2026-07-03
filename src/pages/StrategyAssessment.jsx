@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import {
   createEmptyStrategyAssessment,
   generatePreliminaryStrategySummary,
+  getStrategyFollowUpQuestions,
   submitStrategyAssessment,
 } from "../utils/strategyAssessment";
 
 const YES_NO = ["Yes", "No", "Unsure"];
+const FOLLOW_UP_YES_NO = ["Yes", "No", "Not sure"];
 const CONTACT_OPTIONS = ["Email", "Phone", "Text message", "WeChat"];
 
 const FIELD_LABELS = {
@@ -50,7 +52,8 @@ const FIELD_LABELS = {
 
 const PROPERTY_TYPES = ["House", "Townhouse", "Condo", "Duplex", "Suite", "Acreage", "Other"];
 const OWNER_GOALS = [
-  "Maximize monthly rent",
+  "Maximize rent",
+  "Rent ASAP",
   "Find stable long-term tenant",
   "Compare long-term vs short-term rental",
   "Rent part of the property",
@@ -73,10 +76,22 @@ export default function StrategyAssessment() {
   const [submitted, setSubmitted] = useState(null);
 
   const preliminary = useMemo(() => generatePreliminaryStrategySummary(form), [form]);
+  const followUpQuestions = useMemo(() => getStrategyFollowUpQuestions(form), [form]);
 
   const update = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateFollowUp = (questionId) => (event) => {
+    const value = event.target.value;
+    setForm((current) => ({
+      ...current,
+      followUpAnswers: {
+        ...(current.followUpAnswers || {}),
+        [questionId]: value,
+      },
+    }));
   };
 
   const handlePhotoChange = (event) => {
@@ -195,14 +210,6 @@ export default function StrategyAssessment() {
               <TextArea field="knownIssues" form={form} update={update} rows={3} />
             </AssessmentSection>
 
-            <AssessmentSection title="Owner Goal">
-              <div className="form-row">
-                <SelectInput field="ownerGoal" form={form} update={update} options={OWNER_GOALS} required />
-                <TextInput field="targetRent" form={form} update={update} placeholder="e.g. $2,600/month" />
-              </div>
-              <TextInput field="timelineUrgency" form={form} update={update} placeholder="e.g. ASAP, 30 days, after renovation" />
-            </AssessmentSection>
-
             <AssessmentSection title="Airbnb / STR Interest">
               <div className="notice notice--warm strategy-inline-notice">
                 <p>Current BC and municipal STR rules must be verified before making a final decision.</p>
@@ -214,6 +221,20 @@ export default function StrategyAssessment() {
               </div>
               <TextInput field="strMunicipality" form={form} update={update} placeholder="e.g. Nanaimo, Victoria, Vancouver" />
             </AssessmentSection>
+
+            <AssessmentSection title="Owner Goal">
+              <div className="form-row">
+                <SelectInput field="ownerGoal" form={form} update={update} options={OWNER_GOALS} required />
+                <TextInput field="targetRent" form={form} update={update} placeholder="e.g. $2,600/month" />
+              </div>
+              <TextInput field="timelineUrgency" form={form} update={update} placeholder="e.g. ASAP, 30 days, after renovation" />
+            </AssessmentSection>
+
+            <FollowUpQuestions
+              questions={followUpQuestions}
+              answers={form.followUpAnswers || {}}
+              update={updateFollowUp}
+            />
 
             <AssessmentSection title="Photo Upload">
               <div className="form-group">
@@ -265,6 +286,62 @@ function AssessmentSection({ title, children }) {
   );
 }
 
+function FollowUpQuestions({ questions, answers, update }) {
+  if (!questions.length) {
+    return (
+      <section className="card strategy-section strategy-follow-up">
+        <h2>Mabel-style Follow-up Questions</h2>
+        <p className="strategy-help">Follow-up questions will appear after rental goal, suite, yard, pet, ocean view, or Airbnb / STR details are selected.</p>
+      </section>
+    );
+  }
+
+  const groups = questions.reduce((acc, item) => {
+    if (!acc[item.group]) acc[item.group] = [];
+    acc[item.group].push(item);
+    return acc;
+  }, {});
+
+  return (
+    <details className="card strategy-section strategy-follow-up" open>
+      <summary>
+        <span>Mabel-style Follow-up Questions</span>
+        <small>{questions.length} question{questions.length === 1 ? "" : "s"}</small>
+      </summary>
+      <div className="strategy-follow-up__body">
+        {Object.entries(groups).map(([group, items]) => (
+          <div key={group} className="strategy-follow-up__group">
+            <h3>{group}</h3>
+            <div className="strategy-follow-up__grid">
+              {items.map((item) => (
+                <FollowUpField key={item.id} item={item} value={answers[item.id] || ""} update={update(item.id)} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function FollowUpField({ item, value, update }) {
+  return (
+    <div className="form-group strategy-follow-up__field">
+      <label>{item.question}</label>
+      {item.type === "text" ? (
+        <input className="form-control" value={value} onChange={update} placeholder="Short answer" />
+      ) : (
+        <select className="form-control" value={value} onChange={update}>
+          <option value="">Select</option>
+          {(item.options || FOLLOW_UP_YES_NO).map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
 function TextInput({ field, form, update, type = "text", required = false, ...rest }) {
   return (
     <div className="form-group">
@@ -305,6 +382,7 @@ function AssessmentPreview({ assessment }) {
     ["Suite / Split Rental Potential", assessment.suiteSplitRentalPotential],
     ["Airbnb / STR Regulation Check", assessment.airbnbStrRegulationCheck],
     ["Marketing Suggestions", assessment.marketingSuggestions],
+    ["Owner Goal Alignment", assessment.ownerGoalAlignment],
     ["Recommended Next Step", assessment.recommendedNextStep],
   ];
 
