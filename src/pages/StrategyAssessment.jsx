@@ -1116,7 +1116,7 @@ function AssessmentPreview({ assessment, copy }) {
                   <ul className="strategy-report-links">
                     {group.links.map((item) => (
                       <li key={item.href}>
-                        <a href={item.href}>{item.label}</a>
+                        <a href={item.href}>{langAwareLinkLabel(item.label, copy)}</a>
                       </li>
                     ))}
                   </ul>
@@ -1146,7 +1146,8 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
   if (!assessment) return;
   const safeId = String(assessmentId || "DRAFT").replace(/[\\/:*?"<>|]/g, "-");
   const fileName = `Property-Strategy-Assessment-${safeId}.pdf`;
-  const title = lang === "zh" ? "AI 房产出租策略初评" : "AI Property Strategy Assessment";
+  const title = "Property Strategy Assessment";
+  const generatedDate = new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-CA", { year: "numeric", month: "long", day: "numeric" });
   const rows = buildAssessmentReportRows(assessment, copy);
   const printWindow = window.open("", "_blank", "width=860,height=1100");
   if (!printWindow) return;
@@ -1159,7 +1160,8 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
           ${value.map((group) => `
             <div class="link-group">
               <h3>${escapeHtml(group.title)}</h3>
-              <ul>${group.links.map((item) => `<li>${escapeHtml(item.label)} - ${escapeHtml(item.href)}</li>`).join("")}</ul>
+              <p class="link-intro">${lang === "zh" ? "查看：" : "Review:"}</p>
+              <ul>${group.links.map((item) => `<li>✓ ${escapeHtml(item.label)}</li>`).join("")}</ul>
             </div>
           `).join("")}
         </section>
@@ -1190,7 +1192,7 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 34px;
+      padding: 0 34px 34px;
       color: #26342d;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       line-height: 1.65;
@@ -1199,10 +1201,17 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
     .cover {
       border-bottom: 2px solid #d9e3d9;
       margin-bottom: 24px;
-      padding-bottom: 18px;
+      padding: 30px 0 20px;
     }
+    .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 10px; background: #2f5f46; color: #fff; font-weight: 800; letter-spacing: 0.02em; }
+    .prepared-by { text-align: right; color: #52645a; font-size: 12px; }
     h1 { margin: 0 0 6px; color: #2f5f46; font-size: 26px; }
-    .file-name { margin: 0; color: #6d776f; font-size: 12px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .meta-box { border: 1px solid #d9e3d9; border-radius: 8px; padding: 9px 10px; }
+    .meta-box span { display: block; color: #6d776f; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .meta-box strong { display: block; color: #26342d; font-size: 12px; }
+    .file-name { margin: 8px 0 0; color: #6d776f; font-size: 11px; }
     section {
       break-inside: avoid;
       border-bottom: 1px solid #e1e7e1;
@@ -1212,20 +1221,44 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
     h3 { margin: 10px 0 4px; color: #52645a; font-size: 13px; }
     p, li { font-size: 13px; }
     ul { margin: 0; padding-left: 20px; }
+    .link-intro { margin: 0 0 4px; font-weight: 700; color: #2f5f46; }
     @media print {
-      body { padding: 22px; }
-      @page { margin: 0.55in; }
+      body { padding: 0 22px 22px; }
+      @page {
+        margin: 0.55in;
+        @bottom-center {
+          content: "Page " counter(page) " of " counter(pages);
+          color: #6d776f;
+          font-size: 10px;
+        }
+      }
     }
   </style>
 </head>
 <body>
   <div class="cover">
+    <div class="brand-row">
+      <div class="brand-mark">VIPM</div>
+      <div class="prepared-by">
+        <strong>Prepared by</strong><br />
+        Vanisland Property Management
+      </div>
+    </div>
     <h1>${escapeHtml(title)}</h1>
+    <div class="meta-grid">
+      <div class="meta-box"><span>Assessment ID</span><strong>${escapeHtml(safeId)}</strong></div>
+      <div class="meta-box"><span>Generated Date</span><strong>${escapeHtml(generatedDate)}</strong></div>
+      <div class="meta-box"><span>Assessment Confidence</span><strong>${escapeHtml(getPdfConfidenceLabel(assessment.aiAssessmentConfidence))}</strong></div>
+    </div>
     <p class="file-name">${escapeHtml(fileName)}</p>
   </div>
   ${body}
   <script>
     window.onload = function() {
+      try {
+        document.title = ${JSON.stringify(fileName)};
+        window.history.replaceState(null, "", ${JSON.stringify(`/${encodeURIComponent(fileName)}`)});
+      } catch (error) {}
       window.focus();
       window.print();
     };
@@ -1233,6 +1266,17 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang) {
 </body>
 </html>`);
   printWindow.document.close();
+}
+
+function langAwareLinkLabel(label, copy) {
+  const prefix = copy.report?.knowledgeCenter === "房东知识中心" ? "查看：✓ " : "Review: ✓ ";
+  return `${prefix}${label}`;
+}
+
+function getPdfConfidenceLabel(value) {
+  const lines = Array.isArray(value) ? value : [value];
+  const first = String(lines[0] || "");
+  return first.replace(/^AI 评估信心：/, "").replace(/^AI Assessment Confidence: /, "").replace(/^Assessment Confidence：/, "").replace(/^Assessment Confidence: /, "") || "Preliminary";
 }
 
 function escapeHtml(value) {

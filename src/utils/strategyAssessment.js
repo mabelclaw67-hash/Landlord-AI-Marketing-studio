@@ -92,6 +92,23 @@ function formatAssessmentLocation(form, lang = "en") {
   return location || (lang === "zh" ? "本地市场" : "the local market");
 }
 
+function getLocationProfile(form) {
+  const text = [form.city, form.communityArea, form.locationNotes].filter(Boolean).join(" ").toLowerCase();
+  if (text.includes("lantzville")) return "lantzville";
+  if (text.includes("north nanaimo")) return "north-nanaimo";
+  if (text.includes("central nanaimo")) return "central-nanaimo";
+  if (text.includes("south nanaimo")) return "south-nanaimo";
+  if (text.includes("nanaimo")) return "nanaimo";
+  return "general";
+}
+
+function getConfidenceLabel(score, lang = "en") {
+  if (score >= 88) return lang === "zh" ? "★★★★★ 高信心" : "★★★★★ High Confidence";
+  if (score >= 78) return lang === "zh" ? "★★★★ 中高信心" : "★★★★ Medium-High Confidence";
+  if (score >= 68) return lang === "zh" ? "★★★★ 中等信心" : "★★★★ Medium Confidence";
+  return lang === "zh" ? "★★★ 初步判断" : "★★★ Preliminary";
+}
+
 export function createAssessmentId(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
   return [
@@ -377,19 +394,34 @@ export function generatePreliminaryStrategySummary(form, lang = "en") {
 
 function buildExecutiveSummary(form, lang) {
   const type = lang === "zh" ? (form.propertyType === "House" ? "独立屋" : form.propertyType || "该物业") : (form.propertyType || "This property");
-  const city = formatAssessmentLocation(form, lang);
+  const location = formatAssessmentLocation(form, lang);
   const target = formatCurrency(form.targetRent, lang);
+  const profile = getLocationProfile(form);
+  const locationNoteZh = {
+    lantzville: "Lantzville 海边及安静居住属性适合做高品质生活方式包装，但高租金整租的目标租客相对集中，出租周期需要留有弹性。",
+    "north-nanaimo": "North Nanaimo 通常更容易支撑便利性和家庭型租客需求，但仍需结合房屋状态、停车和同类竞品判断。",
+    "central-nanaimo": "Central Nanaimo 的优势通常在通勤和生活便利性，租金策略应强调实际便利，而不是只强调面积。",
+    "south-nanaimo": "South Nanaimo 的租金定位通常需要更重视价格竞争力和租客便利性，避免过高定价拉长空置期。",
+    nanaimo: "Nanaimo 市场需要结合具体社区、通勤便利、停车和房屋状态判断，不能只按卧室数量定价。",
+    general: "地段价值需要结合具体社区、通勤便利、停车和房屋状态判断。",
+  }[profile];
+  const locationNoteEn = {
+    lantzville: "Lantzville's coastal and quiet residential positioning supports a premium lifestyle presentation, but a high-rent whole-home strategy serves a narrower tenant pool and needs timeline flexibility.",
+    "north-nanaimo": "North Nanaimo can support stronger family and convenience-driven demand, subject to condition, parking, and comparable listings.",
+    "central-nanaimo": "Central Nanaimo value is usually tied to convenience and access, so the rent strategy should emphasize practical location benefits rather than size alone.",
+    "south-nanaimo": "South Nanaimo positioning usually calls for stronger price discipline and convenience messaging to avoid extended vacancy.",
+    nanaimo: "Nanaimo pricing should be based on the exact neighbourhood, convenience, parking, and property condition rather than bedroom count alone.",
+    general: "Location value should be confirmed against the exact neighbourhood, access, parking, and property condition.",
+  }[profile];
   if (lang === "zh") {
     return [
-      `${type}位于 ${city}，目前业主目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。`,
-      "从已提供信息看，本物业适合先按高品质整租方向评估，同时保留合法分租和 Airbnb / 短租可行性复核。",
-      "最终租金、出租周期和合规结论，需要结合最新市场、照片、房屋状态和专业审核确认。",
+      `${type}位于 ${location}，本次目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。${locationNoteZh}`,
+      "根据目前资料，建议先按高品质整租方向评估，并同步保留合法分租和 Airbnb / 短租可行性复核。最终策略需结合照片、房屋状态、当前市场反馈和专业审核确认。",
     ];
   }
   return [
-    `${type} in ${city} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with an owner target rent of ${target}/month.`,
-    "Based on the submitted details, the first strategy to test is a premium whole-home rental, while keeping legal split-rental and STR feasibility under review.",
-    "Final rent, timeline, and compliance position require current market review, photos, condition, and Vanisland professional confirmation.",
+    `${type} at ${location} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with an owner target rent of ${target}/month. ${locationNoteEn}`,
+    "Based on the current information, the recommended first path is a premium whole-home rental review while keeping legal split-rental and STR feasibility under professional review. Final strategy requires current market feedback, photos, property condition, and professional confirmation.",
   ];
 }
 
@@ -601,20 +633,33 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
 
 function buildLocationRentAdjustment(form, lang = "en") {
   const notes = [];
-  const area = String([form.communityArea, form.locationNotes].filter(Boolean).join(" ")).toLowerCase();
+  const profile = getLocationProfile(form);
   if (form.nearbyCommercialCentre === "Yes") {
     notes.push(lang === "zh" ? "靠近商业中心能支持一定租金溢价，尤其适合重视便利性的租客。" : "Commercial-centre access supports a modest rent premium for tenants prioritizing convenience.");
   }
-  if (area.includes("north nanaimo")) {
-    notes.push(lang === "zh" ? "North Nanaimo 定位通常更容易支撑较强租金，但仍需看房屋状态、停车和竞品。" : "North Nanaimo positioning usually supports stronger rent, subject to condition, parking, and comparable listings.");
-  }
-  if (area.includes("lantzville")) {
-    notes.push(lang === "zh"
-      ? "Lantzville 的海景和安静居住环境有价值，但高租金整租目标客群较小，出租周期需要预留更长时间。"
-      : "Lantzville ocean-view positioning has value, but a high-rent whole-home strategy serves a smaller tenant pool and needs a longer leasing runway.");
-  }
-  if (area.includes("south") || area.includes("less convenient")) {
-    notes.push(lang === "zh" ? "如果位置便利性较弱，租金定位应更保守，避免拉长空置期。" : "A less convenient location calls for more conservative rent positioning to avoid extended vacancy.");
+  const locationNotes = {
+    lantzville: lang === "zh"
+      ? "Lantzville 的海边生活方式、安静环境和稀缺感有价值；但高租金整租目标客群较小，需要预留更长出租周期。"
+      : "Lantzville offers coastal lifestyle value, quiet residential appeal, and scarcity; however, high-rent whole-home demand is narrower and may require a longer leasing runway.",
+    "north-nanaimo": lang === "zh"
+      ? "North Nanaimo 通常更容易吸引家庭型和重视便利性的租客，租金可更积极，但仍需看竞品、状态和停车。"
+      : "North Nanaimo typically supports stronger family and convenience-driven demand, allowing more confident pricing when condition, parking, and comparables support it.",
+    "central-nanaimo": lang === "zh"
+      ? "Central Nanaimo 更适合强调通勤、生活便利和实际可达性，租金定位应避免只靠房屋面积支撑。"
+      : "Central Nanaimo should emphasize commute, convenience, and access; rent positioning should not rely on property size alone.",
+    "south-nanaimo": lang === "zh"
+      ? "South Nanaimo 通常需要更保守的租金定位和更清晰的价值说明，以减少空置风险。"
+      : "South Nanaimo usually calls for more conservative rent positioning and clearer value messaging to reduce vacancy risk.",
+    nanaimo: lang === "zh"
+      ? "Nanaimo 内不同社区差异明显，租金判断需要结合具体位置、交通、停车、房屋状态和同类竞品。"
+      : "Nanaimo neighbourhoods vary meaningfully; pricing should reflect exact location, access, parking, condition, and comparable listings.",
+    general: lang === "zh"
+      ? "地段价值需要结合城市、社区、通勤便利、停车和附近同类出租房源进一步确认。"
+      : "Location value should be confirmed against city, community, access, parking, and nearby comparable rentals.",
+  };
+  notes.push(locationNotes[profile]);
+  if (profile !== "lantzville" && form.oceanView === "Yes") {
+    notes.push(lang === "zh" ? "海景会提升广告吸引力，但仍需结合实际可见角度、照片质量和目标租客深度判断。" : "Ocean view can improve listing appeal, but actual visibility, photo quality, and tenant depth still matter.");
   }
   if (form.locationRentPremium) {
     notes.push(lang === "zh"
@@ -637,13 +682,13 @@ function buildLocationRentAdjustment(form, lang = "en") {
 function buildMarketingSuggestions(form, followUps, lang = "en") {
   if (lang === "zh") {
     const items = [
-      "第一张照片建议使用海景或最能体现 Oceanfront 的画面。",
-      "第二张展示客厅，突出空间感、采光和家具齐全。",
-      "第三张展示厨房，帮助租客判断日常居住品质。",
-      "第四张展示后院 / 花园 / greenhouse，说明户外空间价值。",
-      "车库和户外停车位应在广告前半部分明确写出。",
-      "家具家电齐全应作为主要卖点，适合搬迁租客或希望拎包入住的租客。",
-      "Facebook / Marketplace 标题建议突出：Ocean View、Beach Access、Fully Furnished。",
+      "★★★★★ 必须：第一张照片使用海景或最能体现 Oceanfront 的画面。",
+      "★★★★★ 必须：第二张展示客厅，突出空间感、采光和家具齐全。",
+      "★★★★ 推荐：第三张展示厨房，帮助租客判断日常居住品质。",
+      "★★★★ 推荐：展示后院 / 花园 / greenhouse，说明户外空间价值。",
+      "★★★★ 推荐：家具家电齐全应作为主要卖点，适合搬迁租客或希望拎包入住的租客。",
+      "★★★★ 推荐：车库和户外停车位应在广告前半部分明确写出。",
+      "★★ 可选：如果预算允许，可补充 drone / 高角度照片，但不应替代室内核心照片。",
     ];
     if (form.fencedBackyard !== "Yes") items.push("如后院围栏不明确，不建议在广告中写“完整围栏后院”，应改写为“私人户外空间”或“花园区域”。");
     if (form.airbnbInterest === "Yes") items.push("不要在公开广告中暗示短租收益，短租方向需先完成法规核查。");
@@ -651,13 +696,13 @@ function buildMarketingSuggestions(form, followUps, lang = "en") {
   }
 
   const items = [
-    "Use the ocean view or strongest oceanfront image as the first photo.",
-    "Use the living room as the second photo to show space, light, and furnished presentation.",
-    "Use the kitchen as the third photo so tenants can judge daily living quality.",
-    "Use the backyard, garden, or greenhouse as the fourth photo to show outdoor value.",
-    "Mention garage and driveway parking in the first half of the ad.",
-    "Position the furnished setup as a primary feature for relocation or move-in-ready tenants.",
-    "Suggested Facebook / Marketplace headline themes: Ocean View, Beach Access, Fully Furnished.",
+    "★★★★★ Must: use the ocean view or strongest oceanfront image as the first photo.",
+    "★★★★★ Must: use the living room as the second photo to show space, light, and furnished presentation.",
+    "★★★★ Recommended: use the kitchen as the third photo so tenants can judge daily living quality.",
+    "★★★★ Recommended: show the backyard, garden, or greenhouse to communicate outdoor value.",
+    "★★★★ Recommended: position the furnished setup as a primary feature for relocation or move-in-ready tenants.",
+    "★★★★ Recommended: mention garage and driveway parking in the first half of the ad.",
+    "★★ Optional: add drone or elevated photos if budget allows, but do not replace core interior photos.",
   ];
   if (form.fencedBackyard !== "Yes") items.push("Do not claim fully fenced yard unless confirmed; use private outdoor space or garden area if accurate.");
   if (form.airbnbInterest === "Yes") items.push("Do not advertise STR income before rule verification is complete.");
@@ -667,16 +712,16 @@ function buildMarketingSuggestions(form, followUps, lang = "en") {
 function buildProfessionalPreliminaryRecommendation(form, followUps, lang = "en") {
   if (lang === "zh") {
     return [
-      "根据目前信息，如果我是这套物业的物业经理，我会先尝试整租，但不会只依赖一个高租金价格点。",
-      "如果 30 天内没有足够合格租客，我会建议重新评估租金定位，并同时查看是否能合法增加套间或分成两个出租单元。",
-      "如果业主计划长期持有出租，我会优先提高物业独立性：确认围栏、院子隐私、套间隐私、水电分摊和未来是否需要独立电表。",
+      "专业初步建议：先以高品质整租方向测试市场，但不应只依赖单一高租金价格点。",
+      "如 30 天内合格租客反馈不足，建议重新评估租金定位，并同步复核合法增加套间或两个出租单元的可行性。",
+      "如计划长期持有出租，建议优先提高物业独立性：围栏、院子隐私、套间隐私、水电分摊和未来是否需要独立电表。",
       "Airbnb / STR 暂时只作为备选方案，法规未核查前不建议作为主要出租策略。",
     ];
   }
   return [
-    "Based on the current information, if I were managing this property, I would first test it as a whole-home rental but avoid relying on one high-rent price point only.",
-    "If qualified demand is weak after 30 days, I would reassess rent positioning and review whether a legal suite or two-unit strategy is practical.",
-    "For long-term rental success, I would improve rental independence first: fencing, yard privacy, suite privacy, utility allocation, and whether a separate meter is needed.",
+    "Professional preliminary recommendation: first test the property as a premium whole-home rental, but do not rely on one high-rent price point only.",
+    "If qualified demand is weak after 30 days, reassess rent positioning and review whether a legal suite or two-unit strategy is practical.",
+    "For long-term rental success, prioritize rental independence first: fencing, yard privacy, suite privacy, utility allocation, and whether a separate meter is needed.",
     "Airbnb / STR should remain a backup strategy until current rules are verified.",
   ];
 }
@@ -733,14 +778,14 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
   if (form.knownIssues) reasons.push(lang === "zh" ? "✓ 已提供业主关注点和已知问题" : "✓ Owner concerns and known issues were provided");
   if (form.airbnbInterest === "Yes") reasons.push(lang === "zh" ? "⚠ STR 法规需实时确认" : "⚠ STR rules need current verification");
   reasons.push(lang === "zh" ? "⚠ 最终租金仍需结合当前市场和照片状态确认" : "⚠ Final rent still needs current market and photo/condition review");
-  return [lang === "zh" ? `AI 评估信心：${confidence.score}%` : `AI Assessment Confidence: ${confidence.score}%`, ...reasons];
+  return [lang === "zh" ? `Assessment Confidence：${getConfidenceLabel(confidence.score, lang)}` : `Assessment Confidence: ${getConfidenceLabel(confidence.score, lang)}`, ...reasons];
 }
 
 function buildServiceRecommendation(form, lang) {
   if (lang === "zh") {
     const items = [
       "★★★★★ AI Marketing Package：适合先把海景、家具齐全、车库、海边位置整理成专业广告和照片顺序。",
-      "★★★★☆ Professional Rental Listing：适合需要正式挂牌、筛选租客和测试 $4,688/月整租定位的业主。",
+      `★★★★☆ Professional Rental Listing：适合需要正式挂牌、筛选租客和测试 ${formatCurrency(form.targetRent, lang)}/月整租定位的业主。`,
       "★★★★★ Property Management：适合高租金、潜在分租、STR 法规和长期管理都需要专业把关的复杂物业。",
     ];
     if (form.airbnbInterest === "Yes" || form.existingSuite === "No" || hasOwnerOccupancyLegalWarning(form)) {
