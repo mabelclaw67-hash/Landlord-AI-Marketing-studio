@@ -85,6 +85,13 @@ function normalizeLang(value) {
   return value === "zh" ? "zh" : "en";
 }
 
+function formatAssessmentLocation(form, lang = "en") {
+  const street = String(form.propertyAddress || "").trim();
+  const cityProvincePostal = [form.city, form.province, form.postalCode].filter(Boolean).join(" ");
+  const location = [street, cityProvincePostal].filter(Boolean).join(", ");
+  return location || (lang === "zh" ? "本地市场" : "the local market");
+}
+
 export function createAssessmentId(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
   return [
@@ -104,6 +111,8 @@ export function createEmptyStrategyAssessment(overrides = {}) {
     preferredContact: "",
     propertyAddress: "",
     city: "Nanaimo",
+    province: "BC",
+    postalCode: "",
     communityArea: "",
     propertyType: "",
     bedrooms: "",
@@ -368,7 +377,7 @@ export function generatePreliminaryStrategySummary(form, lang = "en") {
 
 function buildExecutiveSummary(form, lang) {
   const type = lang === "zh" ? (form.propertyType === "House" ? "独立屋" : form.propertyType || "该物业") : (form.propertyType || "This property");
-  const city = form.city || (lang === "zh" ? "本地市场" : "the local market");
+  const city = formatAssessmentLocation(form, lang);
   const target = formatCurrency(form.targetRent, lang);
   if (lang === "zh") {
     return [
@@ -842,6 +851,8 @@ export async function submitStrategyAssessment(form, lang = "en") {
     "AI Flags": aiFlags,
     "AI Confidence & Flags": aiConfidenceFlags,
     "Service Path": servicePath,
+    "Province": form.province || "",
+    "Postal Code": form.postalCode || "",
     "Suite Legal Status": form.suiteLegalStatus || "",
     "Suite Permit Status": form.suitePermitStatus || "",
     "Suite Hydro Meter": form.suiteHydroMeter || "",

@@ -21,6 +21,8 @@ const FIELD_LABELS = {
     preferredContact: "Preferred Contact",
     propertyAddress: "Property Address",
     city: "City",
+    province: "Province",
+    postalCode: "Postal Code",
     communityArea: "Community / Area",
     propertyType: "Property Type",
     bedrooms: "Bedrooms",
@@ -70,6 +72,8 @@ const FIELD_LABELS = {
     preferredContact: "偏好联系方式",
     propertyAddress: "物业地址",
     city: "城市",
+    province: "省份",
+    postalCode: "邮政编码",
     communityArea: "社区 / 区域",
     propertyType: "物业类型",
     bedrooms: "卧室数",
@@ -561,6 +565,10 @@ export default function StrategyAssessment({ lang }) {
           <TextInput field="propertyAddress" form={form} update={update} labels={labels} required />
           <div className="form-row">
             <TextInput field="city" form={form} update={update} labels={labels} required />
+            <TextInput field="province" form={form} update={update} labels={labels} required />
+          </div>
+          <div className="form-row">
+            <TextInput field="postalCode" form={form} update={update} labels={labels} />
             <TextInput field="communityArea" form={form} update={update} labels={labels} />
           </div>
           <div className="form-row">
@@ -872,7 +880,7 @@ function ReviewSummary({ form, preliminary, questions, labels, copy, lang }) {
 
   const summaryRows = [
     [copy.assessmentId.replace("Assessment ID", "Owner").replace("初评编号", "业主"), form.ownerName || "-"],
-    [labels.propertyAddress, [form.propertyAddress, form.city].filter(Boolean).join(", ") || "-"],
+    [labels.propertyAddress, formatDisplayAddress(form) || "-"],
     [labels.ownerGoal, displayOption(form.ownerGoal, lang) || "-"],
     [copy.legalRisk, displayOption(legalRisk, lang)],
   ];
@@ -929,6 +937,11 @@ function ReviewList({ title, items }) {
 
 function displayOption(option, lang) {
   return lang === "zh" ? (OPTION_LABELS_ZH[option] || option) : option;
+}
+
+function formatDisplayAddress(form) {
+  const cityProvincePostal = [form.city, form.province, form.postalCode].filter(Boolean).join(" ");
+  return [form.propertyAddress, cityProvincePostal].filter(Boolean).join(", ");
 }
 
 function FollowUpQuestions({ questions, answers, update, copy, lang }) {
