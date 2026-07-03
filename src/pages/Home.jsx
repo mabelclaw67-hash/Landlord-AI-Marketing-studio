@@ -56,6 +56,10 @@ const T = {
     rentalCardTitle: "Rental Studio",
     rentalCardDesc:
       "Create bilingual rental ads, listing pages, QR codes, online rental application links, and social sharing packages.",
+    strategyEyebrow: "For owners comparing rental options",
+    strategyCardTitle: "AI Property Strategy Assessment",
+    strategyCardDesc:
+      "Complete a landlord intake form for property details, suite potential, Airbnb / STR interest, and Mabel-style follow-up questions.",
     saleEyebrow: "For home sellers, FSBO owners, and realtors",
     saleCardTitle: "Home Sale Studio",
     saleCardDesc:
@@ -188,6 +192,10 @@ const T = {
     rentalCardTitle: "出租房源工作台",
     rentalCardDesc:
       "创建双语出租广告、房源页面、二维码、在线租客申请链接和社交分享套件。",
+    strategyEyebrow: "适用于正在比较出租方案的业主",
+    strategyCardTitle: "AI 房产出租策略初评",
+    strategyCardDesc:
+      "填写房东信息、物业条件、套房潜力、Airbnb / 短租意向，以及 Mabel 风格的动态追问。",
     saleEyebrow: "适用于卖家、自售业主和房产经纪人",
     saleCardTitle: "出售房源工作台",
     saleCardDesc:
@@ -567,6 +575,14 @@ export default function Home({ lang }) {
               <h3>{s.rentalCardTitle}</h3>
               <p>{s.rentalCardDesc}</p>
               <Link to="/examples" className="lh-btn lh-btn--sand">{s.rentalCardTitle}</Link>
+            </article>
+
+            <article className="lh-platform-card">
+              <div className="lh-platform-card__icon">🧭</div>
+              <div className="lh-platform-card__eyebrow">{s.strategyEyebrow}</div>
+              <h3>{s.strategyCardTitle}</h3>
+              <p>{s.strategyCardDesc}</p>
+              <Link to="/landlord-ai/strategy-assessment" className="lh-btn lh-btn--sand">{s.strategyCardTitle}</Link>
             </article>
 
             <article className="lh-platform-card lh-platform-card--soft">

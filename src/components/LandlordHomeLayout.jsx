@@ -8,6 +8,7 @@ const NAV = {
     home: "Home",
     services: "Services",
     rental: "Rental Studio",
+    strategy: "AI Strategy Assessment",
     sale: "Home Sale Studio",
     photoGuide: "Photo Guide",
     faq: "FAQ",
@@ -26,6 +27,7 @@ const NAV = {
     home: "首页",
     services: "服务介绍",
     rental: "出租工作台",
+    strategy: "AI 出租策略初评",
     sale: "出售工作台",
     photoGuide: "拍照指南",
     faq: "常见问题",
@@ -69,6 +71,10 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           <NavLink to="/examples" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏢</span>
             <span><strong>{n.rental}</strong></span>
+          </NavLink>
+          <NavLink to="/landlord-ai/strategy-assessment" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+            <span className="lh-nav-item__icon">🧭</span>
+            <span><strong>{n.strategy}</strong></span>
           </NavLink>
           <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏠</span>

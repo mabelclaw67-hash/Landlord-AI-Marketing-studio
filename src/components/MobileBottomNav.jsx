@@ -5,8 +5,8 @@ import { AL } from "../utils/adminLabels";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
-  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", sale: "Sale", trial: "Trial", contact: "Contact" },
-  zh: { home: "首页", photoGuide: "拍照", rentals: "出租", sale: "出售", trial: "试用", contact: "联系" },
+  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", strategy: "AI Plan", sale: "Sale", contact: "Contact" },
+  zh: { home: "首页", photoGuide: "拍照", rentals: "出租", strategy: "初评", sale: "出售", contact: "联系" },
 };
 
 // ── Admin bottom nav ─────────────────────────────────────────────────────────
@@ -97,13 +97,13 @@ function PublicMobileNav({ lang }) {
         <span>🏘️</span>
         <span>{labels.rentals}</span>
       </NavLink>
+      <NavLink to="/landlord-ai/strategy-assessment" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+        <span>🧭</span>
+        <span>{labels.strategy}</span>
+      </NavLink>
       <NavLink to="/home-sale-studio" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>🏡</span>
         <span>{labels.sale}</span>
-      </NavLink>
-      <NavLink to="/trial-access" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
-        <span>🗝️</span>
-        <span>{labels.trial}</span>
       </NavLink>
       <NavLink to="/contact" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>✉️</span>
