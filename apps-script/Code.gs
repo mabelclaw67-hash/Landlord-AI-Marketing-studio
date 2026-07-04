@@ -3252,6 +3252,48 @@ function listUploadedSupportFiles_(folderUrl) {
   return uploaded;
 }
 
+function normalizeSupportDocumentMatchText_(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function publicSupportFileMatchesApplication_(file, record) {
+  var applicantName = normalizeSupportDocumentMatchText_(record.applicantName);
+  var email = normalizeSupportDocumentMatchText_(record.email);
+  var phone = normalizeSupportDocumentMatchText_(record.phone);
+  var fileText = normalizeSupportDocumentMatchText_(file.getName() + "\n" + (file.getDescription() || ""));
+  if (applicantName && fileText.indexOf(applicantName) >= 0) return true;
+  if (email && fileText.indexOf(email) >= 0) return true;
+  if (phone && fileText.indexOf(phone) >= 0) return true;
+  return false;
+}
+
+function listPublicSupportFilesForApplication_(listing, record) {
+  var listingFolder = findExistingRentalListingMediaFolder_(listing);
+  var folders = listingFolder.getFoldersByName("Supporting Documents");
+  if (!folders.hasNext()) return [];
+  var folder = folders.next();
+  var files = folder.getFiles();
+  var uploaded = [];
+  while (files.hasNext()) {
+    var file = files.next();
+    if (!publicSupportFileMatchesApplication_(file, record)) continue;
+    uploaded.push({
+      name: file.getName(),
+      url: file.getUrl(),
+      category: inferSupportDocumentCategory_(file.getName()),
+    });
+  }
+  return uploaded;
+}
+
+function listSupportFilesForApplication_(record, listing) {
+  if (record.supportDocumentFolderUrl) {
+    var recordFiles = listUploadedSupportFiles_(record.supportDocumentFolderUrl);
+    if (recordFiles.length) return recordFiles;
+  }
+  return listPublicSupportFilesForApplication_(listing, record);
+}
+
 function getListingScreeningReportsFolder_(listing, createIfMissing) {
   if (!listing || !listing.driveFolderLink) return null;
   var folderId = extractDriveFolderId_(listing.driveFolderLink);
@@ -3746,14 +3788,13 @@ function generateFullApplicantAuditReport_(recordId, auth) {
   if (auth && auth.mode === "trial" && !findListingByIdForEmail_(record.listingId, auth.email)) {
     throw new Error("Access denied for this listing.");
   }
-  if (!record.supportDocumentFolderUrl) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
   var uploadStatus = String(record.documentUploadStatus || "").toLowerCase();
-  if (uploadStatus !== "uploaded" && uploadStatus !== "complete") {
+  if (record.supportDocumentFolderUrl && uploadStatus !== "uploaded" && uploadStatus !== "complete") {
     throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
   }
   var listing = findListingById_(record.listingId);
   if (!listing) throw new Error("Listing not found: " + record.listingId);
-  var uploadedFiles = listUploadedSupportFiles_(record.supportDocumentFolderUrl);
+  var uploadedFiles = listSupportFilesForApplication_(record, listing);
   if (!uploadedFiles.length) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
   var analysis = analyzeApplicantSupportDocuments_(uploadedFiles);
   var markdown = buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, analysis);

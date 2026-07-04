@@ -580,11 +580,7 @@ export default function ApplicationReview() {
     app.uploadLink &&
     String(app.documentRequestSent || "").toLowerCase() === "yes"
   );
-  const canGenerateDraftReport = Boolean(
-    app.supportDocumentFolderUrl &&
-    ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase())
-  );
-  const canGenerateFullAuditReport = canGenerateDraftReport;
+  const canGenerateFullAuditReport = Boolean(app.recordId);
   const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
@@ -734,9 +730,9 @@ export default function ApplicationReview() {
             <InfoRow label="Drive File ID" value={app.fullAuditReportDriveFileId} mono />
           </div>
 
-          {!canGenerateFullAuditReport && (
+          {!app.supportDocumentFolderUrl && !Number(app.uploadedFileCount || 0) && (
             <div className="notice notice--warm" style={{ marginTop: 14 }}>
-              <p>Supporting documents are required before generating a Full Applicant Audit Report.</p>
+              <p>Record-level supporting document status is empty. The system will also check listing-level Supporting Documents before generating.</p>
             </div>
           )}
 

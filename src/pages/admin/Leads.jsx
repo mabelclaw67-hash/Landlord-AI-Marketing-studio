@@ -301,7 +301,6 @@ export default function Leads() {
             const doc = documentBadge(app);
             const report = reportBadge(app);
             const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
-            const hasSupportingDocs = ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase()) || Number(app.uploadedFileCount || 0) > 0;
             const reviewPath = app.recordId ? `/admin/application/${app.recordId}` : "";
 
             return (
@@ -338,7 +337,7 @@ export default function Leads() {
                   )}
                   {reviewPath && (
                     <Link to={`${reviewPath}#full-audit-report`} className="btn btn--ghost btn--sm">
-                      {report.tone === "ok" ? "View Full Audit" : hasSupportingDocs ? "Generate Full Audit" : "Supporting documents required"}
+                      {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
                     </Link>
                   )}
                   {app.fullAuditReportPdfUrl && (
@@ -403,7 +402,6 @@ export default function Leads() {
                   const doc = documentBadge(app);
                   const report = reportBadge(app);
                   const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
-                  const hasSupportingDocs = ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase()) || Number(app.uploadedFileCount || 0) > 0;
                   const screenColor =
                     screen.type === "ok"
                       ? { bg: "#edf7ee", fg: "#2e7d4f", border: "#b8e4c4" }
@@ -550,7 +548,7 @@ export default function Leads() {
                               to={`/admin/application/${app.recordId}#full-audit-report`}
                               className="btn btn--ghost btn--sm"
                             >
-                              {report.tone === "ok" ? "View Full Audit" : hasSupportingDocs ? "Generate Full Audit" : "Supporting documents required"}
+                              {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
                             </Link>
                           )}
                           {app.fullAuditReportPdfUrl && (
