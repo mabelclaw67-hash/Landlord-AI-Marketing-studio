@@ -434,15 +434,25 @@ export default function ApplicationReview() {
     setMessage("");
     try {
       const result = await generateFullApplicantAuditReport(app.recordId);
+      if (!result?.fullAuditReportPdfUrl || !result?.fullAuditReportDriveFileId) {
+        throw new Error("Report generated, but Drive save failed. Please download or retry save.");
+      }
       setApp((prev) => ({
         ...prev,
-        fullAuditReportStatus: result?.fullAuditReportStatus || "Generated",
-        fullAuditReportGeneratedAt: result?.fullAuditReportGeneratedAt || new Date().toISOString(),
-        fullAuditReportUrl: result?.fullAuditReportUrl || prev?.fullAuditReportUrl,
-        fullAuditReportPdfUrl: result?.fullAuditReportPdfUrl || prev?.fullAuditReportPdfUrl,
+        fullAuditReportStatus: "Generated",
+        fullAuditReportGeneratedAt: result.fullAuditReportGeneratedAt || new Date().toISOString(),
+        fullAuditReportUrl: result.fullAuditReportUrl || prev?.fullAuditReportUrl,
+        fullAuditReportPdfUrl: result.fullAuditReportPdfUrl,
+        fullAuditReportDriveFileId: result.fullAuditReportDriveFileId,
+        fullAuditReportDriveFileUrl: result.fullAuditReportDriveFileUrl || result.fullAuditReportPdfUrl,
+        fullAuditReportSavedFolderId: result.fullAuditReportSavedFolderId,
+        fullAuditReportSavedFolderName: result.fullAuditReportSavedFolderName || "Tenant Screening Reports",
+        fullAuditReportPdfFileName: result.fullAuditReportPdfFileName,
+        fullAuditReportSavedAt: result.fullAuditReportSavedAt,
         fullAuditReportMarkdown: result?.fullAuditReportMarkdown || prev?.fullAuditReportMarkdown,
+        fullAuditReportError: "",
       }));
-      setMessage("Full Applicant Audit Report generated and saved to Tenant Screening Reports.");
+      setMessage(`Full Applicant Audit Report generated and saved to Tenant Screening Reports: ${result.fullAuditReportPdfFileName || "PDF saved"}.`);
     } catch (e) {
       setMessage("Full Applicant Audit Report failed: " + (e.message || "unknown error"));
     } finally {
@@ -517,6 +527,7 @@ export default function ApplicationReview() {
 
   if (!app) {
     const setupError = isSetupErr(error);
+    const accessDenied = String(error || "").toLowerCase().includes("access denied");
     return (
       <div>
         <div className="flex-between mb-24">
@@ -540,8 +551,12 @@ export default function ApplicationReview() {
           </div>
         ) : (
           <div className="notice notice--error">
-            <h4>Application Not Found</h4>
-            <p>{error || `No record found for "${applicationId}".`}</p>
+            <h4>{accessDenied ? "Access denied" : "Application Not Found"}</h4>
+            <p>
+              {accessDenied
+                ? "Access denied. You do not have permission to view this application."
+                : error || `No record found for "${applicationId}".`}
+            </p>
           </div>
         )}
         <div style={{ marginTop: 16 }}>
@@ -573,19 +588,14 @@ export default function ApplicationReview() {
   const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
-  // Admin: always allowed.
-  // Trial: only if their email matches the listing's ownerEmail.
-  //   - If listing not loaded yet: deny until resolved (avoid flash of allowed state).
-  //   - If listing has no ownerEmail field: grant (can't verify, benefit of the doubt).
+  // Backend getApplicationById validates applicant RecordID against listing access
+  // before this page receives application data. Frontend keeps the same boundary:
+  // internal admin or an authenticated trial listing owner only.
   const _isAdmin      = isAdminSessionActive();
   const _trialSession = readTrialAccess();
   const _isTrial      = !!_trialSession && !_isAdmin;
   const canSeeInternalDriveLinks = _isAdmin;
-  const canAccessSubmittedPdf = _isAdmin
-    || !_isTrial
-    || (!listing && false)  // listing still loading → hold off
-    || (listing && !listing.ownerEmail)  // ownerEmail not set → can't verify, allow
-    || (listing?.ownerEmail?.toLowerCase() === (_trialSession?.email || "").toLowerCase());
+  const canAccessSubmittedPdf = _isAdmin || _isTrial;
 
   return (
     <div>
@@ -719,7 +729,9 @@ export default function ApplicationReview() {
           <div className="info-grid">
             <InfoRow label="Report Status" value={app.fullAuditReportStatus || "Not Generated"} />
             <InfoRow label="Generated At" value={app.fullAuditReportGeneratedAt} />
-            <InfoRow label="Saved Folder" value="Tenant Screening Reports" />
+            <InfoRow label="Saved Folder" value={app.fullAuditReportSavedFolderName || "Tenant Screening Reports"} />
+            <InfoRow label="PDF File Name" value={app.fullAuditReportPdfFileName} />
+            <InfoRow label="Drive File ID" value={app.fullAuditReportDriveFileId} mono />
           </div>
 
           {!canGenerateFullAuditReport && (
@@ -736,8 +748,17 @@ export default function ApplicationReview() {
                 disabled={!canGenerateFullAuditReport || generatingFullAudit}
                 onClick={handleGenerateFullAuditReport}
               >
-                {generatingFullAudit ? "Generating..." : "Generate Full Applicant Audit Report"}
+                {generatingFullAudit
+                  ? "Generating..."
+                  : app.fullAuditReportPdfUrl
+                  ? "Regenerate Full Applicant Audit Report"
+                  : "Generate Full Applicant Audit Report"}
               </button>
+            )}
+            {app.fullAuditReportError && (
+              <span className="text-muted text-sm" style={{ color: "#a05a00", alignSelf: "center" }}>
+                {app.fullAuditReportError}
+              </span>
             )}
             {app.fullAuditReportMarkdown && (
               <a href="#full-audit-viewer" className="btn btn--ghost btn--sm">
@@ -747,6 +768,11 @@ export default function ApplicationReview() {
             {canSeeInternalDriveLinks && app.fullAuditReportPdfUrl && (
               <a href={app.fullAuditReportPdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                 Download Full Audit PDF
+              </a>
+            )}
+            {canSeeInternalDriveLinks && app.fullAuditReportDriveFileUrl && (
+              <a href={app.fullAuditReportDriveFileUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                Open Drive PDF
               </a>
             )}
             {canSeeInternalDriveLinks && app.fullAuditReportUrl && (

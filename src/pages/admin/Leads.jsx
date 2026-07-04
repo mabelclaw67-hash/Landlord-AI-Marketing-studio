@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getAllApplications, requestSupportingDocuments } from "../../utils/storage";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  getAllApplications,
+  getApplicationsByListing,
+  getListings,
+  requestSupportingDocuments,
+} from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
-import { isAdminSessionActive } from "../../utils/trialAccess";
+import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -43,30 +48,77 @@ function documentBadge(app) {
 }
 
 function reportBadge(app) {
-  if (String(app.fullAuditReportStatus || "").toLowerCase() === "generated" || app.fullAuditReportUrl || app.fullAuditReportPdfUrl) {
+  const status = String(app.fullAuditReportStatus || "").toLowerCase();
+  if (status.includes("failed")) return { label: "Drive save failed", tone: "error" };
+  if (app.fullAuditReportPdfUrl) {
     return { label: "Generated", tone: "ok" };
   }
+  if (app.fullAuditReportUrl) return { label: "Drive save failed", tone: "error" };
   return { label: "Not generated", tone: "muted" };
+}
+
+function listingIdNumber(id) {
+  const match = String(id || "").match(/(\d{4})\D+(\d+)\s*$/);
+  if (match) return Number(match[1]) * 100000 + Number(match[2]);
+  const fallback = String(id || "").match(/(\d+)\s*$/);
+  return fallback ? Number(fallback[1]) : 0;
+}
+
+function compareListingIdDesc(a, b) {
+  const numDiff = listingIdNumber(b) - listingIdNumber(a);
+  if (numDiff) return numDiff;
+  return String(b || "").localeCompare(String(a || ""));
+}
+
+function submittedTime(app) {
+  const time = new Date(app.submittedAt || app.createdAt || app.updatedAt || 0).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortApplications(apps) {
+  return [...apps].sort((a, b) => {
+    const listingDiff = compareListingIdDesc(a.listingId, b.listingId);
+    if (listingDiff) return listingDiff;
+    const dateDiff = submittedTime(b) - submittedTime(a);
+    if (dateDiff) return dateDiff;
+    return String(b.recordId || "").localeCompare(String(a.recordId || ""));
+  });
 }
 
 export default function Leads() {
   const lang = useLang();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryListingId = searchParams.get("listingId") || "";
   const [apps, setApps]       = useState([]);
+  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
-  const [filter, setFilter]   = useState("");
   const [busyId, setBusyId]   = useState("");
-  const canSeeInternalDriveLinks = isAdminSessionActive();
+  const filter = queryListingId;
+  const isInternalAdmin = isAdminSessionActive();
+  const trialSession = readTrialAccess();
+  const isTrialUser = !!trialSession && !isInternalAdmin;
+  const canSeeInternalDriveLinks = isInternalAdmin;
 
-  function refreshApplications() {
-    return getAllApplications().then(setApps);
-  }
+  const refreshApplications = useCallback(() => {
+    const appPromise = filter
+      ? getApplicationsByListing(filter)
+      : isInternalAdmin
+      ? getAllApplications()
+      : Promise.resolve([]);
+
+    return Promise.all([appPromise, getListings()]).then(([appRows, listingRows]) => {
+      setApps(Array.isArray(appRows) ? appRows : []);
+      setListings(Array.isArray(listingRows) ? listingRows : []);
+      setError("");
+    });
+  }, [filter, isInternalAdmin]);
 
   useEffect(() => {
     refreshApplications()
       .catch((e) => setError(e.message || "Failed to load applications."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshApplications]);
 
   async function handleRequestDocuments(app) {
     if (!app.recordId) return;
@@ -84,9 +136,30 @@ export default function Leads() {
     }
   }
 
+  function handleFilterChange(nextListingId) {
+    if (nextListingId) setSearchParams({ listingId: nextListingId });
+    else setSearchParams({});
+  }
+
   const setupError  = isSetupErr(error);
-  const listingIds  = [...new Set(apps.map((a) => a.listingId).filter(Boolean))];
-  const visible     = filter ? apps.filter((a) => a.listingId === filter) : apps;
+  const sortedApps  = sortApplications(apps);
+  const listingIdsFromApps = sortedApps.map((a) => a.listingId).filter(Boolean);
+  const listingIdsFromListings = listings.map((l) => l.id).filter(Boolean);
+  const listingIds  = [...new Set([...listingIdsFromListings, ...listingIdsFromApps])].sort(compareListingIdDesc);
+  const visible = filter && !error
+    ? sortedApps.filter((a) => a.listingId === filter)
+    : isInternalAdmin
+    ? sortedApps
+    : [];
+  const accessDenied = !setupError && String(error || "").toLowerCase().includes("access denied");
+  const trialNeedsListing = isTrialUser && !filter && !loading && !setupError && !accessDenied;
+  const resultLabel = accessDenied
+    ? "Access denied. You do not have permission to view this listing's applications."
+    : trialNeedsListing
+    ? "Please select one of your listings to view applications."
+    : filter
+    ? `Showing ${visible.length} application${visible.length === 1 ? "" : "s"} for ${filter}`
+    : `Showing ${visible.length} application${visible.length === 1 ? "" : "s"} across all listings`;
 
   return (
     <div>
@@ -100,6 +173,11 @@ export default function Leads() {
             租客申请 · AI 初步筛查 · 数据来源：<code>07 Intake Records</code>
             {!loading && !setupError && ` · ${apps.length} total`}
           </p>
+          {!loading && !setupError && (
+            <p className="text-muted text-sm" style={{ marginTop: 4 }}>
+              {resultLabel}
+            </p>
+          )}
         </div>
         <Link to="/admin/listings" className="btn btn--ghost btn--sm">← Listings</Link>
       </div>
@@ -124,31 +202,36 @@ export default function Leads() {
       {/* Real error (non-setup) */}
       {error && !setupError && (
         <div className="notice notice--error mb-24">
-          <h4>Error</h4>
-          <p>{error}</p>
+          <h4>{accessDenied ? "Access denied" : "Error"}</h4>
+          <p>{accessDenied ? resultLabel : error}</p>
         </div>
       )}
 
       {/* Listing filter */}
-      {listingIds.length > 1 && (
-        <div className="card mb-16" style={{ padding: "10px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-              Filter by listing:
-            </span>
+      {!loading && !setupError && listingIds.length > 0 && (
+        <div className="card mb-16 admin-leads-filter-card">
+          <div className="admin-leads-filter-card__row">
+            <label htmlFor="listing-filter" className="admin-leads-filter-card__label">
+              Filter by listing
+            </label>
             <select
+              id="listing-filter"
               className="select-control"
-              style={{ maxWidth: 300 }}
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={(e) => handleFilterChange(e.target.value)}
             >
-              <option value="">All listings ({apps.length})</option>
+              {isInternalAdmin ? (
+                <option value="">All listings ({apps.length})</option>
+              ) : (
+                <option value="" disabled>Select one of your listings</option>
+              )}
               {listingIds.map((id) => (
                 <option key={id} value={id}>
                   {id} ({apps.filter((a) => a.listingId === id).length})
                 </option>
               ))}
             </select>
+            <span className="admin-leads-filter-card__count">{resultLabel}</span>
           </div>
         </div>
       )}
@@ -157,6 +240,37 @@ export default function Leads() {
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>
           Loading…
+        </div>
+      ) : accessDenied ? (
+        <div className="card mb-24">
+          <div style={{ textAlign: "center", padding: "28px 12px" }}>
+            <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
+              {lang === "zh" ? "访问被拒绝" : "Access denied"}
+            </h2>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem", lineHeight: 1.7, maxWidth: 580, margin: "0 auto" }}>
+              Access denied. You do not have permission to view this listing's applications.
+            </p>
+          </div>
+        </div>
+      ) : trialNeedsListing ? (
+        <div className="card mb-24">
+          <div style={{ padding: "24px 12px" }}>
+            <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
+              {lang === "zh" ? "请选择房源查看申请" : "Select a listing to view applications"}
+            </h2>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem", lineHeight: 1.7, marginBottom: 14 }}>
+              {lang === "zh"
+                ? "外部房东账号只能查看自己房源下的申请，不能打开全部申请列表。"
+                : "External listing owners can only view applications for their own listings. The all-applications view is internal admin only."}
+            </p>
+            <div className="admin-action-row admin-action-row--full-mobile">
+              {listingIds.map((id) => (
+                <Link key={id} to={`/admin/leads?listingId=${encodeURIComponent(id)}`} className="btn btn--ghost btn--sm">
+                  {id} ({apps.filter((a) => a.listingId === id).length})
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       ) : visible.length === 0 ? (
         <div className="card mb-24">
@@ -187,6 +301,7 @@ export default function Leads() {
             const doc = documentBadge(app);
             const report = reportBadge(app);
             const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
+            const hasSupportingDocs = ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase()) || Number(app.uploadedFileCount || 0) > 0;
             const reviewPath = app.recordId ? `/admin/application/${app.recordId}` : "";
 
             return (
@@ -223,13 +338,13 @@ export default function Leads() {
                   )}
                   {reviewPath && (
                     <Link to={`${reviewPath}#full-audit-report`} className="btn btn--ghost btn--sm">
-                      {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
+                      {report.tone === "ok" ? "View Full Audit" : hasSupportingDocs ? "Generate Full Audit" : "Supporting documents required"}
                     </Link>
                   )}
-                  {reviewPath && (
-                    <Link to={`${reviewPath}#application-pdf`} className="btn btn--ghost btn--sm">
-                      Download PDF
-                    </Link>
+                  {app.fullAuditReportPdfUrl && (
+                    <a href={app.fullAuditReportPdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                      Download Full Audit PDF
+                    </a>
                   )}
                   {canRequestDocs && (
                     <button
@@ -288,6 +403,7 @@ export default function Leads() {
                   const doc = documentBadge(app);
                   const report = reportBadge(app);
                   const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
+                  const hasSupportingDocs = ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase()) || Number(app.uploadedFileCount || 0) > 0;
                   const screenColor =
                     screen.type === "ok"
                       ? { bg: "#edf7ee", fg: "#2e7d4f", border: "#b8e4c4" }
@@ -434,8 +550,18 @@ export default function Leads() {
                               to={`/admin/application/${app.recordId}#full-audit-report`}
                               className="btn btn--ghost btn--sm"
                             >
-                              {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
+                              {report.tone === "ok" ? "View Full Audit" : hasSupportingDocs ? "Generate Full Audit" : "Supporting documents required"}
                             </Link>
+                          )}
+                          {app.fullAuditReportPdfUrl && (
+                            <a
+                              href={app.fullAuditReportPdfUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn--ghost btn--sm"
+                            >
+                              Download Full Audit PDF
+                            </a>
                           )}
                         </div>
                       </td>

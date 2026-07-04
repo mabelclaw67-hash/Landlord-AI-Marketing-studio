@@ -19,6 +19,7 @@ const T = {
       "One platform for rental and home sale marketing across public pages, applications, and sharing.",
     requestAccess: "Request Access",
     trialAccess: "Trial Access",
+    adminAccess: "Admin",
     learnMore: "Learn More",
 
     // why card
@@ -159,6 +160,7 @@ const T = {
       "一站式平台，覆盖出租与出售房源的公开页面、租客申请和社交分享。",
     requestAccess: "申请访问",
     trialAccess: "免费试用",
+    adminAccess: "出租后台",
     learnMore: "了解详情",
 
     // why card
@@ -413,6 +415,7 @@ export default function Home({ lang }) {
             <div className="lh-hero__actions">
               <Link to="/contact" className="lh-btn lh-btn--sand">{s.requestAccess}</Link>
               <Link to="/trial-access" className="lh-btn lh-btn--white">{s.trialAccess}</Link>
+              <Link to="/admin" className="lh-btn lh-btn--white">{s.adminAccess}</Link>
               <a href="#studio-modules" className="lh-btn lh-btn--white">{s.learnMore}</a>
             </div>
           </div>

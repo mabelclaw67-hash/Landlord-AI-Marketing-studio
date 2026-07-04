@@ -1422,8 +1422,8 @@ export default function ListingDetail({ lang: langProp }) {
           </p>
         </div>
         <div className="admin-workflow-entry-card__actions">
-          <Link to="/admin/leads" className="btn btn--primary btn--sm">
-            {lang === "zh" ? "查看申请管理" : "View Applications"}
+          <Link to={`/admin/leads?listingId=${encodeURIComponent(listing.id)}`} className="btn btn--primary btn--sm">
+            {lang === "zh" ? "查看本房源申请" : "View Applications for This Listing"}
           </Link>
           <Link to={`/apply/${listing.id}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
             {lang === "zh" ? "打开申请入口" : "Open Application Link"}

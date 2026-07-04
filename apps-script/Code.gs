@@ -3220,6 +3220,7 @@ var SCREENING_REPORT_CATEGORIES = [
 
 var FULL_AUDIT_REPORT_FOLDER_NAME = "Tenant Screening Reports";
 var FULL_AUDIT_REPORT_PREFIX = "Full Applicant Audit";
+var FULL_AUDIT_REPORT_FILE_PREFIX = "Full_Applicant_Audit";
 
 function inferSupportDocumentCategory_(fileName) {
   var lower = String(fileName || "").toLowerCase();
@@ -3251,19 +3252,25 @@ function listUploadedSupportFiles_(folderUrl) {
   return uploaded;
 }
 
-function getFullAuditReportsFolder_(folderUrl, createIfMissing) {
-  var folderId = extractDriveFolderId_(folderUrl);
+function getListingScreeningReportsFolder_(listing, createIfMissing) {
+  if (!listing || !listing.driveFolderLink) return null;
+  var folderId = extractDriveFolderId_(listing.driveFolderLink);
   if (!folderId) return null;
-  var supportFolder = DriveApp.getFolderById(folderId);
-  var existing = supportFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
+  var listingFolder = DriveApp.getFolderById(folderId);
+  var existing = listingFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
   if (existing.hasNext()) return existing.next();
-  return createIfMissing ? supportFolder.createFolder(FULL_AUDIT_REPORT_FOLDER_NAME) : null;
+  return createIfMissing ? listingFolder.createFolder(FULL_AUDIT_REPORT_FOLDER_NAME) : null;
 }
 
 function safeFullAuditNamePart_(value, fallback) {
   return sanitizePdfFilePart_(value || fallback || "Applicant", fallback || "Applicant")
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, "_")
     .trim();
+}
+
+function isFullAuditReportFileName_(name) {
+  var text = String(name || "");
+  return text.indexOf(FULL_AUDIT_REPORT_PREFIX) === 0 || text.indexOf(FULL_AUDIT_REPORT_FILE_PREFIX) === 0;
 }
 
 function readSupportDocumentText_(file) {
@@ -3313,8 +3320,11 @@ function analyzeApplicantSupportDocuments_(uploadedFiles) {
   return { reviewed: reviewed, manualVerification: manual };
 }
 
-function fullAuditLatestInfo_(folderUrl, includeMarkdown) {
-  var folder = getFullAuditReportsFolder_(folderUrl, false);
+function fullAuditLatestInfo_(app, includeMarkdown) {
+  if (!app || !app.listingId) return { status: "Not Generated" };
+  var listing = findListingById_(app.listingId);
+  if (!listing) return { status: "Not Generated" };
+  var folder = getListingScreeningReportsFolder_(listing, false);
   if (!folder) return { status: "Not Generated" };
   var files = folder.getFiles();
   var latestMd = null;
@@ -3322,7 +3332,8 @@ function fullAuditLatestInfo_(folderUrl, includeMarkdown) {
   while (files.hasNext()) {
     var file = files.next();
     var name = file.getName();
-    if (name.indexOf(FULL_AUDIT_REPORT_PREFIX) !== 0) continue;
+    if (!isFullAuditReportFileName_(name)) continue;
+    if (name.indexOf(app.recordId) === -1) continue;
     var lower = name.toLowerCase();
     if (lower.slice(-3) === ".md" && (!latestMd || file.getLastUpdated() > latestMd.getLastUpdated())) latestMd = file;
     if (lower.slice(-4) === ".pdf" && (!latestPdf || file.getLastUpdated() > latestPdf.getLastUpdated())) latestPdf = file;
@@ -3332,11 +3343,25 @@ function fullAuditLatestInfo_(folderUrl, includeMarkdown) {
   if (includeMarkdown && latestMd) {
     try { markdown = latestMd.getBlob().getDataAsString(); } catch (err) { markdown = ""; }
   }
+  if (!latestPdf) {
+    return {
+      status: "Drive save failed",
+      generatedAt: latestMd ? latestMd.getLastUpdated().toISOString() : "",
+      url: latestMd ? latestMd.getUrl() : "",
+      pdfUrl: "",
+      markdown: markdown,
+      error: "Full Audit markdown exists, but PDF is missing from Tenant Screening Reports.",
+    };
+  }
   return {
     status: "Generated",
     generatedAt: (latestMd || latestPdf).getLastUpdated().toISOString(),
     url: latestMd ? latestMd.getUrl() : "",
     pdfUrl: latestPdf ? latestPdf.getUrl() : "",
+    driveFileId: latestPdf.getId(),
+    pdfFileName: latestPdf.getName(),
+    savedFolderId: folder.getId(),
+    savedFolderName: FULL_AUDIT_REPORT_FOLDER_NAME,
     markdown: markdown,
   };
 }
@@ -3347,11 +3372,16 @@ function enrichApplicationWithFullAudit_(app, includeMarkdown) {
     return app;
   }
   try {
-    var info = fullAuditLatestInfo_(app.supportDocumentFolderUrl, includeMarkdown);
+    var info = fullAuditLatestInfo_(app, includeMarkdown);
     app.fullAuditReportStatus = info.status || "Not Generated";
     app.fullAuditReportGeneratedAt = info.generatedAt || "";
     app.fullAuditReportUrl = info.url || "";
     app.fullAuditReportPdfUrl = info.pdfUrl || "";
+    app.fullAuditReportDriveFileId = info.driveFileId || "";
+    app.fullAuditReportPdfFileName = info.pdfFileName || "";
+    app.fullAuditReportSavedFolderId = info.savedFolderId || "";
+    app.fullAuditReportSavedFolderName = info.savedFolderName || FULL_AUDIT_REPORT_FOLDER_NAME;
+    app.fullAuditReportError = info.error || "";
     if (includeMarkdown) app.fullAuditReportMarkdown = info.markdown || "";
   } catch (err) {
     app.fullAuditReportStatus = "Unknown";
@@ -3649,15 +3679,17 @@ function buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, docume
   return lines.join("\n");
 }
 
-function saveFullApplicantAuditToDrive_(folderUrl, markdown, record) {
-  var folder = getFullAuditReportsFolder_(folderUrl, true);
+function saveFullApplicantAuditToDrive_(listing, markdown, record) {
+  var folder = getListingScreeningReportsFolder_(listing, true);
+  if (!folder) throw new Error("Tenant Screening Reports folder could not be opened for listing: " + record.listingId);
   var date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   var baseName = [
-    FULL_AUDIT_REPORT_PREFIX,
+    "Full_Applicant_Audit",
     safeFullAuditNamePart_(record.applicantName, "Applicant"),
+    safeFullAuditNamePart_(record.recordId, "Record"),
     safeFullAuditNamePart_(record.listingId, "Listing"),
     date
-  ].join(" - ");
+  ].join("_");
   var mdName = baseName + ".md";
   var pdfName = baseName + ".pdf";
   var oldMd = folder.getFilesByName(mdName);
@@ -3690,7 +3722,22 @@ function saveFullApplicantAuditToDrive_(folderUrl, markdown, record) {
   trySetDriveViewSharing_(mdFile, "full audit markdown");
   trySetDriveViewSharing_(docFile, "full audit document");
   trySetDriveViewSharing_(pdfFile, "full audit pdf");
-  return { reportUrl: mdFile.getUrl(), pdfUrl: pdfFile.getUrl(), generatedAt: new Date().toISOString(), markdown: markdown };
+  return {
+    reportType: "full_applicant_audit",
+    listingId: record.listingId,
+    applicantRecordId: record.recordId,
+    applicantName: record.applicantName || "",
+    reportUrl: mdFile.getUrl(),
+    pdfUrl: pdfFile.getUrl(),
+    driveFileId: pdfFile.getId(),
+    driveFileUrl: pdfFile.getUrl(),
+    folderId: folder.getId(),
+    folderName: FULL_AUDIT_REPORT_FOLDER_NAME,
+    pdfFileName: pdfFile.getName(),
+    generatedAt: new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+    markdown: markdown
+  };
 }
 
 function generateFullApplicantAuditReport_(recordId, auth) {
@@ -3710,14 +3757,27 @@ function generateFullApplicantAuditReport_(recordId, auth) {
   if (!uploadedFiles.length) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
   var analysis = analyzeApplicantSupportDocuments_(uploadedFiles);
   var markdown = buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, analysis);
-  var saved = saveFullApplicantAuditToDrive_(record.supportDocumentFolderUrl, markdown, record);
+  var saved = saveFullApplicantAuditToDrive_(listing, markdown, record);
+  if (!saved.pdfUrl || !saved.driveFileId) {
+    throw new Error("Report generated, but Drive save failed. Please download or retry save.");
+  }
   return {
     success: true,
+    reportType: saved.reportType,
     recordId: recordId,
     fullAuditReportStatus: "Generated",
     fullAuditReportGeneratedAt: saved.generatedAt,
     fullAuditReportUrl: saved.reportUrl,
     fullAuditReportPdfUrl: saved.pdfUrl,
+    fullAuditReportDriveFileId: saved.driveFileId,
+    fullAuditReportDriveFileUrl: saved.driveFileUrl,
+    fullAuditReportSavedFolderId: saved.folderId,
+    fullAuditReportSavedFolderName: saved.folderName,
+    fullAuditReportPdfFileName: saved.pdfFileName,
+    fullAuditReportSavedAt: saved.savedAt,
+    applicantRecordId: saved.applicantRecordId,
+    applicantName: saved.applicantName,
+    listingId: saved.listingId,
     fullAuditReportMarkdown: saved.markdown,
   };
 }

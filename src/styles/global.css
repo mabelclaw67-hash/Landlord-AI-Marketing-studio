@@ -5426,6 +5426,30 @@ tr:hover td { background: #F9F6F0; }
 .admin-report-viewer h3 {
   overflow-wrap: anywhere;
 }
+.admin-leads-filter-card {
+  padding: 12px 16px;
+}
+.admin-leads-filter-card__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-leads-filter-card__label {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin-leads-filter-card .select-control {
+  max-width: 320px;
+}
+.admin-leads-filter-card__count {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
 
 @media (max-width: 600px) {
   .admin-desktop-table { display: none !important; }
@@ -5485,6 +5509,7 @@ tr:hover td { background: #F9F6F0; }
   }
   .admin-report-status--ok { color: #2e7d4f; }
   .admin-report-status--muted { color: var(--color-text-muted); }
+  .admin-report-status--error { color: #b45309; }
   .admin-application-card__actions {
     display: grid;
     gap: 8px;
@@ -5492,6 +5517,20 @@ tr:hover td { background: #F9F6F0; }
   .admin-application-card__actions .btn {
     width: 100%;
     white-space: normal;
+  }
+  .admin-leads-filter-card {
+    padding: 12px;
+  }
+  .admin-leads-filter-card__row {
+    display: grid;
+    gap: 8px;
+  }
+  .admin-leads-filter-card .select-control {
+    width: 100%;
+    max-width: none;
+  }
+  .admin-leads-filter-card__count {
+    line-height: 1.4;
   }
   .admin-workflow-entry-card {
     display: grid;

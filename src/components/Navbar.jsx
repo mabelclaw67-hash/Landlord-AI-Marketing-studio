@@ -29,6 +29,7 @@ const TENANT_NAV = {
     rentalListings: "Rental Listings",
     contact: "Contact",
     applyNow: "Apply Now",
+    admin: "Admin",
   },
   zh: {
     brand: "Vanisland 出租",
@@ -36,6 +37,7 @@ const TENANT_NAV = {
     rentalListings: "出租房源",
     contact: "联系",
     applyNow: "立即申请",
+    admin: "后台",
   },
 };
 
@@ -64,6 +66,7 @@ export default function Navbar({ lang, setLang }) {
               <li><Link to="/" onClick={() => setOpen(false)}>{tenantLabels.home}</Link></li>
               <li><Link to="/examples" onClick={() => setOpen(false)}>{tenantLabels.rentalListings}</Link></li>
               <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>{tenantLabels.contact}</Link></li>
+              <li><Link to="/admin" className="admin-link" onClick={() => setOpen(false)}>{tenantLabels.admin}</Link></li>
               <li>
                 <Link
                   to={applyTo}
@@ -155,6 +158,15 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
+          <li>
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `admin-link${isActive ? " active" : ""}`}
+              onClick={() => setOpen(false)}
+            >
+              {t(lang, "nav.admin")}
+            </NavLink>
+          </li>
           <li className="navbar__lang">
             <button
               className={safeLang === "en" ? "active" : ""}

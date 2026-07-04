@@ -100,6 +100,10 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">{n.workspaceLabel}</div>
+          <NavLink to="/admin" className={({ isActive }) => `lh-nav-item lh-nav-item--admin${isActive ? " lh-nav-item--active" : ""}`}>
+            <span className="lh-nav-item__icon">⚙️</span>
+            <span><strong>{n.admin}</strong></span>
+          </NavLink>
           <div className="lh-nav-item lh-lang-row">
             🌐
             <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
