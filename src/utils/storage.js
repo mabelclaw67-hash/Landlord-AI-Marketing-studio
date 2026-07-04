@@ -198,6 +198,24 @@ export async function uploadToSubfolder(folderId, subfolderName, file, listingId
   });
 }
 
+// Save a generated applicant report (Initial Screening Summary, etc.) as a PDF
+// into the listing's Tenant Screening Reports folder. Used by
+// src/utils/applicantScreeningReports.js. Additive endpoint - does not affect
+// the existing generateFullApplicantAuditReport flow.
+export async function saveApplicantReportPdf({ listingId, fileName, html, reportType = "Applicant Report" }) {
+  if (!isApiConnected()) {
+    throw new Error("Report saving requires Google Drive integration.");
+  }
+  return apiPost({
+    action: "saveApplicantReportPdf",
+    listingId,
+    fileName,
+    reportType,
+    html,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 // Upload a File object to Drive. Requires API connection.
 export async function uploadListingFile(listingId, file) {
   if (!isApiConnected()) {
@@ -336,13 +354,14 @@ export async function generateDraftScreeningReport(recordId) {
   });
 }
 
-export async function generateFullApplicantAuditReport(recordId) {
+export async function generateFullApplicantAuditReport(recordId, language) {
   if (!isApiConnected()) {
     throw new Error("Full Applicant Audit Report generation requires Google Apps Script integration.");
   }
   return apiPost({
     action: "generateFullApplicantAuditReport",
     recordId,
+    language,
     ...getStudioRequestAuth("rental"),
   });
 }

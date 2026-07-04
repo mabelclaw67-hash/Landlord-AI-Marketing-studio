@@ -3,11 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   getAllApplications,
   getApplicationsByListing,
+  getListing,
   getListings,
   requestSupportingDocuments,
 } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
 import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
+import { downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -94,6 +96,8 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
   const [busyId, setBusyId]   = useState("");
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [summaryReportLink, setSummaryReportLink] = useState(null);
   const filter = queryListingId;
   const isInternalAdmin = isAdminSessionActive();
   const trialSession = readTrialAccess();
@@ -139,6 +143,35 @@ export default function Leads() {
   function handleFilterChange(nextListingId) {
     if (nextListingId) setSearchParams({ listingId: nextListingId });
     else setSearchParams({});
+  }
+
+  // Initial Screening Summary is a LISTING-level applicant ranking report
+  // covering every applicant for this listing. It is separate from the
+  // applicant-level Full Applicant Audit Report (generated on the
+  // Application Review page) and must not be confused with it.
+  async function handleGenerateInitialSummary(listingId) {
+    if (!listingId) return;
+    setSummaryBusy(true);
+    setError("");
+    setSummaryReportLink(null);
+    try {
+      const listingRecord = listings.find((l) => l.id === listingId) || (await getListing(listingId).catch(() => null));
+      const applications = apps.filter((app) => app.listingId === listingId);
+      const result = await downloadApplicantInitialScreeningSummary({
+        listing: listingRecord || { id: listingId },
+        applications,
+        lang,
+      });
+      if (result?.saveResult?.url) {
+        setSummaryReportLink({ url: result.saveResult.url, fileName: result.saveResult.fileName || result.fileName });
+      } else {
+        setError(lang === "zh" ? "报告已生成，但保存到 Drive 失败。" : "Report generated, but Drive save failed.");
+      }
+    } catch (e) {
+      setError(e.message || (lang === "zh" ? "初步筛选汇总生成失败。" : "Failed to generate initial screening summary."));
+    } finally {
+      setSummaryBusy(false);
+    }
   }
 
   const setupError  = isSetupErr(error);
@@ -204,6 +237,46 @@ export default function Leads() {
         <div className="notice notice--error mb-24">
           <h4>{accessDenied ? "Access denied" : "Error"}</h4>
           <p>{accessDenied ? resultLabel : error}</p>
+        </div>
+      )}
+
+      {/* Listing-level Initial Screening Summary — ranks all applicants for this
+          listing. Separate from the per-applicant Full Audit controls shown in
+          the table/cards below; the two report types are never interchangeable. */}
+      {!loading && !setupError && !accessDenied && filter && (
+        <div className="card mb-16">
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div>
+              <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 2 }}>
+                {lang === "zh" ? "初筛汇总报告（房源级 · 申请人排序）" : "Initial Screening Summary (listing-level applicant ranking)"}
+              </h3>
+              <p className="text-muted text-sm">
+                {lang === "zh"
+                  ? `房源 ${filter} · 覆盖当前列表中的 ${visible.length} 位申请人，用于初步排序，不依赖 Supporting Documents。`
+                  : `Listing ${filter} · covers ${visible.length} applicant(s) currently listed, for initial ranking. Does not depend on Supporting Documents.`}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn--sm"
+                disabled={summaryBusy}
+                onClick={() => handleGenerateInitialSummary(filter)}
+              >
+                {summaryBusy
+                  ? (lang === "zh" ? "生成中..." : "Generating...")
+                  : (lang === "zh" ? "生成初筛汇总报告" : "Generate Initial Screening Summary")}
+              </button>
+              <Link to={`/admin/listing/${encodeURIComponent(filter)}`} className="btn btn--ghost btn--sm">
+                {lang === "zh" ? "查看初筛汇总报告" : "View Initial Screening Summary"}
+              </Link>
+              {summaryReportLink?.url && (
+                <a href={summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                  {lang === "zh" ? "已保存到 Google Drive：打开报告" : "Report saved to Google Drive: Open Report"}
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

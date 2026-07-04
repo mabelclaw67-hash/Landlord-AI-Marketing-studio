@@ -4,7 +4,8 @@ import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
 import { formatListingDate, formatMonthlyRent } from "../../utils/listingFormat";
-import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, uploadToSubfolder } from "../../utils/storage";
+import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
+import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
@@ -43,6 +44,17 @@ function extractFolderId(link) {
   if (!link) return null;
   const m = link.match(/\/folders\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
+}
+
+// Distinguishes the listing-level Initial Screening Summary from the
+// applicant-level Full Applicant Audit Report when listing saved PDFs from
+// the Tenant Screening Reports folder. These are two different reports and
+// must never be shown/labeled as the same thing.
+function inferApplicantReportType(fileName = "") {
+  const name = String(fileName || "").toLowerCase();
+  if (name.includes("full_applicant_audit")) return "Full Applicant Audit Report";
+  if (name.includes("applicant_initial_screening_summary")) return "Initial Screening Summary";
+  return "Applicant Report";
 }
 
 // Cover = first file (numeric alpha order) whose name starts with "1".
@@ -263,6 +275,11 @@ export default function ListingDetail({ lang: langProp }) {
   const [activeTab,     setActiveTab]     = useState(null);
   const [saving,        setSaving]        = useState(false);
 
+  // Initial Screening Summary (listing-level applicant ranking report) state
+  const [screeningSummaryBusy, setScreeningSummaryBusy] = useState(false);
+  const [screeningReports, setScreeningReports] = useState([]);
+  const [activeScreeningReport, setActiveScreeningReport] = useState(null);
+
   // Upload state
   const [uploading,      setUploading]      = useState(false);
   const [uploadMsg,      setUploadMsg]      = useState(null);
@@ -331,7 +348,10 @@ export default function ListingDetail({ lang: langProp }) {
         setListing(l);
         if (!l) { setError("Listing not found."); return; }
         const fid = extractFolderId(l.driveFolderLink);
-        if (fid) loadFolderFiles(fid);
+        if (fid) {
+          loadFolderFiles(fid);
+          loadScreeningReports(fid, l.id);
+        }
         // Auto-load enhanced photos if subfolder ID was saved from a previous batch run
         if (l.enhancedFolderId) {
           setEnhancedFolderId(l.enhancedFolderId);
@@ -388,6 +408,79 @@ export default function ListingDetail({ lang: langProp }) {
       setFolderLoading(false);
     }
   };
+
+  // ── Initial Screening Summary (listing-level applicant ranking report) ────────
+  // This is a LISTING-level report covering all applicants for ranking/shortlisting.
+  // It is distinct from the applicant-level Full Applicant Audit Report generated
+  // on the Application Review page, and does not depend on Supporting Documents.
+  const handleGenerateInitialScreeningSummary = async () => {
+    if (!listing?.id) return;
+    setScreeningSummaryBusy(true);
+    try {
+      const applications = await getApplicationsByListing(listing.id);
+      const result = await downloadApplicantInitialScreeningSummary({ listing, applications, lang });
+      const report = {
+        id: `${result.reportType}-${Date.now()}`,
+        title: result.title,
+        reportType: result.reportType,
+        generatedAt: result.generatedAt,
+        fileName: result.saveResult?.fileName || result.fileName,
+        html: result.html,
+        status: result.saveResult?.url ? "saved" : "local",
+        driveUrl: result.saveResult?.url || "",
+      };
+      setScreeningReports((prev) => {
+        const reportKey = `${report.reportType}::${report.fileName}`;
+        const withoutSameReport = prev.filter((item) => `${item.reportType}::${item.fileName}` !== reportKey);
+        return [report, ...withoutSameReport];
+      });
+      setActiveScreeningReport(report);
+    } catch (e) {
+      alert((lang === "zh" ? "初步筛选汇总生成失败：" : "Initial screening summary failed: ") + (e.message || "unknown error"));
+    } finally {
+      setScreeningSummaryBusy(false);
+    }
+  };
+
+  async function loadScreeningReports(folderId, listingId) {
+    if (!folderId && !listingId) return;
+    try {
+      const result = await getListingSubfolderFiles(folderId || "", "Tenant Screening Reports", listingId || "");
+      const reports = (result?.files || [])
+        .filter((file) => /\.pdf$/i.test(file.name || ""))
+        .map((file) => {
+          const reportType = inferApplicantReportType(file.name);
+          return {
+            id: `drive-${file.fileId || file.name}`,
+            title: reportType === "Initial Screening Summary"
+              ? (lang === "zh" ? "申请人初步筛选汇总" : "Applicant Initial Screening Summary")
+              : reportType === "Full Applicant Audit Report"
+                ? (lang === "zh" ? "申请人完整审核报告" : "Full Applicant Audit Report")
+                : (lang === "zh" ? "申请人筛选报告" : "Applicant Screening Report"),
+            reportType,
+            generatedAt: file.modifiedAt || new Date().toISOString(),
+            fileName: file.name || "Applicant_Report.pdf",
+            html: "",
+            status: "saved",
+            driveUrl: file.url || "",
+            source: "drive",
+          };
+        })
+        .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
+      setScreeningReports((prev) => {
+        const combined = [...prev, ...reports];
+        const seen = new Set();
+        return combined.filter((report) => {
+          const key = `${report.reportType}::${report.fileName}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      });
+    } catch (e) {
+      console.warn("[loadScreeningReports] failed", e);
+    }
+  }
 
   // ── Sheet persist helpers ────────────────────────────────────────────────────
   const persist = async (updated) => {
@@ -616,6 +709,16 @@ export default function ListingDetail({ lang: langProp }) {
 
   // ── Derived values ───────────────────────────────────────────────────────────
   const isAdmin    = isAdminSessionActive();
+  const canGenerateApplicantReports = Boolean(isAdmin || listing);
+  const initialSummaryReports = screeningReports
+    .filter((r) => r.reportType === "Initial Screening Summary")
+    .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
+  const latestInitialSummary = initialSummaryReports[0] || null;
+  const initialSummaryStatus = !latestInitialSummary
+    ? (lang === "zh" ? "未生成" : "Not generated")
+    : latestInitialSummary.driveUrl
+      ? (lang === "zh" ? "已生成" : "Generated")
+      : (lang === "zh" ? "Drive 保存失败" : "Drive save failed");
   const outputKeys = Object.keys(listing.outputs || {});
   const currentTab = activeTab || outputKeys[0];
 
@@ -1428,8 +1531,144 @@ export default function ListingDetail({ lang: langProp }) {
           <Link to={`/apply/${listing.id}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
             {lang === "zh" ? "打开申请入口" : "Open Application Link"}
           </Link>
+          {canGenerateApplicantReports && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              disabled={screeningSummaryBusy}
+              onClick={handleGenerateInitialScreeningSummary}
+            >
+              {screeningSummaryBusy
+                ? (lang === "zh" ? "生成中..." : "Generating...")
+                : latestInitialSummary
+                  ? (lang === "zh" ? "重新生成初筛汇总报告" : "Regenerate Initial Screening Summary")
+                  : (lang === "zh" ? "生成初筛汇总报告" : "Generate Initial Screening Summary")}
+            </button>
+          )}
+          {latestInitialSummary && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => setActiveScreeningReport(latestInitialSummary)}
+            >
+              {lang === "zh" ? "查看初筛汇总报告" : "View Initial Screening Summary"}
+            </button>
+          )}
+          {latestInitialSummary?.driveUrl && (
+            <a href={latestInitialSummary.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+              {lang === "zh" ? "下载初筛报告 PDF" : "Download Initial Summary PDF"}
+            </a>
+          )}
         </div>
+        <p className="text-muted text-sm" style={{ marginTop: 10 }}>
+          {(lang === "zh" ? "初筛汇总状态：" : "Initial Summary status: ") + initialSummaryStatus}
+        </p>
       </section>
+
+      {screeningReports.length > 0 && (
+        <div className="card mb-24">
+          <div className="flex-between" style={{ gap: 12, alignItems: "flex-start" }}>
+            <div>
+              <h3 style={{ fontWeight: 800, fontSize: "1rem", color: "var(--color-primary)", marginBottom: 4 }}>
+                {lang === "zh" ? "申请人筛选报告" : "Applicant Screening Reports"}
+              </h3>
+              <p className="text-muted text-sm">
+                {lang === "zh"
+                  ? "此处显示已保存到 Tenant Screening Reports 的初筛汇总报告与完整审核报告（两者不会混用）。"
+                  : "Shows saved Initial Screening Summary and Full Applicant Audit reports from Tenant Screening Reports (never mixed together)."}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+            {screeningReports.map((report) => (
+              <div key={report.id} style={{ border: "1px solid #dfe8df", borderRadius: 8, padding: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div>
+                  <strong>{report.title}</strong>
+                  <p className="text-muted text-sm" style={{ margin: "4px 0 0" }}>
+                    {(lang === "zh" ? "类型：" : "Type: ")}{report.reportType}
+                    {" · "}
+                    {(lang === "zh" ? "生成时间：" : "Generated: ")}
+                    {new Date(report.generatedAt).toLocaleString(lang === "zh" ? "zh-CN" : "en-CA")}
+                  </p>
+                  <p className="text-muted text-sm" style={{ margin: "4px 0 0" }}>{report.fileName}</p>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {report.html && (
+                    <>
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setActiveScreeningReport(report)}>
+                        {lang === "zh" ? "查看报告" : "View Report"}
+                      </button>
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => openApplicantReportWindow(report.html)}>
+                        {lang === "zh" ? "下载 PDF" : "Download PDF"}
+                      </button>
+                    </>
+                  )}
+                  {isAdmin && report.driveUrl && (
+                    <a href={report.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                      {report.html ? "Drive" : (lang === "zh" ? "打开归档报告" : "Open Archived Report")}
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeScreeningReport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(20, 31, 27, 0.58)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+        >
+          <div style={{ background: "#fff", borderRadius: 10, width: "min(1100px, 96vw)", height: "min(860px, 92vh)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #dfe8df", display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div>
+                <strong>{activeScreeningReport.title}</strong>
+                <p className="text-muted text-sm" style={{ margin: 0 }}>{activeScreeningReport.fileName}</p>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {activeScreeningReport.html ? (
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => openApplicantReportWindow(activeScreeningReport.html)}>
+                    {lang === "zh" ? "下载 PDF" : "Download PDF"}
+                  </button>
+                ) : activeScreeningReport.driveUrl ? (
+                  <a href={activeScreeningReport.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                    {lang === "zh" ? "打开归档报告" : "Open Archived Report"}
+                  </a>
+                ) : null}
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => setActiveScreeningReport(null)}>
+                  {lang === "zh" ? "关闭" : "Close"}
+                </button>
+              </div>
+            </div>
+            {activeScreeningReport.html ? (
+              <iframe
+                title={activeScreeningReport.title}
+                srcDoc={activeScreeningReport.html}
+                style={{ border: 0, width: "100%", flex: 1, background: "#fff" }}
+              />
+            ) : (
+              <div style={{ padding: 24 }}>
+                <p className="text-muted text-sm">
+                  {lang === "zh"
+                    ? "此报告来自 Drive 归档，未包含可预览内容，请使用“打开归档报告”查看。"
+                    : "This report was loaded from the Drive archive and has no inline preview. Use \"Open Archived Report\" to view it."}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Property Info */}
       <CollapsibleCard

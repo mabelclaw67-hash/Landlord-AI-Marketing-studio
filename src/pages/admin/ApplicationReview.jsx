@@ -131,24 +131,36 @@ function parseJointEmployment(rawValue) {
 }
 
 // ── Screening logic ────────────────────────────────────────────────────────────
-function buildSummary(app, listing) {
+function buildSummary(app, listing, lang) {
+  const zh = lang === "zh";
   const flags = [];
 
   // Required field completeness
+  const fieldLabels = zh
+    ? { name: "姓名", email: "邮箱", phone: "电话", moveIn: "入住日期", occupants: "总入住人数", employment: "就业状态", income: "月收入", credit: "信用记录", reference: "房东推荐信" }
+    : { name: "Applicant Name", email: "Email", phone: "Phone", moveIn: "Move-in Date", occupants: "Total Occupants", employment: "Employment Status", income: "Monthly Income", credit: "Credit History", reference: "Landlord Reference" };
   const missing = [];
-  if (!app.applicantName)              missing.push("Applicant Name");
-  if (!app.email)                      missing.push("Email");
-  if (!app.phone)                      missing.push("Phone");
-  if (!app.moveInDate)                 missing.push("Move-in Date");
-  if (!app.occupants)                  missing.push("Total Occupants");
-  if (!app.employmentStatus)           missing.push("Employment Status");
-  if (!app.monthlyIncome)              missing.push("Monthly Income");
-  if (!app.creditHistory)              missing.push("Credit History");
-  if (!app.landlordReference)          missing.push("Landlord Reference");
+  if (!app.applicantName)              missing.push(fieldLabels.name);
+  if (!app.email)                      missing.push(fieldLabels.email);
+  if (!app.phone)                      missing.push(fieldLabels.phone);
+  if (!app.moveInDate)                 missing.push(fieldLabels.moveIn);
+  if (!app.occupants)                  missing.push(fieldLabels.occupants);
+  if (!app.employmentStatus)           missing.push(fieldLabels.employment);
+  if (!app.monthlyIncome)              missing.push(fieldLabels.income);
+  if (!app.creditHistory)              missing.push(fieldLabels.credit);
+  if (!app.landlordReference)          missing.push(fieldLabels.reference);
   if (missing.length > 0) {
-    flags.push({ type: "warning", label: `Incomplete — ${missing.length} key field(s) missing`, text: missing.join(" · ") });
+    flags.push({
+      type: "warning",
+      label: zh ? `信息不完整 — 缺少 ${missing.length} 项关键字段` : `Incomplete — ${missing.length} key field(s) missing`,
+      text: missing.join(zh ? "、" : " · "),
+    });
   } else {
-    flags.push({ type: "ok", label: "All Key Fields Present", text: "Application appears complete." });
+    flags.push({
+      type: "ok",
+      label: zh ? "关键字段齐全" : "All Key Fields Present",
+      text: zh ? "申请信息完整。" : "Application appears complete.",
+    });
   }
 
   // Income-to-rent ratio
@@ -156,32 +168,57 @@ function buildSummary(app, listing) {
   const rent   = parseFloat(String(listing?.rent || "").replace(/[^0-9.]/g, ""));
   if (income && rent) {
     const ratio = income / rent;
+    const meets = ratio >= 2.5;
     flags.push({
-      type: ratio >= 2.5 ? "ok" : "caution",
-      label: ratio >= 2.5 ? "Income Ratio — Meets Threshold" : "Income Ratio — Below Threshold",
-      text: `${ratio.toFixed(1)}× rent — ${ratio >= 2.5 ? "meets" : "below"} 2.5× (income $${income.toLocaleString()}/mo, rent $${rent.toLocaleString()}/mo)`
+      type: meets ? "ok" : "caution",
+      label: zh
+        ? (meets ? "收入比 — 达到标准" : "收入比 — 低于标准")
+        : (meets ? "Income Ratio — Meets Threshold" : "Income Ratio — Below Threshold"),
+      text: zh
+        ? `房租的 ${ratio.toFixed(1)} 倍 — ${meets ? "达到" : "低于"} 2.5 倍标准（月收入 $${income.toLocaleString()}，月租 $${rent.toLocaleString()}）`
+        : `${ratio.toFixed(1)}× rent — ${meets ? "meets" : "below"} 2.5× (income $${income.toLocaleString()}/mo, rent $${rent.toLocaleString()}/mo)`,
     });
   } else if (app.monthlyIncome && !income) {
-    flags.push({ type: "info", label: "Income Not Parseable as Number", text: `Stated: "${app.monthlyIncome}" — verify manually.` });
+    flags.push({
+      type: "info",
+      label: zh ? "收入金额无法识别" : "Income Not Parseable as Number",
+      text: zh ? `填写内容："${app.monthlyIncome}" — 请人工核实。` : `Stated: "${app.monthlyIncome}" — verify manually.`,
+    });
   }
 
   // Credit history
   const credit = String(app.creditHistory || "").toLowerCase();
   if (credit.includes("excellent") || credit.includes("good")) {
-    flags.push({ type: "ok", label: "Credit History", text: `Self-rated: ${app.creditHistory}` });
+    flags.push({ type: "ok", label: zh ? "信用记录" : "Credit History", text: zh ? `自评：${app.creditHistory}` : `Self-rated: ${app.creditHistory}` });
   } else if (credit.includes("fair") || credit.includes("poor")) {
-    flags.push({ type: "caution", label: "Credit History — Needs Attention", text: `Self-rated: ${app.creditHistory} — request credit report.` });
+    flags.push({
+      type: "caution",
+      label: zh ? "信用记录 — 需关注" : "Credit History — Needs Attention",
+      text: zh ? `自评：${app.creditHistory} — 建议索取信用报告。` : `Self-rated: ${app.creditHistory} — request credit report.`,
+    });
   } else if (credit.includes("no credit")) {
-    flags.push({ type: "info", label: "No Credit History", text: "Applicant reports no credit history. May require co-signer or guarantor." });
+    flags.push({
+      type: "info",
+      label: zh ? "无信用记录" : "No Credit History",
+      text: zh ? "申请人无信用记录，可能需要共同签署人或担保人。" : "Applicant reports no credit history. May require co-signer or guarantor.",
+    });
   }
 
   // Joint applicant credit
   if (String(app.hasJointApplicant || "").includes("Yes") && app.jointName) {
     const jc = String(app.jointCreditInfo || "").toLowerCase();
     if (jc.includes("fair") || jc.includes("poor")) {
-      flags.push({ type: "caution", label: "Joint Applicant Credit — Needs Attention", text: `Joint applicant ${app.jointName} self-rated: ${app.jointCreditInfo}` });
+      flags.push({
+        type: "caution",
+        label: zh ? "联合申请人信用 — 需关注" : "Joint Applicant Credit — Needs Attention",
+        text: zh ? `联合申请人 ${app.jointName} 自评信用：${app.jointCreditInfo}` : `Joint applicant ${app.jointName} self-rated: ${app.jointCreditInfo}`,
+      });
     } else if (jc) {
-      flags.push({ type: "info", label: "Joint Applicant", text: `${app.jointName} — credit: ${app.jointCreditInfo || "not provided"}` });
+      flags.push({
+        type: "info",
+        label: zh ? "联合申请人" : "Joint Applicant",
+        text: zh ? `${app.jointName} — 信用：${app.jointCreditInfo || "未提供"}` : `${app.jointName} — credit: ${app.jointCreditInfo || "not provided"}`,
+      });
     }
   }
 
@@ -189,37 +226,69 @@ function buildSummary(app, listing) {
   const hasPets    = String(app.hasPets || app.pets || "").toLowerCase().startsWith("yes");
   const petsPolicy = String(listing?.pets || "").toLowerCase();
   if (hasPets && petsPolicy && (petsPolicy.includes("no pet") || petsPolicy.includes("not allow"))) {
-    flags.push({ type: "caution", label: "Pets Policy Conflict", text: "Applicant has pets — listing policy may not allow pets. Confirm with landlord." });
+    flags.push({
+      type: "caution",
+      label: zh ? "宠物政策冲突" : "Pets Policy Conflict",
+      text: zh ? "申请人有宠物 — 房源政策可能不允许宠物，请与房东确认。" : "Applicant has pets — listing policy may not allow pets. Confirm with landlord.",
+    });
   } else if (hasPets) {
-    flags.push({ type: "info", label: "Pets Declared", text: `Pet details: ${app.petDetails || "not specified"}` });
+    flags.push({
+      type: "info",
+      label: zh ? "已申报宠物" : "Pets Declared",
+      text: zh ? `宠物详情：${app.petDetails || "未说明"}` : `Pet details: ${app.petDetails || "not specified"}`,
+    });
   }
 
   // Eviction history
   const eviction = String(app.evictionHistory || "").toLowerCase();
   if (eviction && eviction !== "no" && eviction !== "none" && eviction.length > 2) {
-    flags.push({ type: "caution", label: "Eviction / Breach History Declared", text: `Applicant response: "${app.evictionHistory}" — review carefully.` });
+    flags.push({
+      type: "caution",
+      label: zh ? "曾有驱逐 / 违约记录" : "Eviction / Breach History Declared",
+      text: zh ? `申请人回复："${app.evictionHistory}" — 请仔细审核。` : `Applicant response: "${app.evictionHistory}" — review carefully.`,
+    });
   }
 
   // Smoking
   const smokes = String(app.smokesVapesCannabis || "").toLowerCase();
   if (smokes.startsWith("yes")) {
-    flags.push({ type: "caution", label: "Smoking / Cannabis Declared", text: "Applicant or occupant(s) smoke or use cannabis. Confirm no-smoking agreement was accepted." });
+    flags.push({
+      type: "caution",
+      label: zh ? "申报吸烟 / 大麻使用" : "Smoking / Cannabis Declared",
+      text: zh ? "申请人或同住人吸烟或使用大麻，请确认已签署禁烟协议。" : "Applicant or occupant(s) smoke or use cannabis. Confirm no-smoking agreement was accepted.",
+    });
   }
 
   // Insurance
   const insStatus = String(app.hasTenantInsurance || "").toLowerCase();
   if (insStatus.includes("no, but")) {
-    flags.push({ type: "info", label: "Tenant Insurance — Will Obtain", text: "Applicant will obtain before move-in. Confirm proof is provided." });
+    flags.push({
+      type: "info",
+      label: zh ? "租客保险 — 将会办理" : "Tenant Insurance — Will Obtain",
+      text: zh ? "申请人将在入住前办理，请确认提供凭证。" : "Applicant will obtain before move-in. Confirm proof is provided.",
+    });
   } else if (insStatus.startsWith("no")) {
-    flags.push({ type: "caution", label: "No Tenant Insurance", text: "Applicant does not have tenant insurance. $1M liability required before move-in." });
+    flags.push({
+      type: "caution",
+      label: zh ? "无租客保险" : "No Tenant Insurance",
+      text: zh ? "申请人尚无租客保险，入住前需提供 100 万责任险。" : "Applicant does not have tenant insurance. $1M liability required before move-in.",
+    });
   } else if (insStatus.includes("yes")) {
-    flags.push({ type: "ok", label: "Tenant Insurance — Active", text: `Status: ${app.hasTenantInsurance}` });
+    flags.push({
+      type: "ok",
+      label: zh ? "租客保险 — 已生效" : "Tenant Insurance — Active",
+      text: zh ? `状态：${app.hasTenantInsurance}` : `Status: ${app.hasTenantInsurance}`,
+    });
   }
 
   // Deposit funds
   const deposit = String(app.depositFundsAvailable || "").toLowerCase();
   if (deposit.startsWith("no")) {
-    flags.push({ type: "caution", label: "Deposit Funds Not Ready", text: "Applicant indicated funds for security deposit / first month's rent are not yet available." });
+    flags.push({
+      type: "caution",
+      label: zh ? "押金资金未就绪" : "Deposit Funds Not Ready",
+      text: zh ? "申请人表示押金 / 首月租金资金尚未准备好。" : "Applicant indicated funds for security deposit / first month's rent are not yet available.",
+    });
   }
 
   // Move-in vs available
@@ -227,14 +296,22 @@ function buildSummary(app, listing) {
     const moveIn    = new Date(app.moveInDate);
     const available = new Date(listing.available);
     if (!isNaN(moveIn) && !isNaN(available) && moveIn < available) {
-      flags.push({ type: "caution", label: "Move-in Before Available Date", text: `Requested ${app.moveInDate}; listing available ${listing.available}.` });
+      flags.push({
+        type: "caution",
+        label: zh ? "入住日期早于可入住日期" : "Move-in Before Available Date",
+        text: zh ? `申请入住日期 ${app.moveInDate}；房源可入住日期 ${listing.available}。` : `Requested ${app.moveInDate}; listing available ${listing.available}.`,
+      });
     }
   }
 
   // Occupant count
   const occ = parseInt(app.occupants || "0");
   if (occ > 4) {
-    flags.push({ type: "info", label: "High Occupant Count", text: `${occ} occupants — confirm within property limits.` });
+    flags.push({
+      type: "info",
+      label: zh ? "入住人数较多" : "High Occupant Count",
+      text: zh ? `共 ${occ} 人入住 — 请确认符合房源人数限制。` : `${occ} occupants — confirm within property limits.`,
+    });
   }
 
   return flags;
@@ -433,7 +510,7 @@ export default function ApplicationReview() {
     setGeneratingFullAudit(true);
     setMessage("");
     try {
-      const result = await generateFullApplicantAuditReport(app.recordId);
+      const result = await generateFullApplicantAuditReport(app.recordId, lang);
       if (!result?.fullAuditReportPdfUrl || !result?.fullAuditReportDriveFileId) {
         throw new Error("Report generated, but Drive save failed. Please download or retry save.");
       }
@@ -451,6 +528,7 @@ export default function ApplicationReview() {
         fullAuditReportSavedAt: result.fullAuditReportSavedAt,
         fullAuditReportMarkdown: result?.fullAuditReportMarkdown || prev?.fullAuditReportMarkdown,
         fullAuditReportError: "",
+        fullAuditDebug: result?.fullAuditDebug || prev?.fullAuditDebug,
       }));
       setMessage(`Full Applicant Audit Report generated and saved to Tenant Screening Reports: ${result.fullAuditReportPdfFileName || "PDF saved"}.`);
     } catch (e) {
@@ -566,7 +644,7 @@ export default function ApplicationReview() {
     );
   }
 
-  const summary           = buildSummary(app, listing);
+  const summary           = buildSummary(app, listing, lang);
   const followUpQuestions = buildFollowUpQuestions(app, listing);
   const hasJoint          = String(app.hasJointApplicant || "").includes("Yes");
   const jointEmployment   = parseJointEmployment(app.jointEmployment);
@@ -714,7 +792,7 @@ export default function ApplicationReview() {
       </SectionCard>
 
       {app.screeningReportMarkdown && (
-        <SectionCard title="Saved Initial Screening Summary Report">
+        <SectionCard title={lang === "zh" ? "已保存的初步筛查摘要报告" : "Saved Initial Screening Summary Report"}>
           <MarkdownReport markdown={app.screeningReportMarkdown} />
         </SectionCard>
       )}
@@ -730,11 +808,43 @@ export default function ApplicationReview() {
             <InfoRow label="Drive File ID" value={app.fullAuditReportDriveFileId} mono />
           </div>
 
-          {!app.supportDocumentFolderUrl && !Number(app.uploadedFileCount || 0) && (
-            <div className="notice notice--warm" style={{ marginTop: 14 }}>
-              <p>Record-level supporting document status is empty. The system will also check listing-level Supporting Documents before generating.</p>
-            </div>
-          )}
+          {(() => {
+            const debug = app.fullAuditDebug;
+            const recordLevelCount = Number(app.uploadedFileCount || 0);
+            if (recordLevelCount > 0) return null;
+            if (debug && Number(debug.listingLevelMatchedCount || 0) > 0) {
+              return (
+                <div className="notice notice--sage" style={{ marginTop: 14 }}>
+                  <p>
+                    Listing-level supporting documents found ({debug.listingLevelMatchedCount} file
+                    {debug.listingLevelMatchedCount === 1 ? "" : "s"} matched for {debug.applicantName || "this applicant"}).
+                  </p>
+                </div>
+              );
+            }
+            if (debug && debug.listingLevelFolderFound) {
+              return (
+                <div className="notice notice--warm" style={{ marginTop: 14 }}>
+                  <p>
+                    Record-level supporting document status is empty. Checked listing-level Supporting Documents
+                    ({(debug.unmatchedFileNames || []).length} file(s) in folder) — none matched this applicant by name, email, or phone.
+                  </p>
+                </div>
+              );
+            }
+            if (debug) {
+              return (
+                <div className="notice notice--warm" style={{ marginTop: 14 }}>
+                  <p>Record-level supporting document status is empty, and no listing-level Supporting Documents folder was found for this listing.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="notice notice--warm" style={{ marginTop: 14 }}>
+                <p>Record-level supporting document status is empty. The system will also check listing-level Supporting Documents before generating.</p>
+              </div>
+            );
+          })()}
 
           <div className="admin-action-row admin-action-row--full-mobile" style={{ marginTop: 14 }}>
             {_isAdmin && (
@@ -778,6 +888,39 @@ export default function ApplicationReview() {
             )}
           </div>
         </SectionCard>
+
+        {_isAdmin && app.fullAuditDebug && (
+          <SectionCard title="Supporting Document Detection Debug (Admin Only)">
+            <div className="info-grid">
+              <InfoRow label="Applicant Name Used for Matching" value={app.fullAuditDebug.applicantName} />
+              <InfoRow label="Listing ID" value={app.fullAuditDebug.listingId} mono />
+              <InfoRow label="Record-Level Document Count" value={String(app.fullAuditDebug.recordLevelDocumentCount ?? 0)} />
+              <InfoRow label="Listing-Level Supporting Documents Folder Found" value={app.fullAuditDebug.listingLevelFolderFound ? "Yes" : "No"} />
+              <InfoRow label="Listing-Level Matched Document Count" value={String(app.fullAuditDebug.listingLevelMatchedCount ?? 0)} />
+              <InfoRow
+                label="Matched File Names"
+                value={(app.fullAuditDebug.matchedFileNames || []).length
+                  ? app.fullAuditDebug.matchedFileNames.join(", ")
+                  : "—"}
+              />
+              <InfoRow
+                label="Unmatched File Names"
+                value={(app.fullAuditDebug.unmatchedFileNames || []).length
+                  ? app.fullAuditDebug.unmatchedFileNames.join(", ")
+                  : "—"}
+              />
+              <InfoRow
+                label="Final Documents Used for Full Audit"
+                value={(app.fullAuditDebug.finalDocumentNames || []).length
+                  ? app.fullAuditDebug.finalDocumentNames.join(", ")
+                  : "—"}
+              />
+              {app.fullAuditDebug.error && (
+                <InfoRow label="Debug Lookup Error" value={app.fullAuditDebug.error} />
+              )}
+            </div>
+          </SectionCard>
+        )}
 
         {app.fullAuditReportMarkdown && (
           <SectionCard title="Full Applicant Audit Report Viewer">

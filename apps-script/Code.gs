@@ -253,6 +253,7 @@ function doPost(e) {
     if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
+    if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
     if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId, auth));
     if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
@@ -267,7 +268,7 @@ function doPost(e) {
     if (action === "requestSupportingDocuments") return ok(requestSupportingDocuments_(body.recordId, body.origin || "", auth));
     if (action === "resendSupportingDocumentsEmail") return ok(resendSupportingDocumentsEmail_(body.recordId, auth));
     if (action === "generateDraftScreeningReport") return ok(generateDraftScreeningReport_(body.recordId, auth));
-    if (action === "generateFullApplicantAuditReport") return ok(generateFullApplicantAuditReport_(body.recordId, auth));
+    if (action === "generateFullApplicantAuditReport") return ok(generateFullApplicantAuditReport_(body.recordId, auth, body.language));
     if (action === "updateApplicationRetentionStatus") return ok(updateApplicationRetentionStatus_(body.recordId, body.retentionStatus, body.notes, auth));
     if (action === "cleanupExpiredApplicationsPreview") return ok(cleanupExpiredApplicationsPreview_(auth));
     if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
@@ -2521,6 +2522,10 @@ function getListingFolderFiles_(folderId, listingId, auth) {
 
 function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
   if (!subfolderName) throw new Error("getListingSubfolder: subfolderName required");
+  var isTenantReportsFolder = String(subfolderName || "").toLowerCase() === "tenant screening reports";
+  if (isTenantReportsFolder && (!auth || (auth.mode !== "admin" && auth.mode !== "trial"))) {
+    throw new Error("Access denied for tenant screening reports.");
+  }
   var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
   var parent = DriveApp.getFolderById(resolvedFolderId);
   var folders = parent.getFoldersByName(subfolderName);
@@ -2532,10 +2537,15 @@ function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
     };
   }
   var folder = folders.next();
+  var isSupportDocumentsFolder = String(subfolderName || "").toLowerCase() === "supporting documents";
   return {
     subfolderFolderId: auth && auth.mode === "admin" ? folder.getId() : "",
     subfolderUrl: auth && auth.mode === "admin" ? folder.getUrl() : "",
-    files: listDriveMediaFiles_(folder, { includeVideos: true }),
+    files: listDriveMediaFiles_(folder, {
+      includeVideos: true,
+      includeDocuments: isSupportDocumentsFolder || isTenantReportsFolder,
+      exposeDriveLinks: (!isSupportDocumentsFolder && !isTenantReportsFolder) || (auth && auth.mode === "admin"),
+    }),
   };
 }
 
@@ -2591,6 +2601,8 @@ function findListingByFolderId_(folderId, ownerEmail) {
 
 function listDriveMediaFiles_(folder, options) {
   var includeVideos = !!(options && options.includeVideos);
+  var includeDocuments = !!(options && options.includeDocuments);
+  var exposeDriveLinks = !options || options.exposeDriveLinks !== false;
   var files  = [];
   var it     = folder.getFiles();
   while (it.hasNext()) {
@@ -2598,16 +2610,28 @@ function listDriveMediaFiles_(folder, options) {
     var mime = file.getMimeType();
     var isImage = mime === "image/jpeg" || mime === "image/png";
     var isVideo = includeVideos && mime === "video/mp4";
-    if (isImage || isVideo) {
+    var isDocument = includeDocuments && (
+      mime === "application/pdf" ||
+      mime === "application/msword" ||
+      mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mime === "application/vnd.google-apps.document" ||
+      mime === "application/vnd.google-apps.spreadsheet" ||
+      mime === "application/vnd.google-apps.presentation"
+    );
+    if (isImage || isVideo || isDocument) {
       var fileId = file.getId();
       var entry = {
         name:       file.getName(),
-        fileId:     fileId,
+        fileId:     exposeDriveLinks ? fileId : "",
         mimeType:   mime,
-        url:        file.getUrl(),
-        thumbUrl:   "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800",
-        thumbUrlLg: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600",
+        modifiedAt: file.getLastUpdated ? file.getLastUpdated().toISOString() : "",
+        size:       file.getSize ? file.getSize() : "",
       };
+      if (exposeDriveLinks) {
+        entry.url = file.getUrl();
+        entry.thumbUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
+        entry.thumbUrlLg = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600";
+      }
       if (isImage) {
       var blob = file.getBlob();
       var contentType = blob.getContentType();
@@ -3218,6 +3242,215 @@ var SCREENING_REPORT_CATEGORIES = [
   "Other Documents"
 ];
 
+// Display-only translation of document category names. This does NOT affect
+// document detection/matching - inferSupportDocumentCategory_ still returns
+// the canonical English category value used for matching and comparisons;
+// this map is only consulted when rendering a category name into report text.
+var SCREENING_CATEGORY_LABEL_ZH_ = {
+  "Government Photo ID": "身份证件（政府颁发）",
+  "Income Proof / Pay Stubs": "收入证明 / 工资单",
+  "Employment Letter": "雇主证明信",
+  "NOA / T4": "税务评税通知书 / T4",
+  "Credit Report": "信用报告",
+  "Bank Statements / Proof of Funds": "银行流水 / 资金证明",
+  "Landlord Reference": "房东推荐信",
+  "Tenant Insurance": "租客保险",
+  "Other Documents": "其他文件"
+};
+
+function localizedCategoryLabel_(category, language) {
+  if (language === "zh" && SCREENING_CATEGORY_LABEL_ZH_[category]) return SCREENING_CATEGORY_LABEL_ZH_[category];
+  return category;
+}
+
+// Report copy for the Full Applicant Audit Report, keyed by UI language.
+// This only affects report wording/headings - it does not change document
+// detection, Drive save location/filename, or permission logic.
+var FULL_AUDIT_REPORT_STRINGS_ = {
+  en: {
+    title: "# Full Applicant Audit Report",
+    generatedAt: "Generated At",
+    reportType: "Report Type",
+    reportTypeValue: "Full Applicant Audit Report",
+    applicationId: "Application ID",
+    listingId: "Listing ID",
+    propertyAddress: "Property Address",
+    applicantOverview: "## Applicant Overview",
+    applicantName: "Applicant Name",
+    email: "Email",
+    phone: "Phone",
+    currentAddress: "Current Address",
+    moveInDate: "Move-in Date",
+    occupants: "Occupants",
+    pets: "Pets",
+    documentsReviewed: "## Documents Reviewed",
+    noSupportingDocuments: "No supporting documents found.",
+    extractedSummary: "## Extracted Document Summary",
+    noDocumentText: "No document text was available for extraction.",
+    couldNotVerify: "This document could not be automatically verified. Manual verification is required.",
+    incomeVerification: "## Income Verification",
+    applicationMonthlyIncome: "Application Monthly Income",
+    proofOfIncomeAnswer: "Proof of Income Answer",
+    documentStatus: "Document status",
+    incomeDocsUploaded: "Income-related documents uploaded.",
+    incomeDocsNotUploaded: "Income documents not clearly uploaded.",
+    employmentVerification: "## Employment Verification",
+    employmentStatus: "Employment Status",
+    employerIncomeSource: "Employer / Income Source",
+    employmentLetterUploaded: "Employment letter uploaded.",
+    employmentLetterNotUploaded: "Employment letter not clearly uploaded.",
+    idConsistencyCheck: "## ID / Identity Consistency Check",
+    photoIdUploaded: "Photo ID uploaded.",
+    photoIdNotUploaded: "Photo ID not clearly uploaded.",
+    identityManualNote: "Identity consistency must be manually verified against the application name and date of birth.",
+    bankStatementReview: "## Bank Statement Review",
+    bankUploaded: "Bank statement / proof of funds uploaded.",
+    bankNotUploaded: "Bank statement / proof of funds not clearly uploaded.",
+    bankManualNote: "Balance, deposits, and account ownership require manual review.",
+    creditBackgroundReview: "## Credit / Background Review",
+    creditHistorySelfRating: "Credit History Self-rating",
+    creditUploaded: "Credit/background document uploaded.",
+    creditNotUploaded: "Credit/background document not clearly uploaded.",
+    referenceLandlordCheck: "## Reference / Landlord Check",
+    applicationReference: "Application Reference",
+    referencePresent: "Reference information or document is present.",
+    referenceMissing: "Reference information/document is missing or unclear.",
+    potentialInconsistencies: "## Potential Inconsistencies",
+    inconsistenciesNote1: "Compare applicant name, address, employer, income, and dates across all documents manually.",
+    inconsistenciesNote2: "Any document that could not be automatically verified must be checked by the landlord or property manager.",
+    missingItems: "## Missing Items",
+    riskAnalysis: "## Risk Analysis",
+    riskNote1: "This report does not make an automated approval or rejection decision.",
+    riskNote2: "Risk increases when income, employment, ID, credit, bank, or landlord references are missing, inconsistent, or manually unverifiable.",
+    strengths: "## Strengths",
+    strengthFormAvailable: "Submitted application form is available for review.",
+    strengthIncomeYes: "Income-related supporting documents are present.",
+    strengthIncomeNo: "No clear income-document strength detected.",
+    strengthIdYes: "Photo ID is present for manual identity verification.",
+    strengthIdNo: "Photo ID is not clearly present.",
+    concerns: "## Concerns",
+    concernManualYes: "Some documents could not be automatically verified.",
+    concernManualNo: "No automatic document-read failure was recorded.",
+    concernMissingYes: "Missing or unclear items require follow-up.",
+    concernMissingNo: "No obvious missing checklist items detected.",
+    recommendedDecision: "## Recommended Decision",
+    recProceed: "Proceed to landlord decision review",
+    recRequestMore: "Request clarification or additional documents before decision",
+    recManualReview: "Manual review required before decision",
+    confidenceLevel: "## Confidence Level",
+    confidenceMedium: "Medium",
+    confidenceLowMedium: "Low to Medium",
+    confidenceLow: "Low",
+    manualVerificationRequired: "## Manual Verification Required Items",
+    manualStillRequired: "Manual verification is still required before final landlord decision.",
+    disclaimer: "## Disclaimer",
+    disclaimer1: "This Full Applicant Audit Report is for internal landlord/property-management review only.",
+    disclaimer2: "It is not a legal opinion, credit decision, final approval, or final rejection.",
+    disclaimer3: "The landlord/property manager must manually verify all documents and make the final decision.",
+    missingIncome: "Missing income proof - draft only, needs manual review.",
+    missingId: "Missing ID - draft only, needs manual review.",
+    missingCredit: "Missing credit report - draft only, needs manual review.",
+    missingReference: "Missing landlord reference - draft only, needs manual review.",
+    missingNoa: "Outdated or missing NOA/T4 - verify manually if required.",
+    missingInsurance: "Missing tenant insurance confirmation - draft only, needs manual review.",
+    missingIncomeEmployment: "Applicant income or employment information appears incomplete.",
+    missingNoneDraft: "No obvious missing items detected by the draft checklist. Manual verification is still required."
+  },
+  zh: {
+    title: "# 完整申请人审核报告",
+    generatedAt: "生成时间",
+    reportType: "报告类型",
+    reportTypeValue: "完整申请人审核报告",
+    applicationId: "申请编号",
+    listingId: "房源编号",
+    propertyAddress: "房源地址",
+    applicantOverview: "## 申请人概览",
+    applicantName: "申请人姓名",
+    email: "邮箱",
+    phone: "电话",
+    currentAddress: "现居地址",
+    moveInDate: "入住日期",
+    occupants: "入住人数",
+    pets: "宠物",
+    documentsReviewed: "## 已审核文件",
+    noSupportingDocuments: "未找到任何佐证文件。",
+    extractedSummary: "## 文件读取摘要",
+    noDocumentText: "无法提取文件文本内容。",
+    couldNotVerify: "此文件无法自动核验，需要人工核实。",
+    incomeVerification: "## 收入核验",
+    applicationMonthlyIncome: "申请表填写月收入",
+    proofOfIncomeAnswer: "收入证明回答",
+    documentStatus: "文件状态",
+    incomeDocsUploaded: "已上传收入相关文件。",
+    incomeDocsNotUploaded: "未明确上传收入相关文件。",
+    employmentVerification: "## 雇佣核验",
+    employmentStatus: "就业状态",
+    employerIncomeSource: "雇主 / 收入来源",
+    employmentLetterUploaded: "已上传雇主证明信。",
+    employmentLetterNotUploaded: "未明确上传雇主证明信。",
+    idConsistencyCheck: "## 身份一致性检查",
+    photoIdUploaded: "已上传身份证件。",
+    photoIdNotUploaded: "未明确上传身份证件。",
+    identityManualNote: "身份一致性需人工核对申请表姓名与出生日期。",
+    bankStatementReview: "## 银行流水核查",
+    bankUploaded: "已上传银行流水 / 资金证明。",
+    bankNotUploaded: "未明确上传银行流水 / 资金证明。",
+    bankManualNote: "账户余额、存款及账户归属需人工核实。",
+    creditBackgroundReview: "## 信用 / 背景核查",
+    creditHistorySelfRating: "信用记录自评",
+    creditUploaded: "已上传信用 / 背景相关文件。",
+    creditNotUploaded: "未明确上传信用 / 背景相关文件。",
+    referenceLandlordCheck: "## 推荐人 / 房东推荐核查",
+    applicationReference: "申请表填写推荐人",
+    referencePresent: "已提供推荐人信息或相关文件。",
+    referenceMissing: "推荐人信息或文件缺失或不明确。",
+    potentialInconsistencies: "## 潜在不一致",
+    inconsistenciesNote1: "请人工比对所有文件中的申请人姓名、地址、雇主、收入及日期信息。",
+    inconsistenciesNote2: "任何无法自动核验的文件都必须由房东或物业管理方核实。",
+    missingItems: "## 缺失项目",
+    riskAnalysis: "## 风险分析",
+    riskNote1: "本报告不做自动批准或拒绝的决定。",
+    riskNote2: "当收入、雇佣、身份、信用、银行流水或房东推荐信息缺失、不一致或无法自动核实时，风险会相应增加。",
+    strengths: "## 优势",
+    strengthFormAvailable: "已提交申请表，可供审核。",
+    strengthIncomeYes: "已提供收入相关佐证文件。",
+    strengthIncomeNo: "未检测到明确的收入证明优势。",
+    strengthIdYes: "已提供身份证件，可供人工核实身份。",
+    strengthIdNo: "未明确提供身份证件。",
+    concerns: "## 关注事项",
+    concernManualYes: "部分文件无法自动核验。",
+    concernManualNo: "未发现自动文件读取失败的记录。",
+    concernMissingYes: "存在缺失或不明确项目，需要跟进。",
+    concernMissingNo: "未发现明显的缺失项目。",
+    recommendedDecision: "## 建议决定",
+    recProceed: "可提交房东进行最终决定审核",
+    recRequestMore: "决定前请要求申请人澄清或补充文件",
+    recManualReview: "决定前需要人工审核",
+    confidenceLevel: "## 置信度",
+    confidenceMedium: "中等",
+    confidenceLowMedium: "中低",
+    confidenceLow: "低",
+    manualVerificationRequired: "## 需要人工核验的项目",
+    manualStillRequired: "最终决定前仍需人工核验。",
+    disclaimer: "## 免责声明",
+    disclaimer1: "本完整申请人审核报告仅供房东 / 物业管理方内部审核使用。",
+    disclaimer2: "本报告不构成法律意见、信用决定、最终批准或最终拒绝。",
+    disclaimer3: "房东 / 物业管理方必须人工核实所有文件并作出最终决定。",
+    missingIncome: "缺少收入证明 —— 仅为初步结果，需人工审核。",
+    missingId: "缺少身份证件 —— 仅为初步结果，需人工审核。",
+    missingCredit: "缺少信用报告 —— 仅为初步结果，需人工审核。",
+    missingReference: "缺少房东推荐信 —— 仅为初步结果，需人工审核。",
+    missingNoa: "税务评税通知书 / T4 缺失或已过期 —— 如需要请人工核实。",
+    missingInsurance: "缺少租客保险确认 —— 仅为初步结果，需人工审核。",
+    missingIncomeEmployment: "申请人收入或就业信息似乎不完整。",
+    missingNoneDraft: "初步清单未发现明显缺失项目，最终决定前仍需人工核验。"
+  }
+};
+
+function fullAuditI18n_(language) {
+  return FULL_AUDIT_REPORT_STRINGS_[language === "zh" ? "zh" : "en"];
+}
+
 var FULL_AUDIT_REPORT_FOLDER_NAME = "Tenant Screening Reports";
 var FULL_AUDIT_REPORT_PREFIX = "Full Applicant Audit";
 var FULL_AUDIT_REPORT_FILE_PREFIX = "Full_Applicant_Audit";
@@ -3253,7 +3486,24 @@ function listUploadedSupportFiles_(folderUrl) {
 }
 
 function normalizeSupportDocumentMatchText_(value) {
+  // Case-insensitive; spaces, hyphens, underscores, and other punctuation are
+  // all collapsed to single spaces so "Jayson-Laron", "jayson_laron", and
+  // "Jayson Laron" all normalize identically.
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Full-name-as-contiguous-substring match first (covers the common case and
+// preserves prior behavior). Falls back to "every name token present"
+// matching so first-name/last-name order differences, extra words in the
+// file name, or a middle name in the record don't cause a false negative.
+// Requires at least 2 real name tokens before falling back, so a single
+// short/generic token can't match everything.
+function applicantNameMatchesFileText_(nameNormalized, fileTextNormalized) {
+  if (!nameNormalized || !fileTextNormalized) return false;
+  if (fileTextNormalized.indexOf(nameNormalized) >= 0) return true;
+  var tokens = nameNormalized.split(" ").filter(function(t) { return t.length > 1; });
+  if (tokens.length < 2) return false;
+  return tokens.every(function(t) { return fileTextNormalized.indexOf(t) >= 0; });
 }
 
 function publicSupportFileMatchesApplication_(file, record) {
@@ -3261,9 +3511,9 @@ function publicSupportFileMatchesApplication_(file, record) {
   var email = normalizeSupportDocumentMatchText_(record.email);
   var phone = normalizeSupportDocumentMatchText_(record.phone);
   var fileText = normalizeSupportDocumentMatchText_(file.getName() + "\n" + (file.getDescription() || ""));
-  if (applicantName && fileText.indexOf(applicantName) >= 0) return true;
+  if (applicantNameMatchesFileText_(applicantName, fileText)) return true;
   if (email && fileText.indexOf(email) >= 0) return true;
-  if (phone && fileText.indexOf(phone) >= 0) return true;
+  if (phone && phone.length >= 7 && fileText.indexOf(phone) >= 0) return true;
   return false;
 }
 
@@ -3292,6 +3542,77 @@ function listSupportFilesForApplication_(record, listing) {
     if (recordFiles.length) return recordFiles;
   }
   return listPublicSupportFilesForApplication_(listing, record);
+}
+
+// Admin-only diagnostics for Full Audit supporting-document detection.
+// Mirrors the same lookup order as listSupportFilesForApplication_ (record
+// level, then listing-level Supporting Documents matched by applicant
+// identity) but also reports what it found and didn't match, so an admin can
+// see exactly why a Full Audit can or cannot be generated without guessing.
+// This does not change which documents are used for report generation -
+// it only reports on that same lookup.
+function buildSupportDocumentDebugInfo_(record, listing) {
+  var debug = {
+    applicantName: record.applicantName || "",
+    listingId: record.listingId || "",
+    recordLevelDocumentCount: 0,
+    recordLevelFolderUrl: record.supportDocumentFolderUrl || "",
+    listingLevelFolderFound: false,
+    listingLevelMatchedCount: 0,
+    matchedFileNames: [],
+    unmatchedFileNames: [],
+    finalSource: "none",
+    finalDocumentNames: [],
+    error: ""
+  };
+
+  var recordFiles = [];
+  if (record.supportDocumentFolderUrl) {
+    try {
+      recordFiles = listUploadedSupportFiles_(record.supportDocumentFolderUrl);
+    } catch (err) {
+      recordFiles = [];
+      debug.error = "Record-level folder lookup failed: " + (err && err.message ? err.message : String(err));
+    }
+  }
+  debug.recordLevelDocumentCount = recordFiles.length;
+
+  if (recordFiles.length) {
+    debug.finalSource = "record";
+    debug.finalDocumentNames = recordFiles.map(function(f) { return f.name; });
+    return debug;
+  }
+
+  try {
+    var listingFolder = findExistingRentalListingMediaFolder_(listing);
+    var folders = listingFolder.getFoldersByName("Supporting Documents");
+    if (folders.hasNext()) {
+      debug.listingLevelFolderFound = true;
+      var folder = folders.next();
+      var files = folder.getFiles();
+      var matchedNames = [];
+      var unmatchedNames = [];
+      while (files.hasNext()) {
+        var file = files.next();
+        if (publicSupportFileMatchesApplication_(file, record)) {
+          matchedNames.push(file.getName());
+        } else {
+          unmatchedNames.push(file.getName());
+        }
+      }
+      debug.listingLevelMatchedCount = matchedNames.length;
+      debug.matchedFileNames = matchedNames;
+      debug.unmatchedFileNames = unmatchedNames;
+      if (matchedNames.length) {
+        debug.finalSource = "listing";
+        debug.finalDocumentNames = matchedNames;
+      }
+    }
+  } catch (err) {
+    debug.error = "Listing-level folder lookup failed: " + (err && err.message ? err.message : String(err));
+  }
+
+  return debug;
 }
 
 function getListingScreeningReportsFolder_(listing, createIfMissing) {
@@ -3330,7 +3651,8 @@ function readSupportDocumentText_(file) {
   return "";
 }
 
-function analyzeApplicantSupportDocuments_(uploadedFiles) {
+function analyzeApplicantSupportDocuments_(uploadedFiles, language) {
+  var I = fullAuditI18n_(language);
   var reviewed = [];
   var manual = [];
   for (var i = 0; i < uploadedFiles.length; i++) {
@@ -3347,17 +3669,19 @@ function analyzeApplicantSupportDocuments_(uploadedFiles) {
         text = "";
       }
     }
+    var categoryLabel = localizedCategoryLabel_(item.category, language);
     var note = canRead
       ? text.replace(/\s+/g, " ").slice(0, 700)
-      : "This document could not be automatically verified. Manual verification is required.";
+      : I.couldNotVerify;
     reviewed.push({
       name: item.name,
       url: item.url,
       category: item.category,
+      categoryLabel: categoryLabel,
       autoVerified: canRead,
       summary: note,
     });
-    if (!canRead) manual.push(item.category + " - " + item.name + ": This document could not be automatically verified. Manual verification is required.");
+    if (!canRead) manual.push(categoryLabel + " - " + item.name + ": " + I.couldNotVerify);
   }
   return { reviewed: reviewed, manualVerification: manual };
 }
@@ -3409,7 +3733,15 @@ function fullAuditLatestInfo_(app, includeMarkdown) {
 }
 
 function enrichApplicationWithFullAudit_(app, includeMarkdown) {
-  if (!app || !app.supportDocumentFolderUrl) {
+  // NOTE: Full Audit reports can be generated from listing-level Supporting
+  // Documents even when the applicant record has no record-level
+  // supportDocumentFolderUrl. Do NOT gate this on supportDocumentFolderUrl -
+  // that field only reflects the record-level upload flow, not whether a
+  // report already exists in Drive. Gating here caused already-generated
+  // reports to show "Not Generated" again after a page refresh whenever the
+  // applicant's documents came from the listing-level Supporting Documents
+  // folder instead of the record-level upload flow.
+  if (!app || !app.listingId || !app.recordId) {
     app.fullAuditReportStatus = "Not Generated";
     return app;
   }
@@ -3458,16 +3790,19 @@ function uploadedFilesByCategory_(uploadedFiles, category) {
   return lines.length ? lines : ["  - Not uploaded or not clearly categorized"];
 }
 
-function buildMissingScreeningItems_(record, uploadedFiles) {
+function buildMissingScreeningItems_(record, uploadedFiles, language) {
+  // NOTE: language defaults to English when omitted so the (currently
+  // UI-unreachable) Draft Screening Report call site below is unaffected.
+  var I = fullAuditI18n_(language);
   var missing = [];
-  if (!hasUploadedCategory_(uploadedFiles, "Income Proof / Pay Stubs")) missing.push("Missing income proof - draft only, needs manual review.");
-  if (!hasUploadedCategory_(uploadedFiles, "Government Photo ID")) missing.push("Missing ID - draft only, needs manual review.");
-  if (!hasUploadedCategory_(uploadedFiles, "Credit Report")) missing.push("Missing credit report - draft only, needs manual review.");
-  if (!hasUploadedCategory_(uploadedFiles, "Landlord Reference") && !record.landlordReference) missing.push("Missing landlord reference - draft only, needs manual review.");
-  if (!hasUploadedCategory_(uploadedFiles, "NOA / T4")) missing.push("Outdated or missing NOA/T4 - verify manually if required.");
-  if (!hasUploadedCategory_(uploadedFiles, "Tenant Insurance") && !record.hasTenantInsurance && !record.proofInsuranceBeforeMoveIn) missing.push("Missing tenant insurance confirmation - draft only, needs manual review.");
-  if (!record.monthlyIncome || !record.employer) missing.push("Applicant income or employment information appears incomplete.");
-  if (!missing.length) missing.push("No obvious missing items detected by the draft checklist. Manual verification is still required.");
+  if (!hasUploadedCategory_(uploadedFiles, "Income Proof / Pay Stubs")) missing.push(I.missingIncome);
+  if (!hasUploadedCategory_(uploadedFiles, "Government Photo ID")) missing.push(I.missingId);
+  if (!hasUploadedCategory_(uploadedFiles, "Credit Report")) missing.push(I.missingCredit);
+  if (!hasUploadedCategory_(uploadedFiles, "Landlord Reference") && !record.landlordReference) missing.push(I.missingReference);
+  if (!hasUploadedCategory_(uploadedFiles, "NOA / T4")) missing.push(I.missingNoa);
+  if (!hasUploadedCategory_(uploadedFiles, "Tenant Insurance") && !record.hasTenantInsurance && !record.proofInsuranceBeforeMoveIn) missing.push(I.missingInsurance);
+  if (!record.monthlyIncome || !record.employer) missing.push(I.missingIncomeEmployment);
+  if (!missing.length) missing.push(I.missingNoneDraft);
   return missing;
 }
 
@@ -3598,125 +3933,126 @@ function generateDraftScreeningReport_(recordId, auth) {
   };
 }
 
-function buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, documentAnalysis) {
+function buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, documentAnalysis, language) {
+  var I = fullAuditI18n_(language);
   var reviewed = documentAnalysis.reviewed || [];
   var manual = documentAnalysis.manualVerification || [];
-  var missing = buildMissingScreeningItems_(record, uploadedFiles);
+  var missing = buildMissingScreeningItems_(record, uploadedFiles, language);
   var hasIncomeDocs = hasUploadedCategory_(uploadedFiles, "Income Proof / Pay Stubs") || hasUploadedCategory_(uploadedFiles, "NOA / T4");
   var hasId = hasUploadedCategory_(uploadedFiles, "Government Photo ID");
   var hasCredit = hasUploadedCategory_(uploadedFiles, "Credit Report");
   var hasBank = hasUploadedCategory_(uploadedFiles, "Bank Statements / Proof of Funds");
   var hasReference = hasUploadedCategory_(uploadedFiles, "Landlord Reference") || !!record.landlordReference;
-  var recommendation = "Manual review required before decision";
-  if (hasIncomeDocs && hasId && hasCredit && hasReference && manual.length <= 1) recommendation = "Proceed to landlord decision review";
-  if (!hasIncomeDocs || !hasId || manual.length >= 3) recommendation = "Request clarification or additional documents before decision";
-  var confidence = manual.length === 0 ? "Medium" : manual.length <= 2 ? "Low to Medium" : "Low";
+  var recommendation = I.recManualReview;
+  if (hasIncomeDocs && hasId && hasCredit && hasReference && manual.length <= 1) recommendation = I.recProceed;
+  if (!hasIncomeDocs || !hasId || manual.length >= 3) recommendation = I.recRequestMore;
+  var confidence = manual.length === 0 ? I.confidenceMedium : manual.length <= 2 ? I.confidenceLowMedium : I.confidenceLow;
 
   var lines = [
-    "# Full Applicant Audit Report",
+    I.title,
     "",
-    "Generated At: " + new Date().toISOString(),
-    "Report Type: Full Applicant Audit Report",
-    "Application ID: " + markdownValue_(record.recordId),
-    "Listing ID: " + markdownValue_(record.listingId),
-    "Property Address: " + markdownValue_(listing && listing.address),
+    I.generatedAt + ": " + new Date().toISOString(),
+    I.reportType + ": " + I.reportTypeValue,
+    I.applicationId + ": " + markdownValue_(record.recordId),
+    I.listingId + ": " + markdownValue_(record.listingId),
+    I.propertyAddress + ": " + markdownValue_(listing && listing.address),
     "",
-    "## Applicant Overview",
-    markdownBullet_("Applicant Name", record.applicantName),
-    markdownBullet_("Email", record.email),
-    markdownBullet_("Phone", record.phone),
-    markdownBullet_("Current Address", record.currentAddress),
-    markdownBullet_("Move-in Date", record.moveInDate),
-    markdownBullet_("Occupants", record.occupants),
-    markdownBullet_("Pets", record.hasPets || record.petDetails),
+    I.applicantOverview,
+    markdownBullet_(I.applicantName, record.applicantName),
+    markdownBullet_(I.email, record.email),
+    markdownBullet_(I.phone, record.phone),
+    markdownBullet_(I.currentAddress, record.currentAddress),
+    markdownBullet_(I.moveInDate, record.moveInDate),
+    markdownBullet_(I.occupants, record.occupants),
+    markdownBullet_(I.pets, record.hasPets || record.petDetails),
     "",
-    "## Documents Reviewed"
+    I.documentsReviewed
   ];
 
   for (var i = 0; i < reviewed.length; i++) {
-    lines.push("- " + reviewed[i].category + ": [" + reviewed[i].name + "](" + reviewed[i].url + ")");
+    lines.push("- " + (reviewed[i].categoryLabel || reviewed[i].category) + ": [" + reviewed[i].name + "](" + reviewed[i].url + ")");
   }
-  if (!reviewed.length) lines.push("- No supporting documents found.");
+  if (!reviewed.length) lines.push("- " + I.noSupportingDocuments);
 
   lines.push("");
-  lines.push("## Extracted Document Summary");
+  lines.push(I.extractedSummary);
   for (var j = 0; j < reviewed.length; j++) {
-    lines.push("- " + reviewed[j].category + " / " + reviewed[j].name + ": " + reviewed[j].summary);
+    lines.push("- " + (reviewed[j].categoryLabel || reviewed[j].category) + " / " + reviewed[j].name + ": " + reviewed[j].summary);
   }
-  if (!reviewed.length) lines.push("- No document text was available for extraction.");
+  if (!reviewed.length) lines.push("- " + I.noDocumentText);
 
   lines = lines.concat([
     "",
-    "## Income Verification",
-    markdownBullet_("Application Monthly Income", record.monthlyIncome),
-    markdownBullet_("Proof of Income Answer", record.proofOfIncome),
-    "- Document status: " + (hasIncomeDocs ? "Income-related documents uploaded." : "Income documents not clearly uploaded."),
+    I.incomeVerification,
+    markdownBullet_(I.applicationMonthlyIncome, record.monthlyIncome),
+    markdownBullet_(I.proofOfIncomeAnswer, record.proofOfIncome),
+    "- " + I.documentStatus + ": " + (hasIncomeDocs ? I.incomeDocsUploaded : I.incomeDocsNotUploaded),
     "",
-    "## Employment Verification",
-    markdownBullet_("Employment Status", record.employmentStatus),
-    markdownBullet_("Employer / Income Source", record.employer),
-    "- Document status: " + (hasUploadedCategory_(uploadedFiles, "Employment Letter") ? "Employment letter uploaded." : "Employment letter not clearly uploaded."),
+    I.employmentVerification,
+    markdownBullet_(I.employmentStatus, record.employmentStatus),
+    markdownBullet_(I.employerIncomeSource, record.employer),
+    "- " + I.documentStatus + ": " + (hasUploadedCategory_(uploadedFiles, "Employment Letter") ? I.employmentLetterUploaded : I.employmentLetterNotUploaded),
     "",
-    "## ID / Identity Consistency Check",
-    "- Document status: " + (hasId ? "Photo ID uploaded." : "Photo ID not clearly uploaded."),
-    "- Identity consistency must be manually verified against the application name and date of birth.",
+    I.idConsistencyCheck,
+    "- " + I.documentStatus + ": " + (hasId ? I.photoIdUploaded : I.photoIdNotUploaded),
+    "- " + I.identityManualNote,
     "",
-    "## Bank Statement Review",
-    "- Document status: " + (hasBank ? "Bank statement / proof of funds uploaded." : "Bank statement / proof of funds not clearly uploaded."),
-    "- Balance, deposits, and account ownership require manual review.",
+    I.bankStatementReview,
+    "- " + I.documentStatus + ": " + (hasBank ? I.bankUploaded : I.bankNotUploaded),
+    "- " + I.bankManualNote,
     "",
-    "## Credit / Background Review",
-    markdownBullet_("Credit History Self-rating", record.creditHistory),
-    "- Document status: " + (hasCredit ? "Credit/background document uploaded." : "Credit/background document not clearly uploaded."),
+    I.creditBackgroundReview,
+    markdownBullet_(I.creditHistorySelfRating, record.creditHistory),
+    "- " + I.documentStatus + ": " + (hasCredit ? I.creditUploaded : I.creditNotUploaded),
     "",
-    "## Reference / Landlord Check",
-    markdownBullet_("Application Reference", record.landlordReference),
-    "- Document status: " + (hasReference ? "Reference information or document is present." : "Reference information/document is missing or unclear."),
+    I.referenceLandlordCheck,
+    markdownBullet_(I.applicationReference, record.landlordReference),
+    "- " + I.documentStatus + ": " + (hasReference ? I.referencePresent : I.referenceMissing),
     "",
-    "## Potential Inconsistencies",
-    "- Compare applicant name, address, employer, income, and dates across all documents manually.",
-    "- Any document that could not be automatically verified must be checked by the landlord or property manager.",
+    I.potentialInconsistencies,
+    "- " + I.inconsistenciesNote1,
+    "- " + I.inconsistenciesNote2,
     "",
-    "## Missing Items"
+    I.missingItems
   ]);
   for (var m = 0; m < missing.length; m++) lines.push("- " + missing[m]);
 
   lines = lines.concat([
     "",
-    "## Risk Analysis",
-    "- This report does not make an automated approval or rejection decision.",
-    "- Risk increases when income, employment, ID, credit, bank, or landlord references are missing, inconsistent, or manually unverifiable.",
+    I.riskAnalysis,
+    "- " + I.riskNote1,
+    "- " + I.riskNote2,
     "",
-    "## Strengths",
-    "- Submitted application form is available for review.",
-    hasIncomeDocs ? "- Income-related supporting documents are present." : "- No clear income-document strength detected.",
-    hasId ? "- Photo ID is present for manual identity verification." : "- Photo ID is not clearly present.",
+    I.strengths,
+    "- " + I.strengthFormAvailable,
+    hasIncomeDocs ? "- " + I.strengthIncomeYes : "- " + I.strengthIncomeNo,
+    hasId ? "- " + I.strengthIdYes : "- " + I.strengthIdNo,
     "",
-    "## Concerns",
-    manual.length ? "- Some documents could not be automatically verified." : "- No automatic document-read failure was recorded.",
-    missing.length ? "- Missing or unclear items require follow-up." : "- No obvious missing checklist items detected.",
+    I.concerns,
+    manual.length ? "- " + I.concernManualYes : "- " + I.concernManualNo,
+    missing.length ? "- " + I.concernMissingYes : "- " + I.concernMissingNo,
     "",
-    "## Recommended Decision",
+    I.recommendedDecision,
     recommendation,
     "",
-    "## Confidence Level",
+    I.confidenceLevel,
     confidence,
     "",
-    "## Manual Verification Required Items"
+    I.manualVerificationRequired
   ]);
 
   if (manual.length) {
     for (var n = 0; n < manual.length; n++) lines.push("- " + manual[n]);
   } else {
-    lines.push("- Manual verification is still required before final landlord decision.");
+    lines.push("- " + I.manualStillRequired);
   }
 
   lines = lines.concat([
     "",
-    "## Disclaimer",
-    "This Full Applicant Audit Report is for internal landlord/property-management review only.",
-    "It is not a legal opinion, credit decision, final approval, or final rejection.",
-    "The landlord/property manager must manually verify all documents and make the final decision."
+    I.disclaimer,
+    I.disclaimer1,
+    I.disclaimer2,
+    I.disclaimer3
   ]);
   return lines.join("\n");
 }
@@ -3782,7 +4118,8 @@ function saveFullApplicantAuditToDrive_(listing, markdown, record) {
   };
 }
 
-function generateFullApplicantAuditReport_(recordId, auth) {
+function generateFullApplicantAuditReport_(recordId, auth, language) {
+  var reportLanguage = language === "zh" ? "zh" : "en";
   var found = findApplicationRowByRecordId_(recordId);
   var record = found.app;
   if (auth && auth.mode === "trial" && !findListingByIdForEmail_(record.listingId, auth.email)) {
@@ -3794,10 +4131,28 @@ function generateFullApplicantAuditReport_(recordId, auth) {
   }
   var listing = findListingById_(record.listingId);
   if (!listing) throw new Error("Listing not found: " + record.listingId);
+
+  // Record-level support folder first, then listing-level Supporting
+  // Documents matched by applicant identity. buildSupportDocumentDebugInfo_
+  // runs the same lookup and reports what it found, so a failure here can
+  // include a specific reason instead of a generic "documents required".
+  var debugInfo = buildSupportDocumentDebugInfo_(record, listing);
   var uploadedFiles = listSupportFilesForApplication_(record, listing);
-  if (!uploadedFiles.length) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
-  var analysis = analyzeApplicantSupportDocuments_(uploadedFiles);
-  var markdown = buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, analysis);
+  if (!uploadedFiles.length) {
+    if (debugInfo.listingLevelFolderFound && debugInfo.unmatchedFileNames.length) {
+      throw new Error(
+        "No supporting documents matched applicant \"" + (record.applicantName || recordId) +
+        "\" in the listing-level Supporting Documents folder (" + debugInfo.unmatchedFileNames.length +
+        " file(s) found in folder, 0 matched by name/email/phone)."
+      );
+    }
+    if (!debugInfo.listingLevelFolderFound) {
+      throw new Error("Supporting documents are required before generating a Full Applicant Audit Report. No record-level documents and no listing-level Supporting Documents folder was found for listing " + record.listingId + ".");
+    }
+    throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
+  }
+  var analysis = analyzeApplicantSupportDocuments_(uploadedFiles, reportLanguage);
+  var markdown = buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, analysis, reportLanguage);
   var saved = saveFullApplicantAuditToDrive_(listing, markdown, record);
   if (!saved.pdfUrl || !saved.driveFileId) {
     throw new Error("Report generated, but Drive save failed. Please download or retry save.");
@@ -3820,6 +4175,7 @@ function generateFullApplicantAuditReport_(recordId, auth) {
     applicantName: saved.applicantName,
     listingId: saved.listingId,
     fullAuditReportMarkdown: saved.markdown,
+    fullAuditDebug: debugInfo,
   };
 }
 
@@ -4286,7 +4642,18 @@ function getApplicationById_(applicationId, auth) {
       if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
         throw new Error("Access denied for this listing.");
       }
-      return enrichApplicationWithFullAudit_(app, true);
+      var enriched = enrichApplicationWithFullAudit_(app, true);
+      if (auth && auth.mode === "admin" && enriched.listingId) {
+        try {
+          var listingForDebug = findListingById_(enriched.listingId);
+          if (listingForDebug) {
+            enriched.fullAuditDebug = buildSupportDocumentDebugInfo_(enriched, listingForDebug);
+          }
+        } catch (err) {
+          enriched.fullAuditDebug = { error: err && err.message ? err.message : String(err) };
+        }
+      }
+      return enriched;
     }
   }
   throw new Error("Application not found: " + applicationId);
@@ -4426,6 +4793,64 @@ function uploadToSubfolder_(body, auth) {
     subfolderFolderId: target.getId(),
     subfolderUrl:    target.getUrl(),
   };
+}
+
+// ── Applicant Screening Reports (listing-level Initial Screening Summary) ─────
+// Generic HTML->PDF save endpoint used by src/utils/applicantScreeningReports.js
+// (downloadApplicantInitialScreeningSummary). Restored from the "Add applicant
+// screening reports workflow" branch - additive only, does not touch the
+// existing generateFullApplicantAuditReport_/buildFullApplicantAuditMarkdown_
+// Full Audit pipeline.
+
+function saveApplicantReportPdf_(body, auth) {
+  if (!body || !body.listingId) throw new Error("saveApplicantReportPdf: listingId required");
+  if (!body.data && !body.html) throw new Error("saveApplicantReportPdf: report payload required");
+  if (!auth || (auth.mode !== "admin" && auth.mode !== "trial")) {
+    throw new Error("Access denied for applicant report save.");
+  }
+
+  Logger.log("[saveApplicantReportPdf] listingId=" + body.listingId);
+  Logger.log("[saveApplicantReportPdf] fileName=" + body.fileName);
+  Logger.log("[saveApplicantReportPdf] reportType=" + (body.reportType || ""));
+
+  var listing = getListingById_(body.listingId, auth);
+  var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (!folderId) throw new Error("Drive folder not found for this listing.");
+  Logger.log("[saveApplicantReportPdf] resolvedListingFolderId=" + folderId);
+
+  var parent = DriveApp.getFolderById(folderId);
+  var folders = parent.getFoldersByName("Tenant Screening Reports");
+  var reportsFolder = folders.hasNext() ? folders.next() : parent.createFolder("Tenant Screening Reports");
+  Logger.log("[saveApplicantReportPdf] reportsFolderId=" + reportsFolder.getId());
+  var safeName = sanitizeApplicantReportFileName_(body.fileName || ("Applicant_Report_" + body.listingId + ".pdf"));
+  if (!/\.pdf$/i.test(safeName)) safeName += ".pdf";
+
+  var html = body.html ? String(body.html) : Utilities.newBlob(Utilities.base64Decode(String(body.data)), body.payloadMimeType || "text/html").getDataAsString("UTF-8");
+  var htmlBlob = Utilities.newBlob(html, "text/html", safeName.replace(/\.pdf$/i, ".html"));
+  var pdfBlob = htmlBlob.getAs("application/pdf").setName(safeName);
+  var existing = reportsFolder.getFilesByName(safeName);
+  while (existing.hasNext()) {
+    existing.next().setTrashed(true);
+  }
+  var file = reportsFolder.createFile(pdfBlob);
+
+  return {
+    fileId: file.getId(),
+    url: file.getUrl(),
+    fileName: file.getName(),
+    reportType: body.reportType || "",
+    folderId: reportsFolder.getId(),
+    folderName: "Tenant Screening Reports",
+    folderUrl: reportsFolder.getUrl(),
+  };
+}
+
+function sanitizeApplicantReportFileName_(name) {
+  return String(name || "Applicant_Report.pdf")
+    .replace(/[\\\/:*?"<>|#%{}~&]/g, "-")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .substring(0, 180);
 }
 
 // ── Cloudinary Video Upload ───────────────────────────────────────────────────
