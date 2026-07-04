@@ -5,8 +5,8 @@ import { AL } from "../utils/adminLabels";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
-  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", strategy: "AI Plan", sale: "Sale", contact: "Contact" },
-  zh: { home: "首页", photoGuide: "拍照", rentals: "出租", strategy: "初评", sale: "出售", contact: "联系" },
+  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", strategy: "AI Plan", sale: "Sale", contact: "Contact", admin: "Admin" },
+  zh: { home: "首页", photoGuide: "拍照", rentals: "出租", strategy: "初评", sale: "出售", contact: "联系", admin: "后台" },
 };
 
 // ── Admin bottom nav ─────────────────────────────────────────────────────────
@@ -108,6 +108,10 @@ function PublicMobileNav({ lang }) {
       <NavLink to="/contact" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>✉️</span>
         <span>{labels.contact}</span>
+      </NavLink>
+      <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item lh-mobile-bottom__item--admin${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+        <span>⚙️</span>
+        <span>{labels.admin}</span>
       </NavLink>
     </nav>
   );
