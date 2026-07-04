@@ -42,6 +42,13 @@ function documentBadge(app) {
   return { label: "New", bg: "#f5f8f5", fg: "#647067", border: "#dde7df" };
 }
 
+function reportBadge(app) {
+  if (String(app.fullAuditReportStatus || "").toLowerCase() === "generated" || app.fullAuditReportUrl || app.fullAuditReportPdfUrl) {
+    return { label: "Generated", tone: "ok" };
+  }
+  return { label: "Not generated", tone: "muted" };
+}
+
 export default function Leads() {
   const lang = useLang();
   const [apps, setApps]       = useState([]);
@@ -173,7 +180,74 @@ export default function Leads() {
           </div>
         </div>
       ) : (
-        <div style={{ overflowX: "auto", marginBottom: 24 }}>
+        <>
+        <div className="admin-mobile-card-list">
+          {visible.map((app, i) => {
+            const screen = quickScreen(app);
+            const doc = documentBadge(app);
+            const report = reportBadge(app);
+            const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
+            const reviewPath = app.recordId ? `/admin/application/${app.recordId}` : "";
+
+            return (
+              <article className="admin-application-card" key={app.recordId || i}>
+                <div className="admin-application-card__top">
+                  <div>
+                    <h2>{app.applicantName || "Applicant"}</h2>
+                    <p>{app.recordId || "No record ID"}</p>
+                  </div>
+                  <span className={`badge ${STATUS_BADGE[app.reviewStatus] || "badge--draft"}`}>
+                    {app.reviewStatus || "Pending"}
+                  </span>
+                </div>
+
+                <div className="admin-application-card__meta">
+                  <div><span>Listing</span><strong>{app.listingId || "—"}</strong></div>
+                  <div><span>Submitted</span><strong>{fmt(app.submittedAt)}</strong></div>
+                  <div><span>Documents</span><strong>{doc.label}</strong></div>
+                  <div><span>Files</span><strong>{app.uploadedFileCount || 0}</strong></div>
+                  <div><span>Initial Summary</span><strong>{screen.type === "ok" ? "Complete" : screen.label}</strong></div>
+                  <div><span>Full Audit</span><strong className={`admin-report-status admin-report-status--${report.tone}`}>{report.label}</strong></div>
+                </div>
+
+                <div className="admin-application-card__actions">
+                  {reviewPath && (
+                    <Link to={reviewPath} className="btn btn--primary btn--sm">
+                      View Application
+                    </Link>
+                  )}
+                  {reviewPath && (
+                    <Link to={`${reviewPath}#screening-summary`} className="btn btn--ghost btn--sm">
+                      View Initial Summary
+                    </Link>
+                  )}
+                  {reviewPath && (
+                    <Link to={`${reviewPath}#full-audit-report`} className="btn btn--ghost btn--sm">
+                      {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
+                    </Link>
+                  )}
+                  {reviewPath && (
+                    <Link to={`${reviewPath}#application-pdf`} className="btn btn--ghost btn--sm">
+                      Download PDF
+                    </Link>
+                  )}
+                  {canRequestDocs && (
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      disabled={busyId === app.recordId}
+                      onClick={() => handleRequestDocuments(app)}
+                    >
+                      {busyId === app.recordId ? "Sending..." : "Request Documents"}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="admin-desktop-table" style={{ overflowX: "auto", marginBottom: 24 }}>
           <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 780 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
               <thead>
@@ -184,7 +258,8 @@ export default function Leads() {
                     "Applicant Name",
                     "Submitted",
                     "PDF",
-                    lang === "zh" ? "初筛" : "Screening",
+                    "Initial Summary",
+                    "Full Audit",
                     "Review Status",
                     "Documents",
                     "Support Folder",
@@ -211,6 +286,7 @@ export default function Leads() {
                 {visible.map((app, i) => {
                   const screen = quickScreen(app);
                   const doc = documentBadge(app);
+                  const report = reportBadge(app);
                   const canRequestDocs = app.email && app.listingId && app.documentRequestSent !== "Yes";
                   const screenColor =
                     screen.type === "ok"
@@ -268,6 +344,23 @@ export default function Leads() {
                           {screen.label === "complete"
                             ? (lang === "zh" ? "完整" : "Complete")
                             : screen.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 12px" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "0.74rem",
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                            background: report.tone === "ok" ? "#edf7ee" : "#f5f8f5",
+                            color: report.tone === "ok" ? "#2e7d4f" : "#647067",
+                            border: `1px solid ${report.tone === "ok" ? "#b8e4c4" : "#dde7df"}`,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {report.label}
                         </span>
                       </td>
                       <td style={{ padding: "10px 12px" }}>
@@ -333,7 +426,15 @@ export default function Leads() {
                               to={`/admin/application/${app.recordId}`}
                               className="btn btn--ghost btn--sm"
                             >
-                              Review →
+                              View Application →
+                            </Link>
+                          )}
+                          {app.recordId && (
+                            <Link
+                              to={`/admin/application/${app.recordId}#full-audit-report`}
+                              className="btn btn--ghost btn--sm"
+                            >
+                              {report.tone === "ok" ? "View Full Audit" : "Generate Full Audit"}
                             </Link>
                           )}
                         </div>
@@ -345,6 +446,7 @@ export default function Leads() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Application link helper */}

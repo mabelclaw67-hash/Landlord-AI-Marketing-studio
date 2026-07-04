@@ -267,6 +267,7 @@ function doPost(e) {
     if (action === "requestSupportingDocuments") return ok(requestSupportingDocuments_(body.recordId, body.origin || "", auth));
     if (action === "resendSupportingDocumentsEmail") return ok(resendSupportingDocumentsEmail_(body.recordId, auth));
     if (action === "generateDraftScreeningReport") return ok(generateDraftScreeningReport_(body.recordId, auth));
+    if (action === "generateFullApplicantAuditReport") return ok(generateFullApplicantAuditReport_(body.recordId, auth));
     if (action === "updateApplicationRetentionStatus") return ok(updateApplicationRetentionStatus_(body.recordId, body.retentionStatus, body.notes, auth));
     if (action === "cleanupExpiredApplicationsPreview") return ok(cleanupExpiredApplicationsPreview_(auth));
     if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
@@ -3217,6 +3218,9 @@ var SCREENING_REPORT_CATEGORIES = [
   "Other Documents"
 ];
 
+var FULL_AUDIT_REPORT_FOLDER_NAME = "Tenant Screening Reports";
+var FULL_AUDIT_REPORT_PREFIX = "Full Applicant Audit";
+
 function inferSupportDocumentCategory_(fileName) {
   var lower = String(fileName || "").toLowerCase();
   if (lower.indexOf("government photo id") >= 0 || lower.indexOf("photo id") >= 0 || lower.indexOf("passport") >= 0 || lower.indexOf("driver") >= 0) return "Government Photo ID";
@@ -3245,6 +3249,115 @@ function listUploadedSupportFiles_(folderUrl) {
     });
   }
   return uploaded;
+}
+
+function getFullAuditReportsFolder_(folderUrl, createIfMissing) {
+  var folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) return null;
+  var supportFolder = DriveApp.getFolderById(folderId);
+  var existing = supportFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
+  if (existing.hasNext()) return existing.next();
+  return createIfMissing ? supportFolder.createFolder(FULL_AUDIT_REPORT_FOLDER_NAME) : null;
+}
+
+function safeFullAuditNamePart_(value, fallback) {
+  return sanitizePdfFilePart_(value || fallback || "Applicant", fallback || "Applicant")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function readSupportDocumentText_(file) {
+  var mime = String(file.getMimeType() || "").toLowerCase();
+  try {
+    if (mime === MimeType.GOOGLE_DOCS || mime === "application/vnd.google-apps.document") {
+      return DocumentApp.openById(file.getId()).getBody().getText().slice(0, 4000);
+    }
+    if (mime.indexOf("text/") === 0 || mime === "application/json" || mime === "application/csv") {
+      return file.getBlob().getDataAsString().slice(0, 4000);
+    }
+  } catch (err) {
+    return "";
+  }
+  return "";
+}
+
+function analyzeApplicantSupportDocuments_(uploadedFiles) {
+  var reviewed = [];
+  var manual = [];
+  for (var i = 0; i < uploadedFiles.length; i++) {
+    var item = uploadedFiles[i];
+    var fileId = extractDriveFileId_(item.url);
+    var text = "";
+    var canRead = false;
+    if (fileId) {
+      try {
+        var file = DriveApp.getFileById(fileId);
+        text = readSupportDocumentText_(file);
+        canRead = !!text;
+      } catch (err) {
+        text = "";
+      }
+    }
+    var note = canRead
+      ? text.replace(/\s+/g, " ").slice(0, 700)
+      : "This document could not be automatically verified. Manual verification is required.";
+    reviewed.push({
+      name: item.name,
+      url: item.url,
+      category: item.category,
+      autoVerified: canRead,
+      summary: note,
+    });
+    if (!canRead) manual.push(item.category + " - " + item.name + ": This document could not be automatically verified. Manual verification is required.");
+  }
+  return { reviewed: reviewed, manualVerification: manual };
+}
+
+function fullAuditLatestInfo_(folderUrl, includeMarkdown) {
+  var folder = getFullAuditReportsFolder_(folderUrl, false);
+  if (!folder) return { status: "Not Generated" };
+  var files = folder.getFiles();
+  var latestMd = null;
+  var latestPdf = null;
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName();
+    if (name.indexOf(FULL_AUDIT_REPORT_PREFIX) !== 0) continue;
+    var lower = name.toLowerCase();
+    if (lower.slice(-3) === ".md" && (!latestMd || file.getLastUpdated() > latestMd.getLastUpdated())) latestMd = file;
+    if (lower.slice(-4) === ".pdf" && (!latestPdf || file.getLastUpdated() > latestPdf.getLastUpdated())) latestPdf = file;
+  }
+  if (!latestMd && !latestPdf) return { status: "Not Generated" };
+  var markdown = "";
+  if (includeMarkdown && latestMd) {
+    try { markdown = latestMd.getBlob().getDataAsString(); } catch (err) { markdown = ""; }
+  }
+  return {
+    status: "Generated",
+    generatedAt: (latestMd || latestPdf).getLastUpdated().toISOString(),
+    url: latestMd ? latestMd.getUrl() : "",
+    pdfUrl: latestPdf ? latestPdf.getUrl() : "",
+    markdown: markdown,
+  };
+}
+
+function enrichApplicationWithFullAudit_(app, includeMarkdown) {
+  if (!app || !app.supportDocumentFolderUrl) {
+    app.fullAuditReportStatus = "Not Generated";
+    return app;
+  }
+  try {
+    var info = fullAuditLatestInfo_(app.supportDocumentFolderUrl, includeMarkdown);
+    app.fullAuditReportStatus = info.status || "Not Generated";
+    app.fullAuditReportGeneratedAt = info.generatedAt || "";
+    app.fullAuditReportUrl = info.url || "";
+    app.fullAuditReportPdfUrl = info.pdfUrl || "";
+    if (includeMarkdown) app.fullAuditReportMarkdown = info.markdown || "";
+  } catch (err) {
+    app.fullAuditReportStatus = "Unknown";
+    app.fullAuditReportError = err && err.message ? err.message : String(err);
+  }
+  return app;
 }
 
 function markdownValue_(value) {
@@ -3410,6 +3523,202 @@ function generateDraftScreeningReport_(recordId, auth) {
     screeningReportGeneratedAt: updated.generatedAt,
     screeningReportUrl: updated.reportUrl,
     screeningReportMarkdown: markdown,
+  };
+}
+
+function buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, documentAnalysis) {
+  var reviewed = documentAnalysis.reviewed || [];
+  var manual = documentAnalysis.manualVerification || [];
+  var missing = buildMissingScreeningItems_(record, uploadedFiles);
+  var hasIncomeDocs = hasUploadedCategory_(uploadedFiles, "Income Proof / Pay Stubs") || hasUploadedCategory_(uploadedFiles, "NOA / T4");
+  var hasId = hasUploadedCategory_(uploadedFiles, "Government Photo ID");
+  var hasCredit = hasUploadedCategory_(uploadedFiles, "Credit Report");
+  var hasBank = hasUploadedCategory_(uploadedFiles, "Bank Statements / Proof of Funds");
+  var hasReference = hasUploadedCategory_(uploadedFiles, "Landlord Reference") || !!record.landlordReference;
+  var recommendation = "Manual review required before decision";
+  if (hasIncomeDocs && hasId && hasCredit && hasReference && manual.length <= 1) recommendation = "Proceed to landlord decision review";
+  if (!hasIncomeDocs || !hasId || manual.length >= 3) recommendation = "Request clarification or additional documents before decision";
+  var confidence = manual.length === 0 ? "Medium" : manual.length <= 2 ? "Low to Medium" : "Low";
+
+  var lines = [
+    "# Full Applicant Audit Report",
+    "",
+    "Generated At: " + new Date().toISOString(),
+    "Report Type: Full Applicant Audit Report",
+    "Application ID: " + markdownValue_(record.recordId),
+    "Listing ID: " + markdownValue_(record.listingId),
+    "Property Address: " + markdownValue_(listing && listing.address),
+    "",
+    "## Applicant Overview",
+    markdownBullet_("Applicant Name", record.applicantName),
+    markdownBullet_("Email", record.email),
+    markdownBullet_("Phone", record.phone),
+    markdownBullet_("Current Address", record.currentAddress),
+    markdownBullet_("Move-in Date", record.moveInDate),
+    markdownBullet_("Occupants", record.occupants),
+    markdownBullet_("Pets", record.hasPets || record.petDetails),
+    "",
+    "## Documents Reviewed"
+  ];
+
+  for (var i = 0; i < reviewed.length; i++) {
+    lines.push("- " + reviewed[i].category + ": [" + reviewed[i].name + "](" + reviewed[i].url + ")");
+  }
+  if (!reviewed.length) lines.push("- No supporting documents found.");
+
+  lines.push("");
+  lines.push("## Extracted Document Summary");
+  for (var j = 0; j < reviewed.length; j++) {
+    lines.push("- " + reviewed[j].category + " / " + reviewed[j].name + ": " + reviewed[j].summary);
+  }
+  if (!reviewed.length) lines.push("- No document text was available for extraction.");
+
+  lines = lines.concat([
+    "",
+    "## Income Verification",
+    markdownBullet_("Application Monthly Income", record.monthlyIncome),
+    markdownBullet_("Proof of Income Answer", record.proofOfIncome),
+    "- Document status: " + (hasIncomeDocs ? "Income-related documents uploaded." : "Income documents not clearly uploaded."),
+    "",
+    "## Employment Verification",
+    markdownBullet_("Employment Status", record.employmentStatus),
+    markdownBullet_("Employer / Income Source", record.employer),
+    "- Document status: " + (hasUploadedCategory_(uploadedFiles, "Employment Letter") ? "Employment letter uploaded." : "Employment letter not clearly uploaded."),
+    "",
+    "## ID / Identity Consistency Check",
+    "- Document status: " + (hasId ? "Photo ID uploaded." : "Photo ID not clearly uploaded."),
+    "- Identity consistency must be manually verified against the application name and date of birth.",
+    "",
+    "## Bank Statement Review",
+    "- Document status: " + (hasBank ? "Bank statement / proof of funds uploaded." : "Bank statement / proof of funds not clearly uploaded."),
+    "- Balance, deposits, and account ownership require manual review.",
+    "",
+    "## Credit / Background Review",
+    markdownBullet_("Credit History Self-rating", record.creditHistory),
+    "- Document status: " + (hasCredit ? "Credit/background document uploaded." : "Credit/background document not clearly uploaded."),
+    "",
+    "## Reference / Landlord Check",
+    markdownBullet_("Application Reference", record.landlordReference),
+    "- Document status: " + (hasReference ? "Reference information or document is present." : "Reference information/document is missing or unclear."),
+    "",
+    "## Potential Inconsistencies",
+    "- Compare applicant name, address, employer, income, and dates across all documents manually.",
+    "- Any document that could not be automatically verified must be checked by the landlord or property manager.",
+    "",
+    "## Missing Items"
+  ]);
+  for (var m = 0; m < missing.length; m++) lines.push("- " + missing[m]);
+
+  lines = lines.concat([
+    "",
+    "## Risk Analysis",
+    "- This report does not make an automated approval or rejection decision.",
+    "- Risk increases when income, employment, ID, credit, bank, or landlord references are missing, inconsistent, or manually unverifiable.",
+    "",
+    "## Strengths",
+    "- Submitted application form is available for review.",
+    hasIncomeDocs ? "- Income-related supporting documents are present." : "- No clear income-document strength detected.",
+    hasId ? "- Photo ID is present for manual identity verification." : "- Photo ID is not clearly present.",
+    "",
+    "## Concerns",
+    manual.length ? "- Some documents could not be automatically verified." : "- No automatic document-read failure was recorded.",
+    missing.length ? "- Missing or unclear items require follow-up." : "- No obvious missing checklist items detected.",
+    "",
+    "## Recommended Decision",
+    recommendation,
+    "",
+    "## Confidence Level",
+    confidence,
+    "",
+    "## Manual Verification Required Items"
+  ]);
+
+  if (manual.length) {
+    for (var n = 0; n < manual.length; n++) lines.push("- " + manual[n]);
+  } else {
+    lines.push("- Manual verification is still required before final landlord decision.");
+  }
+
+  lines = lines.concat([
+    "",
+    "## Disclaimer",
+    "This Full Applicant Audit Report is for internal landlord/property-management review only.",
+    "It is not a legal opinion, credit decision, final approval, or final rejection.",
+    "The landlord/property manager must manually verify all documents and make the final decision."
+  ]);
+  return lines.join("\n");
+}
+
+function saveFullApplicantAuditToDrive_(folderUrl, markdown, record) {
+  var folder = getFullAuditReportsFolder_(folderUrl, true);
+  var date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var baseName = [
+    FULL_AUDIT_REPORT_PREFIX,
+    safeFullAuditNamePart_(record.applicantName, "Applicant"),
+    safeFullAuditNamePart_(record.listingId, "Listing"),
+    date
+  ].join(" - ");
+  var mdName = baseName + ".md";
+  var pdfName = baseName + ".pdf";
+  var oldMd = folder.getFilesByName(mdName);
+  while (oldMd.hasNext()) oldMd.next().setTrashed(true);
+  var oldPdf = folder.getFilesByName(pdfName);
+  while (oldPdf.hasNext()) oldPdf.next().setTrashed(true);
+
+  var mdFile = folder.createFile(mdName, markdown, MimeType.PLAIN_TEXT);
+
+  var doc = DocumentApp.create(baseName);
+  var body = doc.getBody();
+  body.clear();
+  var lines = markdown.split(/\r?\n/);
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line.trim()) {
+      body.appendParagraph("");
+    } else if (line.indexOf("# ") === 0) {
+      body.appendParagraph(line.slice(2)).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    } else if (line.indexOf("## ") === 0) {
+      body.appendParagraph(line.slice(3)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    } else {
+      body.appendParagraph(line);
+    }
+  }
+  doc.saveAndClose();
+  var docFile = DriveApp.getFileById(doc.getId());
+  docFile.moveTo(folder);
+  var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
+  trySetDriveViewSharing_(mdFile, "full audit markdown");
+  trySetDriveViewSharing_(docFile, "full audit document");
+  trySetDriveViewSharing_(pdfFile, "full audit pdf");
+  return { reportUrl: mdFile.getUrl(), pdfUrl: pdfFile.getUrl(), generatedAt: new Date().toISOString(), markdown: markdown };
+}
+
+function generateFullApplicantAuditReport_(recordId, auth) {
+  var found = findApplicationRowByRecordId_(recordId);
+  var record = found.app;
+  if (auth && auth.mode === "trial" && !findListingByIdForEmail_(record.listingId, auth.email)) {
+    throw new Error("Access denied for this listing.");
+  }
+  if (!record.supportDocumentFolderUrl) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
+  var uploadStatus = String(record.documentUploadStatus || "").toLowerCase();
+  if (uploadStatus !== "uploaded" && uploadStatus !== "complete") {
+    throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
+  }
+  var listing = findListingById_(record.listingId);
+  if (!listing) throw new Error("Listing not found: " + record.listingId);
+  var uploadedFiles = listUploadedSupportFiles_(record.supportDocumentFolderUrl);
+  if (!uploadedFiles.length) throw new Error("Supporting documents are required before generating a Full Applicant Audit Report.");
+  var analysis = analyzeApplicantSupportDocuments_(uploadedFiles);
+  var markdown = buildFullApplicantAuditMarkdown_(record, listing, uploadedFiles, analysis);
+  var saved = saveFullApplicantAuditToDrive_(record.supportDocumentFolderUrl, markdown, record);
+  return {
+    success: true,
+    recordId: recordId,
+    fullAuditReportStatus: "Generated",
+    fullAuditReportGeneratedAt: saved.generatedAt,
+    fullAuditReportUrl: saved.reportUrl,
+    fullAuditReportPdfUrl: saved.pdfUrl,
+    fullAuditReportMarkdown: saved.markdown,
   };
 }
 
@@ -3841,7 +4150,7 @@ function getApplicationsByListing_(listingId, auth) {
   var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
   return rows
     .filter(function(row) { return colVal_(row, headerMap, "Listing ID") === listingId; })
-    .map(function(row) { return rowToApplication_(row, headerMap); });
+    .map(function(row) { return enrichApplicationWithFullAudit_(rowToApplication_(row, headerMap), false); });
 }
 
 function getAllApplications_(auth) {
@@ -3858,7 +4167,8 @@ function getAllApplications_(auth) {
     .filter(function(app) {
       if (!auth || auth.mode === "admin") return true;
       return !!findListingByIdForEmail_(app.listingId, auth.email);
-    });
+    })
+    .map(function(app) { return enrichApplicationWithFullAudit_(app, false); });
 }
 
 function getApplicationById_(applicationId, auth) {
@@ -3875,7 +4185,7 @@ function getApplicationById_(applicationId, auth) {
       if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
         throw new Error("Access denied for this listing.");
       }
-      return app;
+      return enrichApplicationWithFullAudit_(app, true);
     }
   }
   throw new Error("Application not found: " + applicationId);

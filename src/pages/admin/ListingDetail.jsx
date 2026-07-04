@@ -14,7 +14,7 @@ import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
 import { buildRentalListingPublicUrl } from "../../utils/publicUrls";
-import RentalWorkflowNav, { getAutoStep } from "../../components/RentalWorkflowNav";
+import RentalWorkflowNav from "../../components/RentalWorkflowNav";
 import ListingStatusBanner from "../../components/ListingStatusBanner";
 import CollapsibleCard from "../../components/CollapsibleCard";
 
@@ -304,9 +304,9 @@ export default function ListingDetail({ lang: langProp }) {
   const [videoProgress,  setVideoProgress]  = useState({ slide: 0, total: 0 });
   const [videoMsg,       setVideoMsg]       = useState(null);
   const [videoFolderUrl, setVideoFolderUrl] = useState(null);
-  const [videoFileUrl,   setVideoFileUrl]   = useState(null);
+  const [,               setVideoFileUrl]   = useState(null);
   const [videoFormat,    setVideoFormat]    = useState("landscape"); // "landscape" | "vertical"
-  const [videoBlob,      setVideoBlob]      = useState(null);        // raw Blob for download
+  const [,               setVideoBlob]      = useState(null);        // raw Blob for download
   const [videoBlobUrl,   setVideoBlobUrl]   = useState(null);        // URL.createObjectURL for in-page preview
   const [videoSourceType,setVideoSourceType]= useState(null);        // "enhanced" | "original"
   const [musicTrack,     setMusicTrack]     = useState("none");      // "none" or full path like /music/xxx.mp3
@@ -418,7 +418,9 @@ export default function ListingDetail({ lang: langProp }) {
     try {
       const fresh = await getListing(id);
       if (fresh) setListing(fresh);
-    } catch (_) {}
+    } catch {
+      /* Re-read failure should not block the saved local status update. */
+    }
   };
 
   const toggleMediaCheck = (i) => {
@@ -833,7 +835,7 @@ export default function ListingDetail({ lang: langProp }) {
         audioAdded = true;
       } catch (err) {
         setVideoMsg(`⚠️ Music failed (${err.message}) — generating silent video.`);
-        if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
+        if (audioCtx) { try { audioCtx.close(); } catch { /* ignore audio cleanup errors */ } audioCtx = null; }
         audioSource = null;
         decodedAudioBuf = null;
       }
@@ -1046,7 +1048,7 @@ export default function ListingDetail({ lang: langProp }) {
       ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
     }
 
-    function sceneCaption(idx, total) {
+    function sceneCaption(idx) {
       // idx 0 = cover (overlay text handles that slide)
       if (idx === 0) return null;
       if (idx === 1 && beds) return beds;
@@ -1087,13 +1089,11 @@ export default function ListingDetail({ lang: langProp }) {
 
     const outroImg    = validImages[validImages.length - 1];
     const totalScenes = 1 + validImages.length; // photos + outro
-    let cur = 0;
-
     // Photo slides — first photo gets intro overlay text instead of dark title card
     for (let i = 0; i < validImages.length; i++) {
       const img = validImages[i];
-      const cap = sceneCaption(i, validImages.length);
-      setVideoProgress({ slide: ++cur, total: totalScenes });
+      const cap = sceneCaption(i);
+      setVideoProgress({ slide: i + 1, total: totalScenes });
       // First slide: cover photo + property info overlay
       if (i === 0) {
         await renderFor(p => { drawPhoto(img, p, i); drawPhotoIntroOverlay(); }, photoHoldSecs);
@@ -1105,7 +1105,7 @@ export default function ListingDetail({ lang: langProp }) {
     }
 
     // CTA outro: photo background + fade in + hold + fade out
-    setVideoProgress({ slide: ++cur, total: totalScenes });
+    setVideoProgress({ slide: totalScenes, total: totalScenes });
     await renderFor(p => {
       drawPhotoOutro(outroImg);
       ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); ctx.restore();
@@ -1114,8 +1114,8 @@ export default function ListingDetail({ lang: langProp }) {
     await renderFor(p => fadeBlack(() => drawPhotoOutro(outroImg), p), 0.4);
 
     // Stop preview audio
-    if (audioSource) { try { audioSource.stop(); } catch {} }
-    if (audioCtx)    { try { audioCtx.close();   } catch {} }
+    if (audioSource) { try { audioSource.stop(); } catch { /* ignore audio cleanup errors */ } }
+    if (audioCtx)    { try { audioCtx.close();   } catch { /* ignore audio cleanup errors */ } }
 
     // Encode audio from the decoded buffer, looping to fill the full video duration
     if (audioEncoder && decodedAudioBuf) {
@@ -1408,6 +1408,28 @@ export default function ListingDetail({ lang: langProp }) {
 
       {/* Status + Next Step Banner */}
       <ListingStatusBanner listing={listing} />
+
+      <section className="admin-workflow-entry-card" aria-label={lang === "zh" ? "申请管理" : "Application Management"}>
+        <div>
+          <p className="admin-workflow-entry-card__eyebrow">
+            {lang === "zh" ? "申请管理" : "Application Management"}
+          </p>
+          <h2>{lang === "zh" ? "查看申请、初筛摘要与审核报告" : "View applications, screening summaries, and audit reports"}</h2>
+          <p>
+            {lang === "zh"
+              ? "进入申请管理页面，查看申请人、支持文件状态、初筛摘要、审核报告与 PDF。"
+              : "Open Application Management to review applicants, document status, screening summaries, audit reports, and PDFs."}
+          </p>
+        </div>
+        <div className="admin-workflow-entry-card__actions">
+          <Link to="/admin/leads" className="btn btn--primary btn--sm">
+            {lang === "zh" ? "查看申请管理" : "View Applications"}
+          </Link>
+          <Link to={`/apply/${listing.id}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
+            {lang === "zh" ? "打开申请入口" : "Open Application Link"}
+          </Link>
+        </div>
+      </section>
 
       {/* Property Info */}
       <CollapsibleCard

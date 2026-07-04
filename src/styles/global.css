@@ -245,6 +245,15 @@ img { max-width: 100%; height: auto; display: block; }
 @media (max-width: 600px) {
   .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .btn--sm { min-height: 40px; }
+  .admin-content .btn,
+  .admin-action-row--full-mobile .btn,
+  .admin-action-row--full-mobile a,
+  .admin-action-row--full-mobile button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
 }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -652,6 +661,10 @@ tr:hover td { background: #F9F6F0; }
   .admin-content { padding: 20px; }
   .admin-module-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 600px) {
+  .admin-sidebar { display: none; }
+  .admin-content { padding: 16px; }
+}
 
 /* =====================
    Tenant Nav (Rental Listings + Listing Detail pages)
@@ -1000,6 +1013,13 @@ tr:hover td { background: #F9F6F0; }
 .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .info-item label { font-size: 0.78rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
 .info-item p { font-size: 0.92rem; color: var(--color-text); font-weight: 500; }
+@media (max-width: 600px) {
+  .info-grid { grid-template-columns: 1fr; }
+  .info-item p,
+  .info-item label {
+    overflow-wrap: anywhere;
+  }
+}
 
 /* =====================
    Utility
@@ -5320,15 +5340,180 @@ tr:hover td { background: #F9F6F0; }
 
 @media (max-width: 600px) {
   .rental-workflow-nav {
-    gap: 3px;
-    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    align-items: stretch;
   }
   .rwn-step {
-    font-size: 0.7rem;
-    padding: 5px 7px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    min-height: 48px;
+    padding: 8px 9px;
+    white-space: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
   }
   .rwn-step__label {
-    font-size: 0.68rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+  .rwn-step__tag { display: none; }
+}
+
+.admin-workflow-entry-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border: 1px solid #d9e4dc;
+  border-radius: 10px;
+  background: #f7fbf8;
+  box-shadow: 0 8px 20px rgba(54,65,75,0.06);
+}
+.admin-workflow-entry-card__eyebrow {
+  margin: 0 0 4px;
+  color: #3e5b4b;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-workflow-entry-card h2 {
+  margin: 0 0 4px;
+  color: #213128;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.admin-workflow-entry-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+.admin-workflow-entry-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.admin-mobile-card-list { display: none; }
+.admin-action-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.admin-anchor-section {
+  scroll-margin-top: 18px;
+}
+.admin-report-viewer {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fffdf8;
+  line-height: 1.55;
+  max-height: 620px;
+  overflow: auto;
+}
+.admin-report-viewer p,
+.admin-report-viewer h2,
+.admin-report-viewer h3 {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .admin-desktop-table { display: none !important; }
+  .admin-mobile-card-list {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .admin-application-card {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(54,65,75,0.06);
+    padding: 14px;
+  }
+  .admin-application-card__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .admin-application-card__top h2 {
+    margin: 0 0 3px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #213128;
+  }
+  .admin-application-card__top p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-family: monospace;
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+  }
+  .admin-application-card__meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .admin-application-card__meta div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #edf0ec;
+    padding-top: 8px;
+    font-size: 0.82rem;
+  }
+  .admin-application-card__meta span {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+  .admin-application-card__meta strong {
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .admin-report-status--ok { color: #2e7d4f; }
+  .admin-report-status--muted { color: var(--color-text-muted); }
+  .admin-application-card__actions {
+    display: grid;
+    gap: 8px;
+  }
+  .admin-application-card__actions .btn {
+    width: 100%;
+    white-space: normal;
+  }
+  .admin-workflow-entry-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+  }
+  .admin-workflow-entry-card__actions {
+    display: grid;
+    justify-content: stretch;
+  }
+  .admin-workflow-entry-card__actions .btn {
+    width: 100%;
+  }
+  .admin-report-viewer {
+    max-height: none;
+    padding: 14px;
+    font-size: 0.88rem;
+  }
+  .admin-content code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
 
@@ -5579,6 +5764,6 @@ tr:hover td { background: #F9F6F0; }
 
   /* Ensure admin pages have bottom padding so content clears the nav */
   .admin-content {
-    padding-bottom: 72px;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 }

@@ -336,6 +336,17 @@ export async function generateDraftScreeningReport(recordId) {
   });
 }
 
+export async function generateFullApplicantAuditReport(recordId) {
+  if (!isApiConnected()) {
+    throw new Error("Full Applicant Audit Report generation requires Google Apps Script integration.");
+  }
+  return apiPost({
+    action: "generateFullApplicantAuditReport",
+    recordId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 export async function updateApplicationRetentionStatus(recordId, retentionStatus, notes = "") {
   if (!isApiConnected()) {
     throw new Error("Data retention actions require Google Apps Script integration.");

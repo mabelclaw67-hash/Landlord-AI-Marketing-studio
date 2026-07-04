@@ -4,7 +4,7 @@ import { useLang } from "../../contexts/LangContext";
 import {
   getApplicationById,
   getListing,
-  generateDraftScreeningReport,
+  generateFullApplicantAuditReport,
   updateApplicationRetentionStatus,
   cleanupExpiredApplicationsPreview,
   deleteExpiredApplicantSensitiveFiles,
@@ -86,15 +86,7 @@ function renderInlineMarkdown(text) {
 function MarkdownReport({ markdown }) {
   const lines = String(markdown || "").split(/\r?\n/);
   return (
-    <div style={{
-      border: "1px solid var(--color-border)",
-      borderRadius: 8,
-      padding: 18,
-      background: "#fffdf8",
-      lineHeight: 1.55,
-      maxHeight: 620,
-      overflow: "auto",
-    }}>
+    <div className="admin-report-viewer">
       {lines.map((line, index) => {
         if (!line.trim()) return <div key={index} style={{ height: 8 }} />;
         if (line.startsWith("# ")) {
@@ -344,7 +336,7 @@ export default function ApplicationReview() {
   const [notesSaved, setNotesSaved]     = useState(false);
   const [adminPdfBusy, setAdminPdfBusy] = useState(false);
   const [requestingDocs, setRequestingDocs] = useState(false);
-  const [generatingReport, setGeneratingReport] = useState(false);
+  const [generatingFullAudit, setGeneratingFullAudit] = useState(false);
   const [retentionBusy, setRetentionBusy] = useState("");
   const [retentionPreview, setRetentionPreview] = useState(null);
 
@@ -434,26 +426,27 @@ export default function ApplicationReview() {
     }
   }
 
-  async function handleGenerateDraftReport() {
+  async function handleGenerateFullAuditReport() {
     if (!app?.recordId) return;
-    const ok = window.confirm("Generate an AI draft screening report for internal review?");
+    const ok = window.confirm("Generate a Full Applicant Audit Report for this applicant using the application and supporting documents?");
     if (!ok) return;
-    setGeneratingReport(true);
+    setGeneratingFullAudit(true);
     setMessage("");
     try {
-      const result = await generateDraftScreeningReport(app.recordId);
+      const result = await generateFullApplicantAuditReport(app.recordId);
       setApp((prev) => ({
         ...prev,
-        screeningReportStatus: result?.screeningReportStatus || "Draft Generated",
-        screeningReportGeneratedAt: result?.screeningReportGeneratedAt || new Date().toISOString(),
-        screeningReportUrl: result?.screeningReportUrl || prev?.screeningReportUrl,
-        screeningReportMarkdown: result?.screeningReportMarkdown || prev?.screeningReportMarkdown,
+        fullAuditReportStatus: result?.fullAuditReportStatus || "Generated",
+        fullAuditReportGeneratedAt: result?.fullAuditReportGeneratedAt || new Date().toISOString(),
+        fullAuditReportUrl: result?.fullAuditReportUrl || prev?.fullAuditReportUrl,
+        fullAuditReportPdfUrl: result?.fullAuditReportPdfUrl || prev?.fullAuditReportPdfUrl,
+        fullAuditReportMarkdown: result?.fullAuditReportMarkdown || prev?.fullAuditReportMarkdown,
       }));
-      setMessage("AI draft screening report generated.");
+      setMessage("Full Applicant Audit Report generated and saved to Tenant Screening Reports.");
     } catch (e) {
-      setMessage("Screening report failed: " + (e.message || "unknown error"));
+      setMessage("Full Applicant Audit Report failed: " + (e.message || "unknown error"));
     } finally {
-      setGeneratingReport(false);
+      setGeneratingFullAudit(false);
     }
   }
 
@@ -576,6 +569,7 @@ export default function ApplicationReview() {
     app.supportDocumentFolderUrl &&
     ["uploaded", "complete"].includes(String(app.documentUploadStatus || "").toLowerCase())
   );
+  const canGenerateFullAuditReport = canGenerateDraftReport;
   const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
@@ -601,7 +595,7 @@ export default function ApplicationReview() {
           <h1 style={{ fontWeight: 800, fontSize: "1.5rem" }}>{lang === "zh" ? "申请审核" : "Application Review"}</h1>
           <p className="text-muted text-sm" style={{ fontFamily: "monospace" }}>{app.recordId}</p>
         </div>
-        <div className="flex gap-8">
+        <div className="admin-action-row">
           <Link to="/admin/leads" className="btn btn--ghost btn--sm">← Leads</Link>
           {_isAdmin && canRequestDocs && (
             <button
@@ -661,6 +655,7 @@ export default function ApplicationReview() {
         </div>
       </div>
 
+      <section id="screening-report" className="admin-anchor-section">
       <SectionCard title="Supporting Documents">
         <div className="info-grid">
           {_isAdmin && <InfoRow label="Shortlist Status" value={app.shortlistStatus || "New"} />}
@@ -669,10 +664,11 @@ export default function ApplicationReview() {
           <InfoRow label="Document Upload Status" value={app.documentUploadStatus || "—"} />
           <InfoRow label="Uploaded File Count" value={app.uploadedFileCount || "0"} />
           {_isAdmin && <InfoRow label="Last Upload At" value={app.lastUploadAt} />}
-          {_isAdmin && <InfoRow label="Screening Report Status" value={app.screeningReportStatus || "—"} />}
-          {_isAdmin && <InfoRow label="Screening Report Generated At" value={app.screeningReportGeneratedAt} />}
+          {_isAdmin && <InfoRow label="Initial Screening Summary Status" value={app.screeningReportStatus || "Rule-based summary available on this page"} />}
+          {_isAdmin && <InfoRow label="Full Applicant Audit Report Status" value={app.fullAuditReportStatus || "Not Generated"} />}
+          {_isAdmin && <InfoRow label="Full Audit Generated At" value={app.fullAuditReportGeneratedAt} />}
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+        <div className="admin-action-row admin-action-row--full-mobile">
           {_isAdmin && canRequestDocs && (
             <button
               type="button"
@@ -698,16 +694,6 @@ export default function ApplicationReview() {
               {documentRequestBlocker}
             </span>
           )}
-          {_isAdmin && canGenerateDraftReport && (
-            <button
-              type="button"
-              className="btn btn--sm"
-              disabled={generatingReport}
-              onClick={handleGenerateDraftReport}
-            >
-              {generatingReport ? "Generating..." : "Generate AI Draft Screening Report"}
-            </button>
-          )}
           {canSeeInternalDriveLinks && app.supportDocumentFolderUrl && (
             <a href={app.supportDocumentFolderUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
               Open Support Folder
@@ -718,19 +704,67 @@ export default function ApplicationReview() {
               Open Upload Link
             </a>
           )}
-          {canSeeInternalDriveLinks && app.screeningReportUrl && (
-            <a href={app.screeningReportUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-              Open Screening Report
-            </a>
-          )}
         </div>
       </SectionCard>
 
       {app.screeningReportMarkdown && (
-        <SectionCard title="AI Draft Screening Report">
+        <SectionCard title="Saved Initial Screening Summary Report">
           <MarkdownReport markdown={app.screeningReportMarkdown} />
         </SectionCard>
       )}
+      </section>
+
+      <section id="full-audit-report" className="admin-anchor-section">
+        <SectionCard title="Full Applicant Audit Report">
+          <div className="info-grid">
+            <InfoRow label="Report Status" value={app.fullAuditReportStatus || "Not Generated"} />
+            <InfoRow label="Generated At" value={app.fullAuditReportGeneratedAt} />
+            <InfoRow label="Saved Folder" value="Tenant Screening Reports" />
+          </div>
+
+          {!canGenerateFullAuditReport && (
+            <div className="notice notice--warm" style={{ marginTop: 14 }}>
+              <p>Supporting documents are required before generating a Full Applicant Audit Report.</p>
+            </div>
+          )}
+
+          <div className="admin-action-row admin-action-row--full-mobile" style={{ marginTop: 14 }}>
+            {_isAdmin && (
+              <button
+                type="button"
+                className="btn btn--sm"
+                disabled={!canGenerateFullAuditReport || generatingFullAudit}
+                onClick={handleGenerateFullAuditReport}
+              >
+                {generatingFullAudit ? "Generating..." : "Generate Full Applicant Audit Report"}
+              </button>
+            )}
+            {app.fullAuditReportMarkdown && (
+              <a href="#full-audit-viewer" className="btn btn--ghost btn--sm">
+                View Full Applicant Audit Report
+              </a>
+            )}
+            {canSeeInternalDriveLinks && app.fullAuditReportPdfUrl && (
+              <a href={app.fullAuditReportPdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                Download Full Audit PDF
+              </a>
+            )}
+            {canSeeInternalDriveLinks && app.fullAuditReportUrl && (
+              <a href={app.fullAuditReportUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                Open Saved Report
+              </a>
+            )}
+          </div>
+        </SectionCard>
+
+        {app.fullAuditReportMarkdown && (
+          <SectionCard title="Full Applicant Audit Report Viewer">
+            <div id="full-audit-viewer">
+              <MarkdownReport markdown={app.fullAuditReportMarkdown} />
+            </div>
+          </SectionCard>
+        )}
+      </section>
 
       <SectionCard title="Data Retention">
         <div className="info-grid">
@@ -907,10 +941,11 @@ export default function ApplicationReview() {
       </SectionCard>
 
       {/* ── 13. Application PDF ───────────────────────────────────────────────── */}
+      <section id="application-pdf" className="admin-anchor-section">
       <SectionCard title={lang === "zh" ? "申请表 PDF" : "Application PDF"}>
         {canAccessSubmittedPdf ? (
           <>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+            <div className="admin-action-row admin-action-row--full-mobile" style={{ marginBottom: 10 }}>
               {canSeeInternalDriveLinks && app.pdfUrl && (
                 <a href={app.pdfUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                   Open PDF (Drive) →
@@ -992,9 +1027,10 @@ export default function ApplicationReview() {
           </div>
         )}
       </SectionCard>
+      </section>
 
       {/* ── 14. Screening Summary ─────────────────────────────────────────────── */}
-      <div className="card mb-24">
+      <div id="screening-summary" className="card mb-24 admin-anchor-section">
         <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", marginBottom: 14 }}>
           {lang === "zh" ? "初筛摘要" : "Screening Summary"}
         </h3>
