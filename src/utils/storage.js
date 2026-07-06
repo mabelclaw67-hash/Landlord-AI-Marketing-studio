@@ -260,7 +260,7 @@ function fileToBase64(file) {
 
 export async function saveRentalApplication(data) {
   if (isApiConnected()) {
-    return apiPost({ action: "saveRentalApplication", data });
+    return apiPost({ action: "saveRentalApplication", data: { ...data, origin: window.location.origin } });
   }
   // localStorage fallback: generate a fake record ID so the UI can show success
   const year = new Date().getFullYear();
@@ -421,6 +421,7 @@ export async function uploadSupportingDocument(listingId, recordId, token, categ
     fileName: file.name,
     mimeType: file.type || "application/octet-stream",
     data: base64,
+    origin: window.location.origin,
   });
 }
 
@@ -441,6 +442,7 @@ export async function uploadPublicSupportingDocument({ listingId, applicantName,
     mimeType: file.type || "application/octet-stream",
     fileSize: file.size || 0,
     data: base64,
+    origin: window.location.origin,
   });
 }
 

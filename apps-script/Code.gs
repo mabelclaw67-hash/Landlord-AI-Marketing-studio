@@ -20,6 +20,7 @@ var WEBSITE_REPORTS_SHEET = "Website Reports";
 var PROPERTY_STRATEGY_ASSESSMENTS_SHEET = "Strategy_Assessments";
 var PROPERTY_STRATEGY_FILES_SHEET = "Assessment_Files";
 var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
+var ADMIN_NOTIFICATION_EMAIL = "support@vanislandproperty.ca";
 
 var INTAKE_HEADERS = [
   // System
@@ -2883,6 +2884,118 @@ function sendSupportingDocumentsEmail_(toEmail, applicantName, propertyAddress, 
   });
 }
 
+function buildAdminApplicationLink_(origin, recordId) {
+  var cleanOrigin = String(origin || "").replace(/\/+$/, "");
+  if (!cleanOrigin || !recordId) return "";
+  return cleanOrigin + "/admin/application/" + encodeURIComponent(recordId);
+}
+
+function sendApplicantWorkflowEmail_(toEmail, subject, body, logPrefix) {
+  if (!toEmail) return "Applicant email is missing.";
+  try {
+    MailApp.sendEmail({ to: toEmail, subject: subject, body: body });
+    return "";
+  } catch (emailErr) {
+    var message = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown email error");
+    Logger.log("[" + logPrefix + "] applicant email error: " + message);
+    if (emailErr && emailErr.stack) Logger.log(emailErr.stack);
+    return message;
+  }
+}
+
+function sendAdminWorkflowEmail_(subject, body, logPrefix) {
+  try {
+    MailApp.sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: subject, body: body });
+    return "";
+  } catch (emailErr) {
+    var message = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown email error");
+    Logger.log("[" + logPrefix + "] admin email error: " + message);
+    if (emailErr && emailErr.stack) Logger.log(emailErr.stack);
+    return message;
+  }
+}
+
+function sendRentalApplicationReceiptEmails_(app, listing, origin) {
+  var applicantName = app.applicantName || "Applicant";
+  var propertyAddress = (listing && listing.address) || app.listingAddress || app.listingId || "the rental listing";
+  var adminLink = buildAdminApplicationLink_(origin, app.recordId);
+  var applicantWarning = sendApplicantWorkflowEmail_(
+    app.email,
+    "Rental Application Received - Vanisland Property Management",
+    [
+      "Dear " + applicantName + ",",
+      "",
+      "Thank you. We have received your rental application for " + propertyAddress + ".",
+      "",
+      "Our admin team will review your application as soon as possible.",
+      "If we need any additional information or supporting documents, we will contact you.",
+      "",
+      "Thank you,",
+      "Vanisland Property Management"
+    ].join("\n"),
+    "saveRentalApplication"
+  );
+  var adminWarning = sendAdminWorkflowEmail_(
+    "New Rental Application Received - " + (app.recordId || app.listingId || ""),
+    [
+      "A new rental application has been submitted.",
+      "",
+      "Applicant Name: " + (app.applicantName || "-"),
+      "Applicant Email: " + (app.email || "-"),
+      "Phone: " + (app.phone || "-"),
+      "Property / Listing Address: " + propertyAddress,
+      "Listing ID: " + (app.listingId || "-"),
+      "Application Submitted Time: " + (app.submittedAt || "-"),
+      "Application ID: " + (app.recordId || "-"),
+      "Admin Link: " + (adminLink || "-")
+    ].join("\n"),
+    "saveRentalApplication"
+  );
+  return { applicantWarning: applicantWarning, adminWarning: adminWarning };
+}
+
+function sendSupportDocumentReceiptEmails_(app, listing, uploadInfo, origin) {
+  var applicantName = app.applicantName || uploadInfo.applicantName || "Applicant";
+  var propertyAddress = (listing && listing.address) || app.listingId || uploadInfo.listingId || "the rental listing";
+  var adminLink = buildAdminApplicationLink_(origin, app.recordId || uploadInfo.recordId);
+  var uploadedAt = uploadInfo.uploadedAt || new Date().toISOString();
+  var documentList = uploadInfo.documentList || uploadInfo.fileName || "-";
+  var applicantWarning = sendApplicantWorkflowEmail_(
+    app.email || uploadInfo.email,
+    "Supporting Documents Received - Vanisland Property Management",
+    [
+      "Dear " + applicantName + ",",
+      "",
+      "Thank you. We have received your supporting documents for " + propertyAddress + ".",
+      "",
+      "Our admin team will review your documents as soon as possible.",
+      "If we need any additional information or documents, we will contact you.",
+      "",
+      "Thank you,",
+      "Vanisland Property Management"
+    ].join("\n"),
+    "uploadSupportingDocument"
+  );
+  var adminWarning = sendAdminWorkflowEmail_(
+    "Supporting Documents Uploaded - " + ((app.recordId || uploadInfo.recordId) || (app.listingId || uploadInfo.listingId || "")),
+    [
+      "Supporting documents have been uploaded.",
+      "",
+      "Applicant Name: " + (app.applicantName || uploadInfo.applicantName || "-"),
+      "Applicant Email: " + (app.email || uploadInfo.email || "-"),
+      "Phone: " + (app.phone || uploadInfo.phone || "-"),
+      "Property / Listing Address: " + propertyAddress,
+      "Listing ID: " + (app.listingId || uploadInfo.listingId || "-"),
+      "Document Upload Time: " + uploadedAt,
+      "Document List: " + documentList,
+      "Application ID: " + (app.recordId || uploadInfo.recordId || "-"),
+      "Admin Link: " + (adminLink || "-")
+    ].join("\n"),
+    "uploadSupportingDocument"
+  );
+  return { applicantWarning: applicantWarning, adminWarning: adminWarning };
+}
+
 function requestSupportingDocuments_(recordId, origin, auth) {
   var found = findApplicationRowByRecordId_(recordId);
   var app = found.app;
@@ -3040,6 +3153,23 @@ function uploadSupportingDocument_(body) {
   var file = folder.createFile(blob);
   trySetDriveViewSharing_(file, "supporting document");
   var status = updateDocumentUploadStatus_(body.recordId);
+  var uploadedAt = status.lastUploadAt || new Date().toISOString();
+  var emailWarnings = {};
+  try {
+    var listing = findListingById_(found.app.listingId || body.listingId);
+    emailWarnings = sendSupportDocumentReceiptEmails_(found.app, listing, {
+      recordId: body.recordId,
+      listingId: body.listingId,
+      fileName: file.getName(),
+      documentList: file.getName(),
+      uploadedAt: uploadedAt
+    }, body.origin);
+  } catch (emailErr) {
+    var emailWarning = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown support document email error");
+    Logger.log("[uploadSupportingDocument] email notification skipped: " + emailWarning);
+    if (emailErr && emailErr.stack) Logger.log(emailErr.stack);
+    emailWarnings.notificationWarning = emailWarning;
+  }
   return {
     success: true,
     fileName: file.getName(),
@@ -3047,6 +3177,7 @@ function uploadSupportingDocument_(body) {
     documentUploadStatus: status.documentUploadStatus,
     uploadedFileCount: status.uploadedFileCount,
     lastUploadAt: status.lastUploadAt,
+    emailWarnings: emailWarnings,
   };
 }
 
@@ -3206,6 +3337,7 @@ function uploadPublicSupportingDocument_(body) {
 
   var folder = getPublicSupportingDocumentsFolder_(listing);
   var fileName = buildPublicSupportingDocumentFileName_(applicantName, category, originalFileName);
+  var uploadedAt = new Date().toISOString();
   var blob = Utilities.newBlob(
     Utilities.base64Decode(body.data),
     body.mimeType || "application/octet-stream",
@@ -3219,14 +3351,24 @@ function uploadPublicSupportingDocument_(body) {
     "Applicant Email: " + email,
     "Applicant Phone: " + phone,
     "Document Type: " + category,
-    "Uploaded At: " + new Date().toISOString(),
+    "Uploaded At: " + uploadedAt,
     "Notes: " + String(body.notes || "").trim()
   ].join("\n"));
+  var emailWarnings = sendSupportDocumentReceiptEmails_({}, listing, {
+    listingId: listingId,
+    applicantName: applicantName,
+    email: email,
+    phone: phone,
+    fileName: file.getName(),
+    documentList: category + " - " + originalFileName,
+    uploadedAt: uploadedAt
+  }, body.origin);
   return {
     success: true,
     listingId: listingId,
     fileName: file.getName(),
-    uploadedAt: new Date().toISOString()
+    uploadedAt: uploadedAt,
+    emailWarnings: emailWarnings
   };
 }
 
@@ -4477,6 +4619,21 @@ function saveRentalApplication_(body) {
     if (e && e.stack) Logger.log(e.stack);
   }
 
+  var listingForEmail = null;
+  try {
+    listingForEmail = findListingById_(body.listingId);
+  } catch (e) {
+    Logger.log("[saveRentalApplication] Listing lookup for email failed: " + e.message);
+  }
+  var emailWarnings = sendRentalApplicationReceiptEmails_({
+    recordId: recordId,
+    listingId: body.listingId,
+    submittedAt: submittedAt,
+    applicantName: body.applicantName || body.applicantFullName || "",
+    email: body.email || "",
+    phone: body.phone || ""
+  }, listingForEmail, body.origin);
+
   return {
     success:      true,
     recordId:     recordId,
@@ -4486,6 +4643,7 @@ function saveRentalApplication_(body) {
     pdfError:     pdfError,
     subfolderUrl: subfolderUrl,
     submittedAt:  submittedAt,
+    emailWarnings: emailWarnings,
   };
 }
 

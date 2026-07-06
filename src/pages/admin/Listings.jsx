@@ -4,33 +4,7 @@ import { getListings } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
 import { getRentalNextStepInfo } from "../../components/ListingStatusBanner";
-
-function listingIdNumber(id) {
-  const match = String(id || "").match(/(\d{4})\D+(\d+)\s*$/);
-  if (match) return Number(match[1]) * 100000 + Number(match[2]);
-  const fallback = String(id || "").match(/(\d+)\s*$/);
-  return fallback ? Number(fallback[1]) : 0;
-}
-
-function listingDateValue(listing) {
-  for (const key of ["createdAt", "createdDate", "listingDate", "updatedAt", "availableDate", "available"]) {
-    const value = listing?.[key];
-    if (!value) continue;
-    const time = new Date(value).getTime();
-    if (!Number.isNaN(time)) return time;
-  }
-  return 0;
-}
-
-function sortNewestListings(listings) {
-  return [...listings].sort((a, b) => {
-    const idDiff = listingIdNumber(b.id) - listingIdNumber(a.id);
-    if (idDiff) return idDiff;
-    const dateDiff = listingDateValue(b) - listingDateValue(a);
-    if (dateDiff) return dateDiff;
-    return String(b.id || "").localeCompare(String(a.id || ""));
-  });
-}
+import { sortListingsNewestFirst } from "../../utils/listingSort";
 
 export default function Listings() {
   const lang = useLang();
@@ -63,7 +37,7 @@ export default function Listings() {
 
   // Filter logic
   const IN_PROGRESS_STATUSES = ["In Review", "Ready to Publish"];
-  const sortedListings = sortNewestListings(listings);
+  const sortedListings = sortListingsNewestFirst(listings);
   const filtered = sortedListings.filter((l) => {
     if (filter === "all")        return true;
     if (filter === "draft")      return (l.status || "Draft") === "Draft";

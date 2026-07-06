@@ -1,11 +1,11 @@
 /**
  * listingSort.js
- * Shared sort utility for public rental and sale listing pages.
+ * Shared sort utility for rental and sale listing pages.
  *
  * Rules:
  *  1. Active / for-sale listings first.
  *  2. Sold / closed / unavailable listings last.
- *  3. Within each group, newest date descending.
+ *  3. Within each group, newest updated/created/available date descending.
  *
  * Each caller passes its own keyword sets so rental and sale logic
  * stay independent without duplicating the sort pattern.
@@ -27,15 +27,23 @@ function isClosedListing(listing, statusFields, closedKeywords) {
  * Returns a Date from the first truthy field in dateFields.
  * Falls back to epoch (0) so closed listings without dates still sort consistently.
  */
-function bestDate(listing, dateFields) {
-  for (const field of dateFields) {
+function bestDateKey(listing, dateFields) {
+  for (let index = 0; index < dateFields.length; index += 1) {
+    const field = dateFields[index];
     const val = listing[field];
     if (val) {
       const d = new Date(val);
-      if (!Number.isNaN(d.getTime())) return d;
+      if (!Number.isNaN(d.getTime())) return { rank: index, time: d.getTime() };
     }
   }
-  return new Date(0);
+  return { rank: dateFields.length, time: 0 };
+}
+
+function compareDateKeyDesc(a, b, dateFields) {
+  const left = bestDateKey(a, dateFields);
+  const right = bestDateKey(b, dateFields);
+  if (left.rank !== right.rank) return left.rank - right.rank;
+  return right.time - left.time;
 }
 
 /**
@@ -52,15 +60,20 @@ export function sortListingsByStatusAndDate(listings, statusFields, closedWords,
     const aClosed = isClosedListing(a, statusFields, closedWords);
     const bClosed = isClosedListing(b, statusFields, closedWords);
     if (aClosed !== bClosed) return aClosed ? 1 : -1;
-    return bestDate(b, dateFields) - bestDate(a, dateFields);
+    return compareDateKeyDesc(a, b, dateFields);
   });
+}
+
+export function sortListingsNewestFirst(listings, dateFields = LISTING_DATE_FIELDS) {
+  return [...listings].sort((a, b) => compareDateKeyDesc(a, b, dateFields));
 }
 
 // ── Pre-configured callers ───────────────────────────────────────────────────
 
 const RENTAL_STATUS_FIELDS = ["status", "listingStatus", "tenantListingStatus", "publicStatus"];
 const RENTAL_CLOSED_WORDS   = ["rented", "closed", "unavailable", "leased"];
-const RENTAL_DATE_FIELDS    = ["createdDate", "createdAt", "listingDate", "available", "availableDate", "updatedAt"];
+const LISTING_DATE_FIELDS   = ["updatedAt", "lastModified", "modifiedDate", "modified", "createdAt", "createdDate", "listingDate", "availableDate", "available"];
+const RENTAL_DATE_FIELDS    = LISTING_DATE_FIELDS;
 
 /**
  * Sort public rental listings.
@@ -77,7 +90,7 @@ export function sortRentalListings(listings) {
 
 const SALE_STATUS_FIELDS = ["status", "listingStatus", "saleStatus", "propertyStatus", "displayStatus", "internalStatus"];
 const SALE_CLOSED_WORDS  = ["sold", "closed", "unavailable", "off-market", "off market", "inactive", "archived"];
-const SALE_DATE_FIELDS   = ["createdAt", "listingDate", "listedDate", "availableDate", "updatedAt"];
+const SALE_DATE_FIELDS   = ["updatedAt", "lastModified", "modifiedDate", "modified", "createdAt", "createdDate", "listingDate", "listedDate", "availableDate", "available"];
 
 /**
  * Sort public sale listings.

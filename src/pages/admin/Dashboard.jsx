@@ -6,6 +6,7 @@ import PrototypeBanner from "../../components/PrototypeBanner";
 import ComingSoonSection from "../../components/ComingSoonSection";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
+import { sortListingsNewestFirst } from "../../utils/listingSort";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 function statusBadge(status, lang) {
@@ -200,6 +201,8 @@ function RentalDashboardView({ lang }) {
   }, [location.key]);
 
   const counts = { Draft: 0, "In Review": 0, "Ready to Publish": 0, Published: 0 };
+  const sortedListings = sortListingsNewestFirst(listings);
+
   listings.forEach((l) => {
     if (counts[l.status] !== undefined) counts[l.status]++;
   });
@@ -272,7 +275,7 @@ function RentalDashboardView({ lang }) {
                 </tr>
               </thead>
               <tbody>
-                {listings.map((l) => (
+                {sortedListings.map((l) => (
                   <tr key={l.id}>
                     <td><code style={{ fontSize: "0.8rem" }}>{l.id}</code></td>
                     <td>{l.address}</td>
@@ -351,7 +354,7 @@ export default function Dashboard({ lang, mode = "platform" }) {
     _listingType: "sale",
     status: l.status || "Draft",
   }));
-  const allListings = [...rentalWithType, ...saleWithType];
+  const allListings = sortListingsNewestFirst([...rentalWithType, ...saleWithType]);
 
   // Filter predicates
   const isDraft       = (l) => l.status === "Draft";
