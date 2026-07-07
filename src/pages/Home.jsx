@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import ShareKit from "../components/ShareKit";
 import { PUBLIC_SITE_BASE_URL } from "../utils/publicUrls";
 import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
+import { getRetirementBrief, field as rlField, roomType as rlRoomType, strategyScore as rlStrategyScore, bestPick as rlBestPick } from "../utils/retirementBrief";
 
 // ─── Translation dictionary ────────────────────────────────────────────────
 const T = {
@@ -355,6 +356,7 @@ export default function Home({ lang }) {
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError] = useState("");
   const [wechatCopied, setWechatCopied] = useState(false);
+  const [retireBrief, setRetireBrief] = useState(null);
   const websiteReports = Array.isArray(brief?.websiteReports) ? brief.websiteReports : [];
   const homepageBriefDate = getVancouverTodayText();
 
@@ -379,6 +381,20 @@ export default function Home({ lang }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    async function loadRetire() {
+      try {
+        const data = await getRetirementBrief();
+        if (active) setRetireBrief(data || null);
+      } catch {
+        if (active) setRetireBrief(null); // fail quietly; card just won't render
+      }
+    }
+    loadRetire();
+    return () => { active = false; };
+  }, []);
+
   async function handleCopyWechat() {
     if (!brief?.wechatShareText) return;
     try {
@@ -389,6 +405,8 @@ export default function Home({ lang }) {
       setWechatCopied(false);
     }
   }
+
+  const rlBest = retireBrief ? rlBestPick(retireBrief) : null;
 
   const rentalPrimary   = s.rentalOutputs.slice(0, 4);
   const rentalSecondary = s.rentalOutputs.slice(4);
@@ -564,6 +582,56 @@ export default function Home({ lang }) {
                 <button type="button" className="lh-btn lh-btn--white" onClick={handleCopyWechat}>
                   {wechatCopied ? s.copiedWechat : s.copyWechat}
                 </button>
+              </div>
+            </>
+          ) : null}
+
+          {/* ── 退休生活房源简报 (6th card) — independent data source, renders
+                regardless of the market-brief API state; click to open detail ── */}
+          {retireBrief ? (
+            <>
+              <div className="lh-daily-brief__section-head" style={{ marginTop: 28 }}>
+                <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--flash">
+                  退休生活房源简报
+                </span>
+                <span className="lh-daily-brief__section-meta">{rlField(retireBrief.date, "待确认")}</span>
+              </div>
+              <div className="lh-daily-brief__grid">
+                <Link
+                  to="/reports/retirement-living-brief"
+                  className="lh-daily-brief__card lh-daily-brief__card--retire"
+                >
+                  <div className="lh-daily-brief__card-head">
+                    <div className="lh-daily-brief__card-icon" aria-hidden="true">🏡</div>
+                    <div className="lh-daily-brief__label">退休生活房源简报</div>
+                  </div>
+
+                  <div className="lh-daily-brief__label" style={{ marginBottom: 8 }}>
+                    今日最佳退休生活推荐
+                  </div>
+                  <dl className="rl-card__stats">
+                    {[
+                      ["地址", rlField(rlBest?.address, "待确认")],
+                      ["区域", rlField(rlBest?.region, (String(rlBest?.address || "").match(/[（(]([^）)]+)[）)]/)?.[1]?.trim() || "待确认"))],
+                      ["价格", rlField(rlBest?.price, "待确认")],
+                      ["年份", rlField(rlBest?.yearBuilt, "待确认")],
+                      ["房型", rlRoomType(rlBest, "待确认")],
+                      ["退休策略评分", rlStrategyScore(rlBest, retireBrief)],
+                      ["AI 推荐等级", rlField(rlBest?.aiRating, "待确认")],
+                      ["下一步建议", rlField(rlBest?.action, "待确认")],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rl-card__stat">
+                        <dt>{label}</dt>
+                        <dd className={value === "待确认" || value === "评分待生成" ? "rl-todo" : ""}>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="lh-daily-brief__label" style={{ marginBottom: 4 }}>一句话中文总结</div>
+                  <p className="rl-card__summary">{rlField(retireBrief.dailySummary, "待确认")}</p>
+
+                  <span className="lh-daily-brief__detail-link">查看详情 →</span>
+                </Link>
               </div>
             </>
           ) : null}

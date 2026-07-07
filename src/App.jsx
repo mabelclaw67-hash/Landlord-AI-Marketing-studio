@@ -48,6 +48,7 @@ import PublicVideoPage from "./pages/PublicVideoPage";
 import TenantContact from "./pages/TenantContact";
 import WebsiteReport from "./pages/WebsiteReport";
 import DailyMarketBriefReport from "./pages/DailyMarketBriefReport";
+import RetirementLivingBriefReport from "./pages/RetirementLivingBriefReport";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 import { LangContext } from "./contexts/LangContext";
 
@@ -107,6 +108,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/listings/:id" element={<PublicListing lang={lang} />} />
         <Route path="/listings/:id/video" element={<PublicVideoPage type="rental" />} />
         <Route path="/reports/daily-market-brief" element={<DailyMarketBriefReport lang={lang} />} />
+        <Route path="/reports/retirement-living-brief" element={<RetirementLivingBriefReport lang={lang} />} />
         <Route path="/reports/:reportId" element={<WebsiteReport lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="*" element={<Navigate to="/" replace />} />
