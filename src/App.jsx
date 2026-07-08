@@ -50,7 +50,7 @@ import TenantContact from "./pages/TenantContact";
 import WebsiteReport from "./pages/WebsiteReport";
 import DailyMarketBriefReport from "./pages/DailyMarketBriefReport";
 import RetirementLivingBriefReport from "./pages/RetirementLivingBriefReport";
-import AITenantScreeningDemo from "./pages/AITenantScreeningDemo";
+import AITenantScreeningDemo, { AITenantScreeningDemoViewer } from "./pages/AITenantScreeningDemo";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 import { LangContext } from "./contexts/LangContext";
 
@@ -72,6 +72,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/landlord-ai/strategy-assessment" element={<StrategyAssessment lang={lang} />} />
         <Route path="/strategy-assessment/report/:assessmentId" element={<StrategyAssessment lang={lang} />} />
         <Route path="/demo/ai-screening" element={<AITenantScreeningDemo lang={lang} />} />
+        <Route path="/demo/ai-screening/:demoLang/:demoId" element={<AITenantScreeningDemoViewer lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId/video" element={<PublicVideoPage type="homeSale" />} />
         <Route path="/admin" element={<AdminLayout lang={lang} />}>
