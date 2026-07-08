@@ -1,22 +1,31 @@
 // ── Retirement Living Brief (退休生活房源简报) data client ─────────────────────
-// Frontend-only display module. Reads the latest retirement-condo-summary JSON
-// produced daily by the Cowork Scheduled Task.
-//
-// Data source resolution (no Apps Script, no sync code here — display only):
-//   1. VITE_RETIREMENT_BRIEF_URL   (optional override, e.g. a published URL)
-//   2. /retirement/latest.json     (static file served by the app; default)
-//
-// The daily task drops the newest summary at public/retirement/latest.json.
-// A dated copy (retirement-condo-summary-YYYY-MM-DD.json) is kept alongside it.
+// Reads the latest Published row from the Daily Market Brief Google Sheet via
+// the same Apps Script API path used by the BC market brief.
 
-const BRIEF_URL =
-  import.meta.env.VITE_RETIREMENT_BRIEF_URL || "/retirement/latest.json";
+import { apiGet, isApiConnected } from "./api";
+
+const PRIVATE_NAME_RE = /\bMabel\b/gi;
+
+function publicText(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(PRIVATE_NAME_RE, "Vanisland AI Studio").trim();
+}
+
+function publicBrief(value) {
+  if (Array.isArray(value)) return value.map(publicBrief);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, publicBrief(item)])
+    );
+  }
+  return publicText(value);
+}
 
 export async function getRetirementBrief() {
-  const url = `${BRIEF_URL}${BRIEF_URL.includes("?") ? "&" : "?"}_t=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Retirement brief load error: ${res.status}`);
-  return res.json();
+  if (!isApiConnected()) {
+    throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  }
+  return publicBrief(await apiGet({ action: "getRetirementBrief" }));
 }
 
 // ── Safe field access ────────────────────────────────────────────────────────
@@ -29,6 +38,8 @@ export function field(value, fallback) {
 
 // "2房/2卫" from bed/bath. Falls back to 待确认 when neither is present.
 export function roomType(listing, fallback) {
+  const combined = field(listing?.bedBath, "");
+  if (combined) return combined;
   const bed = field(listing?.bed, "");
   const bath = field(listing?.bath, "");
   if (!bed && !bath) return fallback;

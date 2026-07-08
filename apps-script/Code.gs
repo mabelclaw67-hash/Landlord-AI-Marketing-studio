@@ -15,6 +15,7 @@ var CONTACTS_SHEET  = "Contacts";
 var INTAKE_SHEET    = "07 Intake Records";
 var SYSTEM_SETTINGS_SHEET = "08 System Settings";
 var DAILY_MARKET_BRIEF_SHEET = "01 Daily Market Brief";
+var RETIREMENT_CONDO_BRIEF_SHEET = "04 Retirement Condo Brief";
 var DAILY_MARKET_BRIEF_CONFIG_SHEET = "02 Config";
 var DAILY_MARKET_BRIEF_SYNC_LOG_SHEET = "03 Sync Log";
 var WEBSITE_REPORTS_SHEET = "Website Reports";
@@ -220,7 +221,7 @@ function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getRetirementBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowTrial: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
@@ -228,6 +229,7 @@ function doGet(e) {
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
+    if (action === "getRetirementBrief") return ok(getRetirementBrief_());
     if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
     if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
@@ -487,6 +489,97 @@ function getDailyMarketBrief_() {
     wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
     fullReportPath: "/reports/daily-market-brief",
     websiteReports: getPublishedWebsiteReports_(),
+  };
+}
+
+function getRetirementBrief_() {
+  var sheet = getBriefSpreadsheet_().getSheetByName(RETIREMENT_CONDO_BRIEF_SHEET);
+  if (!sheet) {
+    throw new Error('Sheet not found: "' + RETIREMENT_CONDO_BRIEF_SHEET + '".');
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol === 0) {
+    throw new Error("No Retirement Condo Brief records found.");
+  }
+
+  var headerMap = getHeaderMap_(sheet);
+  var statusHeader = firstHeaderMatch_(headerMap, ["Status", "Publish Status", "Record Status"]);
+  if (!statusHeader) {
+    throw new Error('Retirement Condo Brief sheet is missing a status column. Expected one of: Status, Publish Status, Record Status.');
+  }
+
+  var dateHeader = firstHeaderMatch_(headerMap, ["Date", "Published Date", "Publish Date", "Created Date"]);
+  if (!dateHeader) {
+    throw new Error('Retirement Condo Brief sheet is missing a date column. Expected one of: Date, Published Date, Publish Date, Created Date.');
+  }
+
+  var updatedHeader = firstHeaderMatch_(headerMap, ["Updated At", "Last Updated", "Updated"]);
+  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var displayValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  var latest = null;
+
+  for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
+    var row = values[rowIndex];
+    var displayRow = displayValues[rowIndex];
+    var statusValue = normalizeCellText_(colVal_(row, headerMap, statusHeader)).toLowerCase();
+    if (statusValue !== "published") continue;
+
+    var dateValue = normalizeBriefDateValue_(colVal_(displayRow, headerMap, dateHeader));
+    if (!dateValue) continue;
+
+    var updatedValue = updatedHeader ?
+      normalizeBriefDateValue_(colVal_(row, headerMap, updatedHeader) || colVal_(displayRow, headerMap, updatedHeader)) :
+      null;
+
+    var candidate = {
+      row: row,
+      displayRow: displayRow,
+      dateValue: dateValue,
+      updatedValue: updatedValue || dateValue,
+    };
+
+    if (!latest ||
+        candidate.dateValue.getTime() > latest.dateValue.getTime() ||
+        (candidate.dateValue.getTime() === latest.dateValue.getTime() &&
+         candidate.updatedValue.getTime() > latest.updatedValue.getTime())) {
+      latest = candidate;
+    }
+  }
+
+  if (!latest) {
+    throw new Error('No Published record found in "' + RETIREMENT_CONDO_BRIEF_SHEET + '".');
+  }
+
+  var latestRow = latest.row;
+  var latestDisplayRow = latest.displayRow || latest.row;
+  var listing = {
+    address: normalizeCellText_(colVal_(latestRow, headerMap, "Listing Address")),
+    region: normalizeCellText_(colVal_(latestRow, headerMap, "Area")),
+    price: normalizeCellText_(colVal_(latestDisplayRow, headerMap, "Price") || colVal_(latestRow, headerMap, "Price")),
+    yearBuilt: normalizeCellText_(colVal_(latestDisplayRow, headerMap, "Year Built") || colVal_(latestRow, headerMap, "Year Built")),
+    bedBath: normalizeCellText_(colVal_(latestRow, headerMap, "Bed / Bath")),
+    aiRating: normalizeCellText_(colVal_(latestRow, headerMap, "AI Rating")),
+    aiReason: normalizeCellText_(colVal_(latestRow, headerMap, "AI Reason")),
+    action: normalizeCellText_(colVal_(latestRow, headerMap, "Action")),
+    sourceLink: normalizeCellText_(colVal_(latestRow, headerMap, "Report Doc Link")),
+  };
+
+  return {
+    date: normalizeCellText_(colVal_(latestDisplayRow, headerMap, dateHeader)) ||
+      Utilities.formatDate(latest.dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    updatedAt: updatedHeader ? normalizeCellText_(colVal_(latestDisplayRow, headerMap, updatedHeader)) : "",
+    cardTitle: "退休生活房源简报",
+    rankingNote: "",
+    dailySummary: listing.aiReason,
+    reportDocUrl: listing.sourceLink,
+    sectionTitles: {
+      "Best Opportunity": "今日最佳退休生活推荐",
+    },
+    sections: {
+      "Best Opportunity": [listing],
+    },
   };
 }
 
