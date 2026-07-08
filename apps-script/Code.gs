@@ -659,7 +659,7 @@ function buildRetirementListingFromRow_(row, displayRow, headerMap) {
     aiRating: cleanRating || ratingText,
     aiScore: scoreText,
     aiReason: normalizeCellText_(colVal_(row, headerMap, "AI Reason")),
-    risk: normalizeCellText_(colVal_(row, headerMap, "Risk Notes") || colVal_(row, headerMap, "Risk") || colVal_(row, headerMap, "Risks")),
+    risk: normalizeCellText_(colVal_(row, headerMap, "Risk Notes") || colVal_(row, headerMap, "Risk") || colVal_(row, headerMap, "Risks") || colVal_(row, headerMap, "Notes")),
     action: normalizeCellText_(colVal_(row, headerMap, "Action")),
     sourceUrl: sourceUrl,
   };
