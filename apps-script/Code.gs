@@ -518,7 +518,8 @@ function getRetirementBrief_() {
   var updatedHeader = firstHeaderMatch_(headerMap, ["Updated At", "Last Updated", "Updated"]);
   var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var displayValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
-  var latest = null;
+  var publishedRows = [];
+  var latestDateValue = null;
 
   for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
     var row = values[rowIndex];
@@ -533,52 +534,152 @@ function getRetirementBrief_() {
       normalizeBriefDateValue_(colVal_(row, headerMap, updatedHeader) || colVal_(displayRow, headerMap, updatedHeader)) :
       null;
 
-    var candidate = {
+    var published = {
       row: row,
       displayRow: displayRow,
       dateValue: dateValue,
       updatedValue: updatedValue || dateValue,
     };
+    publishedRows.push(published);
 
-    if (!latest ||
-        candidate.dateValue.getTime() > latest.dateValue.getTime() ||
-        (candidate.dateValue.getTime() === latest.dateValue.getTime() &&
-         candidate.updatedValue.getTime() > latest.updatedValue.getTime())) {
-      latest = candidate;
+    if (!latestDateValue || dateValue.getTime() > latestDateValue.getTime()) {
+      latestDateValue = dateValue;
     }
   }
 
-  if (!latest) {
+  if (!publishedRows.length || !latestDateValue) {
     throw new Error('No Published record found in "' + RETIREMENT_CONDO_BRIEF_SHEET + '".');
   }
 
-  var latestRow = latest.row;
-  var latestDisplayRow = latest.displayRow || latest.row;
-  var listing = {
-    address: normalizeCellText_(colVal_(latestRow, headerMap, "Listing Address")),
-    region: normalizeCellText_(colVal_(latestRow, headerMap, "Area")),
-    price: normalizeCellText_(colVal_(latestDisplayRow, headerMap, "Price") || colVal_(latestRow, headerMap, "Price")),
-    yearBuilt: normalizeCellText_(colVal_(latestDisplayRow, headerMap, "Year Built") || colVal_(latestRow, headerMap, "Year Built")),
-    bedBath: normalizeCellText_(colVal_(latestRow, headerMap, "Bed / Bath")),
-    aiRating: normalizeCellText_(colVal_(latestRow, headerMap, "AI Rating")),
-    aiReason: normalizeCellText_(colVal_(latestRow, headerMap, "AI Reason")),
-    action: normalizeCellText_(colVal_(latestRow, headerMap, "Action")),
+  var latestRows = publishedRows.filter(function(item) {
+    return item.dateValue.getTime() === latestDateValue.getTime();
+  });
+  var v3Rows = latestRows.filter(function(item) {
+    return normalizeCellText_(colVal_(item.row, headerMap, "Brief ID")).toUpperCase().indexOf("V3") >= 0;
+  });
+  var selectedRows = v3Rows.length ? v3Rows : getLatestRetirementUpdatedRows_(latestRows);
+
+  selectedRows.sort(function(a, b) {
+    var aOrder = getRetirementSortValue_(a.row, headerMap);
+    var bOrder = getRetirementSortValue_(b.row, headerMap);
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return normalizeCellText_(colVal_(a.row, headerMap, "Brief ID"))
+      .localeCompare(normalizeCellText_(colVal_(b.row, headerMap, "Brief ID")));
+  });
+
+  var sections = {
+    "Top Pick": [],
+    "New Listing": [],
+    "Worth Watching": [],
+    "Price Drop": [],
+    "Skip / Avoid": [],
   };
+  var dailySummary = "";
+  var latestUpdatedText = "";
+
+  for (var selectedIndex = 0; selectedIndex < selectedRows.length; selectedIndex++) {
+    var item = selectedRows[selectedIndex];
+    var listing = buildRetirementListingFromRow_(item.row, item.displayRow || item.row, headerMap);
+    var sectionKey = getRetirementSectionKey_(item.row, headerMap, listing);
+    sections[sectionKey].push(listing);
+    if (!dailySummary && listing.aiReason) dailySummary = listing.aiReason;
+    if (!latestUpdatedText && updatedHeader) {
+      latestUpdatedText = normalizeCellText_(colVal_(item.displayRow || item.row, headerMap, updatedHeader));
+    }
+  }
 
   return {
-    date: normalizeCellText_(colVal_(latestDisplayRow, headerMap, dateHeader)) ||
-      Utilities.formatDate(latest.dateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
-    updatedAt: updatedHeader ? normalizeCellText_(colVal_(latestDisplayRow, headerMap, updatedHeader)) : "",
+    date: normalizeCellText_(colVal_(selectedRows[0].displayRow || selectedRows[0].row, headerMap, dateHeader)) ||
+      Utilities.formatDate(latestDateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    updatedAt: latestUpdatedText,
     cardTitle: "退休生活房源简报",
     rankingNote: "",
-    dailySummary: listing.aiReason,
+    dailySummary: dailySummary,
+    rowCount: selectedRows.length,
     sectionTitles: {
+      "Top Pick": "今日最佳退休生活推荐",
       "Best Opportunity": "今日最佳退休生活推荐",
+      "New Listing": "新上市房源",
+      "New Listings": "新上市房源",
+      "Worth Watching": "值得关注",
+      "Price Drop": "降价房源",
+      "Price Drops": "降价房源",
+      "Skip / Avoid": "跳过 / 回避",
     },
-    sections: {
-      "Best Opportunity": [listing],
-    },
+    sections: sections,
   };
+}
+
+function getLatestRetirementUpdatedRows_(rows) {
+  var latestTime = null;
+  for (var i = 0; i < rows.length; i++) {
+    var time = rows[i].updatedValue ? rows[i].updatedValue.getTime() : rows[i].dateValue.getTime();
+    if (latestTime === null || time > latestTime) latestTime = time;
+  }
+  return rows.filter(function(item) {
+    var time = item.updatedValue ? item.updatedValue.getTime() : item.dateValue.getTime();
+    return time === latestTime;
+  });
+}
+
+function getRetirementSortValue_(row, headerMap) {
+  var raw = normalizeCellText_(
+    colVal_(row, headerMap, "Sort Order") ||
+    colVal_(row, headerMap, "Rank") ||
+    colVal_(row, headerMap, "Listing Rank") ||
+    colVal_(row, headerMap, "Order")
+  );
+  var parsed = Number(raw);
+  return isNaN(parsed) ? 999 : parsed;
+}
+
+function buildRetirementListingFromRow_(row, displayRow, headerMap) {
+  var sourceUrl = normalizePublicRetirementSourceUrl_(
+    colVal_(row, headerMap, "Source Link") ||
+    colVal_(row, headerMap, "Listing Link") ||
+    colVal_(row, headerMap, "MLS Link") ||
+    colVal_(row, headerMap, "Property Link")
+  );
+  return {
+    briefId: normalizeCellText_(colVal_(row, headerMap, "Brief ID")),
+    address: normalizeCellText_(colVal_(row, headerMap, "Listing Address") || colVal_(row, headerMap, "Address")),
+    region: normalizeCellText_(colVal_(row, headerMap, "Area") || colVal_(row, headerMap, "Region")),
+    price: normalizeCellText_(colVal_(displayRow, headerMap, "Price") || colVal_(row, headerMap, "Price")),
+    yearBuilt: normalizeCellText_(colVal_(displayRow, headerMap, "Year Built") || colVal_(row, headerMap, "Year Built")),
+    bedBath: normalizeCellText_(colVal_(row, headerMap, "Bed / Bath") || colVal_(row, headerMap, "Beds / Baths")),
+    sqft: normalizeCellText_(colVal_(displayRow, headerMap, "Sq Ft") || colVal_(displayRow, headerMap, "Square Feet") || colVal_(displayRow, headerMap, "Size") || colVal_(row, headerMap, "Sq Ft")),
+    strataFee: normalizeCellText_(colVal_(displayRow, headerMap, "Strata Fee") || colVal_(row, headerMap, "Strata Fee")),
+    aiRating: normalizeCellText_(colVal_(row, headerMap, "AI Rating")),
+    aiScore: normalizeCellText_(colVal_(displayRow, headerMap, "AI Score") || colVal_(row, headerMap, "AI Score")),
+    aiReason: normalizeCellText_(colVal_(row, headerMap, "AI Reason")),
+    risk: normalizeCellText_(colVal_(row, headerMap, "Risk Notes") || colVal_(row, headerMap, "Risk") || colVal_(row, headerMap, "Risks")),
+    action: normalizeCellText_(colVal_(row, headerMap, "Action")),
+    sourceUrl: sourceUrl,
+  };
+}
+
+function getRetirementSectionKey_(row, headerMap, listing) {
+  var raw = normalizeCellText_(
+    colVal_(row, headerMap, "Section") ||
+    colVal_(row, headerMap, "Category") ||
+    colVal_(row, headerMap, "Listing Type") ||
+    colVal_(row, headerMap, "Brief Section") ||
+    listing.aiRating
+  ).toLowerCase();
+
+  if (raw.indexOf("top") >= 0 || raw.indexOf("best") >= 0 || raw.indexOf("strong") >= 0) return "Top Pick";
+  if (raw.indexOf("new") >= 0) return "New Listing";
+  if (raw.indexOf("watch") >= 0 || raw.indexOf("关注") >= 0) return "Worth Watching";
+  if (raw.indexOf("drop") >= 0 || raw.indexOf("price") >= 0 || raw.indexOf("降价") >= 0) return "Price Drop";
+  if (raw.indexOf("skip") >= 0 || raw.indexOf("avoid") >= 0 || raw.indexOf("回避") >= 0) return "Skip / Avoid";
+  return "Worth Watching";
+}
+
+function normalizePublicRetirementSourceUrl_(value) {
+  var text = normalizeCellText_(value);
+  if (!/^https?:\/\//i.test(text)) return "";
+  if (/^https:\/\/(docs|drive)\.google\.com\//i.test(text)) return "";
+  return text;
 }
 
 function getPublishedWebsiteReports_() {

@@ -30,12 +30,14 @@ function ListingCard({ listing }) {
     ["距 UVic / Downtown / 医疗", field(listing?.distanceUvicHospital, field(listing?.transit, TODO))],
     ["交通说明", field(listing?.transit, TODO)],
     ["退休策略评分", strategyScore(listing)],
+    ["AI Score", field(listing?.aiScore, TODO)],
     ["适合退休生活原因", field(listing?.aiReason, TODO)],
     ["适合出租原因", field(listing?.rentReason, TODO)],
     ["风险提示", field(listing?.risk, TODO)],
     ["AI Rating", field(listing?.aiRating, TODO)],
     ["Action", field(listing?.action, TODO)],
   ];
+  const sourceUrl = field(listing?.sourceUrl, "");
 
   return (
     <div className="rl-listing">
@@ -48,6 +50,16 @@ function ListingCard({ listing }) {
           </div>
         ))}
       </dl>
+      {sourceUrl ? (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rl-listing__source"
+        >
+          查看房源详情 ↗
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -80,10 +92,10 @@ export default function RetirementLivingBriefReport() {
 
   // Detail order per spec (Price Drops / New Listings included so no data is lost).
   const ORDER = [
-    ["Best Opportunity", "今日最佳退休生活推荐"],
-    ["New Listings", "新上市房源"],
+    ["Top Pick", "今日最佳退休生活推荐"],
+    ["New Listing", "新上市房源"],
     ["Worth Watching", "值得关注"],
-    ["Price Drops", "降价房源"],
+    ["Price Drop", "降价房源"],
     ["Skip / Avoid", "跳过 / 回避"],
   ];
 
@@ -126,7 +138,14 @@ export default function RetirementLivingBriefReport() {
 
               {/* 2–5. 房源分区 */}
               {ORDER.map(([key, fallbackLabel]) => {
-                const items = Array.isArray(sections[key]) ? sections[key] : [];
+                const legacyKey =
+                  key === "Top Pick" ? "Best Opportunity" :
+                  key === "New Listing" ? "New Listings" :
+                  key === "Price Drop" ? "Price Drops" :
+                  "";
+                const items = Array.isArray(sections[key])
+                  ? sections[key]
+                  : (legacyKey && Array.isArray(sections[legacyKey]) ? sections[legacyKey] : []);
                 const label = field(titles[key], fallbackLabel);
                 return (
                   <section key={key} className="website-report__section">

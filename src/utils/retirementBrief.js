@@ -13,6 +13,8 @@ const INTERNAL_LINK_FIELDS = new Set([
   "reportLink",
   "driveLink",
   "docLink",
+  "reportDocLink",
+  "sourceDocLink",
 ]);
 
 function publicText(value) {
