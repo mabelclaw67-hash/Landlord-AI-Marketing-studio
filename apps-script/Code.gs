@@ -563,7 +563,6 @@ function getRetirementBrief_() {
     aiRating: normalizeCellText_(colVal_(latestRow, headerMap, "AI Rating")),
     aiReason: normalizeCellText_(colVal_(latestRow, headerMap, "AI Reason")),
     action: normalizeCellText_(colVal_(latestRow, headerMap, "Action")),
-    sourceLink: normalizeCellText_(colVal_(latestRow, headerMap, "Report Doc Link")),
   };
 
   return {
@@ -573,7 +572,6 @@ function getRetirementBrief_() {
     cardTitle: "退休生活房源简报",
     rankingNote: "",
     dailySummary: listing.aiReason,
-    reportDocUrl: listing.sourceLink,
     sectionTitles: {
       "Best Opportunity": "今日最佳退休生活推荐",
     },

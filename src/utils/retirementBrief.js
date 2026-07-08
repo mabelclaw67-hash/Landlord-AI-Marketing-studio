@@ -5,17 +5,29 @@
 import { apiGet, isApiConnected } from "./api";
 
 const PRIVATE_NAME_RE = /\bMabel\b/gi;
+const INTERNAL_GOOGLE_URL_RE = /^https:\/\/(?:docs|drive)\.google\.com\//i;
+const INTERNAL_LINK_FIELDS = new Set([
+  "reportDocUrl",
+  "sourceLink",
+  "sourceDocLink",
+  "reportLink",
+  "driveLink",
+  "docLink",
+]);
 
 function publicText(value) {
   if (typeof value !== "string") return value;
-  return value.replace(PRIVATE_NAME_RE, "Vanisland AI Studio").trim();
+  const text = value.replace(PRIVATE_NAME_RE, "Vanisland AI Studio").trim();
+  return INTERNAL_GOOGLE_URL_RE.test(text) ? "" : text;
 }
 
 function publicBrief(value) {
   if (Array.isArray(value)) return value.map(publicBrief);
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, publicBrief(item)])
+      Object.entries(value)
+        .filter(([key]) => !INTERNAL_LINK_FIELDS.has(key))
+        .map(([key, item]) => [key, publicBrief(item)])
     );
   }
   return publicText(value);

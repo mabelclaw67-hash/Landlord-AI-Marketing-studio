@@ -36,7 +36,6 @@ function ListingCard({ listing }) {
     ["AI Rating", field(listing?.aiRating, TODO)],
     ["Action", field(listing?.action, TODO)],
   ];
-  const source = field(listing?.sourceLink, "");
 
   return (
     <div className="rl-listing">
@@ -49,18 +48,6 @@ function ListingCard({ listing }) {
           </div>
         ))}
       </dl>
-      {source ? (
-        <a
-          href={source}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rl-listing__source"
-        >
-          Source Link ↗
-        </a>
-      ) : (
-        <span className="rl-listing__todo">Source Link {TODO}</span>
-      )}
     </div>
   );
 }
@@ -90,7 +77,6 @@ export default function RetirementLivingBriefReport() {
 
   const sections = brief?.sections || {};
   const titles = brief?.sectionTitles || {};
-  const reportUrl = field(brief?.reportDocUrl, "");
 
   // Detail order per spec (Price Drops / New Listings included so no data is lost).
   const ORDER = [
@@ -128,16 +114,6 @@ export default function RetirementLivingBriefReport() {
               <h1>{field(brief?.cardTitle, "退休生活房源简报")}</h1>
               {field(brief?.rankingNote, "") ? (
                 <p>{brief.rankingNote}</p>
-              ) : null}
-              {reportUrl ? (
-                <a
-                  href={reportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="lh-btn lh-btn--sand rl-report-btn"
-                >
-                  打开完整中文报告 ↗
-                </a>
               ) : null}
             </header>
 
@@ -181,18 +157,6 @@ export default function RetirementLivingBriefReport() {
               </section>
             </article>
 
-            {reportUrl ? (
-              <div className="lh-daily-brief__actions">
-                <a
-                  href={reportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="lh-btn lh-btn--sand"
-                >
-                  打开完整中文报告 ↗
-                </a>
-              </div>
-            ) : null}
           </>
         ) : null}
       </div>
