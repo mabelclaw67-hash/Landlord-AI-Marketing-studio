@@ -640,6 +640,11 @@ function buildRetirementListingFromRow_(row, displayRow, headerMap) {
     colVal_(row, headerMap, "MLS Link") ||
     colVal_(row, headerMap, "Property Link")
   );
+  var ratingText = normalizeCellText_(colVal_(row, headerMap, "AI Rating"));
+  var scoreText = normalizeCellText_(colVal_(displayRow, headerMap, "AI Score") || colVal_(row, headerMap, "AI Score"));
+  var parsedScore = ratingText.match(/AI\s*Score\s*[:：]?\s*([0-9]+(?:\s*[–-]\s*[0-9]+)?\/100)/i);
+  if (!scoreText && parsedScore) scoreText = parsedScore[1].replace(/\s+/g, "");
+  var cleanRating = ratingText.replace(/\s*·?\s*AI\s*Score\s*[:：]?\s*[0-9]+(?:\s*[–-]\s*[0-9]+)?\/100\s*/i, "").trim();
   return {
     briefId: normalizeCellText_(colVal_(row, headerMap, "Brief ID")),
     address: normalizeCellText_(colVal_(row, headerMap, "Listing Address") || colVal_(row, headerMap, "Address")),
@@ -647,10 +652,12 @@ function buildRetirementListingFromRow_(row, displayRow, headerMap) {
     price: normalizeCellText_(colVal_(displayRow, headerMap, "Price") || colVal_(row, headerMap, "Price")),
     yearBuilt: normalizeCellText_(colVal_(displayRow, headerMap, "Year Built") || colVal_(row, headerMap, "Year Built")),
     bedBath: normalizeCellText_(colVal_(row, headerMap, "Bed / Bath") || colVal_(row, headerMap, "Beds / Baths")),
-    sqft: normalizeCellText_(colVal_(displayRow, headerMap, "Sq Ft") || colVal_(displayRow, headerMap, "Square Feet") || colVal_(displayRow, headerMap, "Size") || colVal_(row, headerMap, "Sq Ft")),
+    bed: normalizeCellText_(colVal_(displayRow, headerMap, "Bed") || colVal_(row, headerMap, "Bed")),
+    bath: normalizeCellText_(colVal_(displayRow, headerMap, "Bath") || colVal_(row, headerMap, "Bath")),
+    sqft: normalizeCellText_(colVal_(displayRow, headerMap, "Sqft") || colVal_(displayRow, headerMap, "Sq Ft") || colVal_(displayRow, headerMap, "Square Feet") || colVal_(displayRow, headerMap, "Size") || colVal_(row, headerMap, "Sqft") || colVal_(row, headerMap, "Sq Ft")),
     strataFee: normalizeCellText_(colVal_(displayRow, headerMap, "Strata Fee") || colVal_(row, headerMap, "Strata Fee")),
-    aiRating: normalizeCellText_(colVal_(row, headerMap, "AI Rating")),
-    aiScore: normalizeCellText_(colVal_(displayRow, headerMap, "AI Score") || colVal_(row, headerMap, "AI Score")),
+    aiRating: cleanRating || ratingText,
+    aiScore: scoreText,
     aiReason: normalizeCellText_(colVal_(row, headerMap, "AI Reason")),
     risk: normalizeCellText_(colVal_(row, headerMap, "Risk Notes") || colVal_(row, headerMap, "Risk") || colVal_(row, headerMap, "Risks")),
     action: normalizeCellText_(colVal_(row, headerMap, "Action")),
@@ -661,6 +668,7 @@ function buildRetirementListingFromRow_(row, displayRow, headerMap) {
 function getRetirementSectionKey_(row, headerMap, listing) {
   var raw = normalizeCellText_(
     colVal_(row, headerMap, "Section") ||
+    colVal_(row, headerMap, "Report Section") ||
     colVal_(row, headerMap, "Category") ||
     colVal_(row, headerMap, "Listing Type") ||
     colVal_(row, headerMap, "Brief Section") ||
