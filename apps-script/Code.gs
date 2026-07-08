@@ -1063,8 +1063,9 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
 
   var reportUrl = pdfFile.getUrl();
   found.sheet.getRange(found.rowNumber, headerMap["Report URL"] + 1).setValue(reportUrl);
+  var guardWarnings = getPropertyStrategyReportGuardWarnings_(found);
   if (headerMap["Status"] !== undefined) {
-    found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue("Report Generated");
+    found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue(guardWarnings.length ? "Report Warning" : "Report Generated");
   }
   SpreadsheetApp.flush();
 
@@ -1077,7 +1078,22 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
     folderId: folder.getId(),
     folderName: folder.getName(),
     generatedAt: new Date().toISOString(),
+    guardWarnings: guardWarnings,
   };
+}
+
+function getPropertyStrategyReportGuardWarnings_(found) {
+  var headerMap = found.headerMap || {};
+  var text = colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
+    colVal_(found.row, headerMap, "Preliminary Assessment") ||
+    colVal_(found.row, headerMap, "AI Strategy Summary");
+  var assessment = parsePropertyStrategyAssessmentJson_(text);
+  if (!assessment || !assessment.outputGuardWarnings) return [];
+  if (Object.prototype.toString.call(assessment.outputGuardWarnings) === "[object Array]") {
+    return assessment.outputGuardWarnings.map(function(item) { return normalizeCellText_(item); }).filter(Boolean);
+  }
+  var warning = normalizeCellText_(assessment.outputGuardWarnings);
+  return warning ? [warning] : [];
 }
 
 function getBriefSourceFolderId_() {

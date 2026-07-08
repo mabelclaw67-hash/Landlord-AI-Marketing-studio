@@ -73,6 +73,11 @@ function formatCurrency(value, lang) {
   return text.includes("$") ? text : `$${text}`;
 }
 
+function parseMoneyAmount(value) {
+  const numeric = Number(String(value || "").replace(/[$,\s]/g, ""));
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 function cleanSentence(text) {
   return String(text || "")
     .replace(/\s+\./g, ".")
@@ -368,8 +373,7 @@ export function generatePreliminaryStrategySummary(form, lang = "en") {
   const followUps = form.followUpAnswers || {};
   const legalWarning = hasOwnerOccupancyLegalWarning(form);
   const confidence = calculateAssessmentConfidence(form);
-
-  return {
+  const summary = {
     executiveSummary: buildExecutiveSummary(form, safeLang),
     propertyStrengths: buildPropertyStrengths(form, followUps, safeLang),
     rentalChallenges: buildRentalChallenges(form, followUps, legalWarning, safeLang),
@@ -390,6 +394,17 @@ export function generatePreliminaryStrategySummary(form, lang = "en") {
     knowledgeLinks: buildKnowledgeLinks(form, safeLang),
     disclaimer: safeLang === "zh" ? STRATEGY_ASSESSMENT_DISCLAIMER_ZH : STRATEGY_ASSESSMENT_DISCLAIMER,
   };
+  const guardWarnings = validateStrategyAssessmentOutput(summary, form, safeLang);
+  if (guardWarnings.length) {
+    summary.outputGuardWarnings = guardWarnings;
+    summary.aiConfidenceFlags = [
+      ...asArray(summary.aiConfidenceFlags),
+      ...(safeLang === "zh"
+        ? guardWarnings.map((warning) => `输出防错提醒：${warning}`)
+        : guardWarnings.map((warning) => `Output guard warning: ${warning}`)),
+    ];
+  }
+  return summary;
 }
 
 function buildExecutiveSummary(form, lang) {
@@ -397,8 +412,9 @@ function buildExecutiveSummary(form, lang) {
   const location = formatAssessmentLocation(form, lang);
   const target = formatCurrency(form.targetRent, lang);
   const profile = getLocationProfile(form);
+  const propertyDesc = formatPropertyDescription(form, lang);
   const locationNoteZh = {
-    lantzville: "Lantzville 海边及安静居住属性适合做高品质生活方式包装，但高租金整租的目标租客相对集中，出租周期需要留有弹性。",
+    lantzville: "Lantzville 的安静居住属性有价值；具体位置卖点需以业主填写和照片确认。",
     "north-nanaimo": "North Nanaimo 通常更容易支撑便利性和家庭型租客需求，但仍需结合房屋状态、停车和同类竞品判断。",
     "central-nanaimo": "Central Nanaimo 的优势通常在通勤和生活便利性，租金策略应强调实际便利，而不是只强调面积。",
     "south-nanaimo": "South Nanaimo 的租金定位通常需要更重视价格竞争力和租客便利性，避免过高定价拉长空置期。",
@@ -406,7 +422,7 @@ function buildExecutiveSummary(form, lang) {
     general: "地段价值需要结合具体社区、通勤便利、停车和房屋状态判断。",
   }[profile];
   const locationNoteEn = {
-    lantzville: "Lantzville's coastal and quiet residential positioning supports a premium lifestyle presentation, but a high-rent whole-home strategy serves a narrower tenant pool and needs timeline flexibility.",
+    lantzville: "Lantzville's quiet residential positioning has value; specific location advantages must be confirmed from the owner's answers and photos.",
     "north-nanaimo": "North Nanaimo can support stronger family and convenience-driven demand, subject to condition, parking, and comparable listings.",
     "central-nanaimo": "Central Nanaimo value is usually tied to convenience and access, so the rent strategy should emphasize practical location benefits rather than size alone.",
     "south-nanaimo": "South Nanaimo positioning usually calls for stronger price discipline and convenience messaging to avoid extended vacancy.",
@@ -415,47 +431,56 @@ function buildExecutiveSummary(form, lang) {
   }[profile];
   if (lang === "zh") {
     return [
-      `${type}位于 ${location}，本次目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。${locationNoteZh}`,
-      "根据目前资料，建议先按高品质整租方向评估，并同步保留合法分租和 Airbnb / 短租可行性复核。最终策略需结合照片、房屋状态、当前市场反馈和专业审核确认。",
+      `${type}位于 ${location}，当前填写为${propertyDesc}。本次目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。${locationNoteZh}`,
+      buildStrategyScopeSentence(form, lang),
     ];
   }
   return [
-    `${type} at ${location} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with an owner target rent of ${target}/month. ${locationNoteEn}`,
-    "Based on the current information, the recommended first path is a premium whole-home rental review while keeping legal split-rental and STR feasibility under professional review. Final strategy requires current market feedback, photos, property condition, and professional confirmation.",
+    `${type} at ${location} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with current inputs showing ${propertyDesc}. Owner target rent is ${target}/month. ${locationNoteEn}`,
+    buildStrategyScopeSentence(form, lang),
   ];
 }
 
 function buildPropertyStrengths(form, followUps, lang) {
   const items = [];
+  const bed = Number(form.bedrooms || 0);
+  const bath = normalizeCellTextForUi(form.bathrooms);
+  const garage = Number(form.garageSpaces || 0);
+  const driveway = Number(form.drivewayParking || 0);
   if (form.oceanView === "Yes") {
     items.push(lang === "zh"
-      ? "海景是本物业最强的营销优势，建议作为广告标题、封面照片和第一组照片的核心卖点。"
-      : "The ocean view is the strongest marketing advantage and should lead the headline, cover photo, and first photo sequence.");
+      ? "已确认有海景，可作为广告标题、封面照片和第一组照片的卖点。"
+      : "Ocean view is confirmed and can be used in the headline, cover photo, and first photo sequence.");
   }
   if (form.furnished === "Yes") {
     items.push(lang === "zh"
-      ? "家具家电齐全可以吸引搬迁家庭、临时过渡住客和希望减少搬家成本的高预算租客。"
-      : "The furnished setup supports relocation tenants, transition households, and higher-budget renters who want a move-in-ready home.");
+      ? "已确认带家具，可作为减少搬家准备的便利卖点。"
+      : "Furnished status is confirmed and can be positioned as a move-in convenience.");
   }
-  if (Number(form.bedrooms) >= 4) {
+  if (bed > 0 || bath) {
     items.push(lang === "zh"
-      ? `${form.bedrooms} 卧 ${form.bathrooms || ""} 卫适合家庭型租客，但租金越高，目标客群越需要精准筛选。`
-      : `${form.bedrooms} bedrooms and ${form.bathrooms || ""} bathrooms fit family tenants, but higher rent requires more precise tenant targeting.`);
+      ? `当前记录为 ${form.bedrooms || "需确认"} 房 ${bath || "需确认"} 卫，应按这个实际户型定位租客。`
+      : `Current record shows ${form.bedrooms || "unconfirmed"} bedroom(s) and ${bath || "unconfirmed"} bathroom(s), so tenant positioning should use this layout only.`);
   }
-  if (form.garageSpaces || form.drivewayParking) {
+  if (garage > 0) {
     items.push(lang === "zh"
-      ? "车库和户外停车位是高端整租的重要加分项，尤其适合家庭和长期租客。"
-      : "Garage and driveway parking are meaningful advantages for premium whole-home rental, especially for families and long-term tenants.");
+      ? `已填写 ${garage} 个车库车位，可作为停车便利卖点。`
+      : `${garage} garage space(s) are confirmed and can be used as a parking convenience point.`);
+  }
+  if (driveway > 0) {
+    items.push(lang === "zh"
+      ? `已填写 ${driveway} 个车道车位，可在广告中准确说明。`
+      : `${driveway} driveway parking space(s) are confirmed and should be stated accurately.`);
   }
   if (form.privateYard === "Yes") {
     items.push(lang === "zh"
-      ? "私人户外空间能提升家庭租客和宠物租客的兴趣，但围栏和隐私程度需要在广告中准确说明。"
-      : "Private outdoor space strengthens family and pet-tenant appeal, but fencing and privacy need to be described accurately.");
+      ? "已确认有私人户外空间，可作为真实卖点；围栏和隐私程度仍需准确说明。"
+      : "Private outdoor space is confirmed and can be used as a real value point; fencing and privacy should still be described accurately.");
   }
-  if (form.separateEntrance === "Yes" || followUps.conversionSeparateEntrance === "Yes") {
+  if (form.separateEntrance === "Yes") {
     items.push(lang === "zh"
-      ? "已有或可实现独立入口，为未来合法分租或楼下独立单元评估提供了基础条件。"
-      : "The existing or possible separate entrance creates a practical starting point for future legal split-rental review.");
+      ? "已确认有独立入口，可进入后续合规审核；不得在未审核前直接宣传为合法套间。"
+      : "Separate entrance is confirmed and can move into compliance review; it should not be advertised as a legal suite before review.");
   }
   return items.length ? items : [lang === "zh" ? "需要结合照片、平面布局和房屋状态进一步确认物业优势。" : "Property strengths need photo, layout, and condition review."];
 }
@@ -464,23 +489,23 @@ function buildRentalChallenges(form, followUps, legalWarning, lang) {
   const items = [];
   if (form.targetRent) {
     items.push(lang === "zh"
-      ? `业主目标租金 ${formatCurrency(form.targetRent, lang)}/月属于较高租金区间，目标租客数量相对有限，预计出租周期可能长于普通家庭住宅。`
-      : `The owner target rent of ${formatCurrency(form.targetRent, lang)}/month is a higher-rent position, so the tenant pool is narrower and leasing may take longer than a standard family home.`);
+      ? `目标租金已填写为 ${formatCurrency(form.targetRent, lang)}/月，需要用当前真实户型、状态和位置验证市场接受度。`
+      : `Target rent is ${formatCurrency(form.targetRent, lang)}/month and should be validated against the current layout, condition, and location.`);
   }
-  if (form.utilitiesShared === "Yes") {
+  if (hasSplitRentalBasis(form, followUps) && form.utilitiesShared === "Yes") {
     items.push(lang === "zh"
-      ? "水电或电表共用会影响分租清晰度，后续若做两个单元，需要提前设计费用分摊和租约说明。"
-      : "Shared utilities reduce split-rental clarity; any two-unit strategy needs clear cost allocation and lease wording.");
+      ? "已填写水电共用；如后续审核额外出租配置，需要提前设计费用分摊和租约说明。"
+      : "Shared utilities are noted; if an additional rental configuration is reviewed later, cost allocation and lease wording need care.");
   }
   if (form.airbnbInterest === "Yes") {
     items.push(lang === "zh"
-      ? "Airbnb / 短租不能只按收益判断，必须先核查 BC 和 Lantzville 当前规则、主要住所要求和运营限制。"
-      : "Airbnb / STR cannot be assessed by revenue only; BC and municipal rules, principal-residence requirements, and operating limits must be checked first.");
+      ? "已选择 Airbnb / 短租意向，必须先核查 BC 和所在城市当前规则、主要住所要求和运营限制。"
+      : "Airbnb / STR interest is selected, so BC and city rules, principal-residence requirements, and operating limits must be checked first.");
   }
-  if (form.fencedBackyard !== "Yes") {
+  if (form.fencedBackyard === "No" || form.fencedBackyard === "Unsure" || !form.fencedBackyard) {
     items.push(lang === "zh"
-      ? "后院是否有围栏目前不明确，这会影响宠物租客、带小孩家庭和户外空间卖点。"
-      : "Fenced-yard status is not confirmed, which affects pet tenants, families with children, and outdoor-space positioning.");
+      ? "围栏后院未确认，不能把完整围栏作为卖点；需进一步确认。"
+      : "Fenced backyard is not confirmed, so a fully fenced yard cannot be used as a value point; it needs confirmation.");
   }
   if (legalWarning) {
     items.push(lang === "zh"
@@ -491,74 +516,97 @@ function buildRentalChallenges(form, followUps, legalWarning, lang) {
 }
 
 function buildSuggestedStrategy(form, followUps, lang) {
+  const strengths = buildSupportedFeaturePhrases(form, lang);
+  const featureText = strengths.length
+    ? strengths.join(lang === "zh" ? "、" : ", ")
+    : (lang === "zh" ? "当前已填写的物业条件" : "the currently submitted property details");
+  const hasSuiteBasis = hasSplitRentalBasis(form, followUps);
   if (lang === "zh") {
     if (form.airbnbInterest === "Yes") {
-      return [
-        "第一策略：先按高品质整租评估，突出海景、家具齐全、车库、停车和海边位置。",
-        "第二策略：同步评估合法分租可能性，尤其是楼下是否能合法增加厨房、独立使用空间和清晰水电安排。",
-        "第三策略：Airbnb / STR 只作为备选方向，必须先完成法规核查，不能在未确认规则前承诺短租收益。",
+      const items = [
+        `第一策略：先按当前资料评估长租或整租路径，广告只突出已确认卖点：${featureText}。`,
       ];
+      items.push(hasSuiteBasis
+        ? "第二策略：可同步评估合法分租可能性，但必须逐项确认独立入口、厨房、洗衣、水电、停车和合规。"
+        : "第二策略：额外出租配置目前资料不足，只能标记为需进一步确认。");
+      items.push("第三策略：Airbnb / STR 只作为备选方向，必须先完成法规核查，不能在未确认规则前承诺短租收益。");
+      return items;
     }
     if (form.ownerGoal === "Rent ASAP") {
       return [
         "优先采用务实定价和快速展示策略，减少空置时间。",
-        "广告需清楚说明家具、停车、院子、水电和宠物政策，避免无效咨询。",
+        `广告需清楚说明当前已确认内容：${featureText}，并对未填写信息标注需进一步确认，避免无效咨询。`,
       ];
     }
     return [
-      "建议先以整租方式进入市场，测试高质量租客反馈。",
-      "如果 30 天内没有足够合格申请，再调整租金或重新评估合法分租方案。",
+      `建议先基于当前已填写条件进入市场测试租客反馈：${featureText}。`,
+      hasSuiteBasis
+        ? "如果 30 天内没有足够合格申请，可复核租金定位，并评估合法分租方案。"
+        : "如果 30 天内没有足够合格申请，应先复核租金定位、照片和广告表达；额外出租配置需进一步确认。",
     ];
   }
 
   if (form.airbnbInterest === "Yes") {
-    return [
-      "Primary strategy: test a premium whole-home rental with ocean view, furnished setup, garage, parking, and beach access as the lead value.",
-      "Secondary strategy: review legal split-rental feasibility, especially kitchen potential, independent use, and utility clarity.",
-      "STR strategy: keep Airbnb as an option only after BC and municipal rules are confirmed.",
+    const items = [
+      `Primary strategy: assess a long-term or whole-home rental path using only confirmed inputs: ${featureText}.`,
     ];
+    items.push(hasSuiteBasis
+      ? "Secondary strategy: review legal split-rental feasibility, with entrance, kitchen, laundry, utilities, parking, and compliance confirmed one by one."
+      : "Secondary strategy: additional rental configuration is not supported by current inputs and should be marked as needing confirmation.");
+    items.push("STR strategy: keep Airbnb as an option only after BC and municipal rules are confirmed.");
+    return items;
   }
   if (form.ownerGoal === "Rent ASAP") {
     return [
       "Use practical pricing and quick showing availability to reduce vacancy.",
-      "The listing should clearly state furniture, parking, yard, utilities, and pet terms to reduce unqualified inquiries.",
+      `The listing should state confirmed details only: ${featureText}. Missing items should be marked as needing confirmation.`,
     ];
   }
   return [
-    "Start with a whole-home rental launch and test qualified tenant response.",
-    "If strong applications do not appear within 30 days, revisit rent positioning or legal split-rental feasibility.",
+    `Start with a rental launch based on the submitted property details: ${featureText}.`,
+    hasSuiteBasis
+      ? "If strong applications do not appear within 30 days, revisit rent positioning or legal split-rental feasibility."
+      : "If strong applications do not appear within 30 days, revisit rent positioning, photos, and listing presentation first; additional rental configuration needs further confirmation.",
   ];
 }
 
 function buildRentPositioning(form, lang) {
   const target = formatCurrency(form.targetRent, lang);
+  const propertyDesc = formatPropertyDescription(form, lang);
   if (lang === "zh") {
     if (!form.targetRent) {
       return [
-        "目前未填写目标租金。建议先由专业团队对比当前 Lantzville / Nanaimo 同类房源、房屋状态、家具配置和照片质量后再定价。",
-        "不要只按房屋面积或业主期望定价，必须结合目标租客数量和出租周期。",
+        `目前未填写目标租金。当前物业资料为${propertyDesc}，租金需进一步确认。`,
+        "不要套用测试案例或按单一卖点定价，必须结合当前房屋状态、照片、位置和目标租客数量。",
       ];
     }
     return [
-      `业主目标租金为 ${target}/月。`,
-      "以 5 卧、海景、家具齐全、车库和海边位置来看，该物业具备高租金包装条件。",
-      "但这个价位属于较高租金区间，目标租客数量相对有限。建议先以专业照片和强卖点测试市场，如果咨询量不足，应及时复核价格或改为合法分租策略。",
+      `业主当前填写的目标租金为 ${target}/月。`,
+      `该租金建议必须围绕本次填写资料判断：${propertyDesc}。未填写或未确认的卖点不得用于提高租金定位。`,
+      "建议先用当前真实条件测试市场反馈；如果咨询量或申请质量不足，应及时复核目标租金和展示方式。",
     ];
   }
   if (!form.targetRent) {
     return [
-      "No target rent was entered. A professional review should compare current Lantzville / Nanaimo rentals, condition, furnishings, and photo quality before pricing.",
-      "Pricing should be based on tenant depth and leasing timeline, not only property size or owner preference.",
+      `No target rent was entered. Current property inputs are ${propertyDesc}; rent needs further confirmation.`,
+      "Do not reuse any test-case rent or unconfirmed feature. Pricing must reflect current condition, photos, location, and tenant depth.",
     ];
   }
   return [
     `Owner target rent is ${target}/month.`,
-    "The 5-bedroom layout, ocean view, furnished setup, garage, and beach access support a premium presentation.",
-    "This is still a higher-rent position with a narrower tenant pool. Launch with strong photos and clear value first; if inquiry quality is weak, revisit pricing or legal split-rental strategy.",
+    `This rent position must be judged from the current submission: ${propertyDesc}. Unconfirmed features must not be used to justify rent.`,
+    "Launch with accurate photos and confirmed value points first; if inquiry quality is weak, revisit the target rent and presentation.",
   ];
 }
 
 function buildSuiteSplitPotential(form, followUps, lang = "en") {
+  const hasBasis = hasSplitRentalBasis(form, followUps);
+  if (!hasBasis) {
+    return lang === "zh"
+      ? "当前记录未确认套间、独立入口或独立厨房；额外出租配置需进一步确认，不能作为当前优势。"
+      : "Current record does not confirm a suite, separate entrance, or separate kitchen; any additional rental configuration needs further confirmation and must not be treated as a current advantage.";
+  }
+
   if (form.existingSuite === "Yes") {
     const suiteReadySignals = [
       followUps.suiteSeparateEntrance,
@@ -568,47 +616,47 @@ function buildSuiteSplitPotential(form, followUps, lang = "en") {
     ].filter((value) => value === "Yes").length;
     if (suiteReadySignals >= 3) {
       return lang === "zh"
-        ? "现有套房已具备多个独立使用条件，分租可行性较强。但正式采用前仍需审核合法性、安全、保险、停车和水电安排。"
-        : "The existing suite has several independent-use features, so split-rental feasibility is stronger. Legality, safety, insurance, parking, and utilities still need review.";
+        ? "当前记录确认已有套房并具备多个独立使用条件，可进入专业合规审核。正式采用前仍需确认合法性、安全、保险、停车和水电安排。"
+        : "Current record confirms an existing suite with several independent-use features, so it can move into professional compliance review. Legality, safety, insurance, parking, and utilities still need confirmation.";
     }
     return lang === "zh"
-      ? "现有套房具备分租可能，但独立入口、厨房、洗衣、电表或水电细节仍需专业审核。"
-      : "The existing suite can support a split-rental review, but entrance, kitchen, laundry, meter, or utility details need professional review.";
+      ? "当前记录确认已有套房，但独立入口、厨房、洗衣、电表或水电细节仍需专业审核。"
+      : "Current record confirms an existing suite, but entrance, kitchen, laundry, meter, or utility details still need professional review.";
   }
 
-  if (form.existingSuite === "No") {
-    if (followUps.conversionBasement === "Yes" || followUps.conversionSeparateEntrance === "Yes" || followUps.conversionAddKitchen === "Yes") {
-      return lang === "zh"
-        ? "目前没有独立套间，但楼下空间、独立入口和加厨房意向显示出未来改成两个单元的潜力。如果能合法完成，整体出租弹性和目标租客范围会明显提高。关键审核点是城市要求、施工成本、安全、停车、水电和院子隐私。"
-        : "There is no existing suite, but lower-level space, separate entrance potential, and kitchen willingness create a future two-unit opportunity. If completed legally, rental flexibility and tenant reach improve. Key review points are municipal requirements, cost, safety, parking, utilities, and yard privacy.";
-    }
+  if (form.existingSuite === "No" && (followUps.conversionSeparateEntrance === "Yes" || followUps.conversionAddKitchen === "Yes")) {
     return lang === "zh"
-      ? "目前分租可行性有限，除非业主愿意投入合法套房改造并解决独立使用条件。"
-      : "Split-rental feasibility is limited unless the owner is willing to create a compliant secondary-suite setup.";
+      ? "当前记录没有现有套房，但追问中确认了独立入口或加厨房意向；这只能作为未来专业审核事项，不能作为当前广告卖点。"
+      : "Current record has no existing suite, but follow-up answers confirm separate-entrance or kitchen interest; this is only a future professional review item, not a current marketing feature.";
   }
 
   if (form.separateEntrance === "Yes" || form.canAddKitchen === "Yes") {
     return lang === "zh"
-      ? "具备分租评估基础，但厨房、洗衣、水电、隐私、停车和合规需要逐项确认。"
-      : "Split-rental review is justified, but kitchen, laundry, utilities, privacy, parking, and compliance need confirmation.";
+      ? "当前记录确认了独立入口或加厨房条件，可进入专业审核；厨房、洗衣、水电、隐私、停车和合规仍需逐项确认。"
+      : "Current record confirms a separate entrance or kitchen potential, so professional review is justified; kitchen, laundry, utilities, privacy, parking, and compliance still need confirmation.";
   }
 
   return lang === "zh"
-    ? "目前套房 / 分租潜力仍不清晰，需要结合照片和平面布局进一步判断。"
-    : "Suite / split-rental potential remains unclear and needs photo and layout review.";
+    ? "额外出租配置仍需结合照片和平面布局进一步判断。"
+    : "Additional rental configuration still needs photo and layout review.";
 }
 
 function buildSuiteQualityPrivacy(form, lang = "en") {
   const notes = [];
+  if (!hasSplitRentalBasis(form, form.followUpAnswers || {}) && !form.suiteLegalStatus && !form.suiteYardPrivacy && !form.suiteSharedAreas && !form.suiteRentImpactNotes) {
+    return lang === "zh"
+      ? "当前记录未确认套间品质、隐私、水电或院子条件；需进一步确认。"
+      : "Current record does not confirm suite quality, privacy, utilities, or yard details; further confirmation is needed.";
+  }
   if (form.suiteLegalStatus === "Legal") {
-    notes.push(lang === "zh" ? "合法套间比未授权套间更容易稳定营销，合规风险较低。" : "Legal suite status supports steadier marketing and lower compliance risk than an unauthorized suite.");
+    notes.push(lang === "zh" ? "已填写合法套间状态，可作为专业审核中的合规优势。" : "Legal suite status is entered and can be treated as a compliance advantage during professional review.");
   } else if (form.suiteLegalStatus === "Unauthorized no permit") {
     notes.push(lang === "zh" ? "未授权 / 无许可套间需要更谨慎，正式营销前应进行专业合规审核。" : "Unauthorized suite status requires a cautious strategy and professional compliance review before marketing.");
   } else if (form.suiteLegalStatus === "Not sure") {
     notes.push(lang === "zh" ? "套间合法状态未确认，不能作为广告卖点直接宣传。" : "Suite legal status is unclear and should not be promoted as a confirmed feature.");
   }
-  if (form.suiteHydroMeter === "Yes") notes.push(lang === "zh" ? "独立电表会提高套间吸引力，也减少水电分摊争议。" : "A separate hydro meter increases suite appeal and reduces utility-sharing disputes.");
-  if (form.suiteHydroMeter === "No") notes.push(lang === "zh" ? "当前没有独立电表，若未来分租，需要提前设计水电费用说明。" : "There is no separate hydro meter, so any future split rental needs clear utility wording.");
+  if (form.suiteHydroMeter === "Yes") notes.push(lang === "zh" ? "已确认独立电表，可减少水电分摊争议。" : "Separate hydro meter is confirmed and can reduce utility-sharing disputes.");
+  if (form.suiteHydroMeter === "No") notes.push(lang === "zh" ? "当前没有独立电表，相关费用说明需进一步确认。" : "There is no separate hydro meter, so utility wording needs further confirmation.");
   if (form.suiteYardPrivacy === "Fully private") notes.push(lang === "zh" ? "完全私密的户外空间能明显提高租金吸引力和申请质量。" : "Fully private outdoor space improves rent appeal and application quality.");
   if (form.suiteYardPrivacy === "Partial") notes.push(lang === "zh" ? "部分私密院子仍有价值，但广告中必须清楚说明哪些区域独享、哪些区域共用。" : "Partial yard privacy still has value, but exclusive versus shared areas must be described clearly.");
   if (form.suiteYardPrivacy === "Shared yard") notes.push(lang === "zh" ? "共用院子会降低宠物和家庭租客吸引力，必须设定清晰使用规则。" : "Shared yard use reduces pet and family tenant appeal unless clear rules are set.");
@@ -620,15 +668,15 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   }
   if (form.suiteRentImpactNotes) {
     notes.push(lang === "zh"
-      ? "业主已提供套间对租金影响的备注；核心判断是合法改造成两个单元后，整体出租弹性会高于单一高租金整租。"
+      ? `套间租金影响备注：${cleanSentence(form.suiteRentImpactNotes)}`
       : `Rent impact notes: ${cleanSentence(form.suiteRentImpactNotes)}`);
   }
-  if (form.existingSuite === "Yes" || form.existingSuite === "No" || form.suiteLegalStatus) {
+  if (form.existingSuite === "Yes" || form.suiteLegalStatus) {
     notes.push(lang === "zh"
       ? "请查看房东知识中心第二套房 / legal suite 指南，并经专业审核后再作最终决定。"
       : "Please review the Secondary Suite / Legal Suite guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.");
   }
-  return notes.length ? notes : (lang === "zh" ? "suite 品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Suite quality, privacy, utilities, and yard conditions need layout and photo review.");
+  return notes.length ? notes : (lang === "zh" ? "相关品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Quality, privacy, utilities, and yard conditions need layout and photo review.");
 }
 
 function buildLocationRentAdjustment(form, lang = "en") {
@@ -639,8 +687,8 @@ function buildLocationRentAdjustment(form, lang = "en") {
   }
   const locationNotes = {
     lantzville: lang === "zh"
-      ? "Lantzville 的海边生活方式、安静环境和稀缺感有价值；但高租金整租目标客群较小，需要预留更长出租周期。"
-      : "Lantzville offers coastal lifestyle value, quiet residential appeal, and scarcity; however, high-rent whole-home demand is narrower and may require a longer leasing runway.",
+      ? "Lantzville 的安静居住属性有价值；具体位置卖点需以业主填写和照片确认，不能默认写入报告。"
+      : "Lantzville's quiet residential appeal has value; specific location advantages need confirmation from owner inputs and photos.",
     "north-nanaimo": lang === "zh"
       ? "North Nanaimo 通常更容易吸引家庭型和重视便利性的租客，租金可更积极，但仍需看竞品、状态和停车。"
       : "North Nanaimo typically supports stronger family and convenience-driven demand, allowing more confident pricing when condition, parking, and comparables support it.",
@@ -663,67 +711,71 @@ function buildLocationRentAdjustment(form, lang = "en") {
   }
   if (form.locationRentPremium) {
     notes.push(lang === "zh"
-      ? "位置本身具备溢价基础，尤其是海景和靠近海边；但高租金整租仍需要更精准的目标租客。"
+      ? `位置溢价备注：${cleanSentence(form.locationRentPremium)}`
       : `Location premium note: ${cleanSentence(form.locationRentPremium)}`);
   }
   if (form.rentAdjustmentFactors) {
     notes.push(lang === "zh"
-      ? "租金调整应重点考虑海景、海边通达性、卧室数量、家具、车库、停车、花园和整体出租周期。"
+      ? `租金调整因素：${cleanSentence(form.rentAdjustmentFactors)}`
       : `Rent adjustment factors: ${cleanSentence(form.rentAdjustmentFactors)}`);
   }
   if (form.locationNotes) {
     notes.push(lang === "zh"
-      ? "位置备注显示该物业主打安静海边生活方式，广告应强调居住体验，而不是只强调面积和卧室数量。"
+      ? `位置备注：${cleanSentence(form.locationNotes)}`
       : `Location notes: ${cleanSentence(form.locationNotes)}`);
   }
   return notes.length ? notes : (lang === "zh" ? "地段价值需要结合附近可比出租房源和租客便利性进一步确认。" : "Location value should be confirmed against nearby comparable rentals and tenant convenience.");
 }
 
 function buildMarketingSuggestions(form, followUps, lang = "en") {
+  const items = [];
   if (lang === "zh") {
-    const items = [
-      "★★★★★ 必须：第一张照片使用海景或最能体现 Oceanfront 的画面。",
-      "★★★★★ 必须：第二张展示客厅，突出空间感、采光和家具齐全。",
-      "★★★★ 推荐：第三张展示厨房，帮助租客判断日常居住品质。",
-      "★★★★ 推荐：展示后院 / 花园 / greenhouse，说明户外空间价值。",
-      "★★★★ 推荐：家具家电齐全应作为主要卖点，适合搬迁租客或希望拎包入住的租客。",
-      "★★★★ 推荐：车库和户外停车位应在广告前半部分明确写出。",
-      "★★ 可选：如果预算允许，可补充 drone / 高角度照片，但不应替代室内核心照片。",
-    ];
-    if (form.fencedBackyard !== "Yes") items.push("如后院围栏不明确，不建议在广告中写“完整围栏后院”，应改写为“私人户外空间”或“花园区域”。");
+    items.push("★★★★★ 必须：第一张照片使用最能代表当前真实物业状态的画面，不能使用未确认卖点。");
+    items.push("★★★★ 推荐：展示客厅、厨房和主要卧室，帮助租客判断日常居住品质。");
+    if (form.oceanView === "Yes") items.push("★★★★★ 必须：如照片能确认海景，可把海景作为标题、封面和第一组照片重点。");
+    if (form.furnished === "Yes") items.push("★★★★ 推荐：如家具配置已确认，可将带家具作为主要卖点之一。");
+    if (Number(form.garageSpaces || 0) > 0 || Number(form.drivewayParking || 0) > 0) items.push("★★★★ 推荐：停车条件已填写，应在广告前半部分明确写出。");
+    if (form.privateYard === "Yes" || form.fencedBackyard === "Yes") items.push("★★★★ 推荐：户外空间已填写，应准确展示院子、隐私和围栏状态。");
+    if (form.fencedBackyard !== "Yes") items.push("如后院围栏未确认，不得写“完整围栏后院”，只能写需进一步确认。");
     if (form.airbnbInterest === "Yes") items.push("不要在公开广告中暗示短租收益，短租方向需先完成法规核查。");
+    if (items.length < 3) items.push("缺失信息只能写需进一步确认，不要套用示例房源卖点。");
     return items;
   }
 
-  const items = [
-    "★★★★★ Must: use the ocean view or strongest oceanfront image as the first photo.",
-    "★★★★★ Must: use the living room as the second photo to show space, light, and furnished presentation.",
-    "★★★★ Recommended: use the kitchen as the third photo so tenants can judge daily living quality.",
-    "★★★★ Recommended: show the backyard, garden, or greenhouse to communicate outdoor value.",
-    "★★★★ Recommended: position the furnished setup as a primary feature for relocation or move-in-ready tenants.",
-    "★★★★ Recommended: mention garage and driveway parking in the first half of the ad.",
-    "★★ Optional: add drone or elevated photos if budget allows, but do not replace core interior photos.",
-  ];
-  if (form.fencedBackyard !== "Yes") items.push("Do not claim fully fenced yard unless confirmed; use private outdoor space or garden area if accurate.");
+  items.push("★★★★★ Must: use the strongest image that reflects the current property truth, not an unconfirmed feature.");
+  items.push("★★★★ Recommended: show living room, kitchen, and main bedrooms so tenants can judge daily living quality.");
+  if (form.oceanView === "Yes") items.push("★★★★★ Must: if photos confirm the view, use the ocean view in the headline, cover photo, and first photo sequence.");
+  if (form.furnished === "Yes") items.push("★★★★ Recommended: if furniture is confirmed, position the furnished setup as one of the listing value points.");
+  if (Number(form.garageSpaces || 0) > 0 || Number(form.drivewayParking || 0) > 0) items.push("★★★★ Recommended: parking was provided and should be stated early in the listing.");
+  if (form.privateYard === "Yes" || form.fencedBackyard === "Yes") items.push("★★★★ Recommended: show outdoor space accurately, including privacy and fencing status.");
+  if (form.fencedBackyard !== "Yes") items.push("Do not claim a fully fenced yard unless confirmed; mark it as needing confirmation.");
   if (form.airbnbInterest === "Yes") items.push("Do not advertise STR income before rule verification is complete.");
+  if (items.length < 3) items.push("Missing information should be marked as needing confirmation; do not reuse sample listing features.");
   return items;
 }
 
 function buildProfessionalPreliminaryRecommendation(form, followUps, lang = "en") {
+  const hasSuiteBasis = hasSplitRentalBasis(form, followUps);
   if (lang === "zh") {
-    return [
-      "专业初步建议：先以高品质整租方向测试市场，但不应只依赖单一高租金价格点。",
-      "如 30 天内合格租客反馈不足，建议重新评估租金定位，并同步复核合法增加套间或两个出租单元的可行性。",
-      "如计划长期持有出租，建议优先提高物业独立性：围栏、院子隐私、套间隐私、水电分摊和未来是否需要独立电表。",
-      "Airbnb / STR 暂时只作为备选方案，法规未核查前不建议作为主要出租策略。",
-    ];
-  }
-  return [
-    "Professional preliminary recommendation: first test the property as a premium whole-home rental, but do not rely on one high-rent price point only.",
-    "If qualified demand is weak after 30 days, reassess rent positioning and review whether a legal suite or two-unit strategy is practical.",
-    "For long-term rental success, prioritize rental independence first: fencing, yard privacy, suite privacy, utility allocation, and whether a separate meter is needed.",
-    "Airbnb / STR should remain a backup strategy until current rules are verified.",
+    const items = [
+      "专业初步建议：先按当前真实填写资料测试市场，不应依赖未确认卖点或测试案例内容。",
+      "如 30 天内合格租客反馈不足，建议重新评估目标租金、照片质量和广告表达。",
   ];
+  items.push(hasSuiteBasis
+    ? "因当前资料存在套房或独立使用条件，可同步复核合法分租或两个出租单元的可行性。"
+    : "当前资料不足以判断额外出租配置；需进一步确认套房、独立入口、独立厨房和平面布局。");
+    items.push("Airbnb / STR 暂时只作为备选方案，法规未核查前不建议作为主要出租策略。");
+    return items;
+  }
+  const items = [
+    "Professional preliminary recommendation: test the market using the current submitted facts only, without relying on unconfirmed features or sample-case content.",
+    "If qualified demand is weak after 30 days, reassess target rent, photo quality, and listing presentation.",
+  ];
+  items.push(hasSuiteBasis
+    ? "Because the current inputs include suite or independent-use signals, legal split-rental or two-unit feasibility can be reviewed."
+    : "Current inputs are not enough to assess an additional rental configuration; suite status, separate entrance, separate kitchen, and layout need further confirmation.");
+  items.push("Airbnb / STR should remain a backup strategy until current rules are verified.");
+  return items;
 }
 
 function buildStrReminder(form, lang) {
@@ -782,26 +834,175 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
 }
 
 function buildServiceRecommendation(form, lang) {
+  const confirmed = buildSupportedFeaturePhrases(form, lang);
+  const confirmedText = confirmed.length ? confirmed.join(lang === "zh" ? "、" : ", ") : (lang === "zh" ? "当前已填写资料" : "the submitted property details");
   if (lang === "zh") {
     const items = [
-      "★★★★★ AI Marketing Package：适合先把海景、家具齐全、车库、海边位置整理成专业广告和照片顺序。",
+      `★★★★★ AI Marketing Package：适合把${confirmedText}整理成准确广告和照片顺序。`,
       `★★★★☆ Professional Rental Listing：适合需要正式挂牌、筛选租客和测试 ${formatCurrency(form.targetRent, lang)}/月整租定位的业主。`,
-      "★★★★★ Property Management：适合高租金、潜在分租、STR 法规和长期管理都需要专业把关的复杂物业。",
+      hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
+        ? "★★★★★ Property Management：适合法规、分租或长期管理需要专业把关的物业。"
+        : "★★★★☆ Property Management：适合希望减少日常沟通、筛选和租后管理工作的业主。",
     ];
-    if (form.airbnbInterest === "Yes" || form.existingSuite === "No" || hasOwnerOccupancyLegalWarning(form)) {
+    if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
       items.push("建议预约专业咨询，先确认法规、租金定位和整租 / 分租路径。");
     }
     return items;
   }
   const items = [
-    "★★★★★ AI Marketing Package: Best for turning ocean view, furnished setup, garage, and beach access into professional ad copy and photo order.",
+    `★★★★★ AI Marketing Package: Best for turning ${confirmedText} into accurate ad copy and photo order.`,
     "★★★★☆ Professional Rental Listing: Best for launching the listing, screening tenants, and testing the owner's rent position.",
-    "★★★★★ Property Management: Best for a complex property with high rent, split-rental review, STR questions, and long-term oversight.",
+    hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
+      ? "★★★★★ Property Management: Best when regulation, split-rental review, or long-term oversight needs professional control."
+      : "★★★★☆ Property Management: Best when the owner wants help with communication, screening, and ongoing rental management.",
   ];
-  if (form.airbnbInterest === "Yes" || form.existingSuite === "No" || hasOwnerOccupancyLegalWarning(form)) {
+  if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
     items.push("Book a professional consultation before confirming the final path.");
   }
   return items;
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
+function formatPropertyDescription(form, lang = "en") {
+  const unknown = lang === "zh" ? "需进一步确认" : "needs confirmation";
+  const bed = normalizeCellTextForUi(form.bedrooms) || unknown;
+  const bath = normalizeCellTextForUi(form.bathrooms) || unknown;
+  const type = normalizeCellTextForUi(form.propertyType) || unknown;
+  const city = normalizeCellTextForUi(form.city) || unknown;
+  const community = normalizeCellTextForUi(form.communityArea);
+  const parkingParts = [];
+  if (normalizeCellTextForUi(form.garageSpaces)) parkingParts.push(lang === "zh" ? `${form.garageSpaces} 个车库车位` : `${form.garageSpaces} garage space(s)`);
+  if (normalizeCellTextForUi(form.drivewayParking)) parkingParts.push(lang === "zh" ? `${form.drivewayParking} 个车道车位` : `${form.drivewayParking} driveway parking space(s)`);
+  const parking = parkingParts.length ? parkingParts.join(lang === "zh" ? "、" : ", ") : unknown;
+  const yard = form.privateYard === "Yes"
+    ? (lang === "zh" ? "有私人院子" : "private yard")
+    : form.fencedBackyard === "Yes"
+      ? (lang === "zh" ? "有围栏后院" : "fenced backyard")
+      : unknown;
+  const pet = form.petFriendly === "Yes"
+    ? (lang === "zh" ? "接受宠物" : "pet friendly")
+    : form.petFriendly === "No"
+      ? (lang === "zh" ? "不接受宠物" : "not pet friendly")
+      : unknown;
+  const furnished = form.furnished === "Yes"
+    ? (lang === "zh" ? "带家具" : "furnished")
+    : form.furnished === "No"
+      ? (lang === "zh" ? "不带家具" : "unfurnished")
+      : unknown;
+  const view = form.oceanView === "Yes"
+    ? (lang === "zh" ? "有海景" : "ocean view")
+    : form.oceanView === "No"
+      ? (lang === "zh" ? "未确认景观卖点" : "no confirmed view feature")
+      : unknown;
+
+  if (lang === "zh") {
+    return `${bed}房${bath}卫，${type}，城市 ${city}${community ? `，社区 ${community}` : ""}，停车：${parking}，院子：${yard}，宠物政策：${pet}，家具：${furnished}，景观：${view}`;
+  }
+  return `${bed} bedroom(s), ${bath} bathroom(s), ${type}, city ${city}${community ? `, community ${community}` : ""}, parking: ${parking}, yard: ${yard}, pet policy: ${pet}, furniture: ${furnished}, view: ${view}`;
+}
+
+function normalizeCellTextForUi(value) {
+  return String(value || "").trim();
+}
+
+function buildStrategyScopeSentence(form, lang = "en") {
+  const hasSuiteBasis = hasSplitRentalBasis(form, form.followUpAnswers || {});
+  if (lang === "zh") {
+    const parts = ["根据目前资料，报告只能使用业主本次填写的信息生成。"];
+    parts.push(hasSuiteBasis
+      ? "分租方向可作为待审核选项，但仍需合规、平面布局和独立使用条件确认。"
+      : "未填写或未确认套间、独立入口、独立厨房时，额外出租配置只能标记为需进一步确认。");
+    parts.push("最终策略需结合照片、房屋状态、当前市场反馈和专业审核确认。");
+    return parts.join("");
+  }
+  const parts = ["Based on the current information, this report can only use the owner's current submitted inputs. "];
+  parts.push(hasSuiteBasis
+    ? "Split rental can be reviewed as a pending option, but compliance, layout, and independent-use details still need confirmation. "
+    : "Additional rental configuration can only be marked as needing confirmation unless suite, separate entrance, and separate kitchen details are confirmed. ");
+  parts.push("Final strategy requires photos, property condition, current market feedback, and professional confirmation.");
+  return parts.join("");
+}
+
+function hasSplitRentalBasis(form, followUps = {}) {
+  return form.existingSuite === "Yes" ||
+    form.separateEntrance === "Yes" ||
+    form.separateKitchen === "Yes" ||
+    form.canAddKitchen === "Yes" ||
+    form.suiteLegalStatus === "Legal" ||
+    followUps.suiteSeparateEntrance === "Yes" ||
+    followUps.suiteOwnKitchen === "Yes" ||
+    followUps.conversionSeparateEntrance === "Yes" ||
+    followUps.conversionAddKitchen === "Yes";
+}
+
+function buildSupportedFeaturePhrases(form, lang = "en") {
+  const items = [];
+  const bed = normalizeCellTextForUi(form.bedrooms);
+  const bath = normalizeCellTextForUi(form.bathrooms);
+  const type = normalizeCellTextForUi(form.propertyType);
+  if (bed || bath || type) {
+    items.push(lang === "zh"
+      ? `${bed || "需确认"}房${bath || "需确认"}卫${type ? ` ${type}` : ""}`
+      : `${bed || "unconfirmed"} bedroom(s), ${bath || "unconfirmed"} bathroom(s)${type ? ` ${type}` : ""}`);
+  }
+  if (form.oceanView === "Yes") items.push(lang === "zh" ? "海景" : "ocean view");
+  if (form.furnished === "Yes") items.push(lang === "zh" ? "带家具" : "furnished");
+  if (Number(form.garageSpaces || 0) > 0) items.push(lang === "zh" ? `${form.garageSpaces} 个车库车位` : `${form.garageSpaces} garage space(s)`);
+  if (Number(form.drivewayParking || 0) > 0) items.push(lang === "zh" ? `${form.drivewayParking} 个车道车位` : `${form.drivewayParking} driveway parking space(s)`);
+  if (form.privateYard === "Yes") items.push(lang === "zh" ? "私人院子" : "private yard");
+  if (form.fencedBackyard === "Yes") items.push(lang === "zh" ? "围栏后院" : "fenced backyard");
+  if (form.petFriendly === "Yes") items.push(lang === "zh" ? "接受宠物" : "pet friendly");
+  if (form.nearbyCommercialCentre === "Yes") items.push(lang === "zh" ? "靠近商业中心" : "near commercial centre");
+  return items;
+}
+
+function flattenAssessmentText(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(flattenAssessmentText).join("\n");
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .filter(([key]) => key !== "outputGuardWarnings")
+      .map(([, item]) => flattenAssessmentText(item))
+      .join("\n");
+  }
+  return "";
+}
+
+function validateStrategyAssessmentOutput(summary, form, lang = "en") {
+  const text = flattenAssessmentText(summary);
+  const lower = text.toLowerCase();
+  const warnings = [];
+  const add = (message) => {
+    if (!warnings.includes(message)) warnings.push(message);
+  };
+
+  if (form.oceanView !== "Yes" && /(oceanfront|ocean view|beach access|海景|海边|临海)/i.test(text)) {
+    add(lang === "zh" ? "报告出现海景/海边相关词，但当前表单未确认 ocean view。" : "Report mentions ocean view/beach terms, but ocean view is not confirmed in the current form.");
+  }
+  if (form.furnished !== "Yes" && /(fully furnished|furnished setup|furnished presentation|家具齐全|带家具作为主要卖点)/i.test(text)) {
+    add(lang === "zh" ? "报告出现家具卖点，但当前表单未确认 furnished。" : "Report mentions furnished positioning, but furnished is not confirmed in the current form.");
+  }
+  if (String(form.bedrooms || "").trim() !== "5" && /(5 bedrooms|5-bedroom|5 卧|5房)/i.test(text)) {
+    add(lang === "zh" ? "报告出现 5 房描述，但当前表单不是 5 房。" : "Report mentions 5 bedrooms, but the current form is not 5 bedrooms.");
+  }
+  if (String(form.bathrooms || "").trim() !== "3" && /(3 bathrooms|3-bath|3 卫|3卫)/i.test(text)) {
+    add(lang === "zh" ? "报告出现 3 卫描述，但当前表单不是 3 卫。" : "Report mentions 3 bathrooms, but the current form is not 3 bathrooms.");
+  }
+  if (lower.includes("$4,600") || lower.includes("$4,688") || lower.includes("4688") || lower.includes("4600")) {
+    const targetDigits = String(form.targetRent || "").replace(/\D/g, "");
+    if (targetDigits !== "4600" && targetDigits !== "4688") {
+      add(lang === "zh" ? "报告出现测试租金，但当前 Target Rent 不支持。" : "Report mentions a test rent that is not supported by the current Target Rent.");
+    }
+  }
+  if (!hasSplitRentalBasis(form, form.followUpAnswers || {}) && /(split-rental feasibility is stronger|legal split-rental feasibility|合法分租可能性较强|改成两个单元的潜力)/i.test(text)) {
+    add(lang === "zh" ? "报告推断分租可行性，但当前 suite/独立入口/独立厨房资料不足。" : "Report infers split-rental feasibility, but suite/separate entrance/separate kitchen details are insufficient.");
+  }
+  return warnings;
 }
 
 function buildKnowledgeLinks(form, lang) {
@@ -828,12 +1029,12 @@ function buildKnowledgeLinks(form, lang) {
   if (form.airbnbInterest === "Yes") {
     government.links.push({ href: "/resources#str", label: safeLang === "zh" ? "短租政策" : "Airbnb / STR" });
   }
-  if (form.existingSuite === "Yes" || form.existingSuite === "No" || form.suiteLegalStatus) {
+  if (hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.suiteLegalStatus === "Not sure" || form.suiteLegalStatus === "Unauthorized no permit") {
     government.links.push({ href: "/resources#secondary-suite", label: safeLang === "zh" ? "第二套房与合法套间" : "Secondary Suite / Legal Suite" });
     guide.links.push({ href: "/resources#whole-house-vs-split-rental-card", label: safeLang === "zh" ? "整租 vs 分租" : "Whole House vs Split Rental" });
     guide.links.push({ href: "/resources#suite-privacy-hydro-meter-card", label: safeLang === "zh" ? "套间隐私和独立电表" : "Suite Privacy and Separate Hydro Meter" });
   }
-  if (form.targetRent || form.ownerGoal === "Maximize rent" || form.ownerGoal === "Maximize Rent") {
+  if (form.ownerGoal === "Maximize rent" || form.ownerGoal === "Maximize Rent" || parseMoneyAmount(form.targetRent) >= 3500) {
     market.links.push({ href: "/resources#high-rent-whole-house-risks-card", label: safeLang === "zh" ? "高租金整租风险" : "High-Rent Whole House Rental Risks" });
   }
   if (String(form.city || "").toLowerCase().includes("nanaimo") || String(form.communityArea || "").toLowerCase().includes("nanaimo")) {
