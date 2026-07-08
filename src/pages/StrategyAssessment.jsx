@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
   generatePreliminaryStrategySummary,
+  getRentalIntelligenceKnowledge,
   getLegalRiskFlag,
   getStrategyFollowUpQuestions,
   hasOwnerOccupancyLegalWarning,
@@ -219,6 +220,11 @@ const COPY = {
       suiteSplitRentalPotential: "Suite Potential Analysis",
       suiteQualityPrivacy: "Suite Quality & Privacy Analysis",
       locationRentAdjustment: "Location Value Analysis",
+      communityLocationAnalysis: "Community & Location Analysis",
+      targetTenantProfile: "Target Tenant Profile",
+      communityRentPositioningJudgment: "Rent Positioning Judgment",
+      communityMarketingAngles: "Marketing Angles",
+      communityRisksToVerify: "Risks / Things to Verify",
       airbnbStrRegulationCheck: "Airbnb / STR Reminder",
       legalComplianceRisk: "Legal Risk Reminder",
       aiConfidenceFlags: "AI Confidence & Flags",
@@ -311,6 +317,11 @@ const COPY = {
       suiteSplitRentalPotential: "Suite 潜力分析",
       suiteQualityPrivacy: "Suite 品质与隐私分析",
       locationRentAdjustment: "地段价值分析",
+      communityLocationAnalysis: "社区与位置分析",
+      targetTenantProfile: "目标租客画像",
+      communityRentPositioningJudgment: "租金定位判断",
+      communityMarketingAngles: "营销角度",
+      communityRisksToVerify: "风险 / 待核实事项",
       airbnbStrRegulationCheck: "Airbnb / STR 提醒",
       legalComplianceRisk: "法规风险提醒",
       aiConfidenceFlags: "AI 信心与标记",
@@ -567,20 +578,22 @@ export default function StrategyAssessment({ lang }) {
     setError("");
 
     try {
+      const rentalIntelligence = await getRentalIntelligenceKnowledge(form);
+      const finalPreliminary = generatePreliminaryStrategySummary(form, safeLang, rentalIntelligence);
       const result = await submitStrategyAssessment({
         ...form,
         photoFileNames: photoNames.join(", "),
-        preliminaryAssessment: preliminary,
+        preliminaryAssessment: finalPreliminary,
       }, safeLang);
       setSubmitted({
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
-        assessment: preliminary,
+        assessment: finalPreliminary,
       });
       saveStrategyReportSession({
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
-        assessment: preliminary,
+        assessment: finalPreliminary,
         savedAt: new Date().toISOString(),
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1219,6 +1232,11 @@ function buildAssessmentReportRows(assessment, copy) {
     [copy.report.suiteSplitRentalPotential, assessment.suiteSplitRentalPotential],
     [copy.report.suiteQualityPrivacy, assessment.suiteQualityPrivacy],
     [copy.report.locationRentAdjustment, assessment.locationRentAdjustment],
+    [copy.report.communityLocationAnalysis, assessment.communityLocationAnalysis],
+    [copy.report.targetTenantProfile, assessment.targetTenantProfile],
+    [copy.report.communityRentPositioningJudgment, assessment.communityRentPositioningJudgment],
+    [copy.report.communityMarketingAngles, assessment.communityMarketingAngles],
+    [copy.report.communityRisksToVerify, assessment.communityRisksToVerify],
     [copy.report.airbnbStrRegulationCheck, assessment.airbnbStrRegulationCheck],
     [copy.report.legalComplianceRisk, assessment.legalComplianceRisk],
     [copy.report.aiAssessmentConfidence, assessment.aiAssessmentConfidence],

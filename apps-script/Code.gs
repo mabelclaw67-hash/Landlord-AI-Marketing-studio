@@ -8,6 +8,7 @@ var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
+var RENTAL_INTELLIGENCE_SPREADSHEET_ID = "1hst3mcCLeCbMmRBnH3OkKEPOEWbSVvONsRxMUiPKg5E";
 var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
@@ -19,6 +20,11 @@ var DAILY_MARKET_BRIEF_SYNC_LOG_SHEET = "03 Sync Log";
 var WEBSITE_REPORTS_SHEET = "Website Reports";
 var PROPERTY_STRATEGY_ASSESSMENTS_SHEET = "Strategy_Assessments";
 var PROPERTY_STRATEGY_FILES_SHEET = "Assessment_Files";
+var COMMUNITY_KNOWLEDGE_BASE_SHEET = "Community_Knowledge_Base";
+var COMMUNITY_TAGS_SHEET = "Community_Tags";
+var COMMUNITY_SCORING_SHEET = "Community_Scoring";
+var PROPERTY_FIT_MATRIX_SHEET = "Property_Fit_Matrix";
+var AI_DECISION_HINTS_SHEET = "AI_Decision_Hints";
 var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
 var ADMIN_NOTIFICATION_EMAIL = "support@vanislandproperty.ca";
 
@@ -239,7 +245,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -252,6 +258,7 @@ function doPost(e) {
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
     if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
+    if (action === "getRentalIntelligenceKnowledge") return ok(getRentalIntelligenceKnowledge_(body.data || body));
     if (action === "regeneratePropertyStrategyReport") return ok(regeneratePropertyStrategyReport_(body.assessmentId, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
@@ -844,6 +851,135 @@ function generatePropertyStrategyAssessmentId_() {
   return "PSA-" + Utilities.formatDate(new Date(), tz, "yyyyMMdd-HHmmss");
 }
 
+function getRentalIntelligenceSpreadsheetId_() {
+  return getSystemSetting_("rental_intelligence_spreadsheet_id") || RENTAL_INTELLIGENCE_SPREADSHEET_ID;
+}
+
+function getRentalIntelligenceSheetRows_(sheetName) {
+  var sheet = getSheetBySpreadsheetId_(getRentalIntelligenceSpreadsheetId_(), sheetName);
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(header) {
+    return normalizeCellText_(header);
+  });
+  var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  return values.map(function(row) {
+    var item = {};
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i]) item[headers[i]] = normalizeCellText_(row[i]);
+    }
+    return item;
+  });
+}
+
+function firstExistingValue_(record, names) {
+  record = record || {};
+  for (var i = 0; i < names.length; i++) {
+    if (record[names[i]]) return record[names[i]];
+  }
+  return "";
+}
+
+function findCommunityNameInRecord_(record) {
+  return firstExistingValue_(record, [
+    "Community",
+    "Community Name",
+    "communityName",
+    "Community_Name",
+    "Neighbourhood",
+    "Neighborhood",
+    "Area",
+  ]);
+}
+
+function findKeywordsInRecord_(record) {
+  return firstExistingValue_(record, [
+    "Keywords",
+    "keywords",
+    "Search Keywords",
+    "Keyword",
+    "Tags",
+    "Community Tags",
+    "Community_Tags",
+  ]);
+}
+
+function splitKnowledgeTokens_(value) {
+  return normalizeCellText_(value)
+    .toLowerCase()
+    .split(/[,;|/\n]+/)
+    .map(function(part) { return part.trim(); })
+    .filter(Boolean);
+}
+
+function scoreCommunityMatch_(record, searchText) {
+  var score = 0;
+  var community = findCommunityNameInRecord_(record).toLowerCase();
+  if (community && searchText.indexOf(community) >= 0) score += 20;
+  var keywords = splitKnowledgeTokens_(findKeywordsInRecord_(record));
+  for (var i = 0; i < keywords.length; i++) {
+    if (keywords[i] && searchText.indexOf(keywords[i]) >= 0) score += 10;
+  }
+  return score;
+}
+
+function findGenericNanaimoKnowledge_(rows) {
+  for (var i = 0; i < rows.length; i++) {
+    var name = findCommunityNameInRecord_(rows[i]).toLowerCase();
+    if (name.indexOf("generic") >= 0 || name.indexOf("general") >= 0 || name === "nanaimo") return rows[i];
+  }
+  return rows[0] || {};
+}
+
+function filterKnowledgeByCommunity_(rows, communityName) {
+  var target = normalizeCellText_(communityName).toLowerCase();
+  if (!target) return [];
+  return rows.filter(function(row) {
+    return findCommunityNameInRecord_(row).toLowerCase() === target;
+  });
+}
+
+function pickBestCommunityKnowledge_(baseRows, payload) {
+  var searchText = [
+    payload.propertyAddress,
+    payload.address,
+    payload.city,
+    payload.communityArea,
+    payload.community,
+    payload.locationNotes,
+  ].filter(Boolean).join(" ").toLowerCase();
+  var best = null;
+  for (var i = 0; i < baseRows.length; i++) {
+    var score = scoreCommunityMatch_(baseRows[i], searchText);
+    if (!best || score > best.score) best = { record: baseRows[i], score: score };
+  }
+  if (best && best.score > 0) {
+    return { record: best.record, matchType: "keyword", score: best.score };
+  }
+  return { record: findGenericNanaimoKnowledge_(baseRows), matchType: "fallback", score: 0 };
+}
+
+function getRentalIntelligenceKnowledge_(payload) {
+  payload = payload || {};
+  var baseRows = getRentalIntelligenceSheetRows_(COMMUNITY_KNOWLEDGE_BASE_SHEET);
+  var selected = pickBestCommunityKnowledge_(baseRows, payload);
+  var communityName = findCommunityNameInRecord_(selected.record) || "Generic Nanaimo";
+  return {
+    communityName: communityName,
+    matchType: selected.matchType,
+    matchScore: selected.score,
+    source: "VanIsland Rental Intelligence Knowledge Base",
+    sourceSpreadsheetId: getRentalIntelligenceSpreadsheetId_(),
+    communityKnowledgeBase: selected.record || {},
+    communityTags: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_TAGS_SHEET), communityName),
+    communityScoring: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_SCORING_SHEET), communityName),
+    propertyFitMatrix: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(PROPERTY_FIT_MATRIX_SHEET), communityName),
+    aiDecisionHints: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(AI_DECISION_HINTS_SHEET), communityName),
+    lastLoadedAt: new Date().toISOString(),
+  };
+}
+
 function findPropertyStrategyAssessmentRow_(assessmentId) {
   assessmentId = normalizeCellText_(assessmentId);
   if (!assessmentId) throw new Error("Missing assessmentId.");
@@ -1017,6 +1153,11 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
       ["suiteSplitRentalPotential", "Suite Potential Analysis"],
       ["suiteQualityPrivacy", "Suite Quality & Privacy Analysis"],
       ["locationRentAdjustment", "Location Value Analysis"],
+      ["communityLocationAnalysis", "Community & Location Analysis"],
+      ["targetTenantProfile", "Target Tenant Profile"],
+      ["communityRentPositioningJudgment", "Rent Positioning Judgment"],
+      ["communityMarketingAngles", "Marketing Angles"],
+      ["communityRisksToVerify", "Risks / Things to Verify"],
       ["airbnbStrRegulationCheck", "Airbnb / STR Reminder"],
       ["legalComplianceRisk", "Legal Risk Reminder"],
       ["aiConfidenceFlags", "AI Confidence & Flags"],
