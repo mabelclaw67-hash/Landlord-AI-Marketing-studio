@@ -110,6 +110,7 @@ const T = {
       { icon: "📋", title: "Online Rental Application", desc: "Tenants submit applications via a dedicated link — no printing or email back-and-forth." },
       { icon: "📄", title: "Application PDF Archive",   desc: "Each application auto-generates a PDF saved to the listing's Drive folder for clean record-keeping." },
       { icon: "🔍", title: "AI Application Screening",  desc: "Summarizes and organizes application data, flags missing fields. No auto-approval or auto-rejection — final review is always manual." },
+      { icon: "📊", title: "AI Tenant Screening Report Demo", desc: "See how AI creates owner-ready initial screening and complete applicant audit reports.", href: "/demo/ai-screening" },
       { icon: "✅", title: "Human Review Workflow",     desc: "All applications are reviewed manually by the landlord in the admin dashboard — full control stays with the owner." },
       { icon: "📱", title: "Rental Share Kit & QR Code",desc: "Package rental sharing text, links, and QR access." },
       { icon: "🎬", title: "Rental Short Video",        desc: "Prepare short-form rental video materials and scripts." },
@@ -251,6 +252,7 @@ const T = {
       { icon: "📋", title: "在线租客申请",     desc: "租客通过专属链接提交申请，无需打印或来回发送邮件。" },
       { icon: "📄", title: "申请 PDF 存档",    desc: "每份申请自动生成 PDF，保存至该房源的云端文件夹，记录清晰。" },
       { icon: "🔍", title: "AI 申请初筛",      desc: "汇总整理申请信息，标记缺失字段。不自动批准或拒绝，最终审核由房东手动完成。" },
+      { icon: "📊", title: "AI 租客筛选报告 Demo", desc: "展示 AI 如何生成房东可读的租客初筛与完整审核报告。", href: "/demo/ai-screening" },
       { icon: "✅", title: "人工审核流程",     desc: "所有申请均由房东在管理后台手动审核，完全掌控在业主手中。" },
       { icon: "📱", title: "出租分享套件与二维码", desc: "打包出租分享文字、链接和二维码访问。" },
       { icon: "🎬", title: "出租短视频",       desc: "准备短视频素材和脚本。" },
@@ -408,8 +410,8 @@ export default function Home({ lang }) {
 
   const rlBest = retireBrief ? rlBestPick(retireBrief) : null;
 
-  const rentalPrimary   = s.rentalOutputs.slice(0, 4);
-  const rentalSecondary = s.rentalOutputs.slice(4);
+  const rentalPrimary   = s.rentalOutputs.slice(0, 6);
+  const rentalSecondary = s.rentalOutputs.slice(6);
   const salePrimary     = s.saleOutputs.slice(0, 4);
   const saleSecondary   = s.saleOutputs.slice(4);
 
@@ -724,11 +726,12 @@ export default function Home({ lang }) {
             <p>{s.rentalOutputsDesc}</p>
           </div>
           <div className="lh-feature-grid lh-feature-grid--primary">
-            {rentalPrimary.map(({ icon, title, desc }) => (
+            {rentalPrimary.map(({ icon, title, desc, href }) => (
               <article key={title} className="lh-feature-card">
                 <div className="lh-feature-icon">{icon}</div>
                 <h3>{title}</h3>
                 <p>{desc}</p>
+                {href && <Link className="lh-feature-card__link" to={href}>{s.openBtn}</Link>}
               </article>
             ))}
           </div>
@@ -736,11 +739,12 @@ export default function Home({ lang }) {
             <div className="lh-output-group__secondary">
               <div className="lh-output-group__secondary-label">{s.secondaryLabel}</div>
               <div className="lh-feature-grid lh-feature-grid--secondary">
-                {rentalSecondary.map(({ icon, title, desc }) => (
+                {rentalSecondary.map(({ icon, title, desc, href }) => (
                   <article key={title} className="lh-feature-card lh-feature-card--secondary">
                     <div className="lh-feature-icon">{icon}</div>
                     <h3>{title}</h3>
                     <p>{desc}</p>
+                    {href && <Link className="lh-feature-card__link" to={href}>{s.openBtn}</Link>}
                   </article>
                 ))}
               </div>

@@ -1,18 +1,94 @@
-import { saveApplicantReportPdf } from "./storage.js";
 import { matchSupportDocumentsForApplicant } from "./applicantSupportDocuments.js";
+import { renderProfessionalReportHtml, renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml.js";
+import { reportStatusTone } from "../components/reports/reportTheme.js";
 
 const COPY = {
   en: {
     preparedBy: "Prepared by",
     company: "VanIsland Property Management",
-    initialTitle: "Applicant Initial Screening Summary",
+    initialTitle: "Applicant Initial Screening Report",
     fullTitle: "Full Applicant Audit Report",
     listingId: "Listing ID",
     propertyAddress: "Property address",
     generatedDate: "Generated date",
-    applicationsReceived: "Number of applications received",
+    applicationsReceived: "Applications Received",
     rankingSummary: "Applicant ranking summary",
     comparisonTable: "Applicant comparison table",
+    executiveSummary: "Executive Summary",
+    applicantRanking: "Applicant Ranking",
+    aiRecommendation: "AI Recommendation",
+    confidence: "Confidence",
+    riskLevel: "Risk Level",
+    overview: "Overview",
+    candidateDetail: "Candidate Detail",
+    candidateDetails: "Candidate Details",
+    applicationOverview: "Application Overview",
+    incomeOverview: "Income Overview",
+    strengths: "Strengths",
+    concerns: "Concerns",
+    recommendations: "Recommendations",
+    footerNotice: "Landlord review aid only. Final decisions remain manual.",
+    overallRecommendation: "Overall recommendation",
+    reportConfidence: "Report confidence",
+    goodBackup: "Good Backup",
+    requiresFurtherVerification: "Requires Further Verification",
+    highestRentToIncomeRatio: "Highest Rent-to-Income Ratio",
+    recommendation: "Recommendation",
+    priority: "Priority",
+    nextAction: "Next Action",
+    overallAssessment: "Overall Assessment",
+    priorityRank: "Rank {rank} of {total}",
+    topApplicantChecks: "Proceed with income, reference, and supporting document checks for the top-ranked applicants.",
+    nextActionCompleteChecks: "Complete income, reference, and supporting document checks",
+    assessments: {
+      strong: "Strong candidate pending final verification",
+      backup: "Suitable backup pending final verification",
+      verify: "Requires further verification before moving forward",
+      lower: "Lower priority unless missing information improves the file",
+    },
+    displayValues: {
+      one_year: "1 Year",
+      six_months: "6 months",
+      excellent: "Excellent",
+      good: "Good",
+      fair: "Fair",
+      yes: "Yes",
+      no: "No",
+      none: "None",
+      no_pets: "No pets",
+      currently_insured: "Currently insured",
+      will_obtain_before_move_in: "Will obtain before move-in",
+    },
+    confidenceLevels: {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+    },
+    riskLevels: {
+      needs_data: "Needs data",
+      lower: "Lower",
+      medium: "Medium",
+      medium_high: "Medium-high",
+    },
+    documentStatus: {
+      linked: "Documents linked",
+      not_confirmed: "Not confirmed",
+      available: "Available",
+      to_confirm: "To confirm",
+      no_pets: "No pets stated",
+      adults_minors: "{adults} adults / {minors} minors",
+    },
+    recommendationKeys: {
+      proceed_verification: "Proceed with document verification, references, and landlord review.",
+      keep_as_backup: "Keep as backup while completing income, reference, and document checks.",
+      request_missing: "Request missing information and documents before moving further.",
+    },
+    incomeNotes: {
+      business_gross: "Business gross / revenue {amount} is not counted as scoring income until disposable monthly income is verified.",
+      support_income: "Support / benefit income {amount} is shown as declared income but requires verification for stability.",
+      unparsed_income: "Income is stated but cannot be conservatively parsed as monthly income.",
+      default_income: "Initial screening uses conservative monthly income; final review requires supporting documents.",
+    },
     noApplications: "No applications found for this listing.",
     initialNotice: "This initial screening summary is for landlord review only. It uses neutral, tenancy-related information from submitted applications. Final decisions remain with the landlord and must follow applicable tenancy and human rights laws.",
     auditNotice: "This audit report is a structured review aid. It does not make a final applicant decision. Final decisions remain with the landlord and must follow applicable tenancy and human rights laws.",
@@ -41,6 +117,21 @@ const COPY = {
     riskItems: "Risk items",
     finalRecommendation: "Final screening recommendation",
     conditionsBeforeApproval: "Conditions before approval",
+    candidateSummary: "Candidate Summary",
+    applicationId: "Application ID",
+    reportTypeLabel: "Report Type",
+    documentCount: "Document Count",
+    verificationStatus: "Verification Status",
+    recommendedDecision: "Recommended Decision",
+    documentReviewSummary: "Document Review Summary",
+    incomeDocuments: "Income Documents",
+    idDocuments: "ID Documents",
+    bankStatements: "Bank Statements",
+    creditBackground: "Credit / Background",
+    references: "References",
+    missingDocuments: "Missing Documents",
+    potentialInconsistencies: "Potential Inconsistencies",
+    missingItems: "Missing Items",
     fields: {
       applicantName: "Applicant name",
       jointName: "Joint applicant name",
@@ -67,15 +158,15 @@ const COPY = {
     },
     rankings: {
       strong: "Strong candidate",
-      backup: "Good backup",
-      verify: "Requires additional verification",
+      backup: "Good Backup",
+      verify: "Requires Additional Verification",
       lower: "Lower priority due to weaker verifiable information",
     },
   },
   zh: {
     preparedBy: "出具方",
     company: "VanIsland Property Management",
-    initialTitle: "申请人初步筛选汇总",
+    initialTitle: "申请人初步筛选报告",
     fullTitle: "申请人完整审核报告",
     listingId: "房源编号",
     propertyAddress: "物业地址",
@@ -83,6 +174,81 @@ const COPY = {
     applicationsReceived: "收到申请数量",
     rankingSummary: "申请人初步排序摘要",
     comparisonTable: "申请人对比表",
+    executiveSummary: "执行摘要",
+    applicantRanking: "申请人排序",
+    aiRecommendation: "AI 建议",
+    confidence: "信心等级",
+    riskLevel: "风险等级",
+    overview: "总览",
+    candidateDetail: "候选人详情",
+    candidateDetails: "候选人详情",
+    applicationOverview: "申请资料总览",
+    incomeOverview: "收入总览",
+    strengths: "优势",
+    concerns: "关注事项",
+    recommendations: "建议",
+    footerNotice: "仅供房东审核参考。最终决定仍由人工作出。",
+    overallRecommendation: "整体建议",
+    reportConfidence: "报告信心",
+    goodBackup: "良好备选",
+    requiresFurtherVerification: "需进一步核实",
+    highestRentToIncomeRatio: "最高租金收入比",
+    recommendation: "Recommendation",
+    priority: "Priority",
+    nextAction: "Next Action",
+    overallAssessment: "Overall Assessment",
+    priorityRank: "排名 {rank} / {total}",
+    topApplicantChecks: "建议优先对排名靠前的申请人完成收入、推荐人和支持文件核实。",
+    nextActionCompleteChecks: "完成收入、推荐人和支持文件核实",
+    assessments: {
+      strong: "适合作为强候选人，仍需完成最终核实",
+      backup: "适合作为备选，需完成最终核实",
+      verify: "需进一步核实后再决定是否进入下一步",
+      lower: "优先级较低，除非补充信息改善审核结果",
+    },
+    displayValues: {
+      one_year: "一年",
+      six_months: "6 个月",
+      excellent: "优秀",
+      good: "良好",
+      fair: "一般",
+      yes: "是",
+      no: "否",
+      none: "无",
+      no_pets: "无宠物",
+      currently_insured: "目前已投保",
+      will_obtain_before_move_in: "入住前购买",
+    },
+    confidenceLevels: {
+      low: "低",
+      medium: "中",
+      high: "高",
+    },
+    riskLevels: {
+      needs_data: "需要资料",
+      lower: "较低",
+      medium: "中",
+      medium_high: "中高",
+    },
+    documentStatus: {
+      linked: "文件已链接",
+      not_confirmed: "未确认",
+      available: "已提供",
+      to_confirm: "待确认",
+      no_pets: "未申报宠物",
+      adults_minors: "{adults} 成人 / {minors} 未成年人",
+    },
+    recommendationKeys: {
+      proceed_verification: "进入文件核实、推荐人核实和房东最终审核。",
+      keep_as_backup: "作为良好备选，同时完成收入、推荐人和文件核实。",
+      request_missing: "先要求补充缺失信息和文件，再决定是否进入下一步。",
+    },
+    incomeNotes: {
+      business_gross: "Business gross / revenue {amount} 未直接计入核算收入，需核实可支配月收入。",
+      support_income: "Support / benefit income {amount} 可显示为申报收入，但需文件核实稳定性。",
+      unparsed_income: "收入已填写，但无法保守解析为月收入。",
+      default_income: "按保守月收入进行初筛；最终需以支持文件核实。",
+    },
     noApplications: "该房源暂无申请记录。",
     initialNotice: "本初步筛选汇总仅供房东审核参考。内容仅基于申请表中与租赁相关的中性信息整理。最终决定仍由房东作出，并须符合适用的租赁法规和人权法规。",
     auditNotice: "本完整审核报告为结构化审核辅助文件，不作出最终申请决定。最终决定仍由房东作出，并须符合适用的租赁法规和人权法规。",
@@ -111,6 +277,21 @@ const COPY = {
     riskItems: "风险项目",
     finalRecommendation: "最终筛选建议",
     conditionsBeforeApproval: "批准前条件",
+    candidateSummary: "候选人摘要",
+    applicationId: "申请编号",
+    reportTypeLabel: "报告类型",
+    documentCount: "文件数量",
+    verificationStatus: "核实状态",
+    recommendedDecision: "建议决定",
+    documentReviewSummary: "文件审核摘要",
+    incomeDocuments: "收入文件",
+    idDocuments: "身份文件",
+    bankStatements: "银行流水",
+    creditBackground: "信用 / 背景",
+    references: "推荐人",
+    missingDocuments: "缺失文件",
+    potentialInconsistencies: "潜在不一致",
+    missingItems: "缺失项目",
     fields: {
       applicantName: "申请人姓名",
       jointName: "共同申请人姓名",
@@ -138,7 +319,7 @@ const COPY = {
     rankings: {
       strong: "强候选人",
       backup: "良好备选",
-      verify: "需要进一步核实",
+      verify: "需进一步核实",
       lower: "因可核实信息较弱，优先级较低",
     },
   },
@@ -146,6 +327,49 @@ const COPY = {
 
 function getCopy(lang = "en") {
   return lang === "zh" ? COPY.zh : COPY.en;
+}
+
+function reportText(lang, path, replacements = {}) {
+  const parts = String(path || "").split(".");
+  let value = getCopy(lang);
+  parts.forEach((part) => {
+    value = value && value[part];
+  });
+  const text = String(value ?? path);
+  return Object.entries(replacements).reduce(
+    (next, [key, replacement]) => next.replaceAll(`{${key}}`, String(replacement ?? "")),
+    text
+  );
+}
+
+function cleanDisplayValue(value, lang = "en") {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "-";
+  const normalized = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  const compact = normalized.replace(/[，,。.;；]/g, "").trim();
+  const map = [
+    { key: "one_year", tests: ["1 year", "one year", "一年", "1 year / 一年", "一年 / 1 year"] },
+    { key: "six_months", tests: ["6 months", "six months", "6 个月", "半年", "6 months / 6 个月"] },
+    { key: "excellent", tests: ["excellent", "优秀", "excellent / 优秀", "优秀 / excellent"] },
+    { key: "good", tests: ["good", "良好", "good / 良好", "良好 / good"] },
+    { key: "fair", tests: ["fair", "一般", "fair / 一般", "一般 / fair"] },
+    { key: "yes", tests: ["yes", "是", "yes / 是", "是 / yes"] },
+    { key: "no", tests: ["no", "否", "no / 否", "否 / no"] },
+    { key: "none", tests: ["none", "无", "none / 无", "无 / none"] },
+    { key: "no_pets", tests: ["no pets", "无宠物", "no / 无宠物", "no pets / 无宠物", "无宠物 / no pets"] },
+    { key: "currently_insured", tests: ["currently insured", "目前已投保", "currently insured / 目前已投保"] },
+    { key: "will_obtain_before_move_in", tests: ["will obtain before move-in", "入住前购买", "will obtain before move in", "will obtain before move-in / 入住前购买"] },
+  ];
+  const match = map.find((item) => item.tests.includes(normalized) || item.tests.includes(compact));
+  if (match) return reportText(lang, `displayValues.${match.key}`);
+  if (raw.includes("/")) {
+    const parts = raw.split("/").map((part) => part.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const preferred = lang === "zh" ? parts.find((part) => /[\u4e00-\u9fff]/.test(part)) : parts.find((part) => !/[\u4e00-\u9fff]/.test(part));
+      if (preferred) return preferred;
+    }
+  }
+  return raw;
 }
 
 function clean(value) {
@@ -235,19 +459,15 @@ function extractLabeledIncomeRange(text, labelPattern) {
 function incomeVerificationNote(info, lang = "en") {
   const notes = [];
   if (info.businessGross) {
-    notes.push(lang === "zh"
-      ? `Business gross / revenue ${formatCurrency(info.businessGross)} 未直接计入核算收入，需核实可支配月收入。`
-      : `Business gross / revenue ${formatCurrency(info.businessGross)} is not counted as scoring income until disposable monthly income is verified.`);
+    notes.push(reportText(lang, "incomeNotes.business_gross", { amount: formatCurrency(info.businessGross) }));
   }
   if (info.otherIncome) {
-    notes.push(lang === "zh"
-      ? `Support / benefit income ${formatCurrency(info.otherIncome)} 可显示为申报收入，但需文件核实稳定性。`
-      : `Support / benefit income ${formatCurrency(info.otherIncome)} is shown as declared income but requires verification for stability.`);
+    notes.push(reportText(lang, "incomeNotes.support_income", { amount: formatCurrency(info.otherIncome) }));
   }
   if (!info.scoringAmount && info.display !== "-") {
-    notes.push(lang === "zh" ? "收入已填写，但无法保守解析为月收入。" : "Income is stated but cannot be conservatively parsed as monthly income.");
+    notes.push(reportText(lang, "incomeNotes.unparsed_income"));
   }
-  return notes.length ? notes.join(" ") : (lang === "zh" ? "按保守月收入进行初筛；最终需以支持文件核实。" : "Initial screening uses conservative monthly income; final review requires supporting documents.");
+  return notes.length ? notes.join(" ") : reportText(lang, "incomeNotes.default_income");
 }
 
 function parseIncomeInfo(value) {
@@ -579,10 +799,17 @@ function buildApplicantEvaluation(app, rentValue, lang = "en", listing = {}) {
   if (!documentsAvailable && rankingKey === "strong") rankingKey = "backup";
   if ((credit === "fair" || credit === "concern") && rankingKey === "strong") rankingKey = "backup";
 
+  const recommendedNextStepKey = rankingKey === "strong"
+    ? "proceed_verification"
+    : rankingKey === "backup"
+      ? "keep_as_backup"
+      : "request_missing";
+
   return {
     score,
     ranking: c.rankings[rankingKey],
     rankingKey,
+    recommendedNextStepKey,
     incomeRatio: ratio,
     declaredIncomeDisplay: [applicantIncome.display, jointIncome.display !== "-" ? jointIncome.display : ""].filter(Boolean).join(" + ") || "-",
     scoringIncome: income,
@@ -590,34 +817,8 @@ function buildApplicantEvaluation(app, rentValue, lang = "en", listing = {}) {
     strengths: strengths.length ? strengths : [lang === "zh" ? "申请表包含基础审核信息。" : "Application contains basic intake information for review."],
     verificationNeeded: verification.length ? verification : [lang === "zh" ? "仍需完成身份、收入、推荐人和文件标准核实。" : "Standard identity, income, reference, and document verification still required."],
     neutralRiskNotes: notes,
-    recommendedNextStep: rankingKey === "strong"
-      ? (lang === "zh" ? "进入文件核实、推荐人核实和房东最终审核。" : "Proceed with document verification, references, and landlord review.")
-      : rankingKey === "backup"
-        ? (lang === "zh" ? "作为备选，同时完成收入、推荐人和文件核实。" : "Keep as backup while completing income, reference, and document checks.")
-        : (lang === "zh" ? "先要求补充缺失信息和文件，再决定是否进入下一步。" : "Request missing information and documents before moving further."),
+    recommendedNextStep: reportText(lang, `recommendationKeys.${recommendedNextStepKey}`),
   };
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function renderRows(rows) {
-  return rows.map(([label, value]) => `
-    <tr>
-      <th>${escapeHtml(label)}</th>
-      <td>${escapeHtml(value)}</td>
-    </tr>
-  `).join("");
-}
-
-function renderList(items) {
-  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
 export function debugApplicantScreeningForListing({ listing, applications, lang = "en" }) {
@@ -647,70 +848,6 @@ export function debugApplicantScreeningForListing({ listing, applications, lang 
   return rows;
 }
 
-function buildReportHtml({ title, fileName, body, lang = "en" }) {
-  const c = getCopy(lang);
-  return `<!doctype html>
-<html lang="${lang === "zh" ? "zh-CN" : "en"}">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(fileName)}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 28px;
-      color: #26342d;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-      line-height: 1.55;
-      background: #fff;
-    }
-    .cover { border-bottom: 2px solid #d9e3d9; margin-bottom: 18px; padding-bottom: 16px; }
-    .brand { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-    .mark { width: 44px; height: 44px; border-radius: 10px; background: #2f5f46; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; }
-    h1 { margin: 0 0 6px; color: #2f5f46; font-size: 25px; }
-    h2 { margin: 22px 0 9px; color: #3e5b4b; font-size: 16px; }
-    h3 { margin: 14px 0 7px; font-size: 14px; color: #26342d; }
-    p, li, td, th { font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
-    th, td { border: 1px solid #dfe8df; padding: 7px 8px; vertical-align: top; text-align: left; }
-    th { width: 26%; background: #f5f8f5; color: #52645a; }
-    .comparison th { width: auto; white-space: nowrap; }
-    .muted { color: #66756c; font-size: 11px; }
-    .notice { border: 1px solid #e8d4a7; background: #fff9ea; padding: 10px 12px; border-radius: 8px; margin: 12px 0; }
-    .applicant { break-inside: avoid; border-top: 1px solid #dfe8df; padding-top: 10px; }
-    @media print {
-      body { padding: 18px; }
-      @page { margin: 0.55in; }
-    }
-  </style>
-</head>
-<body>
-  <div class="cover">
-    <div class="brand">
-      <div class="mark">VIPM</div>
-      <div style="text-align:right">
-        <strong>${escapeHtml(c.preparedBy)}</strong><br />
-        <span class="muted">${escapeHtml(c.company)}</span>
-      </div>
-    </div>
-    <h1>${escapeHtml(title)}</h1>
-    <p class="muted">${escapeHtml(fileName)}</p>
-  </div>
-  ${body}
-  <script>
-    window.onload = function() {
-      try {
-        document.title = ${JSON.stringify(fileName)};
-        window.history.replaceState(null, "", ${JSON.stringify(`/${encodeURIComponent(fileName)}`)});
-      } catch (error) {}
-      window.focus();
-      window.print();
-    };
-  </script>
-</body>
-</html>`;
-}
-
 export function openApplicantReportWindow(reportHtml) {
   const printWindow = window.open("", "_blank", "width=980,height=1100");
   if (!printWindow) return;
@@ -721,6 +858,7 @@ export function openApplicantReportWindow(reportHtml) {
 async function saveReportToDrive({ listingId, fileName, html, reportType }) {
   if (!listingId || listingId === "-") return null;
   try {
+    const { saveApplicantReportPdf } = await import("./storage.js");
     const result = await saveApplicantReportPdf({ listingId, fileName, html, reportType });
     if (typeof console !== "undefined") {
       console.info("[Applicant Report Save Response]", result);
@@ -745,24 +883,24 @@ function applicantSummaryRows(app, lang = "en") {
     [c.fields.jointName, clean(app.jointName)],
     [c.fields.phone, clean(app.phone)],
     [c.fields.email, clean(app.email)],
-    [c.fields.currentAddress, clean(app.currentAddress)],
+    [c.fields.currentAddress, cleanDisplayValue(app.currentAddress, lang)],
     [c.fields.moveInDate, dateText(app.moveInDate, lang)],
-    [c.fields.leaseTerm, clean(app.leaseTerm)],
+    [c.fields.leaseTerm, cleanDisplayValue(app.leaseTerm, lang)],
     [c.fields.currentRent, money(app.currentMonthlyRent || app.currentRent)],
-    [c.fields.residencePeriod, clean(app.currentResidencePeriod || app.residencePeriod)],
-    [c.fields.employmentStatus, clean(app.employmentStatus)],
-    [c.fields.employer, clean(app.employer || app.incomeSource)],
+    [c.fields.residencePeriod, cleanDisplayValue(app.currentResidencePeriod || app.residencePeriod, lang)],
+    [c.fields.employmentStatus, cleanDisplayValue(app.employmentStatus, lang)],
+    [c.fields.employer, cleanDisplayValue(app.employer || app.incomeSource, lang)],
     [c.fields.monthlyIncome, money(app.monthlyIncome)],
     [c.fields.jointIncome, money(app.jointIncome)],
     [c.fields.occupants, numberText(app.occupants)],
-    [c.fields.adultsMinors, lang === "zh" ? `${numberText(app.adults)} 成人 / ${numberText(app.minors)} 未成年人` : `${numberText(app.adults)} adults / ${numberText(app.minors)} minors`],
-    [c.fields.pets, isYes(app.hasPets) ? clean(app.petDetails) : clean(app.hasPets || (lang === "zh" ? "未申报宠物" : "No pets stated"))],
-    [c.fields.parking, clean(app.parkingRequest)],
-    [c.fields.credit, clean(app.creditHistory)],
-    [c.fields.eviction, clean(app.evictionHistory)],
-    [c.fields.insurance, clean(app.hasTenantInsurance)],
-    [c.fields.deposit, clean(app.depositFundsAvailable)],
-    [c.fields.supportStatus, clean(app.documentUploadStatus || (hasDocumentSupport(app) ? (lang === "zh" ? "文件已链接" : "Documents linked") : (lang === "zh" ? "未确认" : "Not confirmed")))],
+    [c.fields.adultsMinors, reportText(lang, "documentStatus.adults_minors", { adults: numberText(app.adults), minors: numberText(app.minors) })],
+    [c.fields.pets, isYes(app.hasPets) ? cleanDisplayValue(app.petDetails, lang) : cleanDisplayValue(app.hasPets || reportText(lang, "documentStatus.no_pets"), lang)],
+    [c.fields.parking, cleanDisplayValue(app.parkingRequest, lang)],
+    [c.fields.credit, cleanDisplayValue(app.creditHistory, lang)],
+    [c.fields.eviction, cleanDisplayValue(app.evictionHistory, lang)],
+    [c.fields.insurance, cleanDisplayValue(app.hasTenantInsurance, lang)],
+    [c.fields.deposit, cleanDisplayValue(app.depositFundsAvailable, lang)],
+    [c.fields.supportStatus, documentStatusText(app, lang)],
   ];
 }
 
@@ -773,6 +911,152 @@ function safeFilePart(value, fallback = "report") {
     .replace(/\s+/g, "_")
     .replace(/_+/g, "_")
     .substring(0, 80);
+}
+
+function riskKeyFromEvaluations(evaluated) {
+  if (!evaluated.length) return "needs_data";
+  const hasLower = evaluated.some((item) => item.evaluation.rankingKey === "lower");
+  const hasVerify = evaluated.some((item) => item.evaluation.rankingKey === "verify");
+  const hasStrong = evaluated.some((item) => item.evaluation.rankingKey === "strong");
+  if (hasLower) return "medium_high";
+  if (hasVerify) return "medium";
+  if (hasStrong) return "lower";
+  return "medium";
+}
+
+function confidenceKeyFromEvaluations(evaluated) {
+  if (!evaluated.length) return "low";
+  const withDocs = evaluated.filter(({ app }) => hasDocumentSupport(app)).length;
+  if (withDocs === evaluated.length) return "high";
+  if (withDocs > 0) return "medium";
+  return "low";
+}
+
+function recommendationTone(rankingKey) {
+  if (rankingKey === "strong") return "success";
+  if (rankingKey === "backup") return "success";
+  if (rankingKey === "verify") return "warning";
+  if (rankingKey === "lower") return "danger";
+  return "neutral";
+}
+
+function documentStatusText(app, lang = "en", mode = "linked") {
+  if (app.documentUploadStatus) return clean(app.documentUploadStatus);
+  if (hasDocumentSupport(app)) {
+    return reportText(lang, mode === "short" ? "documentStatus.available" : "documentStatus.linked");
+  }
+  return reportText(lang, mode === "short" ? "documentStatus.to_confirm" : "documentStatus.not_confirmed");
+}
+
+function buildInitialScreeningReportData({ listing, applications, evaluated, lang, fileName, generatedDate, listingId, address }) {
+  const c = getCopy(lang);
+  const top = evaluated[0];
+  const confidenceKey = confidenceKeyFromEvaluations(evaluated);
+  const riskKey = riskKeyFromEvaluations(evaluated);
+  const confidence = reportText(lang, `confidenceLevels.${confidenceKey}`);
+  const riskLevel = reportText(lang, `riskLevels.${riskKey}`);
+  const goodBackupCount = evaluated.filter((item) => item.evaluation.rankingKey === "backup").length;
+  const verifyCount = evaluated.filter((item) => item.evaluation.rankingKey === "verify").length;
+  const highestRatio = evaluated.reduce((max, item) => Math.max(max, item.evaluation.incomeRatio || 0), 0);
+  const topRecommendation = top
+    ? `${clean(top.app.applicantName)} - ${top.evaluation.recommendedNextStep}`
+    : c.noApplications;
+
+  const comparisonColumns = [
+    { key: "rank", label: c.rank },
+    { key: "applicant", label: c.applicant },
+    { key: "category", label: c.initialCategory, isBadge: true },
+    { key: "moveIn", label: c.moveIn },
+    { key: "leaseTerm", label: c.leaseTerm },
+    { key: "declaredIncome", label: c.incomeStated },
+    { key: "scoringIncome", label: c.scoringIncome },
+    { key: "rentRatio", label: c.rentToIncome },
+    { key: "documents", label: c.documents },
+    { key: "nextStep", label: c.recommendedNextStep },
+  ];
+
+  const comparisonRows = evaluated.map(({ app, evaluation }, index) => ({
+    rank: String(index + 1),
+    applicant: clean(app.applicantName),
+    category: c.rankings[evaluation.rankingKey] || evaluation.ranking,
+    categoryTone: recommendationTone(evaluation.rankingKey),
+    moveIn: dateText(app.moveInDate, lang),
+    leaseTerm: clean(app.leaseTerm),
+    declaredIncome: evaluation.declaredIncomeDisplay,
+    scoringIncome: formatCurrency(evaluation.scoringIncome) || "-",
+    rentRatio: evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-",
+    documents: documentStatusText(app, lang),
+    nextStep: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
+  }));
+
+  const candidates = evaluated.map(({ app, evaluation }, index) => ({
+    rank: String(index + 1),
+    name: clean(app.applicantName),
+    category: c.rankings[evaluation.rankingKey] || evaluation.ranking,
+    categoryTone: recommendationTone(evaluation.rankingKey),
+    recommendation: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
+    recommendationTone: recommendationTone(evaluation.rankingKey),
+    metrics: [
+      { label: c.initialCategory, value: c.rankings[evaluation.rankingKey] || evaluation.ranking },
+      { label: c.rentToIncome, value: evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-" },
+      { label: c.documents, value: documentStatusText(app, lang, "short") },
+    ],
+    applicationRows: applicantSummaryRows(app, lang),
+    incomeRows: [
+      { label: c.declaredIncome, value: evaluation.declaredIncomeDisplay },
+      { label: c.scoringIncome, value: formatCurrency(evaluation.scoringIncome) || "-" },
+      { label: c.rentToIncome, value: evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-" },
+      { label: c.incomeVerificationNote, value: evaluation.incomeVerificationNote },
+    ],
+    strengths: evaluation.strengths,
+    concerns: evaluation.neutralRiskNotes,
+    recommendations: [reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`), ...evaluation.verificationNeeded],
+    aiRecommendationRows: [
+      { label: c.recommendation, value: c.rankings[evaluation.rankingKey] || evaluation.ranking },
+      { label: c.priority, value: reportText(lang, "priorityRank", { rank: index + 1, total: evaluated.length }) },
+      { label: c.nextAction, value: c.nextActionCompleteChecks },
+      { label: c.overallAssessment, value: reportText(lang, `assessments.${evaluation.rankingKey}`) },
+    ],
+  }));
+
+  return {
+    reportType: "Initial Screening Summary",
+    language: lang,
+    title: c.initialTitle,
+    subtitle: c.initialNotice,
+    fileName,
+    copy: c,
+    meta: [
+      { label: c.listingId, value: listingId },
+      { label: c.propertyAddress, value: address },
+      { label: c.generatedDate, value: generatedDate },
+      { label: c.preparedBy, value: c.company },
+      { label: c.applicationsReceived, value: String(applications.length) },
+    ],
+    executiveSummary: [
+      { label: c.applicationsReceived, value: String(applications.length) },
+      { label: c.goodBackup, value: String(goodBackupCount) },
+      { label: c.requiresFurtherVerification, value: String(verifyCount) },
+      { label: c.highestRentToIncomeRatio, value: highestRatio ? `${highestRatio.toFixed(1)}x` : "-" },
+      { label: c.recommendedNextStep, value: c.topApplicantChecks },
+    ],
+    aiRecommendation: topRecommendation,
+    recommendationTone: top ? recommendationTone(top.evaluation.rankingKey) : "neutral",
+    riskLevel,
+    riskTone: reportStatusTone(riskLevel),
+    ranking: evaluated.map(({ app, evaluation }, index) => ({
+      rank: String(index + 1),
+      name: clean(app.applicantName),
+      category: c.rankings[evaluation.rankingKey] || evaluation.ranking,
+      tone: recommendationTone(evaluation.rankingKey),
+      recommendation: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
+    })),
+    comparisonColumns,
+    comparisonRows,
+    candidates,
+    notice: c.initialNotice,
+    emptyText: c.noApplications,
+  };
 }
 
 export async function downloadApplicantInitialScreeningSummary({ listing, applications, lang = "en", autoOpen = false }) {
@@ -789,80 +1073,17 @@ export async function downloadApplicantInitialScreeningSummary({ listing, applic
   const reportDate = new Date().toISOString().slice(0, 10);
   const fileName = `Applicant_Initial_Screening_Summary_${safeFilePart(listingId)}_${reportDate}.pdf`;
 
-  const comparisonRows = evaluated.map(({ app, evaluation }, index) => `
-    <tr>
-      <td>${index + 1}</td>
-      <td>${escapeHtml(clean(app.applicantName))}</td>
-      <td>${escapeHtml(evaluation.ranking)}</td>
-      <td>${escapeHtml(dateText(app.moveInDate, lang))}</td>
-      <td>${escapeHtml(clean(app.leaseTerm))}</td>
-      <td>${escapeHtml(evaluation.declaredIncomeDisplay)}</td>
-      <td>${escapeHtml(formatCurrency(evaluation.scoringIncome) || "-")}</td>
-      <td>${escapeHtml(evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-")}</td>
-      <td>${escapeHtml(clean(app.documentUploadStatus || (hasDocumentSupport(app) ? (lang === "zh" ? "文件已链接" : "Documents linked") : (lang === "zh" ? "未确认" : "Not confirmed"))))}</td>
-      <td>${escapeHtml(evaluation.recommendedNextStep)}</td>
-    </tr>
-  `).join("");
-
-  const applicantBlocks = evaluated.map(({ app, evaluation }, index) => `
-    <section class="applicant">
-      <h2>${index + 1}. ${escapeHtml(clean(app.applicantName))} - ${escapeHtml(evaluation.ranking)}</h2>
-      <table>${renderRows(applicantSummaryRows(app, lang))}</table>
-      <table>${renderRows([
-        [c.declaredIncome, evaluation.declaredIncomeDisplay],
-        [c.scoringIncome, formatCurrency(evaluation.scoringIncome) || "-"],
-        [c.rentToIncome, evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-"],
-        [c.incomeVerificationNote, evaluation.incomeVerificationNote],
-      ])}</table>
-      <h3>${escapeHtml(c.keyStrengths)}</h3>
-      ${renderList(evaluation.strengths)}
-      <h3>${escapeHtml(c.verificationNeeded)}</h3>
-      ${renderList(evaluation.verificationNeeded)}
-      <h3>${escapeHtml(c.neutralRiskNotes)}</h3>
-      ${renderList(evaluation.neutralRiskNotes)}
-      <h3>${escapeHtml(c.recommendedNextStep)}</h3>
-      <p>${escapeHtml(evaluation.recommendedNextStep)}</p>
-    </section>
-  `).join("");
-
-  const html = buildReportHtml({
-    title: c.initialTitle,
-    fileName,
+  const reportData = buildInitialScreeningReportData({
+    listing,
+    applications: apps,
+    evaluated,
     lang,
-    body: `
-      <table>
-        ${renderRows([
-          [c.listingId, listingId],
-          [c.propertyAddress, address],
-          [c.generatedDate, generatedDate],
-          [c.preparedBy, c.company],
-          [c.applicationsReceived, String(apps.length)],
-        ])}
-      </table>
-      <div class="notice">${escapeHtml(c.initialNotice)}</div>
-      <h2>${escapeHtml(c.rankingSummary)}</h2>
-      ${renderList(evaluated.map(({ app, evaluation }, index) => `${index + 1}. ${clean(app.applicantName)} - ${evaluation.ranking}`))}
-      <h2>${escapeHtml(c.comparisonTable)}</h2>
-      <table class="comparison">
-        <thead>
-          <tr>
-            <th>${escapeHtml(c.rank)}</th>
-            <th>${escapeHtml(c.applicant)}</th>
-            <th>${escapeHtml(c.initialCategory)}</th>
-            <th>${escapeHtml(c.moveIn)}</th>
-            <th>${escapeHtml(c.leaseTerm)}</th>
-            <th>${escapeHtml(c.incomeStated)}</th>
-            <th>${escapeHtml(c.scoringIncome)}</th>
-            <th>${escapeHtml(c.rentToIncome)}</th>
-            <th>${escapeHtml(c.documents)}</th>
-            <th>${escapeHtml(c.recommendedNextStep)}</th>
-          </tr>
-        </thead>
-        <tbody>${comparisonRows || `<tr><td colspan="10">${escapeHtml(c.noApplications)}</td></tr>`}</tbody>
-      </table>
-      ${applicantBlocks}
-    `,
+    fileName,
+    generatedDate,
+    listingId,
+    address,
   });
+  const html = renderProfessionalReportHtml(reportData);
   if (autoOpen) openApplicantReportWindow(html);
   const saveResult = await saveReportToDrive({ listingId, fileName, html, reportType: "Initial Screening Summary" });
   return {
@@ -870,9 +1091,137 @@ export async function downloadApplicantInitialScreeningSummary({ listing, applic
     reportType: "Initial Screening Summary",
     generatedAt: new Date().toISOString(),
     fileName,
+    reportData,
     html,
     saveResult,
   };
+}
+
+export function buildApplicantInitialScreeningDemoReport(lang = "en") {
+  const safeLang = lang === "zh" ? "zh" : "en";
+  const reportDate = new Date().toISOString().slice(0, 10);
+  const listing = {
+    id: "DEMO-LST-001",
+    address: safeLang === "zh" ? "123 Bowen Road" : "123 Bowen Road",
+    city: "Nanaimo",
+    rent: "2800",
+  };
+  const applications = [
+    {
+      listingId: listing.id,
+      applicantName: safeLang === "zh" ? "申请人 A" : "Applicant A",
+      phone: "250-000-0101",
+      email: "applicant-a@example.com",
+      currentAddress: "Nanaimo, BC",
+      moveInDate: "2026-08-01",
+      leaseTerm: safeLang === "zh" ? "一年" : "One year",
+      currentMonthlyRent: "2100",
+      currentResidencePeriod: safeLang === "zh" ? "2 年" : "2 years",
+      employmentStatus: safeLang === "zh" ? "全职" : "Full-time",
+      employer: safeLang === "zh" ? "本地雇主" : "Local employer",
+      monthlyIncome: "$8,600 monthly employment income",
+      jointIncome: "$2,200 monthly part-time income",
+      occupants: "3",
+      adults: "2",
+      minors: "1",
+      hasPets: safeLang === "zh" ? "否" : "No",
+      parkingRequest: safeLang === "zh" ? "1 辆车" : "1 vehicle",
+      creditHistory: safeLang === "zh" ? "良好" : "Good",
+      evictionHistory: safeLang === "zh" ? "无" : "No",
+      hasTenantInsurance: safeLang === "zh" ? "愿意购买" : "Will obtain",
+      depositFundsAvailable: "Yes",
+      documentUploadStatus: safeLang === "zh" ? "文件已上传" : "Documents uploaded",
+      supportDocumentFolderUrl: "demo",
+      landlordReference: safeLang === "zh" ? "当前房东推荐人" : "Current landlord reference",
+      reasonForMoving: safeLang === "zh" ? "需要更大空间" : "Needs more space",
+    },
+    {
+      listingId: listing.id,
+      applicantName: safeLang === "zh" ? "申请人 B" : "Applicant B",
+      phone: "250-000-0102",
+      email: "applicant-b@example.com",
+      currentAddress: "Victoria, BC",
+      moveInDate: "2026-08-15",
+      leaseTerm: safeLang === "zh" ? "一年" : "One year",
+      currentMonthlyRent: "1900",
+      currentResidencePeriod: safeLang === "zh" ? "1 年" : "1 year",
+      employmentStatus: safeLang === "zh" ? "自雇" : "Self-employed",
+      employer: safeLang === "zh" ? "自营业务" : "Self-employed business",
+      monthlyIncome: "Business gross revenue $12,000 monthly, personal income to verify",
+      jointIncome: "",
+      occupants: "2",
+      adults: "2",
+      minors: "0",
+      hasPets: safeLang === "zh" ? "有，一只猫" : "Yes, one cat",
+      petDetails: safeLang === "zh" ? "一只猫" : "One cat",
+      parkingRequest: safeLang === "zh" ? "2 辆车" : "2 vehicles",
+      creditHistory: safeLang === "zh" ? "一般" : "Fair",
+      evictionHistory: safeLang === "zh" ? "无" : "No",
+      hasTenantInsurance: safeLang === "zh" ? "未确认" : "Not confirmed",
+      depositFundsAvailable: "Yes",
+      documentUploadStatus: safeLang === "zh" ? "部分文件" : "Partial documents",
+      supportDocumentFolderUrl: "",
+      landlordReference: safeLang === "zh" ? "业主本人" : "Owner/self reference",
+      reasonForMoving: safeLang === "zh" ? "工作地点变动" : "Work location change",
+    },
+    {
+      listingId: listing.id,
+      applicantName: safeLang === "zh" ? "申请人 C" : "Applicant C",
+      phone: "250-000-0103",
+      email: "applicant-c@example.com",
+      currentAddress: "Vancouver, BC",
+      moveInDate: "2026-09-01",
+      leaseTerm: safeLang === "zh" ? "6 个月" : "6 months",
+      currentMonthlyRent: "1600",
+      currentResidencePeriod: safeLang === "zh" ? "6 个月" : "6 months",
+      employmentStatus: safeLang === "zh" ? "待确认" : "To verify",
+      employer: "",
+      monthlyIncome: "$4,200 monthly income",
+      jointIncome: "",
+      occupants: "1",
+      adults: "1",
+      minors: "0",
+      hasPets: safeLang === "zh" ? "否" : "No",
+      parkingRequest: "",
+      creditHistory: safeLang === "zh" ? "未提供" : "Not provided",
+      evictionHistory: safeLang === "zh" ? "未提供" : "Not provided",
+      hasTenantInsurance: "",
+      depositFundsAvailable: "",
+      documentUploadStatus: safeLang === "zh" ? "未确认" : "Not confirmed",
+      supportDocumentFolderUrl: "",
+      landlordReference: "",
+      reasonForMoving: "",
+    },
+  ];
+  const rentValue = parseIncome(listing.rent);
+  const evaluated = applications
+    .map((app) => ({ app, evaluation: buildApplicantEvaluation(app, rentValue, safeLang, listing) }))
+    .sort((a, b) => b.evaluation.score - a.evaluation.score);
+  const c = getCopy(safeLang);
+  const reportData = buildInitialScreeningReportData({
+    listing,
+    applications,
+    evaluated,
+    lang: safeLang,
+    fileName: `VIPM_Initial_Applicant_Screening_Report_Demo_${safeLang.toUpperCase()}_${reportDate}.pdf`,
+    generatedDate: dateText(new Date().toISOString(), safeLang),
+    listingId: listing.id,
+    address: [listing.address, listing.city].filter(Boolean).join(", "),
+  });
+  const html = renderProfessionalReportHtml(reportData);
+  return {
+    title: c.initialTitle,
+    reportType: "Initial Screening Summary Demo",
+    fileName: reportData.fileName,
+    reportData,
+    html,
+  };
+}
+
+export function openApplicantInitialScreeningDemoReport(lang = "en") {
+  const result = buildApplicantInitialScreeningDemoReport(lang);
+  openApplicantReportWindow(result.html);
+  return result;
 }
 
 function listFromAnalysis(section, fallback, lang = "en") {
@@ -894,7 +1243,7 @@ function extractedDocumentSummaryLines(documentAnalysis, lang = "en") {
   });
 }
 
-export async function downloadFullApplicantAuditReport({ applicant, listing, lang = "en", supportFiles = [], documentAnalysis = null, autoOpen = false }) {
+export async function downloadFullApplicantAuditReport({ applicant, listing, lang = "en", supportFiles = [], documentAnalysis = null, autoOpen = false, saveToDrive = true }) {
   const c = getCopy(lang);
   const app = applicant || {};
   const supportSummary = matchSupportDocumentsForApplicant(app, supportFiles);
@@ -906,118 +1255,93 @@ export async function downloadFullApplicantAuditReport({ applicant, listing, lan
   const reportDate = new Date().toISOString().slice(0, 10);
   const fileName = `Full_Applicant_Audit_${safeFilePart(app.applicantName, "Applicant")}_${safeFilePart(app.recordId, "Record")}_${reportDate}.pdf`;
   const supportStatus = supportSummary.available || hasDocumentSupport(app)
-    ? (lang === "zh" ? "支持文件已提供或已匹配" : "Supporting documents available or matched")
-    : (lang === "zh" ? "支持文件尚未确认" : "Supporting documents not confirmed");
+    ? reportText(lang, "documentStatus.available")
+    : reportText(lang, "documentStatus.not_confirmed");
   const supportFileLines = supportSummary.files.length
     ? supportSummary.files.map((file) => `${file.type}: ${file.name}${file.modifiedAt ? ` (${dateText(file.modifiedAt, lang)})` : ""}`)
-    : [lang === "zh" ? "未在该房源 Supporting Documents 文件夹中匹配到此申请人的支持文件，需人工核对。" : "No matching supporting document files were found in this listing's Supporting Documents folder. Manual verification required."];
+    : [lang === "zh" ? "未匹配到支持文件，需人工核对。" : "No matching supporting document files were found. Manual verification required."];
+  const confidenceKey = supportSummary.available || documentAnalysis ? "medium" : "low";
+  const confidence = reportText(lang, `confidenceLevels.${confidenceKey}`);
+  const recommendedDecision = extractedSummary?.recommendedDecision || c.rankings[evaluation.rankingKey] || evaluation.ranking;
+  const sections = [
+    { type: "checklist", title: c.documentReviewSummary, items: [
+      { label: c.incomeDocuments, status: supportStatus },
+      { label: c.idDocuments, status: listFromAnalysis(extractedSummary?.identity, reportText(lang, "documentStatus.to_confirm"), lang)[0] },
+      { label: c.bankStatements, status: listFromAnalysis(extractedSummary?.bank, reportText(lang, "documentStatus.to_confirm"), lang)[0] },
+      { label: c.creditBackground, status: cleanDisplayValue(app.creditHistory, lang) },
+      { label: c.references, status: app.landlordReference ? reportText(lang, "documentStatus.to_confirm") : reportText(lang, "documentStatus.not_confirmed") },
+      { label: c.missingDocuments, status: supportSummary.count ? "-" : reportText(lang, "documentStatus.to_confirm") },
+    ] },
+    { title: lang === "zh" ? "支持文件列表" : "Supporting Document List", items: supportFileLines },
+    { title: lang === "zh" ? "文件读取摘要" : "Extracted Document Summary", items: extractedDocumentSummaryLines(documentAnalysis, lang) },
+    { title: c.incomeReview, items: [
+      `${c.declaredIncome}: ${money(app.monthlyIncome)}`,
+      `${c.scoringIncome}: ${formatCurrency(evaluation.scoringIncome) || "-"}`,
+      `${c.rentToIncome}: ${evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-"}`,
+      `${c.verificationStatus}: ${clean(extractedSummary?.income?.confidence || confidence)}`,
+      evaluation.incomeVerificationNote,
+    ] },
+    { title: c.employmentNotes, items: [
+      `${c.fields.employmentStatus}: ${cleanDisplayValue(app.employmentStatus, lang)}`,
+      `${c.fields.employer}: ${cleanDisplayValue(app.employer || app.incomeSource, lang)}`,
+      ...listFromAnalysis(extractedSummary?.employment, "", lang),
+    ] },
+    { title: lang === "zh" ? "身份一致性" : "Identity Consistency", items: listFromAnalysis(extractedSummary?.identity, reportText(lang, "documentStatus.to_confirm"), lang) },
+    { title: lang === "zh" ? "银行流水" : "Bank Statement Review", items: listFromAnalysis(extractedSummary?.bank, reportText(lang, "documentStatus.to_confirm"), lang) },
+    { title: c.creditNotes, items: [
+      `${c.fields.credit}: ${cleanDisplayValue(app.creditHistory, lang)}`,
+      ...listFromAnalysis(extractedSummary?.credit, "", lang),
+    ] },
+    { title: c.landlordReferenceNotes, items: [
+      app.landlordReference ? reportText(lang, "documentStatus.to_confirm") : reportText(lang, "documentStatus.not_confirmed"),
+      ...listFromAnalysis(extractedSummary?.reference, "", lang),
+    ] },
+    { title: c.potentialInconsistencies, items: [
+      ...((extractedSummary?.inconsistencies || []).map(String)),
+      lang === "zh" ? "任何不一致应记录为需要核实事项，而不是最终决定理由。" : "Record any mismatch as a verification item, not as a final decision reason.",
+    ] },
+    { title: c.missingItems, items: evaluation.verificationNeeded },
+    { title: c.strengths, items: evaluation.strengths },
+    { title: c.concerns, items: evaluation.neutralRiskNotes },
+    { title: c.finalRecommendation, items: [recommendedDecision, reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`)] },
+  ];
 
-  const html = buildReportHtml({
+  const html = renderStructuredProfessionalReportHtml({
+    reportType: "Full Applicant Audit Report",
+    language: lang,
     title: c.fullTitle,
+    subtitle: c.auditNotice,
     fileName,
-    lang,
-    body: `
-      <table>
-        ${renderRows([
-          [c.listingId, listingId],
-          [c.propertyAddress, [listing?.address, listing?.city].filter(Boolean).join(", ") || "-"],
-          [c.applicant, clean(app.applicantName)],
-          [c.generatedDate, generatedDate],
-          [c.preparedBy, c.company],
-        ])}
-      </table>
-      <div class="notice">${escapeHtml(c.auditNotice)}</div>
-      <h2>${escapeHtml(c.applicationData)}</h2>
-      <table>${renderRows(applicantSummaryRows(app, lang))}</table>
-      <h2>${escapeHtml(c.supportChecklist)}</h2>
-      ${renderList([
-        supportStatus,
-        lang === "zh" ? `匹配文件数量：${supportSummary.count}` : `Matched file count: ${supportSummary.count}`,
-        lang === "zh" ? `文件类型：${supportSummary.types.join(", ") || "-"}` : `File types: ${supportSummary.types.join(", ") || "-"}`,
-        lang === "zh" ? `最后上传 / 修改：${supportSummary.latestModifiedAt ? dateText(supportSummary.latestModifiedAt, lang) : "-"}` : `Last uploaded / modified: ${supportSummary.latestModifiedAt ? dateText(supportSummary.latestModifiedAt, lang) : "-"}`,
-        lang === "zh" ? `收入证明自述：${clean(app.proofOfIncome)}` : `Proof of income stated: ${clean(app.proofOfIncome)}`,
-        lang === "zh" ? `共同申请人收入证明自述：${clean(app.jointProofOfIncome)}` : `Joint proof of income stated: ${clean(app.jointProofOfIncome)}`,
-        lang === "zh" ? "系统会尝试读取可文本化文件；无法自动读取的文件必须人工核对。" : "The system attempts text extraction for readable files. Any document that cannot be automatically verified requires manual verification.",
-      ])}
-      <h2>${lang === "zh" ? "支持文件列表" : "Supporting document file list"}</h2>
-      ${renderList(supportFileLines)}
-      <h2>${lang === "zh" ? "文件读取与结构化摘要" : "Extracted document summary"}</h2>
-      ${renderList(extractedDocumentSummaryLines(documentAnalysis, lang))}
-      <h2>${escapeHtml(c.incomeReview)}</h2>
-      ${renderList([
-        lang === "zh" ? `申请人月收入自述：${money(app.monthlyIncome)}` : `Applicant monthly income stated: ${money(app.monthlyIncome)}`,
-        lang === "zh" ? `共同申请人收入自述：${money(app.jointIncome)}` : `Joint applicant income stated: ${money(app.jointIncome)}`,
-        lang === "zh" ? `文件估算月收入：${extractedSummary?.income?.estimatedMonthlyIncome ? formatCurrency(extractedSummary.income.estimatedMonthlyIncome) : "-"}` : `Document-estimated monthly income: ${extractedSummary?.income?.estimatedMonthlyIncome ? formatCurrency(extractedSummary.income.estimatedMonthlyIncome) : "-"}`,
-        lang === "zh" ? `收入文件信心：${clean(extractedSummary?.income?.confidence)}` : `Income document confidence: ${clean(extractedSummary?.income?.confidence)}`,
-        ...listFromAnalysis(extractedSummary?.income, "", lang),
-        lang === "zh" ? `保守核算收入：${formatCurrency(evaluation.scoringIncome) || "-"}` : `Conservative scoring income: ${formatCurrency(evaluation.scoringIncome) || "-"}`,
-        lang === "zh" ? `租金收入比：${evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-"}` : `Rent-to-income ratio: ${evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-"}`,
-        lang === "zh" ? `收入核实备注：${evaluation.incomeVerificationNote}` : `Income verification note: ${evaluation.incomeVerificationNote}`,
-        lang === "zh" ? "批准前应将收入文件与申请表进行核对。" : "Verify income documents against the application before approval.",
-      ])}
-      <h2>${escapeHtml(c.employmentNotes)}</h2>
-      ${renderList([
-        lang === "zh" ? `工作状态：${clean(app.employmentStatus)}` : `Employment status: ${clean(app.employmentStatus)}`,
-        lang === "zh" ? `雇主 / 收入来源：${clean(app.employer || app.incomeSource)}` : `Employer / income source: ${clean(app.employer || app.incomeSource)}`,
-        lang === "zh" ? `共同申请人工作信息：${clean(app.jointEmployment)}` : `Joint employment: ${clean(app.jointEmployment)}`,
-        ...listFromAnalysis(extractedSummary?.employment, "", lang),
-        lang === "zh" ? "应通过支持文件或合适方式核实现有工作 / 收入来源。" : "Confirm current employment or income source using supporting documents or direct verification where appropriate.",
-      ])}
-      <h2>${lang === "zh" ? "ID / 身份一致性检查" : "ID / identity consistency check"}</h2>
-      ${renderList(listFromAnalysis(extractedSummary?.identity, "", lang))}
-      <h2>${escapeHtml(c.landlordReferenceNotes)}</h2>
-      ${renderList([
-        lang === "zh" ? `申请人推荐人：${clean(app.landlordReference)}` : `Applicant reference: ${clean(app.landlordReference)}`,
-        lang === "zh" ? `共同申请人推荐人：${clean(app.jointLandlordReference)}` : `Joint applicant reference: ${clean(app.jointLandlordReference)}`,
-        ...listFromAnalysis(extractedSummary?.reference, "", lang),
-        lang === "zh" ? "最终批准前应核实推荐人信息。" : "Reference details should be verified before final approval.",
-      ])}
-      <h2>${escapeHtml(c.creditNotes)}</h2>
-      ${renderList([
-        lang === "zh" ? `自述信用情况：${clean(app.creditHistory)}` : `Credit history stated: ${clean(app.creditHistory)}`,
-        lang === "zh" ? `共同申请人自述信用情况：${clean(app.jointCreditInfo)}` : `Joint credit stated: ${clean(app.jointCreditInfo)}`,
-        lang === "zh" ? `自述驱逐 / 违约记录：${clean(app.evictionHistory)}` : `Eviction / tenancy breach stated: ${clean(app.evictionHistory)}`,
-        ...listFromAnalysis(extractedSummary?.credit, "", lang),
-        lang === "zh" ? "应使用中性核实语言，并对所有申请人采用一致流程。" : "Use neutral verification language and apply the same process to all applicants.",
-      ])}
-      <h2>${lang === "zh" ? "银行流水检查" : "Bank statement check"}</h2>
-      ${renderList(listFromAnalysis(extractedSummary?.bank, "", lang))}
-      <h2>${lang === "zh" ? "宠物 / 停车 / 物业适配备注" : "Pet / parking / property suitability notes"}</h2>
-      ${renderList([
-        lang === "zh" ? `宠物：${clean(app.pets)}` : `Pets: ${clean(app.pets)}`,
-        lang === "zh" ? `车辆 / 停车：${clean(app.parkingRequest)}` : `Vehicles / parking: ${clean(app.parkingRequest)}`,
-        lang === "zh" ? "宠物仅从物业适配、押金、噪音、维护和屋规角度中性记录。" : "Pets are noted only for property suitability, deposit, noise, care, and house rule considerations.",
-      ])}
-      <h2>${escapeHtml(c.consistencyCheck)}</h2>
-      ${renderList([
-        ...((extractedSummary?.inconsistencies || []).map((item) => String(item || "").replace(/^Compare /, "Potential inconsistency: compare "))),
-        ...(lang === "zh"
-        ? [
-            "对照申请表和支持文件，核对姓名、住址历史、收入、工作、入住日期、租期、入住人数、宠物、车辆和保险信息。",
-            "任何不一致应记录为需要核实事项，而不是最终决定理由。",
-          ]
-        : [
-            "Compare name, address history, income, employment, move-in date, lease term, occupants, pets, vehicles, and insurance details against submitted documents.",
-            "Record any mismatch as a verification item, not as a final decision reason.",
-          ]),
-      ])}
-      <h2>${escapeHtml(c.riskItems)}</h2>
-      ${renderList([
-        ...evaluation.neutralRiskNotes,
-        ...((documentAnalysis?.limitations || []).map((item) => lang === "zh" ? `文件读取限制：${item}` : `Document extraction limitation: ${item}`)),
-      ])}
-      <h2>${escapeHtml(c.finalRecommendation)}</h2>
-      <p>${escapeHtml(extractedSummary?.recommendedDecision || evaluation.ranking)}</p>
-      <h2>${escapeHtml(c.conditionsBeforeApproval)}</h2>
-      ${renderList([
-        ...evaluation.verificationNeeded,
-        lang === "zh" ? "房东最终审核确认。" : "Landlord final review and confirmation.",
-        lang === "zh" ? "签署租约，并按适用规则处理押金。" : "Signed tenancy agreement and required deposit handling under applicable rules.",
-      ])}
-    `,
+    copy: c,
+    meta: [
+      { label: c.generatedDate, value: generatedDate },
+      { label: c.preparedBy, value: c.company },
+    ],
+    candidateSummary: [
+      { label: c.applicationId, value: clean(app.recordId) },
+      { label: c.listingId, value: listingId },
+      { label: c.applicant, value: clean(app.applicantName) },
+      { label: c.fields.moveInDate, value: dateText(app.moveInDate, lang) },
+      { label: c.fields.occupants, value: numberText(app.occupants) },
+      { label: c.fields.pets, value: cleanDisplayValue(app.hasPets || reportText(lang, "documentStatus.no_pets"), lang) },
+      { label: c.reportTypeLabel, value: c.fullTitle },
+      { label: c.confidence, value: confidence },
+    ],
+    executiveSummary: [
+      { label: c.applicant, value: clean(app.applicantName) },
+      { label: c.listingId, value: listingId },
+      { label: c.documentCount, value: String(supportSummary.count || 0) },
+      { label: c.verificationStatus, value: supportStatus },
+      { label: c.confidence, value: confidence },
+      { label: c.recommendedDecision, value: recommendedDecision },
+    ],
+    aiRecommendation: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
+    recommendationTone: recommendationTone(evaluation.rankingKey),
+    notice: c.auditNotice,
+    sections,
   });
   if (autoOpen) openApplicantReportWindow(html);
-  const saveResult = await saveReportToDrive({ listingId, fileName, html, reportType: "Full Applicant Audit Report" });
+  const saveResult = saveToDrive ? await saveReportToDrive({ listingId, fileName, html, reportType: "Full Applicant Audit Report" }) : null;
   return {
     title: c.fullTitle,
     reportType: "Full Applicant Audit Report",
@@ -1026,4 +1350,58 @@ export async function downloadFullApplicantAuditReport({ applicant, listing, lan
     html,
     saveResult,
   };
+}
+
+export async function buildFullApplicantAuditDemoReport(lang = "en") {
+  const safeLang = lang === "zh" ? "zh" : "en";
+  return downloadFullApplicantAuditReport({
+    lang: safeLang,
+    saveToDrive: false,
+    listing: {
+      id: "DEMO-LST-001",
+      address: "123 Bowen Road",
+      city: "Nanaimo",
+      rent: "2800",
+    },
+    applicant: {
+      recordId: "DEMO-APP-001",
+      listingId: "DEMO-LST-001",
+      applicantName: safeLang === "zh" ? "申请人 A" : "Applicant A",
+      moveInDate: "2026-08-01",
+      occupants: "3",
+      hasPets: safeLang === "zh" ? "否" : "No",
+      leaseTerm: safeLang === "zh" ? "一年" : "1 Year",
+      employmentStatus: safeLang === "zh" ? "全职" : "Full-time",
+      employer: safeLang === "zh" ? "本地雇主" : "Local employer",
+      monthlyIncome: "$8,600 monthly employment income",
+      jointIncome: "$2,200 monthly part-time income",
+      creditHistory: safeLang === "zh" ? "优秀" : "Excellent",
+      evictionHistory: safeLang === "zh" ? "无" : "None",
+      hasTenantInsurance: safeLang === "zh" ? "入住前购买" : "Will obtain before move-in",
+      depositFundsAvailable: "Yes",
+      supportDocumentFolderUrl: "demo",
+      documentUploadStatus: safeLang === "zh" ? "文件已上传" : "Documents uploaded",
+      proofOfIncome: safeLang === "zh" ? "工资单和银行流水" : "Pay stubs and bank statements",
+      landlordReference: safeLang === "zh" ? "已提供推荐人" : "Reference provided",
+      parkingRequest: safeLang === "zh" ? "1 辆车" : "1 vehicle",
+    },
+    supportFiles: [
+      { type: safeLang === "zh" ? "收入文件" : "Income Document", name: "pay-stub-demo.pdf", modifiedAt: new Date().toISOString() },
+      { type: safeLang === "zh" ? "身份文件" : "ID Document", name: "id-demo.pdf", modifiedAt: new Date().toISOString() },
+      { type: safeLang === "zh" ? "银行流水" : "Bank Statement", name: "bank-statement-demo.pdf", modifiedAt: new Date().toISOString() },
+    ],
+    documentAnalysis: {
+      extractedSummary: {
+        income: { confidence: safeLang === "zh" ? "中高" : "Medium-high", notes: [safeLang === "zh" ? "收入文件与申请表基本一致。" : "Income documents generally align with the application."] },
+        identity: { notes: [safeLang === "zh" ? "姓名需要最终人工核对。" : "Name match requires final manual review."] },
+        bank: { notes: [safeLang === "zh" ? "银行流水需人工确认稳定入账。" : "Bank statements require manual review for stable deposits."] },
+        credit: { notes: [safeLang === "zh" ? "信用信息需按统一流程核实。" : "Credit information should be verified using the standard process."] },
+        reference: { notes: [safeLang === "zh" ? "推荐人信息需完成电话或书面核实。" : "Reference information requires phone or written verification."] },
+        recommendedDecision: safeLang === "zh" ? "良好备选，完成最终核实后可进入下一步。" : "Good backup pending final verification.",
+        inconsistencies: [],
+      },
+      files: [],
+      limitations: [],
+    },
+  });
 }

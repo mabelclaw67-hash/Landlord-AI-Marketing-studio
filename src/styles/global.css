@@ -2291,6 +2291,61 @@ tr:hover td { background: #F9F6F0; }
   margin: 6px 0 18px;
 }
 
+.strategy-result-card {
+  display: grid;
+  gap: 24px;
+  max-width: 980px;
+  text-align: left;
+}
+
+.strategy-result-card__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+}
+
+.strategy-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.strategy-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.strategy-result-item {
+  border: 1px solid rgba(200, 169, 106, 0.25);
+  border-radius: 8px;
+  background: rgba(250, 248, 242, 0.72);
+  padding: 16px;
+}
+
+.strategy-result-item span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.strategy-result-item strong,
+.strategy-result-item li {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.strategy-result-item ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .strategy-next-step-notice {
   text-align: left;
   margin-top: 20px;
@@ -2357,6 +2412,19 @@ tr:hover td { background: #F9F6F0; }
 
   .strategy-wizard-actions .btn {
     flex: 1;
+  }
+
+  .strategy-result-card__top,
+  .strategy-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-result-actions {
+    justify-content: stretch;
+  }
+
+  .strategy-result-actions .btn {
+    width: 100%;
   }
 
   .strategy-follow-up summary {
@@ -4077,8 +4145,147 @@ tr:hover td { background: #F9F6F0; }
   line-height: 1.6;
 }
 
+.lh-feature-card__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--lh-green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lh-feature-card__link:hover {
+  background: #162d24;
+  color: #fff;
+  text-decoration: none;
+}
+
 .lh-output-group + .lh-output-group {
   margin-top: 40px;
+}
+
+.ai-screening-demo {
+  min-height: calc(100vh - 160px);
+  background: #FAF8F4;
+  color: #1E3A2F;
+  padding: 64px 24px 84px;
+}
+
+.ai-screening-demo__hero {
+  max-width: 880px;
+  margin: 0 auto 34px;
+  text-align: center;
+}
+
+.ai-screening-demo__hero h1 {
+  margin: 0;
+  color: var(--lh-green, #1E3A2F);
+  font-family: var(--lh-font-heading, Georgia, serif);
+  font-size: clamp(32px, 5vw, 54px);
+  font-weight: 600;
+  line-height: 1.08;
+}
+
+.ai-screening-demo__hero p {
+  max-width: 760px;
+  margin: 16px auto 0;
+  color: #5C7A62;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.ai-screening-demo__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1060px;
+  margin: 0 auto;
+}
+
+.ai-screening-demo__card {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  padding: 24px;
+  border: 1px solid #E8E2D9;
+  border-top: 4px solid #C8A96A;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(30, 58, 47, 0.08);
+}
+
+.ai-screening-demo__number {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: #EAF0EB;
+  color: #1E3A2F;
+  font-weight: 800;
+}
+
+.ai-screening-demo__card h2 {
+  margin: 0;
+  color: #1E3A2F;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.ai-screening-demo__card p {
+  margin: 12px 0 24px;
+  color: #5C7A62;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.ai-screening-demo__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  margin-top: auto;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #1E3A2F;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ai-screening-demo__button:hover {
+  background: #162d24;
+  color: #fff;
+  text-decoration: none;
+}
+
+.ai-screening-demo__button--disabled,
+.ai-screening-demo__button--disabled:hover {
+  background: #EDE3CE;
+  color: #6F5B32;
+  cursor: default;
+}
+
+@media (max-width: 860px) {
+  .ai-screening-demo {
+    padding: 42px 16px 72px;
+  }
+
+  .ai-screening-demo__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-screening-demo__card {
+    min-height: 0;
+  }
 }
 
 .lh-platform-strip {
