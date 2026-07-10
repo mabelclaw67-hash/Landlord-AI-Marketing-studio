@@ -1395,7 +1395,6 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang, autoPri
   const safeId = String(assessmentId || "DRAFT").replace(/[\\/:*?"<>|]/g, "-");
   const fileName = `Property-Strategy-Assessment-${safeId}.pdf`;
   const title = lang === "zh" ? "物业出租策略评估报告" : "Property Strategy Assessment Report";
-  const generatedDate = new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : "en-CA", { year: "numeric", month: "long", day: "numeric" });
   const rows = buildAssessmentReportRows(assessment, copy);
   const printWindow = window.open("", "_blank", "width=860,height=1100");
   if (!printWindow) return;
@@ -1414,11 +1413,10 @@ function openStrategyAssessmentPdf(assessment, copy, assessmentId, lang, autoPri
     },
     meta: [
       { label: lang === "zh" ? "评估编号" : "Assessment ID", value: safeId },
-      { label: lang === "zh" ? "生成日期" : "Generated Date", value: generatedDate },
       { label: lang === "zh" ? "语言" : "Language", value: lang === "zh" ? "中文" : "English" },
     ],
     executiveSummary: [
-      { label: lang === "zh" ? "物业位置" : "Property Location", value: firstText(assessment.executiveSummary) },
+      { label: lang === "zh" ? "物业概况" : "Property Overview", value: firstText(assessment.executiveSummary) },
       { label: lang === "zh" ? "预估租金" : "Estimated Rent", value: firstText(assessment.estimatedRentRange) },
       { label: lang === "zh" ? "策略信心" : "Strategy Confidence", value: getPdfConfidenceLabel(assessment.aiAssessmentConfidence) },
       { label: lang === "zh" ? "建议出租策略" : "Recommended Rental Strategy", value: firstText(assessment.suggestedRentalStrategy) },
@@ -1446,8 +1444,13 @@ function firstText(value) {
 
 function strategyPdfItems(value, copy) {
   if (Array.isArray(value)) {
+    if (value.some((item) => item?.links)) {
+      return [{
+        label: copy.report?.knowledgeCenter === "房东知识中心" ? "查看房东知识中心" : "View the Landlord Knowledge Center",
+        href: "https://www.vanislandproperty.ca/resources",
+      }];
+    }
     return value.flatMap((item) => {
-      if (item?.links) return [`${item.title}: ${item.links.map((link) => langAwareLinkLabel(link.label, copy)).join(", ")}`];
       return [String(item || "")];
     }).filter(Boolean);
   }

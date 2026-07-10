@@ -418,28 +418,30 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
   const followUps = form.followUpAnswers || {};
   const legalWarning = hasOwnerOccupancyLegalWarning(form);
   const confidence = calculateAssessmentConfidence(form);
-  const community = normalizeRentalIntelligenceKnowledge(rentalIntelligence);
+  const normalizedCommunity = normalizeRentalIntelligenceKnowledge(rentalIntelligence);
   // Single source of truth for rent judgment: every rent-related section
   // below reads from this one computed object instead of re-deriving its
   // own number, so the web report, Admin, and PDF cannot disagree.
   const judgment = computeLocalRentJudgment(form, followUps);
+  const community = resolveCommunityPresentation(form, normalizedCommunity, judgment);
+  const reportJudgment = reportJudgmentForCommunity(judgment, community);
   const summary = {
     propertyClassification: safeLang === "zh"
       ? [`建筑类型：${displayOption(form.propertyBuildingType || form.propertyType, safeLang) || "待确认"}`, `出租单元类型：${displayOption(form.rentalUnitType || form.propertyType, safeLang) || "待确认"}`]
       : [`Building Type: ${form.propertyBuildingType || form.propertyType || "To be confirmed"}`, `Rental Unit Type: ${form.rentalUnitType || form.propertyType || "To be confirmed"}`],
-    executiveSummary: buildExecutiveSummary(form, judgment, safeLang),
-    propertyPositioning: buildPropertyPositioning(form, judgment, safeLang),
+    executiveSummary: buildExecutiveSummary(form, reportJudgment, safeLang),
+    propertyPositioning: buildPropertyPositioning(form, reportJudgment, safeLang),
     propertyStrengths: buildPropertyStrengths(form, judgment, safeLang),
     rentalChallenges: buildRentalChallenges(form, judgment, legalWarning, safeLang),
-    suggestedRentalStrategy: buildSuggestedStrategy(form, judgment, followUps, safeLang),
-    estimatedRentRange: buildRentPositioning(form, judgment, safeLang),
+    suggestedRentalStrategy: buildSuggestedStrategy(form, reportJudgment, followUps, safeLang),
+    estimatedRentRange: buildRentPositioning(form, reportJudgment, safeLang),
     marketRisks: buildMarketRisks(form, judgment, legalWarning, followUps, safeLang),
     nextSteps: buildNextSteps(form, judgment, safeLang),
     suiteSplitRentalPotential: buildSuiteSplitPotential(form, followUps, safeLang),
     suiteQualityPrivacy: buildSuiteQualityPrivacy(form, safeLang),
-    locationRentAdjustment: buildLocationRentAdjustment(form, judgment, safeLang),
-    communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, judgment, safeLang),
-    targetTenantProfile: buildTargetTenantProfile(form, judgment, safeLang),
+    locationRentAdjustment: buildLocationRentAdjustment(form, reportJudgment, safeLang),
+    communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, reportJudgment, safeLang),
+    targetTenantProfile: buildTargetTenantProfile(form, reportJudgment, safeLang),
     communityRentPositioningJudgment: buildCommunityRentPositioningJudgment(form, judgment, safeLang),
     communityMarketingAngles: buildCommunityMarketingAngles(form, judgment, safeLang),
     communityRisksToVerify: buildCommunityRisksToVerify(form, judgment, safeLang),
@@ -509,17 +511,28 @@ function buildExecutiveSummary(form, judgment, lang) {
 }
 
 // 2. Property positioning (物业定位).
+function neutralTenantPositioning(form, lang) {
+  const features = [];
+  if (form.separateEntrance === "Yes") features.push(lang === "zh" ? "独立入口" : "a separate entrance");
+  if (Number(form.garageSpaces || 0) > 0 || Number(form.drivewayParking || 0) > 0) features.push(lang === "zh" ? "停车条件" : "parking");
+  if (form.outdoorSpaceType) features.push(lang === "zh" ? "户外空间安排" : "the outdoor-space arrangement");
+  features.push(lang === "zh" ? "便利生活配置" : "practical day-to-day features");
+  const oneBedroomSuite = form.rentalUnitType === "Basement / Secondary Suite" && Number(form.bedrooms || 0) <= 1;
+  return lang === "zh"
+    ? [`适合重视${features.join("、")}的${oneBedroomSuite ? "个人或两人住户" : "住户"}。`, "最终申请人应依据统一、合法的租客筛选标准评估。"]
+    : [`Suitable for ${oneBedroomSuite ? "one- or two-person households" : "households"} that value ${features.join(", ")}.`, "All applicants must be assessed using consistent and lawful tenant-screening standards."];
+}
+
 function buildPropertyPositioning(form, judgment, lang) {
-  const personas = judgment.personas.slice(0, 2).map((p) => (lang === "zh" ? p.zh : p.en));
   if (lang === "zh") {
     return [
       `${judgment.type.zh}，${judgment.region.zh}。`,
-      `适合出租给：${personas.join("、")}。`,
+      ...neutralTenantPositioning(form, lang),
     ];
   }
   return [
     `${judgment.type.en}, ${judgment.region.en}.`,
-    `Best suited to: ${personas.join(", ")}.`,
+    ...neutralTenantPositioning(form, lang),
   ];
 }
 
@@ -559,24 +572,29 @@ function buildRentalChallenges(form, judgment, legalWarning, lang) {
 function buildSuggestedStrategy(form, judgment, followUps, lang) {
   const hasSuiteBasis = hasSplitRentalBasis(form, followUps);
   const isCombo = !!judgment.comboDetails;
-  const plan = judgment.adjustmentPlan.map((p) => (lang === "zh" ? p.zh : p.en));
+  const plan = buildReportAdjustmentPlan(judgment, lang);
+  const isSingleSuite = form.rentalUnitType === "Basement / Secondary Suite";
 
   if (lang === "zh") {
     const items = [];
     if (isCombo) {
       const combo = judgment.comboDetails;
-      items.push(`该物业适合两种路径并行评估：分租（楼上约 ${money(combo.upperRange[0])}–${money(combo.upperRange[1])} + 楼下约 ${money(combo.lowerRange[0])}–${money(combo.lowerRange[1])}，理论总收入约 ${money(judgment.baseRange[0])}–${money(judgment.baseRange[1] + (combo.splitTotalRange[1] - judgment.baseRange[1]))}）或整租给同一家庭（约 ${money(judgment.adjustedRange[0])}–${money(judgment.adjustedRange[1])}）。`);
-      items.push("整租对象通常是多代同堂家庭或高收入搬迁专业人士家庭，符合条件的家庭数量较少，出租周期可能更长；分租更容易分别找到租客，但管理复杂度更高，需要提前规划费用分摊和共用区域规则。");
+      items.push(`该物业适合两种路径并行评估：分租（楼上约 ${money(combo.upperRange[0])}–${money(combo.upperRange[1])} + 楼下约 ${money(combo.lowerRange[0])}–${money(combo.lowerRange[1])}，理论总收入约 ${money(judgment.baseRange[0])}–${money(judgment.baseRange[1] + (combo.splitTotalRange[1] - judgment.baseRange[1]))}）或由同一住户整体承租（约 ${money(judgment.adjustedRange[0])}–${money(judgment.adjustedRange[1])}）。`);
+      items.push("能够整体使用上下单元并承担总租金的申请住户数量通常较少，出租周期可能更长；分租更容易分别找到租客，但管理复杂度更高，需要提前规划费用分摊和共用区域规则。");
     } else if (form.airbnbInterest === "Yes") {
       items.push("第一策略：先按长租 / 整租路径测试市场，广告只突出已确认卖点。");
-      items.push(hasSuiteBasis
+      items.push(hasSuiteBasis && !isSingleSuite
         ? "第二策略：可同步评估合法分租可能性，但须逐项确认独立入口、厨房、洗衣、水电、停车和合规。"
-        : "第二策略：额外出租配置目前资料不足，暂不作为营销卖点。");
+        : isSingleSuite
+          ? "第二策略：进一步审核该地下套间是否具备独立、合法出租条件，并确认与楼上单元之间的入口、厨房、洗衣、水电、停车、隐私、共用区域及费用分配安排。"
+          : "第二策略：额外出租配置目前资料不足，暂不作为营销卖点。");
       items.push("Airbnb / STR 仅作为备选方向，须先完成法规核查，不能在未确认规则前承诺短租收益。");
     } else {
-      items.push(hasSuiteBasis
+      items.push(hasSuiteBasis && !isSingleSuite
         ? `建议整租为主，分租为可选方案；若整租测试价格 ${money(judgment.recommendedPrice)}/月未能在合理周期内找到租客，可评估合法分租的可行性。`
-        : `建议按 ${money(judgment.recommendedPrice)}/月挂牌测试市场反馈，广告聚焦已确认卖点。`);
+        : isSingleSuite
+          ? `建议按 ${money(judgment.recommendedPrice)}/月测试市场，并进一步审核该地下套间是否具备独立、合法出租条件。`
+          : `建议按 ${money(judgment.recommendedPrice)}/月挂牌测试市场反馈，广告聚焦已确认卖点。`);
     }
     items.push(...plan);
     return items;
@@ -585,21 +603,45 @@ function buildSuggestedStrategy(form, judgment, followUps, lang) {
   const items = [];
   if (isCombo) {
     const combo = judgment.comboDetails;
-    items.push(`This property supports two paths worth evaluating in parallel: splitting into two rentals (upper about ${money(combo.upperRange[0])}-${money(combo.upperRange[1])} + lower about ${money(combo.lowerRange[0])}-${money(combo.lowerRange[1])}) or renting the whole property to one family (about ${money(judgment.adjustedRange[0])}-${money(judgment.adjustedRange[1])}).`);
-    items.push("A whole-property tenant is usually a multi-generational family or a high-income relocating professional household - a smaller pool, likely longer vacancy. Splitting fills faster but adds management complexity (cost allocation, shared-area rules) that should be planned up front.");
+    items.push(`This property supports two paths worth evaluating in parallel: splitting into two rentals (upper about ${money(combo.upperRange[0])}-${money(combo.upperRange[1])} + lower about ${money(combo.lowerRange[0])}-${money(combo.lowerRange[1])}) or renting the whole property to one household (about ${money(judgment.adjustedRange[0])}-${money(judgment.adjustedRange[1])}).`);
+    items.push("The pool of applicants able to use both units and carry the total rent is usually smaller, so vacancy may be longer. Splitting can fill faster but adds management complexity around cost allocation and shared-area rules.");
   } else if (form.airbnbInterest === "Yes") {
     items.push("Primary strategy: test the market on a long-term / whole-home path first, using only confirmed features in the listing.");
-    items.push(hasSuiteBasis
+    items.push(hasSuiteBasis && !isSingleSuite
       ? "Secondary strategy: legal split-rental feasibility can be reviewed in parallel, with entrance, kitchen, laundry, utilities, parking, and compliance confirmed one by one."
-      : "Secondary strategy: current inputs do not yet support an additional rental configuration, so it should not be marketed.");
+      : isSingleSuite
+        ? "Secondary strategy: review whether the basement suite can operate as an independent, lawful rental, including its entrance, kitchen, laundry, utilities, parking, privacy, shared areas, and cost-allocation arrangements with the upper unit."
+        : "Secondary strategy: current inputs do not yet support an additional rental configuration, so it should not be marketed.");
     items.push("Airbnb / STR remains a backup direction only, pending BC and municipal rule verification.");
   } else {
-    items.push(hasSuiteBasis
+    items.push(hasSuiteBasis && !isSingleSuite
       ? `Lead with a whole-home rental at ${money(judgment.recommendedPrice)}/month; if it does not find a qualified tenant within a reasonable window, review legal split-rental feasibility as a fallback.`
-      : `List at ${money(judgment.recommendedPrice)}/month to test market response, with the listing focused on confirmed features.`);
+      : isSingleSuite
+        ? `Test the market at ${money(judgment.recommendedPrice)}/month and review whether the basement suite meets the requirements for an independent, lawful rental.`
+        : `List at ${money(judgment.recommendedPrice)}/month to test market response, with the listing focused on confirmed features.`);
   }
   items.push(...plan);
   return items;
+}
+
+function buildReportAdjustmentPlan(judgment, lang) {
+  const recommended = judgment.recommendedPrice;
+  const firstReviewPrice = recommended - 50;
+  const feedbackLow = recommended - 100;
+  if (lang === "zh") {
+    return [
+      `先按 ${money(recommended)} 测试市场。`,
+      `若 7–10 天内咨询质量不足，可调整至约 ${money(firstReviewPrice)}。`,
+      "如约两周已有看房但无合格申请，应先复核照片、广告内容、物业条件和租客反馈。",
+      `再根据反馈决定是否调整至约 ${money(feedbackLow)}–${money(firstReviewPrice)}，不自动采用固定降价。`,
+    ];
+  }
+  return [
+    `Start by testing the market at ${money(recommended)}.`,
+    `If inquiry quality is insufficient after 7-10 days, consider adjusting to about ${money(firstReviewPrice)}.`,
+    "If showings have occurred but there is no qualified application after about two weeks, first review the photos, listing content, property condition, and tenant feedback.",
+    `Then use that feedback to decide whether an adjustment to about ${money(feedbackLow)}-${money(firstReviewPrice)} is appropriate; do not apply an automatic fixed reduction.`,
+  ];
 }
 
 // 3. Local rent judgment (本地租金判断): base range, adjusted range,
@@ -647,7 +689,7 @@ function buildMarketRisks(form, judgment, legalWarning, followUps, lang) {
   }
   if (judgment.comboDetails) {
     items.push(lang === "zh"
-      ? "整租给同一家庭的合格候选家庭数量较少，出租周期可能明显长于分租；分租虽更快找到租客，但楼上楼下共用区域和噪音需要清晰的租约规则。"
+      ? "能够整体承租上下单元的合格申请住户数量较少，出租周期可能明显长于分租；分租虽更快找到租客，但楼上楼下共用区域和噪音需要清晰的租约规则。"
       : "Few qualified households can take the whole combined property, so vacancy may run longer than a split rental; splitting fills faster but shared areas and noise between upper and lower units need clear lease terms.");
   }
   if (hasSplitRentalBasis(form, followUps) && form.suiteLegalStatus !== "Legal") {
@@ -692,6 +734,11 @@ function buildNextSteps(form, judgment, lang) {
 
 function buildSuiteSplitPotential(form, followUps, lang = "en") {
   const hasBasis = hasSplitRentalBasis(form, followUps);
+  if (form.rentalUnitType === "Basement / Secondary Suite") {
+    return lang === "zh"
+      ? "可进一步审核该地下套间是否具备独立、合法出租条件，并确认与楼上单元之间的入口、厨房、洗衣、水电、停车、隐私、共用区域及费用分配安排。"
+      : "Further review should confirm whether this basement suite can operate as an independent, lawful rental and clarify its entrance, kitchen, laundry, utilities, parking, privacy, shared areas, and cost-allocation arrangements with the upper unit.";
+  }
   if (!hasBasis) {
     return lang === "zh"
       ? "当前记录未确认套间、独立入口或独立厨房；额外出租配置需进一步确认，不能作为当前优势。"
@@ -753,8 +800,8 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   if (suiteHydroMeter === "No") notes.push(lang === "zh" ? "当前没有独立电表，相关费用说明需进一步确认。" : "There is no separate hydro meter, so utility wording needs further confirmation.");
   if (suiteYardPrivacy === "Fully private") notes.push(lang === "zh" ? "完全私密的户外空间能明显提高租金吸引力和申请质量。" : "Fully private outdoor space improves rent appeal and application quality.");
   if (suiteYardPrivacy === "Partial") notes.push(lang === "zh" ? "部分私密院子仍有价值，但广告中必须清楚说明哪些区域独享、哪些区域共用。" : "Partial yard privacy still has value, but exclusive versus shared areas must be described clearly.");
-  if (suiteYardPrivacy === "Shared yard") notes.push(lang === "zh" ? "共用院子会降低宠物和家庭租客吸引力，必须设定清晰使用规则。" : "Shared yard use reduces pet and family tenant appeal unless clear rules are set.");
-  if (suiteYardPrivacy === "No yard") notes.push(lang === "zh" ? "没有院子会限制宠物和家庭租客吸引力，租金定位需更保守。" : "No yard limits pet and family appeal and calls for more conservative positioning.");
+  if (suiteYardPrivacy === "Shared yard") notes.push(lang === "zh" ? "共用院子会降低重视私人户外空间的租客吸引力，必须设定清晰使用规则。" : "A shared yard is less attractive to tenants prioritizing private outdoor space unless clear rules are set.");
+  if (suiteYardPrivacy === "No yard") notes.push(lang === "zh" ? "没有院子会限制重视户外空间的租客吸引力，租金定位需更保守。" : "No yard limits appeal to tenants prioritizing outdoor space and calls for more conservative positioning.");
   if (suiteSharedAreas) {
     notes.push(lang === "zh"
       ? "已记录套间共用区域信息；正式分租前需要明确哪些空间独享、哪些空间共用。"
@@ -862,13 +909,59 @@ function normalizeRentalIntelligenceKnowledge(data) {
   };
 }
 
-function communityReferencePrefix(community, region, lang = "en") {
-  const name = community.communityName || region.zh;
-  const nameEn = community.communityName || region.en;
-  if (lang === "zh") {
-    return `社区参考：${name}。以下判断结合 Nanaimo 区域出租经验，最终仍需以具体地址、照片和业主填写资料确认。`;
+function resolveCommunityPresentation(form, community, judgment) {
+  const rawName = String(community.communityName || "").trim();
+  const displayName = !rawName || /generic|general nanaimo/i.test(rawName) ? "" : rawName;
+  const normalizedName = displayName.toLowerCase();
+  const confirmedText = [form.communityArea, form.propertyAddress].filter(Boolean).join(" ").toLowerCase();
+  const notesText = String(form.locationNotes || "").toLowerCase();
+  const explicitRegion = !["nanaimo-general", "unknown"].includes(judgment.region.code);
+  const confirmedFromField = !!displayName && confirmedText.includes(normalizedName);
+  const tentative = !!displayName && !confirmedFromField && notesText.includes(normalizedName);
+  const confirmed = confirmedFromField || (!!displayName && explicitRegion && !tentative && judgment.region.en.toLowerCase().includes(normalizedName));
+  return {
+    ...community,
+    displayName,
+    status: confirmed ? "confirmed" : tentative ? "tentative" : "unconfirmed",
+  };
+}
+
+function reportJudgmentForCommunity(judgment, community) {
+  if (community.status === "tentative") {
+    return {
+      ...judgment,
+      region: { ...judgment.region, en: "Nanaimo overall market baseline", zh: "Nanaimo 整体市场基准", code: "nanaimo-general" },
+    };
   }
-  return `Community reference: ${nameEn}. This reflects general Nanaimo sub-market experience and must still be confirmed against the exact address, photos, and owner inputs.`;
+  if (community.status !== "confirmed" || !community.displayName) return judgment;
+  return {
+    ...judgment,
+    region: {
+      ...judgment.region,
+      en: community.displayName,
+      zh: community.displayName,
+      code: /westwood lake/i.test(community.displayName) ? "westwood-lake" : judgment.region.code,
+    },
+  };
+}
+
+function communityReferencePrefix(community, region, lang = "en") {
+  const name = community.displayName || community.communityName || region.zh;
+  const nameEn = community.displayName || community.communityName || region.en;
+  if (community.status === "confirmed") {
+    return lang === "zh"
+      ? `已确认社区：${name}。本节使用 ${name} 社区知识，并结合 Nanaimo 整体市场基准及物业自身条件。`
+      : `Confirmed community: ${nameEn}. This section uses ${nameEn} community knowledge together with the overall Nanaimo market baseline and the property's own features.`;
+  }
+  if (community.status === "tentative") {
+    return lang === "zh"
+      ? `可能接近 ${name}，具体社区归属仍需根据完整地址确认；租金判断仍以 Nanaimo 整体市场基准和物业自身条件为主。`
+      : `The property may be near ${nameEn}, but the exact community still requires confirmation from the complete address; rent positioning continues to rely primarily on the overall Nanaimo baseline and the property's own features.`;
+  }
+  if (lang === "zh") {
+    return "社区尚未确认；租金和社区判断以 Nanaimo 整体市场基准及物业自身条件为主。";
+  }
+  return "The community is not yet confirmed; rent and location judgment rely on the overall Nanaimo market baseline and the property's own features.";
 }
 
 function buildCommunityLocationAnalysis(form, community, judgment, lang = "en") {
@@ -876,23 +969,21 @@ function buildCommunityLocationAnalysis(form, community, judgment, lang = "en") 
   const notes = [communityReferencePrefix(community, judgment.region, lang)];
   if (lang === "zh") {
     notes.push(narrative.overview.zh);
-    if (community.tags.length) notes.push(`社区标签：${community.tags.join("、")}。`);
+    if (community.status === "confirmed" && community.tags.length) notes.push(`社区标签：${community.tags.join("、")}。`);
     if (form.locationNotes) notes.push(`业主位置备注：${cleanSentence(form.locationNotes)}`);
     return notes;
   }
   notes.push(narrative.overview.en);
-  if (community.tags.length) notes.push(`Community tags: ${community.tags.join(", ")}.`);
+  if (community.status === "confirmed" && community.tags.length) notes.push(`Community tags: ${community.tags.join(", ")}.`);
   if (form.locationNotes) notes.push(`Owner location notes: ${cleanSentence(form.locationNotes)}`);
   return notes;
 }
 
 function buildTargetTenantProfile(form, judgment, lang = "en") {
-  const personas = judgment.personas.map((p) => (lang === "zh" ? p.zh : p.en));
-  const narrative = getRegionNarrative(judgment.region.code);
   if (lang === "zh") {
     const notes = [
-      `根据${judgment.type.zh}和当前租金定位，目标租客为：${personas.join("、")}。`,
-      narrative.tenantAppeal.zh,
+      ...neutralTenantPositioning(form, lang),
+      "位置吸引力只应通过已确认的交通、生活配套、步行条件和户外资源描述。",
     ];
     if (judgment.marketAcceptance.narrowPool) {
       notes.push("当前价位对应的租客群体偏窄，看房和申请质量需要更密切跟进。");
@@ -900,8 +991,8 @@ function buildTargetTenantProfile(form, judgment, lang = "en") {
     return notes;
   }
   const notes = [
-    `Based on the ${judgment.type.en.toLowerCase()} and current rent positioning, the target tenant profile is: ${personas.join(", ")}.`,
-    narrative.tenantAppeal.en,
+    ...neutralTenantPositioning(form, lang),
+    "Location appeal should be described only through verified access, amenities, walkability, and outdoor resources.",
   ];
   if (judgment.marketAcceptance.narrowPool) {
     notes.push("This price point reaches a narrower tenant pool, so showings and application quality need closer follow-up.");
@@ -994,14 +1085,17 @@ function buildMarketingSuggestions(form, followUps, lang = "en") {
 
 function buildProfessionalPreliminaryRecommendation(form, followUps, lang = "en") {
   const hasSuiteBasis = hasSplitRentalBasis(form, followUps);
+  const isSingleSuite = form.rentalUnitType === "Basement / Secondary Suite";
   if (lang === "zh") {
     const items = [
       "专业初步建议：先按当前真实填写资料测试市场，不应依赖未确认卖点或测试案例内容。",
       "如 30 天内合格租客反馈不足，建议重新评估目标租金、照片质量和广告表达。",
   ];
-  items.push(hasSuiteBasis
+  items.push(hasSuiteBasis && !isSingleSuite
     ? "因当前资料存在套房或独立使用条件，可同步复核合法分租或两个出租单元的可行性。"
-    : "当前资料不足以判断额外出租配置；需进一步确认套房、独立入口、独立厨房和平面布局。");
+    : isSingleSuite
+      ? "可进一步审核该地下套间是否具备独立、合法出租条件，并确认与楼上单元之间的入口、厨房、洗衣、水电、停车、隐私、共用区域及费用分配安排。"
+      : "当前资料不足以判断额外出租配置；需进一步确认套房、独立入口、独立厨房和平面布局。");
     items.push("Airbnb / STR 暂时只作为备选方案，法规未核查前不建议作为主要出租策略。");
     return items;
   }
@@ -1009,9 +1103,11 @@ function buildProfessionalPreliminaryRecommendation(form, followUps, lang = "en"
     "Professional preliminary recommendation: test the market using the current submitted facts only, without relying on unconfirmed features or sample-case content.",
     "If qualified demand is weak after 30 days, reassess target rent, photo quality, and listing presentation.",
   ];
-  items.push(hasSuiteBasis
+  items.push(hasSuiteBasis && !isSingleSuite
     ? "Because the current inputs include suite or independent-use signals, legal split-rental or two-unit feasibility can be reviewed."
-    : "Current inputs are not enough to assess an additional rental configuration; suite status, separate entrance, separate kitchen, and layout need further confirmation.");
+    : isSingleSuite
+      ? "Further review should confirm whether this basement suite can operate as an independent, lawful rental and clarify its entrance, kitchen, laundry, utilities, parking, privacy, shared areas, and cost-allocation arrangements with the upper unit."
+      : "Current inputs are not enough to assess an additional rental configuration; suite status, separate entrance, separate kitchen, and layout need further confirmation.");
   items.push("Airbnb / STR should remain a backup strategy until current rules are verified.");
   return items;
 }
@@ -1039,6 +1135,11 @@ function buildLegalComplianceRisk(form, lang) {
     return lang === "zh"
       ? ["未触发明确的屋主自住 12 个月风险提醒，但业主选择了不确定。", "请查看房东知识中心相关指南，并经专业审核后再确认。"]
       : ["No clear owner-occupancy 12-month warning was triggered, but the owner selected Not sure.", "Please review the related Landlord Knowledge Center guide and confirm through professional review before listing."];
+  }
+  if (form.airbnbInterest === "Yes") {
+    return lang === "zh"
+      ? ["本次答案未触发屋主自住相关再出租警示。", "已选择 Airbnb / 短租意向，仍须核查当前 BC 省及所在市政的短租规则、主要住所要求和运营限制；在核查完成前不得视为已合规。"]
+      : ["No owner-occupancy re-rental warning was triggered by the submitted answers.", "Airbnb / STR interest was selected, so current BC and municipal rules, principal-residence requirements, and operating restrictions must still be verified; compliance must not be assumed before that review is complete."];
   }
   return lang === "zh"
     ? "本次答案未触发屋主自住相关再出租警示。正式挂牌前仍建议由专业团队做最终复核。"
@@ -1070,7 +1171,7 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
   if (form.knownIssues) reasons.push(lang === "zh" ? "✓ 已提供业主关注点和已知问题" : "✓ Owner concerns and known issues were provided");
   if (form.airbnbInterest === "Yes") reasons.push(lang === "zh" ? "⚠ STR 法规需实时确认" : "⚠ STR rules need current verification");
   reasons.push(lang === "zh" ? "⚠ 最终租金仍需结合当前市场和照片状态确认" : "⚠ Final rent still needs current market and photo/condition review");
-  return [lang === "zh" ? `评估信心：${getConfidenceLabel(confidence.score, lang)}` : `Assessment Confidence: ${getConfidenceLabel(confidence.score, lang)}`, ...reasons];
+  return [lang === "zh" ? "评估信心：★★★★☆ 较高信心" : "Assessment Confidence: ★★★★☆ Higher Confidence", ...reasons];
 }
 
 function buildServiceRecommendation(form, lang) {
@@ -1079,7 +1180,7 @@ function buildServiceRecommendation(form, lang) {
   if (lang === "zh") {
     const items = [
       `★★★★★ AI 营销方案：适合把${confirmedText}整理成准确广告和照片顺序。`,
-      `★★★★☆ 专业出租挂牌服务：适合需要正式挂牌、筛选租客和测试 ${formatCurrency(form.targetRent, lang)}/月整租定位的业主。`,
+      "★★★★☆ 专业出租挂牌服务：适合需要正式挂牌、市场反馈测试、租金定位和租客筛选的业主。",
       hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
         ? "★★★★★ 物业管理服务：适合法规、分租或长期管理需要专业把关的物业。"
         : "★★★★☆ 物业管理服务：适合希望减少日常沟通、筛选和租后管理工作的业主。",
@@ -1091,7 +1192,7 @@ function buildServiceRecommendation(form, lang) {
   }
   const items = [
     `★★★★★ AI Marketing Package: Best for turning ${confirmedText} into accurate ad copy and photo order.`,
-    "★★★★☆ Professional Rental Listing: Best for launching the listing, screening tenants, and testing the owner's rent position.",
+    "★★★★☆ Professional Rental Listing: Suitable for owners who need a formal listing launch, market-response testing, rent positioning, and tenant screening.",
     hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
       ? "★★★★★ Property Management: Best when regulation, split-rental review, or long-term oversight needs professional control."
       : "★★★★☆ Property Management: Best when the owner wants help with communication, screening, and ongoing rental management.",

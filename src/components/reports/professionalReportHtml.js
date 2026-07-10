@@ -14,7 +14,12 @@ function attr(value) {
 }
 
 function listHtml(items = []) {
-  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  return `<ul>${items.map((item) => {
+    if (item && typeof item === "object" && item.href) {
+      return `<li><a href="${attr(item.href)}" target="_blank" rel="noreferrer">${escapeHtml(item.label || item.href)}</a></li>`;
+    }
+    return `<li>${escapeHtml(item)}</li>`;
+  }).join("")}</ul>`;
 }
 
 function statusBadge(value, tone = "") {
@@ -238,10 +243,13 @@ function reportStyles() {
     .section-title h2 { font-size: 18px; }
     .summary-grid, .candidate-card__metrics {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
       margin: 18px 0;
     }
+    .summary-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .summary-grid .summary-card { grid-column: span 2; }
+    .summary-grid .summary-card:nth-child(4) { grid-column: 2 / span 2; }
+    .candidate-card__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .summary-card {
       border: 1px solid ${c.line};
       border-radius: 10px;
@@ -387,9 +395,10 @@ function reportStyles() {
       font-size: 9px;
     }
     @media print {
-      @page { margin: 0.45in; }
-      .page { min-height: auto; padding: 0 0 32px; }
-      .footer { position: fixed; left: 0; right: 0; bottom: 0; }
+      @page { size: letter; margin: 0; }
+      html, body { margin: 0; padding: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .page { min-height: 11in; padding: 0.45in 0.45in 0.62in; }
+      .footer { position: absolute; left: 0.45in; right: 0.45in; bottom: 0.28in; }
     }
   `;
 }

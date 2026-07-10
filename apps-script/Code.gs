@@ -1365,6 +1365,13 @@ function appendPropertyStrategySection_(body, title, value) {
   }
 }
 
+function appendPropertyStrategyKnowledgeLink_(body, language) {
+  body.appendParagraph(propertyStrategyPdfLabel_("Knowledge Links", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var paragraph = body.appendParagraph("");
+  paragraph.appendText(language === "zh" ? "查看房东知识中心" : "View the Landlord Knowledge Center")
+    .setLinkUrl("https://www.vanislandproperty.ca/resources");
+}
+
 function propertyStrategyPdfLabel_(label, language) {
   if (language !== "zh") return label;
   var labels = {
@@ -1510,7 +1517,11 @@ function buildPropertyStrategyReportDocument_(found, assessmentId, language, ass
       ["disclaimer", "Disclaimer"]
     ];
     for (var s = 0; s < sectionOrder.length; s++) {
-      appendPropertyStrategySection_(body, propertyStrategyPdfLabel_(sectionOrder[s][1], language), assessmentJson[sectionOrder[s][0]]);
+      if (sectionOrder[s][0] === "knowledgeLinks" && assessmentJson[sectionOrder[s][0]]) {
+        appendPropertyStrategyKnowledgeLink_(body, language);
+      } else {
+        appendPropertyStrategySection_(body, propertyStrategyPdfLabel_(sectionOrder[s][1], language), assessmentJson[sectionOrder[s][0]]);
+      }
     }
   } else {
     appendPropertyStrategySection_(body, language === "zh" ? "AI 初步评估" : "AI Preliminary Assessment", assessmentText);
