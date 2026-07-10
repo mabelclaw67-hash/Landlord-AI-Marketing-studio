@@ -129,6 +129,13 @@ export function createEmptyStrategyAssessment(overrides = {}) {
     postalCode: "",
     communityArea: "",
     propertyType: "",
+    propertyBuildingType: "",
+    rentalUnitType: "",
+    outdoorSpaceType: "",
+    fenceStatus: "",
+    laundryType: "",
+    utilitiesArrangement: "",
+    sharedAreas: "",
     bedrooms: "",
     bathrooms: "",
     garageSpaces: "",
@@ -208,7 +215,7 @@ export function getStrategyFollowUpQuestions(form) {
     add("Airbnb / STR", "strOperatorPlan", "Are you planning to operate it yourself or use a third-party operator?", "choice", ["Operate myself", "Third-party operator", "Not sure"]);
   }
 
-  if (form.existingSuite === "Yes") {
+  if (!form.rentalUnitType && form.existingSuite === "Yes") {
     add("Existing Suite", "suiteSeparateEntrance", "Does the suite have a separate entrance?");
     add("Existing Suite", "suiteOwnKitchen", "Does the suite have its own kitchen?");
     add("Existing Suite", "suiteSeparateLaundry", "Does the suite have separate laundry?");
@@ -216,20 +223,20 @@ export function getStrategyFollowUpQuestions(form) {
     add("Existing Suite", "suiteUtilitiesSeparated", "Are utilities currently separated or shared?", "choice", ["Separated", "Shared", "Not sure"]);
   }
 
-  if (form.existingSuite === "No") {
+  if (!form.rentalUnitType && form.existingSuite === "No") {
     add("Suite Conversion", "conversionBasement", "Is there a basement or lower level that could be converted?");
     add("Suite Conversion", "conversionSeparateEntrance", "Is there a separate entrance or possible separate entrance?");
     add("Suite Conversion", "conversionAddKitchen", "Would you consider adding a kitchen?");
     add("Suite Conversion", "conversionSplitUnits", "Would you consider splitting the home into two rental units?");
   }
 
-  if (form.fencedBackyard === "No") {
+  if (!form.fenceStatus && !form.outdoorSpaceType && form.fencedBackyard === "No") {
     add("Backyard", "backyardAddFence", "Would you consider adding a fenced backyard?");
     add("Backyard", "backyardPrivateArea", "Is there a private outdoor area for tenants?");
     add("Backyard", "backyardShared", "Is the yard shared with another unit?");
   }
 
-  if (form.petFriendly === "Yes") {
+  if (!form.fenceStatus && form.petFriendly === "Yes") {
     add("Pet Friendly", "petYardFullyFenced", "Is the yard fully fenced?");
     add("Pet Friendly", "petDamageConcerns", "Are there flooring or damage concerns?");
     add("Pet Friendly", "petRestrictions", "Do you want pet restrictions?");
@@ -373,6 +380,9 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
   // own number, so the web report, Admin, and PDF cannot disagree.
   const judgment = computeLocalRentJudgment(form, followUps);
   const summary = {
+    propertyClassification: safeLang === "zh"
+      ? [`建筑类型：${form.propertyBuildingType || form.propertyType || "待确认"}`, `出租单元类型：${form.rentalUnitType || form.propertyType || "待确认"}`]
+      : [`Building Type: ${form.propertyBuildingType || form.propertyType || "To be confirmed"}`, `Rental Unit Type: ${form.rentalUnitType || form.propertyType || "To be confirmed"}`],
     executiveSummary: buildExecutiveSummary(form, judgment, safeLang),
     propertyPositioning: buildPropertyPositioning(form, judgment, safeLang),
     propertyStrengths: buildPropertyStrengths(form, judgment, safeLang),
@@ -680,7 +690,10 @@ function buildSuiteSplitPotential(form, followUps, lang = "en") {
 
 function buildSuiteQualityPrivacy(form, lang = "en") {
   const notes = [];
-  if (!hasSplitRentalBasis(form, form.followUpAnswers || {}) && !form.suiteLegalStatus && !form.suiteYardPrivacy && !form.suiteSharedAreas && !form.suiteRentImpactNotes) {
+  const suiteHydroMeter = form.utilitiesArrangement === "Separate Meter" ? "Yes" : (!form.utilitiesArrangement ? form.suiteHydroMeter : "");
+  const suiteYardPrivacy = form.outdoorSpaceType === "Fully Private" ? "Fully private" : form.outdoorSpaceType === "Shared" ? "Shared yard" : form.outdoorSpaceType === "No Outdoor Space" ? "No yard" : form.outdoorSpaceType === "Partial" ? "Partial" : (!form.outdoorSpaceType ? form.suiteYardPrivacy : "");
+  const suiteSharedAreas = form.sharedAreas || form.suiteSharedAreas;
+  if (!hasSplitRentalBasis(form, form.followUpAnswers || {}) && !form.suiteLegalStatus && !suiteYardPrivacy && !suiteSharedAreas && !form.suiteRentImpactNotes) {
     return lang === "zh"
       ? "当前记录未确认套间品质、隐私、水电或院子条件；需进一步确认。"
       : "Current record does not confirm suite quality, privacy, utilities, or yard details; further confirmation is needed.";
@@ -692,16 +705,16 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   } else if (form.suiteLegalStatus === "Not sure") {
     notes.push(lang === "zh" ? "套间合法状态未确认，不能作为广告卖点直接宣传。" : "Suite legal status is unclear and should not be promoted as a confirmed feature.");
   }
-  if (form.suiteHydroMeter === "Yes") notes.push(lang === "zh" ? "已确认独立电表，可减少水电分摊争议。" : "Separate hydro meter is confirmed and can reduce utility-sharing disputes.");
-  if (form.suiteHydroMeter === "No") notes.push(lang === "zh" ? "当前没有独立电表，相关费用说明需进一步确认。" : "There is no separate hydro meter, so utility wording needs further confirmation.");
-  if (form.suiteYardPrivacy === "Fully private") notes.push(lang === "zh" ? "完全私密的户外空间能明显提高租金吸引力和申请质量。" : "Fully private outdoor space improves rent appeal and application quality.");
-  if (form.suiteYardPrivacy === "Partial") notes.push(lang === "zh" ? "部分私密院子仍有价值，但广告中必须清楚说明哪些区域独享、哪些区域共用。" : "Partial yard privacy still has value, but exclusive versus shared areas must be described clearly.");
-  if (form.suiteYardPrivacy === "Shared yard") notes.push(lang === "zh" ? "共用院子会降低宠物和家庭租客吸引力，必须设定清晰使用规则。" : "Shared yard use reduces pet and family tenant appeal unless clear rules are set.");
-  if (form.suiteYardPrivacy === "No yard") notes.push(lang === "zh" ? "没有院子会限制宠物和家庭租客吸引力，租金定位需更保守。" : "No yard limits pet and family appeal and calls for more conservative positioning.");
-  if (form.suiteSharedAreas) {
+  if (suiteHydroMeter === "Yes") notes.push(lang === "zh" ? "已确认独立电表，可减少水电分摊争议。" : "Separate hydro meter is confirmed and can reduce utility-sharing disputes.");
+  if (suiteHydroMeter === "No") notes.push(lang === "zh" ? "当前没有独立电表，相关费用说明需进一步确认。" : "There is no separate hydro meter, so utility wording needs further confirmation.");
+  if (suiteYardPrivacy === "Fully private") notes.push(lang === "zh" ? "完全私密的户外空间能明显提高租金吸引力和申请质量。" : "Fully private outdoor space improves rent appeal and application quality.");
+  if (suiteYardPrivacy === "Partial") notes.push(lang === "zh" ? "部分私密院子仍有价值，但广告中必须清楚说明哪些区域独享、哪些区域共用。" : "Partial yard privacy still has value, but exclusive versus shared areas must be described clearly.");
+  if (suiteYardPrivacy === "Shared yard") notes.push(lang === "zh" ? "共用院子会降低宠物和家庭租客吸引力，必须设定清晰使用规则。" : "Shared yard use reduces pet and family tenant appeal unless clear rules are set.");
+  if (suiteYardPrivacy === "No yard") notes.push(lang === "zh" ? "没有院子会限制宠物和家庭租客吸引力，租金定位需更保守。" : "No yard limits pet and family appeal and calls for more conservative positioning.");
+  if (suiteSharedAreas) {
     notes.push(lang === "zh"
       ? "已记录套间共用区域信息；正式分租前需要明确哪些空间独享、哪些空间共用。"
-      : `Shared areas noted: ${cleanSentence(form.suiteSharedAreas)}`);
+      : `Shared areas noted: ${cleanSentence(suiteSharedAreas)}`);
   }
   if (form.suiteRentImpactNotes) {
     notes.push(lang === "zh"
@@ -992,8 +1005,9 @@ function calculateAssessmentConfidence(form) {
   let score = 72;
   const reasons = [];
   const cautions = [];
+  const propertyType = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
   if (form.propertyAddress && form.city) { score += 5; reasons.push("address"); }
-  if (form.propertyType && form.bedrooms && form.bathrooms) { score += 5; reasons.push("property"); }
+  if (propertyType && form.bedrooms && form.bathrooms) { score += 5; reasons.push("property"); }
   if (form.targetRent) { score += 4; reasons.push("rent"); }
   if (Object.values(form.followUpAnswers || {}).filter(Boolean).length >= 5) { score += 6; reasons.push("followUps"); }
   if (form.knownIssues) { score += 3; reasons.push("knownIssues"); }
@@ -1005,8 +1019,9 @@ function calculateAssessmentConfidence(form) {
 
 function buildAiAssessmentConfidence(form, confidence, lang) {
   const reasons = [];
+  const propertyType = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
   if (form.propertyAddress && form.city) reasons.push(lang === "zh" ? "✓ 地址和城市信息完整" : "✓ Address and city are complete");
-  if (form.propertyType && form.bedrooms && form.bathrooms) reasons.push(lang === "zh" ? "✓ 房屋类型、卧室和卫生间信息完整" : "✓ Property type, bedrooms, and bathrooms are complete");
+  if (propertyType && form.bedrooms && form.bathrooms) reasons.push(lang === "zh" ? "✓ 房屋类型、卧室和卫生间信息完整" : "✓ Property type, bedrooms, and bathrooms are complete");
   if (Object.values(form.followUpAnswers || {}).filter(Boolean).length >= 5) reasons.push(lang === "zh" ? "✓ 专业追问已填写" : "✓ Professional follow-up answers were completed");
   if (form.knownIssues) reasons.push(lang === "zh" ? "✓ 已提供业主关注点和已知问题" : "✓ Owner concerns and known issues were provided");
   if (form.airbnbInterest === "Yes") reasons.push(lang === "zh" ? "⚠ STR 法规需实时确认" : "⚠ STR rules need current verification");
@@ -1053,7 +1068,8 @@ function normalizeCellTextForUi(value) {
 }
 
 function hasSplitRentalBasis(form, followUps = {}) {
-  return form.existingSuite === "Yes" ||
+  return ["Main / Upper Unit", "Basement / Secondary Suite", "Whole House with Main + Suite"].includes(form.rentalUnitType) ||
+    form.existingSuite === "Yes" ||
     form.separateEntrance === "Yes" ||
     form.separateKitchen === "Yes" ||
     form.canAddKitchen === "Yes" ||
@@ -1068,7 +1084,7 @@ function buildSupportedFeaturePhrases(form, lang = "en") {
   const items = [];
   const bed = normalizeCellTextForUi(form.bedrooms);
   const bath = normalizeCellTextForUi(form.bathrooms);
-  const type = normalizeCellTextForUi(form.propertyType);
+  const type = normalizeCellTextForUi(form.rentalUnitType || form.propertyBuildingType || form.propertyType);
   if (bed || bath || type) {
     items.push(lang === "zh"
       ? `${bed || "需确认"}房${bath || "需确认"}卫${type ? ` ${type}` : ""}`
@@ -1224,6 +1240,13 @@ export async function submitStrategyAssessment(form, lang = "en") {
     "Service Path": servicePath,
     "Province": form.province || "",
     "Postal Code": form.postalCode || "",
+    "Property Building Type": form.propertyBuildingType || "",
+    "Rental Unit Type": form.rentalUnitType || "",
+    "Outdoor Space Type": form.outdoorSpaceType || "",
+    "Fence Status": form.fenceStatus || "",
+    "Laundry Type": form.laundryType || "",
+    "Utilities Arrangement": form.utilitiesArrangement || "",
+    "Shared Areas": form.sharedAreas || "",
     "Suite Legal Status": form.suiteLegalStatus || "",
     "Suite Permit Status": form.suitePermitStatus || "",
     "Suite Hydro Meter": form.suiteHydroMeter || "",
@@ -1264,7 +1287,9 @@ export async function getRentalIntelligenceKnowledge(form) {
         city: form.city || "",
         communityArea: form.communityArea || "",
         locationNotes: form.locationNotes || "",
-        propertyType: form.propertyType || "",
+        propertyType: form.propertyBuildingType || form.propertyType || "",
+        propertyBuildingType: form.propertyBuildingType || "",
+        rentalUnitType: form.rentalUnitType || "",
         bedrooms: form.bedrooms || "",
         bathrooms: form.bathrooms || "",
         targetRent: form.targetRent || "",

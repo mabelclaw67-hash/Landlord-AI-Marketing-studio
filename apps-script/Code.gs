@@ -987,6 +987,13 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "City": normalizeCellText_(data.city),
     "Community / Area": normalizeCellText_(data.communityArea),
     "Property Type": normalizeCellText_(data.propertyType),
+    "Property Building Type": normalizeCellText_(data.propertyBuildingType || data["Property Building Type"]),
+    "Rental Unit Type": normalizeCellText_(data.rentalUnitType || data["Rental Unit Type"]),
+    "Outdoor Space Type": normalizeCellText_(data.outdoorSpaceType || data["Outdoor Space Type"]),
+    "Fence Status": normalizeCellText_(data.fenceStatus || data["Fence Status"]),
+    "Laundry Type": normalizeCellText_(data.laundryType || data["Laundry Type"]),
+    "Utilities Arrangement": normalizeCellText_(data.utilitiesArrangement || data["Utilities Arrangement"]),
+    "Shared Areas": normalizeCellText_(data.sharedAreas || data["Shared Areas"]),
     "Bedrooms": normalizeCellText_(data.bedrooms),
     "Bathrooms": normalizeCellText_(data.bathrooms),
     "Garage Spaces": normalizeCellText_(data.garageSpaces),
@@ -1262,7 +1269,8 @@ function getPropertyStrategyReports_(auth) {
       createdAt: propertyStrategyCreatedAt_(record),
       ownerName: record["Owner Name"], email: record.Email, phone: record.Phone,
       propertyAddress: record["Property Address"], city: record.City,
-      community: record["Community / Area"], propertyType: record["Property Type"],
+      community: record["Community / Area"],
+      propertyType: record["Rental Unit Type"] || record["Property Building Type"] || record["Property Type"],
       targetRent: record["Target Rent"], language: propertyStrategyLanguage_(record, analysisText),
       status: record.Status || "New", reportUrl: record["Report URL"]
     };
@@ -1376,10 +1384,18 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
   appendPropertyStrategyValue_(body, "Community / Area", colVal_(row, headerMap, "Community / Area"));
 
   body.appendParagraph("Property Details").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var buildingType = colVal_(row, headerMap, "Property Building Type");
+  var rentalUnitType = colVal_(row, headerMap, "Rental Unit Type");
+  if (buildingType || rentalUnitType) {
+    appendPropertyStrategyValue_(body, "Property Building Type", buildingType);
+    appendPropertyStrategyValue_(body, "Rental Unit Type", rentalUnitType);
+  } else {
+    appendPropertyStrategyValue_(body, "Property Type", colVal_(row, headerMap, "Property Type"));
+  }
   var detailFields = [
-    "Property Type", "Bedrooms", "Bathrooms", "Garage Spaces", "Driveway Parking", "Furnished",
-    "Ocean View", "Fenced Backyard", "Private Yard", "Pet Friendly", "Existing Suite",
-    "Separate Entrance", "Separate Kitchen", "Separate Laundry", "Separate Meter", "Utilities Shared",
+    "Bedrooms", "Bathrooms", "Garage Spaces", "Driveway Parking", "Furnished",
+    "Ocean View", "Outdoor Space Type", "Fence Status", "Laundry Type", "Utilities Arrangement", "Shared Areas", "Pet Friendly", "Existing Suite",
+    "Separate Entrance", "Separate Kitchen",
     "Can Add Kitchen", "Suite Legal Status", "Suite Permit Status", "Suite Hydro Meter",
     "Suite Yard Privacy", "Suite Shared Areas", "Suite Rent Impact Notes"
   ];
@@ -1416,6 +1432,7 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
     // older saved reports (generated before this update) still render the
     // same way.
     var sectionOrder = [
+      ["propertyClassification", "Building and Rental Unit Classification"],
       ["executiveSummary", "Overall Assessment"],
       ["propertyPositioning", "Property Positioning"],
       ["propertyStrengths", "Property Strengths"],

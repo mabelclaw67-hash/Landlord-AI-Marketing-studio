@@ -45,6 +45,13 @@ const FIELD_LABELS = {
     postalCode: "Postal Code",
     communityArea: "Community / Area",
     propertyType: "Property Type",
+    propertyBuildingType: "Property Building Type",
+    rentalUnitType: "Rental Unit Type Being Assessed",
+    outdoorSpaceType: "Outdoor Space",
+    fenceStatus: "Fence Status",
+    laundryType: "Laundry",
+    utilitiesArrangement: "Utilities Arrangement",
+    sharedAreas: "Shared Areas",
     bedrooms: "Bedrooms",
     bathrooms: "Bathrooms",
     garageSpaces: "Garage Spaces",
@@ -98,6 +105,13 @@ const FIELD_LABELS = {
     postalCode: "邮政编码",
     communityArea: "社区 / 区域",
     propertyType: "物业类型",
+    propertyBuildingType: "物业建筑类型",
+    rentalUnitType: "本次评估的出租单元类型",
+    outdoorSpaceType: "户外空间",
+    fenceStatus: "围栏状态",
+    laundryType: "洗衣安排",
+    utilitiesArrangement: "水电安排",
+    sharedAreas: "共用区域",
     bedrooms: "卧室数",
     bathrooms: "卫生间数",
     garageSpaces: "车库车位",
@@ -216,6 +230,7 @@ const COPY = {
     consentText: "I agree that Vanisland may contact me about this assessment.",
     privacyText: "I consent to submitting this property information for review.",
     report: {
+      propertyClassification: "Building and Rental Unit Type",
       executiveSummary: "Professional Summary",
       propertyPositioning: "Property Positioning",
       estimatedRentRange: "Local Rent Positioning",
@@ -312,6 +327,7 @@ const COPY = {
     consentText: "我同意 Vanisland 就本次初评联系我。",
     privacyText: "我同意提交这些物业信息供审核使用。",
     report: {
+      propertyClassification: "建筑与出租单元类型",
       executiveSummary: "专业结论摘要",
       propertyPositioning: "物业定位",
       estimatedRentRange: "本地租金判断",
@@ -337,10 +353,13 @@ const COPY = {
   },
 };
 
-const PROPERTY_TYPES = ["House", "Townhouse", "Condo", "Duplex", "Suite", "Acreage", "Other"];
+const PROPERTY_BUILDING_TYPES = ["Detached House", "Condo", "Townhouse", "Duplex", "Manufactured Home", "Acreage", "Other"];
+const RENTAL_UNIT_TYPES = ["Entire Detached House", "Main / Upper Unit", "Basement / Secondary Suite", "Entire Condo", "Entire Townhouse", "Whole House with Main + Suite", "One Duplex Unit", "Room Rental", "Other"];
+const OUTDOOR_SPACE_TYPES = ["Fully Private", "Shared", "No Outdoor Space", "Partial", "Not Sure"];
+const FENCE_STATUS_OPTIONS = ["Fully Fenced", "Partially Fenced", "Not Fenced", "Not Applicable", "Not Sure"];
+const LAUNDRY_TYPES = ["Private In-unit", "Shared", "No Laundry", "Not Sure", "Not Applicable"];
+const UTILITIES_ARRANGEMENTS = ["Separate Meter", "Included in Rent", "Shared by Percentage", "Shared by Fixed Amount", "Tenant Pays Own Account", "Not Sure", "Not Applicable"];
 const SUITE_LEGAL_STATUS_OPTIONS = ["Legal", "Unauthorized no permit", "Not sure", "N/A"];
-const SUITE_HYDRO_METER_OPTIONS = ["Yes", "No", "Not sure", "N/A"];
-const SUITE_YARD_PRIVACY_OPTIONS = ["Fully private", "Shared yard", "No yard", "Partial", "Not sure"];
 const OWNER_GOALS = [
   {
     value: "Rent ASAP",
@@ -411,6 +430,29 @@ const OPTION_LABELS_ZH = {
   Suite: "套房",
   Acreage: "大地物业",
   Other: "其他",
+  "Detached House": "独立屋",
+  "Manufactured Home": "活动房屋",
+  "Entire Detached House": "整栋独立屋",
+  "Main / Upper Unit": "主层 / 楼上单元",
+  "Basement / Secondary Suite": "地下套间 / 第二套房",
+  "Entire Condo": "整套公寓",
+  "Entire Townhouse": "整套联排屋",
+  "Whole House with Main + Suite": "楼上加楼下整体出租",
+  "One Duplex Unit": "双拼屋其中一个单元",
+  "Room Rental": "单个房间出租",
+  "Fully Private": "完全独享",
+  "No Outdoor Space": "无户外空间",
+  "Fully Fenced": "完全有围栏",
+  "Partially Fenced": "部分有围栏",
+  "Not Fenced": "没有围栏",
+  "Not Applicable": "不适用",
+  "Private In-unit": "套内独立洗衣",
+  "No Laundry": "无洗衣设施",
+  "Separate Meter": "独立电表",
+  "Included in Rent": "包含在租金内",
+  "Shared by Percentage": "按比例分摊",
+  "Shared by Fixed Amount": "按固定金额分摊",
+  "Tenant Pays Own Account": "租客自行开户缴费",
   "Maximize rent": "尽量提高租金",
   "Rent ASAP": "尽快出租",
   "Long-term Stable Tenant": "稳定长期租客",
@@ -520,7 +562,25 @@ export default function StrategyAssessment({ lang }) {
 
   const update = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      if (field !== "rentalUnitType") return { ...current, [field]: value };
+      return {
+        ...current,
+        rentalUnitType: value,
+        existingSuite: "",
+        separateEntrance: "",
+        separateKitchen: "",
+        laundryType: "",
+        utilitiesArrangement: "",
+        sharedAreas: "",
+        suiteLegalStatus: "",
+        suitePermitStatus: "",
+        suiteBedrooms: "",
+        suiteBathrooms: "",
+        suiteRentImpactNotes: "",
+        followUpAnswers: {},
+      };
+    });
   };
 
   const updateOwnerGoal = (value) => {
@@ -616,6 +676,13 @@ export default function StrategyAssessment({ lang }) {
   };
 
   const renderStep = () => {
+    const unitType = form.rentalUnitType;
+    const isSuiteUnit = unitType === "Basement / Secondary Suite";
+    const isUpperUnit = unitType === "Main / Upper Unit";
+    const isCombinedHouse = unitType === "Whole House with Main + Suite";
+    const needsUnitSeparation = isSuiteUnit || isUpperUnit || isCombinedHouse;
+    const showsSuiteDetails = isSuiteUnit || isCombinedHouse || form.existingSuite === "Yes";
+    const showsOutdoor = !["Entire Condo", "Room Rental"].includes(unitType);
     if (step === 0) {
       return (
         <AssessmentSection title={copy.sections.ownerInfo}>
@@ -644,7 +711,8 @@ export default function StrategyAssessment({ lang }) {
             <TextInput field="communityArea" form={form} update={update} labels={labels} />
           </div>
           <div className="form-row">
-            <SelectInput field="propertyType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={PROPERTY_TYPES} required />
+            <SelectInput field="propertyBuildingType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={PROPERTY_BUILDING_TYPES} required />
+            <SelectInput field="rentalUnitType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={RENTAL_UNIT_TYPES} required />
             <TextInput field="availableDate" form={form} update={update} labels={labels} type="date" />
           </div>
           <div className="form-row strategy-row-4">
@@ -662,26 +730,28 @@ export default function StrategyAssessment({ lang }) {
         <>
           <AssessmentSection title={copy.sections.rentalStructure}>
             <div className="strategy-toggle-grid">
-              {["furnished", "existingSuite", "separateEntrance", "separateKitchen", "separateLaundry", "separateMeter", "utilitiesShared", "canAddKitchen"].map((field) => (
-                <SelectInput key={field} field={field} form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />
-              ))}
+              <SelectInput field="furnished" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />
+              {(unitType === "Entire Detached House" || unitType === "Entire Townhouse") && <SelectInput field="existingSuite" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />}
+              {isUpperUnit && <SelectInput field="existingSuite" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />}
+              {needsUnitSeparation && <SelectInput field="separateEntrance" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />}
+              {(isSuiteUnit || isCombinedHouse) && <SelectInput field="separateKitchen" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />}
+              {needsUnitSeparation && <SelectInput field="laundryType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={LAUNDRY_TYPES} />}
+              {needsUnitSeparation && <SelectInput field="utilitiesArrangement" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={UTILITIES_ARRANGEMENTS} />}
             </div>
+            {needsUnitSeparation && <TextInput field="sharedAreas" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：车道、院子、楼梯间；没有则填写无" : "e.g. driveway, yard, stairwell; enter None if applicable"} />}
           </AssessmentSection>
 
-          <AssessmentSection title={copy.sections.suiteDetails}>
+          {showsSuiteDetails && <AssessmentSection title={copy.sections.suiteDetails}>
             <div className="strategy-toggle-grid">
               <SelectInput field="suiteLegalStatus" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={SUITE_LEGAL_STATUS_OPTIONS} />
               <TextInput field="suitePermitStatus" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：有许可 / 无许可 / 未核实" : "e.g. permitted / no permit / unverified"} />
-              <SelectInput field="suiteHydroMeter" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={SUITE_HYDRO_METER_OPTIONS} />
-              <SelectInput field="suiteYardPrivacy" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={SUITE_YARD_PRIVACY_OPTIONS} />
               <TextInput field="suiteBedrooms" form={form} update={update} labels={labels} type="number" min="0" placeholder={safeLang === "zh" ? "套间卧室数（如已知）" : "Suite bedrooms (if known)"} />
               <TextInput field="suiteBathrooms" form={form} update={update} labels={labels} type="number" min="0" placeholder={safeLang === "zh" ? "套间卫生间数（如已知）" : "Suite bathrooms (if known)"} />
             </div>
             <div className="form-row">
-              <TextInput field="suiteSharedAreas" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：洗衣、车道、院子" : "e.g. laundry, driveway, yard"} />
               <TextInput field="suiteRentImpactNotes" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：独立院子可提高吸引力" : "e.g. private yard may improve appeal"} />
             </div>
-          </AssessmentSection>
+          </AssessmentSection>}
         </>
       );
     }
@@ -691,9 +761,10 @@ export default function StrategyAssessment({ lang }) {
         <>
           <AssessmentSection title={copy.sections.keyFactors}>
             <div className="strategy-toggle-grid">
-              {["oceanView", "fencedBackyard", "privateYard", "petFriendly"].map((field) => (
-                <SelectInput key={field} field={field} form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />
-              ))}
+              <SelectInput field="oceanView" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />
+              {showsOutdoor && <SelectInput field="outdoorSpaceType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={OUTDOOR_SPACE_TYPES} />}
+              {showsOutdoor && <SelectInput field="fenceStatus" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={FENCE_STATUS_OPTIONS} />}
+              <SelectInput field="petFriendly" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={YES_NO} />
             </div>
             <TextArea field="knownIssues" form={form} update={update} labels={labels} rows={3} />
           </AssessmentSection>
@@ -1236,6 +1307,7 @@ function TextArea({ field, form, update, labels, rows = 4 }) {
 // saved JSON for admin traceability.
 function buildAssessmentReportRows(assessment, copy) {
   return [
+    [copy.report.propertyClassification, assessment.propertyClassification],
     [copy.report.executiveSummary, assessment.executiveSummary],
     [copy.report.propertyPositioning, assessment.propertyPositioning],
     [copy.report.estimatedRentRange, assessment.estimatedRentRange],

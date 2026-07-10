@@ -4,6 +4,7 @@ import { getStudioRequestAuth } from "../../utils/trialAccess";
 import { useLang } from "../../contexts/LangContext";
 
 const SECTION_LABELS = {
+  propertyClassification: ["Building and Rental Unit Classification", "建筑与出租单元分类"],
   executiveSummary: ["Professional Summary", "专业结论摘要"], propertyPositioning: ["Property Positioning", "物业定位"],
   propertyStrengths: ["Factors Supporting the Price", "支持价格的因素"],
   rentalChallenges: ["Factors Limiting the Price", "限制价格的因素"], suggestedRentalStrategy: ["Rental Strategy", "出租策略"],
@@ -81,7 +82,7 @@ export default function StrategyAssessments() {
         </tbody></table>{!filtered.length && <p className="strategy-reports-empty">{isZh ? "没有匹配的报告。" : "No matching reports."}</p>}</div>
       )}
       {selected && <div className="strategy-report-modal" role="dialog" aria-modal="true" aria-label="Strategy assessment report"><div className="strategy-report-modal__panel"><div className="strategy-report-modal__header"><div><h2>{selected.assessmentId}</h2><p>{selected.language} · {selected.status}</p></div><button className="btn btn--secondary" onClick={() => setSelected(null)}>{isZh ? "关闭" : "Close"}</button></div>
-        <div className="strategy-report-detail-meta">{["Owner Name", "Email", "Phone", "Property Address", "City", "Community / Area", "Property Type", "Target Rent", "Follow-up Answers", "AI Flags"].map((key) => selected.fields?.[key] ? <div key={key}><strong>{key}</strong><span>{selected.fields[key]}</span></div> : null)}</div>
+        <div className="strategy-report-detail-meta">{["Owner Name", "Email", "Phone", "Property Address", "City", "Community / Area", ...(selected.fields?.["Property Building Type"] || selected.fields?.["Rental Unit Type"] ? ["Property Building Type", "Rental Unit Type"] : ["Property Type"]), "Outdoor Space Type", "Fence Status", "Laundry Type", "Utilities Arrangement", "Shared Areas", "Target Rent", "Follow-up Answers", "AI Flags"].map((key) => selected.fields?.[key] ? <div key={key}><strong>{key}</strong><span>{selected.fields[key]}</span></div> : null)}</div>
         {selected.reportUrl ? <p><a className="btn btn--primary" href={selected.reportUrl} target="_blank" rel="noreferrer">{isZh ? "打开 PDF" : "Open PDF"}</a></p> : <div className="notice notice--warning"><p>{isZh ? "PDF 尚未生成" : "PDF Not Generated"}</p></div>}
         <div className="strategy-report-detail-sections">{selected.analysis ? Object.entries(selected.analysis).map(([key, value]) => <section key={key}><h3>{SECTION_LABELS[key]?.[isZh ? 1 : 0] || key}</h3><ReportValue value={value} /></section>) : <section><h3>AI Analysis</h3><p className="strategy-report-raw">{selected.analysisText || "No saved report content."}</p></section>}</div>
       </div></div>}

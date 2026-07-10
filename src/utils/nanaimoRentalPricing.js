@@ -156,6 +156,7 @@ const TYPE_LABELS = {
 
 export function classifyNanaimoRentalType(form) {
   const propertyType = String(form.propertyType || "").toLowerCase();
+  const rentalUnitType = String(form.rentalUnitType || "");
   const bed = toNumber(form.bedrooms);
   const bath = toNumber(form.bathrooms);
   const hasLowerSuite = form.existingSuite === "Yes";
@@ -164,7 +165,19 @@ export function classifyNanaimoRentalType(form) {
 
   let code;
 
-  if (propertyType === "suite") {
+  if (rentalUnitType === "Basement / Secondary Suite") {
+    code = bed <= 1 ? RENTAL_TYPE.ONE_BED_SUITE : RENTAL_TYPE.TWO_BED_SUITE;
+  } else if (rentalUnitType === "Entire Condo") {
+    code = RENTAL_TYPE.CONDO;
+  } else if (rentalUnitType === "Whole House with Main + Suite") {
+    code = RENTAL_TYPE.COMBO_UPPER_LOWER;
+  } else if (rentalUnitType === "Main / Upper Unit" && bed === 3 && bath >= 2) {
+    code = RENTAL_TYPE.UPPER_3BED2BATH;
+  } else if (rentalUnitType === "Main / Upper Unit" && bed >= 4 && bath >= 3) {
+    code = garage > 0 ? RENTAL_TYPE.UPPER_4BED3BATH_GARAGE : RENTAL_TYPE.UPPER_4BED3BATH_NO_GARAGE;
+  } else if (["Entire Detached House", "Entire Townhouse", "One Duplex Unit"].includes(rentalUnitType)) {
+    code = bed >= 4 && bath >= 3 ? RENTAL_TYPE.WHOLE_HOUSE_4BED3BATH : RENTAL_TYPE.WHOLE_HOUSE_GENERAL;
+  } else if (propertyType === "suite") {
     code = bed <= 1 ? RENTAL_TYPE.ONE_BED_SUITE : RENTAL_TYPE.TWO_BED_SUITE;
   } else if (propertyType === "condo") {
     code = RENTAL_TYPE.CONDO;
@@ -264,10 +277,11 @@ export function scorePropertyFactors(form, followUps = {}) {
     score -= 1;
     limiting.push({ en: "No garage or driveway parking confirmed", zh: "未确认车库或车道停车位" });
   }
-  if (form.privateYard === "Yes" || form.suiteYardPrivacy === "Fully private") {
+  const outdoorSpaceType = form.outdoorSpaceType || (form.privateYard === "Yes" || form.suiteYardPrivacy === "Fully private" ? "Fully Private" : "");
+  if (outdoorSpaceType === "Fully Private") {
     score += 1.5;
     supporting.push({ en: "Private outdoor space confirmed", zh: "已确认独立私人户外空间" });
-  } else if (form.suiteYardPrivacy === "Shared yard" || form.suiteYardPrivacy === "No yard" || (form.fencedBackyard !== "Yes" && form.privateYard !== "Yes")) {
+  } else if (["Shared", "No Outdoor Space"].includes(outdoorSpaceType) || (!form.outdoorSpaceType && (form.suiteYardPrivacy === "Shared yard" || form.suiteYardPrivacy === "No yard" || (form.fencedBackyard !== "Yes" && form.privateYard !== "Yes")))) {
     score -= 1;
     limiting.push({ en: "Shared or no private outdoor space", zh: "户外空间为共用或无独立户外空间" });
   }
@@ -275,17 +289,17 @@ export function scorePropertyFactors(form, followUps = {}) {
     score += 1;
     supporting.push({ en: "Separate entrance confirmed", zh: "已确认独立入口" });
   }
-  if (form.suiteHydroMeter === "Yes" || form.separateMeter === "Yes") {
+  if (form.utilitiesArrangement === "Separate Meter" || (!form.utilitiesArrangement && (form.suiteHydroMeter === "Yes" || form.separateMeter === "Yes"))) {
     score += 0.5;
     supporting.push({ en: "Separate hydro meter confirmed", zh: "已确认独立水电表" });
-  } else if (form.utilitiesShared === "Yes") {
+  } else if (["Shared by Percentage", "Shared by Fixed Amount"].includes(form.utilitiesArrangement) || (!form.utilitiesArrangement && form.utilitiesShared === "Yes")) {
     score -= 1;
     limiting.push({ en: "Utilities are shared with another unit", zh: "水电与其他单元共用" });
   }
-  if (followUps.suiteSeparateLaundry === "No" || form.separateLaundry === "No") {
+  if (form.laundryType === "Shared" || form.laundryType === "No Laundry" || (!form.laundryType && (followUps.suiteSeparateLaundry === "No" || form.separateLaundry === "No"))) {
     score -= 1;
     limiting.push({ en: "Shared laundry (no independent laundry)", zh: "洗衣为共用，无独立洗衣" });
-  } else if (form.separateLaundry === "Yes" || followUps.suiteSeparateLaundry === "Yes") {
+  } else if (form.laundryType === "Private In-unit" || (!form.laundryType && (form.separateLaundry === "Yes" || followUps.suiteSeparateLaundry === "Yes"))) {
     score += 0.5;
     supporting.push({ en: "Independent laundry confirmed", zh: "已确认独立洗衣" });
   }
