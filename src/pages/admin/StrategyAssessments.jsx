@@ -20,6 +20,7 @@ const SECTION_LABELS = {
   aiAssessmentConfidence: ["AI Confidence", "AI 信心"], marketingSuggestions: ["Marketing Suggestions", "营销建议"],
   professionalPreliminaryRecommendation: ["Professional Preliminary Recommendation", "专业初步建议"], ownerGoalAlignment: ["Owner Goal Alignment", "业主目标匹配"],
   recommendedNextStep: ["Recommended Service Path", "推荐服务方案"], knowledgeLinks: ["Knowledge Links", "知识链接"], disclaimer: ["Disclaimer", "免责声明"],
+  servicePath: ["Service Path", "服务路径"],
   outputGuardWarnings: ["Output Guard Warnings (internal QA)", "输出防错提醒（内部质检）"],
 };
 

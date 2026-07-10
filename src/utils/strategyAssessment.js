@@ -38,7 +38,18 @@ const OPTION_LABELS_ZH = {
   "Separate Meter": "独立电表", "Included in Rent": "包含在租金内",
   "Shared by Percentage": "按比例分摊", "Shared by Fixed Amount": "按固定金额分摊",
   "Tenant Pays Own Account": "租客自行开户缴费",
+  "Book a professional strategy review": "预约专业策略审核",
+  "Request AI Marketing / Listing Service": "申请 AI 营销 / 房源发布服务",
+  "Request Full Property Management": "申请完整物业管理服务",
+  "Request full rental market assessment": "申请完整租赁市场评估",
+  "Prepare listing marketing package": "准备房源营销套件",
+  "Discuss property management": "咨询物业管理",
   "Not ready yet - keep my intake on file": "暂未准备好，先保留资料",
+  "Professional legal/compliance review before listing": "挂牌前进行专业法规与合规审核",
+  "STR feasibility review": "短租可行性审核",
+  "Fast rental listing preparation": "快速准备出租挂牌",
+  "Full rental strategy and marketing review": "完整出租策略与营销审核",
+  "Professional strategy review": "专业策略审核",
 };
 
 const FOLLOW_UP_QUESTIONS_ZH = {
@@ -436,7 +447,7 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
     legalComplianceRisk: buildLegalComplianceRisk(form, safeLang),
     aiConfidenceFlags: buildAiConfidenceAndFlags(form, safeLang),
     aiAssessmentConfidence: buildAiAssessmentConfidence(form, confidence, safeLang),
-    servicePath: buildServicePath(form),
+    servicePath: displayOption(buildServicePath(form), safeLang),
     marketingSuggestions: buildMarketingSuggestions(form, followUps, safeLang),
     ownerGoalAlignment: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
     professionalPreliminaryRecommendation: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
