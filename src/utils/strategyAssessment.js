@@ -722,7 +722,7 @@ function buildNextSteps(form, judgment, lang) {
   if (lang === "zh") {
     const steps = [
       `以建议挂牌价 ${money(judgment.recommendedPrice)}/月 完成房源资料和照片准备。`,
-      "确认第一批照片以客厅、厨房和主要卧室为主，如有海景、车库或私人院子需一并确认后再使用。",
+      "确认第一批照片以客厅、厨房和主要卧室为主；其他特殊卖点必须核实后再使用。",
       "挂牌后按「出租策略」章节的调价规则跟踪咨询量和申请质量。",
     ];
     if (judgment.comboDetails) steps.push("同时评估分租与整租两条路径的实际申请情况，再决定最终出租方式。");
@@ -730,7 +730,7 @@ function buildNextSteps(form, judgment, lang) {
   }
   const steps = [
     `Prepare the listing and photos around the recommended price of ${money(judgment.recommendedPrice)}/month.`,
-    "Confirm the first photo set covers the living room, kitchen, and main bedrooms; only use ocean view, garage, or private yard photos once confirmed.",
+    "Confirm the first photo set covers the living room, kitchen, and main bedrooms; use any additional special feature only after it is verified.",
     "Track inquiry volume and application quality against the adjustment rules in the Rental Strategy section.",
   ];
   if (judgment.comboDetails) steps.push("Track actual applications for both the split-rental and whole-property paths before committing to a final format.");
