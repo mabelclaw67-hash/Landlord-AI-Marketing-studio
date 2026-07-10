@@ -1397,7 +1397,7 @@ function propertyStrategyPdfLabel_(label, language) {
 
 function propertyStrategyPdfValue_(value, language) {
   if (language !== "zh") return value;
-  var values = {"Detached House":"独立屋","Condo":"公寓","Townhouse":"联排屋","Duplex":"双拼屋","Manufactured Home":"活动房屋","Acreage":"大面积土地住宅","Other":"其他","Entire Detached House":"整栋独立屋","Main / Upper Unit":"主层 / 楼上单元","Basement / Secondary Suite":"地下套间 / 第二套房","Entire Condo":"整套公寓","Entire Townhouse":"整套联排屋","Whole House with Main + Suite":"楼上加楼下整体出租","One Duplex Unit":"双拼屋其中一个单元","Room Rental":"单个房间出租","Fully Private":"完全独享","Shared":"共用","No Outdoor Space":"无户外空间","Partial":"部分独享","Not Sure":"不确定","Fully Fenced":"完全有围栏","Partially Fenced":"部分有围栏","Not Fenced":"没有围栏","Not Applicable":"不适用","Private In-unit":"套内独立洗衣","No Laundry":"无洗衣设施","Separate Meter":"独立电表","Included in Rent":"包含在租金内","Shared by Percentage":"按比例分摊","Shared by Fixed Amount":"按固定金额分摊","Tenant Pays Own Account":"租客自行开户缴费","Long-term Stable Tenant":"寻找长期稳定租客","Rent ASAP":"尽快出租","Maximize rent":"尽量提高租金","Try Airbnb":"尝试短租","Prepare for Sale Later":"为以后出售做准备","AI Marketing Package":"AI 营销方案","Professional Rental Listing":"专业出租挂牌服务","Property Management":"物业管理服务","Not ready yet - keep my intake on file":"暂未准备好，先保留资料","Yes":"是","No":"否","Unsure":"不确定"};
+  var values = {"Detached House":"独立屋","Condo":"公寓","Townhouse":"联排屋","Duplex":"双拼屋","Manufactured Home":"活动房屋","Acreage":"大面积土地住宅","Other":"其他","Entire Detached House":"整栋独立屋","Main / Upper Unit":"主层 / 楼上单元","Basement / Secondary Suite":"地下套间 / 第二套房","Entire Condo":"整套公寓","Entire Townhouse":"整套联排屋","Whole House with Main + Suite":"楼上加楼下整体出租","One Duplex Unit":"双拼屋其中一个单元","Room Rental":"单个房间出租","Fully Private":"完全独享","Shared":"共用","No Outdoor Space":"无户外空间","Partial":"部分独享","Not Sure":"不确定","Not sure":"不确定","Fully Fenced":"完全有围栏","Partially Fenced":"部分有围栏","Not Fenced":"没有围栏","Not Applicable":"不适用","Private In-unit":"套内独立洗衣","No Laundry":"无洗衣设施","Separate Meter":"独立电表","Included in Rent":"包含在租金内","Shared by Percentage":"按比例分摊","Shared by Fixed Amount":"按固定金额分摊","Tenant Pays Own Account":"租客自行开户缴费","Long-term Stable Tenant":"寻找长期稳定租客","Rent ASAP":"尽快出租","Maximize rent":"尽量提高租金","Try Airbnb":"尝试短租","Prepare for Sale Later":"为以后出售做准备","AI Marketing Package":"AI 营销方案","Professional Rental Listing":"专业出租挂牌服务","Property Management":"物业管理服务","Not ready yet - keep my intake on file":"暂未准备好，先保留资料","Email":"邮箱","Phone":"电话","SMS":"短信","WeChat":"微信","Yes":"是","No":"否","Unsure":"不确定"};
   return values[normalizeCellText_(value)] || value;
 }
 
@@ -1456,20 +1456,17 @@ function buildPropertyStrategyReportDocument_(found, assessmentId, language, ass
   body.appendParagraph(propertyStrategyPdfLabel_("Owner Goal and Risk Notes", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var goalFields = [
     "Owner Goal", "Target Rent", "Available Date", "Timeline Urgency", "Next Step",
-    "Known Issues", "Legal Risk Flag", "Owner Occupancy Related", "Occupied 12 Months",
-    "Owner Occupancy Notes", "AI Flags", "AI Confidence & Flags", "Service Path"
+    "Legal Risk Flag", "Owner Occupancy Related", "Occupied 12 Months"
   ];
   for (var g = 0; g < goalFields.length; g++) appendPropertyStrategyLocalizedValue_(body, goalFields[g], colVal_(row, headerMap, goalFields[g]), language);
 
   body.appendParagraph(propertyStrategyPdfLabel_("Location and STR", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var locationFields = [
-    "Nearby Commercial Centre", "Location Notes", "Location Rent Premium", "Rent Adjustment Factors",
+    "Nearby Commercial Centre", "Location Rent Premium",
     "Airbnb Interest", "Principal Residence", "Owner Lives On Site", "STR Municipality",
     "Third-party Operator Interest"
   ];
   for (var l = 0; l < locationFields.length; l++) appendPropertyStrategyLocalizedValue_(body, locationFields[l], colVal_(row, headerMap, locationFields[l]), language);
-
-  appendPropertyStrategySection_(body, propertyStrategyPdfLabel_("Follow-up Answers", language), colVal_(row, headerMap, "Follow-up Answers"));
 
   var assessmentText = assessmentTextOverride || colVal_(found.row, headerMap, "AI Analysis JSON") ||
     colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
