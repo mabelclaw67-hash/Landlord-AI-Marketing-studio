@@ -1028,11 +1028,14 @@ const MEDICAL_DISCLAIMER_EN = "Clinic services and patient-intake arrangements m
 function localizeKnowledgeText(value, lang = "en") {
   const text = infrastructureValue(value);
   if (!text) return "";
-  const parts = text.split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
-  if (parts.length < 2) return text;
-  const chinese = parts.find((item) => /[\u3400-\u9fff]/.test(item));
-  const english = parts.find((item) => !/[\u3400-\u9fff]/.test(item));
-  return lang === "zh" ? (chinese || english || text) : (english || chinese || text);
+  const localized = text.split(/\s*\|\s*/).map((segment) => {
+    const parts = segment.split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
+    if (parts.length < 2) return segment.trim();
+    const chinese = parts.find((item) => /[\u3400-\u9fff]/.test(item));
+    const english = parts.find((item) => !/[\u3400-\u9fff]/.test(item));
+    return lang === "zh" ? (chinese || english || segment) : (english || chinese || segment);
+  }).filter(Boolean);
+  return localized.filter((item, index) => localized.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index).join(" | ");
 }
 
 function appendUniqueKnowledge(items, value, lang, prefixZh, prefixEn) {
