@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
   displayStrategyValue,
   generatePreliminaryStrategySummary,
+  getRentalIntelligenceCommunities,
   getRentalIntelligenceKnowledge,
   getLegalRiskFlag,
   getStrategyFollowUpQuestions,
@@ -45,6 +46,7 @@ const FIELD_LABELS = {
     province: "Province",
     postalCode: "Postal Code",
     communityArea: "Community / Area",
+    communityId: "Community",
     propertyType: "Property Type",
     propertyBuildingType: "Property Building Type",
     rentalUnitType: "Rental Unit Type Being Assessed",
@@ -105,6 +107,7 @@ const FIELD_LABELS = {
     province: "省份",
     postalCode: "邮政编码",
     communityArea: "社区 / 区域",
+    communityId: "社区",
     propertyType: "物业类型",
     propertyBuildingType: "物业建筑类型",
     rentalUnitType: "本次评估的出租单元类型",
@@ -542,8 +545,33 @@ export default function StrategyAssessment({ lang }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(null);
+  const [communityOptions, setCommunityOptions] = useState([]);
+  const [communitiesLoading, setCommunitiesLoading] = useState(false);
+  const [communityIntelligence, setCommunityIntelligence] = useState(null);
 
-  const preliminary = useMemo(() => generatePreliminaryStrategySummary(form, safeLang), [form, safeLang]);
+  useEffect(() => {
+    let active = true;
+    setCommunitiesLoading(true);
+    getRentalIntelligenceCommunities(form.city)
+      .then((items) => { if (active) setCommunityOptions(Array.isArray(items) ? items : []); })
+      .catch(() => { if (active) setCommunityOptions([]); })
+      .finally(() => { if (active) setCommunitiesLoading(false); });
+    return () => { active = false; };
+  }, [form.city]);
+
+  useEffect(() => {
+    let active = true;
+    if (!form.communityId && !form.communityName) {
+      setCommunityIntelligence(null);
+      return () => { active = false; };
+    }
+    getRentalIntelligenceKnowledge(form)
+      .then((result) => { if (active) setCommunityIntelligence(result); })
+      .catch(() => { if (active) setCommunityIntelligence(null); });
+    return () => { active = false; };
+  }, [form.communityId, form.communityName]);
+
+  const preliminary = useMemo(() => generatePreliminaryStrategySummary(form, safeLang, communityIntelligence), [form, safeLang, communityIntelligence]);
   const followUpQuestions = useMemo(() => getStrategyFollowUpQuestions(form), [form]);
   const steps = useMemo(() => [
     copy.sections.ownerInfo,
@@ -641,7 +669,9 @@ export default function StrategyAssessment({ lang }) {
     setError("");
 
     try {
-      const rentalIntelligence = await getRentalIntelligenceKnowledge(form);
+      const rentalIntelligence = communityIntelligence?.communityId === form.communityId
+        ? communityIntelligence
+        : await getRentalIntelligenceKnowledge(form);
       const reportZh = generatePreliminaryStrategySummary(form, "zh", rentalIntelligence);
       const reportEn = generatePreliminaryStrategySummary(form, "en", rentalIntelligence);
       const finalPreliminary = safeLang === "zh" ? reportZh : reportEn;
@@ -713,7 +743,15 @@ export default function StrategyAssessment({ lang }) {
           </div>
           <div className="form-row">
             <TextInput field="postalCode" form={form} update={update} labels={labels} />
-            <TextInput field="communityArea" form={form} update={update} labels={labels} />
+            <CommunitySelect
+              form={form}
+              setForm={setForm}
+              labels={labels}
+              copy={copy}
+              options={communityOptions}
+              loading={communitiesLoading}
+              lang={safeLang}
+            />
           </div>
           <div className="form-row">
             <SelectInput field="propertyBuildingType" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={PROPERTY_BUILDING_TYPES} required />
@@ -1289,6 +1327,31 @@ function SelectInput({ field, form, update, labels, copy, lang = "en", options, 
         <option value="">{copy.select}</option>
         {options.map((option) => <option key={option} value={option}>{displayOption(option, lang)}</option>)}
       </select>
+    </div>
+  );
+}
+
+function CommunitySelect({ form, setForm, labels, copy, options, loading, lang }) {
+  const fallbackLabel = lang === "zh" ? "其他 / 尚未确定" : "Other / Not yet confirmed";
+  const onChange = (event) => {
+    const communityId = event.target.value;
+    const selected = options.find((item) => item.communityId === communityId);
+    setForm((current) => ({
+      ...current,
+      communityId,
+      communityName: selected?.communityName || "",
+      communityArea: selected?.communityName || "",
+      city: selected?.city || current.city,
+    }));
+  };
+  return (
+    <div className="form-group">
+      <label>{labels.communityId}</label>
+      <select className="form-control" value={form.communityId} onChange={onChange} disabled={loading}>
+        <option value="">{loading ? (lang === "zh" ? "正在读取社区…" : "Loading communities…") : fallbackLabel}</option>
+        {options.map((item) => <option key={item.communityId} value={item.communityId}>{item.communityName}</option>)}
+      </select>
+      {!loading && !options.length && <small className="text-muted">{lang === "zh" ? "社区列表暂时不可用，可选择“其他 / 尚未确定”继续。" : "The community list is temporarily unavailable; continue with Other / Not yet confirmed."}</small>}
     </div>
   );
 }

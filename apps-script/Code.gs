@@ -248,7 +248,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -261,6 +261,7 @@ function doPost(e) {
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
     if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
+    if (action === "getRentalIntelligenceCommunities") return ok(getRentalIntelligenceCommunities_(body.data || body));
     if (action === "getRentalIntelligenceKnowledge") return ok(getRentalIntelligenceKnowledge_(body.data || body));
     if (action === "getPropertyStrategyReports") return ok(getPropertyStrategyReports_(auth));
     if (action === "getPropertyStrategyReport") return ok(getPropertyStrategyReport_(body.assessmentId, auth));
@@ -989,6 +990,8 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "Property Address": normalizeCellText_(data.propertyAddress),
     "City": normalizeCellText_(data.city),
     "Community / Area": normalizeCellText_(data.communityArea),
+    "Community ID": normalizeCellText_(data.communityId),
+    "Community Name": normalizeCellText_(data.communityName || data.communityArea),
     "Property Type": normalizeCellText_(data.propertyType),
     "Property Building Type": normalizeCellText_(data.propertyBuildingType || data["Property Building Type"]),
     "Rental Unit Type": normalizeCellText_(data.rentalUnitType || data["Rental Unit Type"]),
@@ -1109,6 +1112,10 @@ function findCommunityNameInRecord_(record) {
   ]);
 }
 
+function findCommunityIdInRecord_(record) {
+  return firstExistingValue_(record, ["Community ID", "communityId", "Community_ID"]);
+}
+
 function findKeywordsInRecord_(record) {
   return firstExistingValue_(record, [
     "Keywords",
@@ -1148,50 +1155,74 @@ function findGenericNanaimoKnowledge_(rows) {
   return rows[0] || {};
 }
 
-function filterKnowledgeByCommunity_(rows, communityName) {
+function filterKnowledgeByCommunity_(rows, communityId, communityName) {
+  var targetId = normalizeCellText_(communityId).toLowerCase();
   var target = normalizeCellText_(communityName).toLowerCase();
-  if (!target) return [];
+  if (!targetId && !target) return [];
   return rows.filter(function(row) {
+    var rowId = findCommunityIdInRecord_(row).toLowerCase();
+    if (targetId) return rowId === targetId;
     return findCommunityNameInRecord_(row).toLowerCase() === target;
   });
 }
 
+function getRentalIntelligenceCommunities_(payload) {
+  payload = payload || {};
+  var city = normalizeCellText_(payload.city).toLowerCase();
+  return getRentalIntelligenceSheetRows_(COMMUNITY_KNOWLEDGE_BASE_SHEET).map(function(record) {
+    return {
+      communityId: findCommunityIdInRecord_(record),
+      communityName: findCommunityNameInRecord_(record),
+      city: normalizeCellText_(record.City || record.city),
+    };
+  }).filter(function(item) {
+    return item.communityId && item.communityName && (!city || item.city.toLowerCase() === city);
+  }).sort(function(a, b) {
+    return a.communityName.localeCompare(b.communityName);
+  });
+}
+
 function pickBestCommunityKnowledge_(baseRows, payload) {
-  var searchText = [
-    payload.propertyAddress,
-    payload.address,
-    payload.city,
-    payload.communityArea,
-    payload.community,
-    payload.locationNotes,
-  ].filter(Boolean).join(" ").toLowerCase();
-  var best = null;
+  var requestedId = normalizeCellText_(payload.communityId).toLowerCase();
+  if (requestedId) {
+    for (var idIndex = 0; idIndex < baseRows.length; idIndex++) {
+      if (findCommunityIdInRecord_(baseRows[idIndex]).toLowerCase() === requestedId) {
+        return { record: baseRows[idIndex], matchType: "community_id", score: 100 };
+      }
+    }
+  }
+  var requestedName = normalizeCellText_(payload.communityName || payload.communityArea || payload.community).toLowerCase();
+  if (!requestedName) return { record: {}, matchType: "unmatched", score: 0 };
   for (var i = 0; i < baseRows.length; i++) {
-    var score = scoreCommunityMatch_(baseRows[i], searchText);
-    if (!best || score > best.score) best = { record: baseRows[i], score: score };
+    if (findCommunityNameInRecord_(baseRows[i]).toLowerCase() === requestedName) {
+      return { record: baseRows[i], matchType: "community_name", score: 50 };
+    }
   }
-  if (best && best.score > 0) {
-    return { record: best.record, matchType: "keyword", score: best.score };
-  }
-  return { record: findGenericNanaimoKnowledge_(baseRows), matchType: "fallback", score: 0 };
+  return { record: {}, matchType: "unmatched", score: 0 };
 }
 
 function getRentalIntelligenceKnowledge_(payload) {
   payload = payload || {};
   var baseRows = getRentalIntelligenceSheetRows_(COMMUNITY_KNOWLEDGE_BASE_SHEET);
   var selected = pickBestCommunityKnowledge_(baseRows, payload);
-  var communityName = findCommunityNameInRecord_(selected.record) || "Generic Nanaimo";
+  var communityId = findCommunityIdInRecord_(selected.record);
+  var communityName = findCommunityNameInRecord_(selected.record);
+  var city = normalizeCellText_(selected.record.City || selected.record.city);
+  var tagRows = filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_TAGS_SHEET), communityId, communityName);
   return {
+    communityId: communityId,
     communityName: communityName,
+    city: city,
     matchType: selected.matchType,
     matchScore: selected.score,
     source: "VanIsland Rental Intelligence Knowledge Base",
     sourceSpreadsheetId: getRentalIntelligenceSpreadsheetId_(),
     communityKnowledgeBase: selected.record || {},
-    communityTags: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_TAGS_SHEET), communityName),
-    communityScoring: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_SCORING_SHEET), communityName),
-    propertyFitMatrix: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(PROPERTY_FIT_MATRIX_SHEET), communityName),
-    aiDecisionHints: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(AI_DECISION_HINTS_SHEET), communityName),
+    communityTags: tagRows,
+    tags: tagRows[0] || {},
+    communityScoring: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_SCORING_SHEET), communityId, communityName)[0] || {},
+    propertyFitMatrix: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(PROPERTY_FIT_MATRIX_SHEET), communityId, communityName)[0] || {},
+    aiDecisionHints: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(AI_DECISION_HINTS_SHEET), communityId, communityName)[0] || {},
     lastLoadedAt: new Date().toISOString(),
   };
 }

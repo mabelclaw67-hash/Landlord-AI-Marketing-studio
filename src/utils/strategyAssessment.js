@@ -155,6 +155,8 @@ export function createEmptyStrategyAssessment(overrides = {}) {
     city: "Nanaimo",
     province: "BC",
     postalCode: "",
+    communityId: "",
+    communityName: "",
     communityArea: "",
     propertyType: "",
     propertyBuildingType: "",
@@ -439,11 +441,11 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
     nextSteps: buildNextSteps(form, judgment, safeLang),
     suiteSplitRentalPotential: buildSuiteSplitPotential(form, followUps, safeLang),
     suiteQualityPrivacy: buildSuiteQualityPrivacy(form, safeLang),
-    locationRentAdjustment: buildLocationRentAdjustment(form, reportJudgment, safeLang),
+    locationRentAdjustment: buildLocationRentAdjustment(form, reportJudgment, community, safeLang),
     communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, reportJudgment, safeLang),
     targetTenantProfile: buildTargetTenantProfile(form, reportJudgment, safeLang),
     communityRentPositioningJudgment: buildCommunityRentPositioningJudgment(form, judgment, safeLang),
-    communityMarketingAngles: buildCommunityMarketingAngles(form, judgment, safeLang),
+    communityMarketingAngles: buildCommunityMarketingAngles(form, judgment, community, safeLang),
     communityRisksToVerify: buildCommunityRisksToVerify(form, judgment, safeLang),
     airbnbStrRegulationCheck: buildStrReminder(form, safeLang),
     legalComplianceRisk: buildLegalComplianceRisk(form, safeLang),
@@ -820,10 +822,84 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   return notes.length ? notes : (lang === "zh" ? "相关品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Quality, privacy, utilities, and yard conditions need layout and photo review.");
 }
 
-function buildLocationRentAdjustment(form, judgment, lang = "en") {
+function communityTagPhrase(tag, lang) {
+  const key = String(tag || "").trim().toLowerCase();
+  const phrases = {
+    "nature-oriented": ["自然环境导向", "nature-oriented setting"],
+    "lakefront lifestyle": ["湖区生活方式", "lake-area lifestyle"],
+    "viu proximity": ["临近 VIU 的区位潜力", "potential appeal from proximity to VIU"],
+    quiet: ["安静的居住环境", "quiet residential setting"],
+    "pet-friendly": ["对重视宠物政策的住户具有潜在吸引力", "potential appeal to households that value pet-friendly policies"],
+    "active tenants": ["重视户外活动的租住需求", "demand from households that value outdoor activity"],
+    "trail access": ["步道和休闲生活方式", "trail and recreation lifestyle"],
+  };
+  return phrases[key]?.[lang === "zh" ? 0 : 1] || "";
+}
+
+function propertyFitField(form) {
+  const type = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
+  const fields = {
+    "Basement / Secondary Suite": "Basement Suite Fit",
+    "Entire Detached House": "Detached House Fit",
+    "Detached House": "Detached House Fit",
+    "Entire Condo": "Condo Fit",
+    Condo: "Condo Fit",
+    "Entire Townhouse": "Townhouse Fit",
+    Townhouse: "Townhouse Fit",
+    "Room Rental": "Room Rental Fit",
+  };
+  return fields[type] || "";
+}
+
+function decisionHintField(form) {
+  const type = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
+  const fields = {
+    "Basement / Secondary Suite": "If Basement Suite",
+    "Entire Detached House": "If Detached House",
+    "Detached House": "If Detached House",
+    "Entire Condo": "If Condo",
+    Condo: "If Condo",
+  };
+  return fields[type] || "";
+}
+
+function buildCommunityKnowledgeNarrative(form, community, lang = "en") {
+  if (community.status !== "confirmed" || !community.communityId) {
+    return [lang === "zh"
+      ? "具体社区尚未确认，本报告暂以 Nanaimo 整体市场基准评估。"
+      : "The specific community is not confirmed; this report currently uses the overall Nanaimo market baseline."];
+  }
+  const primarySource = community.primaryTags.length ? community.primaryTags : community.tags;
+  const primary = primarySource.map((tag) => communityTagPhrase(tag, lang)).filter(Boolean);
+  const secondary = community.secondaryTags.map((tag) => communityTagPhrase(tag, lang)).filter(Boolean);
   const notes = [];
-  const narrative = getRegionNarrative(judgment.region.code);
-  notes.push(lang === "zh" ? narrative.overview.zh : narrative.overview.en);
+  if (primary.length) notes.push(lang === "zh"
+    ? `社区知识显示，主要吸引力来自${primary.join("、")}。`
+    : `Community knowledge indicates that the main appeal comes from ${primary.join(", ")}.`);
+  if (secondary.length) notes.push(lang === "zh"
+    ? `补充特点包括${secondary.join("、")}。`
+    : `Additional characteristics include ${secondary.join(", ")}.`);
+  const outdoorScore = Number(community.scoring?.["Outdoor Lifestyle"] || 0);
+  const demandScore = Number(community.scoring?.["Overall Rental Demand"] || 0);
+  if (outdoorScore >= 4 || demandScore >= 4) notes.push(lang === "zh"
+    ? "Community Scoring 支持将自然环境、休闲生活方式和稳定租住关注度作为辅助判断，但不单独改变核心租金区间。"
+    : "Community Scoring supports using the natural setting, recreation lifestyle, and stable rental interest as supporting context, without independently changing the core rent range.");
+  const fitField = propertyFitField(form);
+  const fit = fitField ? String(community.propertyFit?.[fitField] || "") : "";
+  if (/high/i.test(fit)) notes.push(lang === "zh"
+    ? "Property Fit Matrix 显示当前出租单元类型与该社区匹配度较高。"
+    : "The Property Fit Matrix indicates a strong fit between this rental unit type and the selected community.");
+  const hintField = decisionHintField(form);
+  const selectedHint = hintField ? String(community.decisionHints?.[hintField] || "") : "";
+  if (selectedHint) notes.push(lang === "zh"
+    ? "AI Decision Hints 仅用于确定已确认卖点的表达重点，不用于补充 Knowledge Base 之外的社区特点。"
+    : "AI Decision Hints are used only to prioritize confirmed marketing points and do not add community claims beyond the Knowledge Base.");
+  return notes;
+}
+
+function buildLocationRentAdjustment(form, judgment, community, lang = "en") {
+  const notes = [];
+  notes.push(...buildCommunityKnowledgeNarrative(form, community, lang));
   if (form.nearbyCommercialCentre === "Yes") {
     notes.push(lang === "zh" ? "靠近商业中心能支持一定租金溢价，尤其适合重视便利性的租客。" : "Commercial-centre access supports a modest rent premium for tenants prioritizing convenience.");
   }
@@ -902,14 +978,32 @@ function normalizeRentalIntelligenceKnowledge(data) {
   const tags = joinKnowledgeRows(data?.communityTags, ["Tag", "Tags", "Community Tag"]).filter((tag) => tag.length <= 40);
 
   return {
+    communityId: data?.communityId || firstKnowledgeValue(base, ["Community ID", "Community_ID"]) || "",
     communityName,
+    city: data?.city || firstKnowledgeValue(base, ["City"]) || "",
     matchType: data?.matchType || "fallback",
     matchedKeyword: data?.matchedKeyword || "",
     tags,
+    primaryTags: splitKnowledgeTags(data?.tags?.["Primary Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Primary Tags"])),
+    secondaryTags: splitKnowledgeTags(data?.tags?.["Secondary Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Secondary Tags"])),
+    doNotUseTags: splitKnowledgeTags(data?.tags?.["Do Not Use Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Do Not Use Tags"])),
+    scoring: data?.communityScoring || {},
+    propertyFit: data?.propertyFitMatrix || {},
+    decisionHints: data?.aiDecisionHints || {},
   };
 }
 
+function splitKnowledgeTags(value) {
+  return String(value || "").split(/[;|\n]+/).map((item) => item.trim()).filter(Boolean);
+}
+
 function resolveCommunityPresentation(form, community, judgment) {
+  if (form.communityId && community.communityId === form.communityId && community.matchType === "community_id") {
+    return { ...community, displayName: community.communityName, status: "confirmed" };
+  }
+  if (!form.communityId && form.communityName && community.communityName === form.communityName && community.matchType === "community_name") {
+    return { ...community, displayName: community.communityName, status: "confirmed" };
+  }
   const rawName = String(community.communityName || "").trim();
   const displayName = !rawName || /generic|general nanaimo/i.test(rawName) ? "" : rawName;
   const normalizedName = displayName.toLowerCase();
@@ -965,16 +1059,12 @@ function communityReferencePrefix(community, region, lang = "en") {
 }
 
 function buildCommunityLocationAnalysis(form, community, judgment, lang = "en") {
-  const narrative = getRegionNarrative(judgment.region.code);
   const notes = [communityReferencePrefix(community, judgment.region, lang)];
+  notes.push(...buildCommunityKnowledgeNarrative(form, community, lang));
   if (lang === "zh") {
-    notes.push(narrative.overview.zh);
-    if (community.status === "confirmed" && community.tags.length) notes.push(`社区标签：${community.tags.join("、")}。`);
     if (form.locationNotes) notes.push(`业主位置备注：${cleanSentence(form.locationNotes)}`);
     return notes;
   }
-  notes.push(narrative.overview.en);
-  if (community.status === "confirmed" && community.tags.length) notes.push(`Community tags: ${community.tags.join(", ")}.`);
   if (form.locationNotes) notes.push(`Owner location notes: ${cleanSentence(form.locationNotes)}`);
   return notes;
 }
@@ -1014,7 +1104,7 @@ function buildCommunityRentPositioningJudgment(form, judgment, lang = "en") {
   ];
 }
 
-function buildCommunityMarketingAngles(form, judgment, lang = "en") {
+function buildCommunityMarketingAngles(form, judgment, community, lang = "en") {
   const baseAngles = lang === "zh"
     ? ["客厅", "厨房", "卧室", "外观", "停车", "清洁状态"]
     : ["living room", "kitchen", "bedrooms", "exterior", "parking", "clean condition"];
@@ -1023,18 +1113,20 @@ function buildCommunityMarketingAngles(form, judgment, lang = "en") {
   if (form.furnished === "Yes") conditionalAngles.push(lang === "zh" ? "已确认家具配置" : "confirmed furnished setup");
   if (Number(form.garageSpaces || 0) > 0) conditionalAngles.push(lang === "zh" ? "已确认车库" : "confirmed garage");
   if (form.privateYard === "Yes" || form.fencedBackyard === "Yes") conditionalAngles.push(lang === "zh" ? "已确认户外空间" : "confirmed outdoor space");
-  const narrative = getRegionNarrative(judgment.region.code);
+  const communityAngles = buildCommunityKnowledgeNarrative(form, community, lang);
 
   if (lang === "zh") {
     return [
       `基础照片 / 文案角度：${baseAngles.join("、")}。`,
-      narrative.marketingAngle.zh,
+      communityAngles[0],
+      community.doNotUseTags.length ? "社区卖点必须使用审慎表达，不保证特定步道直接可达、VIU 录取或具体通勤时间，也不暗示零售商业高度步行可达。" : "社区卖点只使用已匹配的 Knowledge Base 内容。",
       conditionalAngles.length ? `当前字段支持的额外角度：${conditionalAngles.join("、")}。` : "当前没有额外特殊卖点字段支持，营销应保持基础、准确。",
     ];
   }
   return [
     `Base photo / copy angles: ${baseAngles.join(", ")}.`,
-    narrative.marketingAngle.en,
+    communityAngles[0],
+    community.doNotUseTags.length ? "Community claims must remain qualified: do not guarantee direct access to a specific trail, VIU admission or a specific commute time, or high retail walkability." : "Use only community claims supported by the matched Knowledge Base record.",
     conditionalAngles.length ? `Additional angles supported by current fields: ${conditionalAngles.join(", ")}.` : "No additional special-feature fields are confirmed, so marketing should stay basic and accurate.",
   ];
 }
@@ -1434,6 +1526,8 @@ export async function getRentalIntelligenceKnowledge(form) {
     return await apiPost({
       action: "getRentalIntelligenceKnowledge",
       data: {
+        communityId: form.communityId || "",
+        communityName: form.communityName || form.communityArea || "",
         propertyAddress: form.propertyAddress || "",
         city: form.city || "",
         communityArea: form.communityArea || "",
@@ -1450,4 +1544,12 @@ export async function getRentalIntelligenceKnowledge(form) {
     console.warn("[strategyAssessment] Rental Intelligence Knowledge Base unavailable:", error);
     return null;
   }
+}
+
+export async function getRentalIntelligenceCommunities(city = "") {
+  if (!isApiConnected()) return [];
+  return apiPost({
+    action: "getRentalIntelligenceCommunities",
+    data: { city: city || "" },
+  });
 }
