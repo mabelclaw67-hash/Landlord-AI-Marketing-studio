@@ -3,7 +3,7 @@
 // When VITE_STUDIO_EXEC_URL is not set the functions throw and the storage
 // adapter falls back to localStorage automatically.
 
-const EXEC_URL = import.meta.env.VITE_STUDIO_EXEC_URL || "";
+const EXEC_URL = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_STUDIO_EXEC_URL) || "";
 
 export function isApiConnected() {
   return !!EXEC_URL;

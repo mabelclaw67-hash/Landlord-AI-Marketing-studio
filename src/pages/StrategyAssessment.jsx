@@ -65,6 +65,8 @@ const FIELD_LABELS = {
     suitePermitStatus: "Suite Permit Status",
     suiteHydroMeter: "Suite Hydro Meter",
     suiteYardPrivacy: "Suite Yard Privacy",
+    suiteBedrooms: "Suite Bedrooms",
+    suiteBathrooms: "Suite Bathrooms",
     suiteSharedAreas: "Suite Shared Areas",
     suiteRentImpactNotes: "Suite Rent Impact Notes",
     ownerGoal: "Owner Goal",
@@ -116,6 +118,8 @@ const FIELD_LABELS = {
     suitePermitStatus: "套房许可状态",
     suiteHydroMeter: "套房独立电表",
     suiteYardPrivacy: "套房院子隐私",
+    suiteBedrooms: "套房卧室数",
+    suiteBathrooms: "套房卫生间数",
     suiteSharedAreas: "套房共用区域",
     suiteRentImpactNotes: "套房租金影响备注",
     ownerGoal: "业主目标",
@@ -212,27 +216,26 @@ const COPY = {
     consentText: "I agree that Vanisland may contact me about this assessment.",
     privacyText: "I consent to submitting this property information for review.",
     report: {
-      executiveSummary: "Overall Assessment",
-      propertyStrengths: "Property Strengths",
-      rentalChallenges: "Issues to Watch",
-      suggestedRentalStrategy: "Rental Strategy Recommendation",
-      estimatedRentRange: "Rent Positioning Recommendation",
+      executiveSummary: "Professional Summary",
+      propertyPositioning: "Property Positioning",
+      estimatedRentRange: "Local Rent Positioning",
+      propertyStrengths: "Factors Supporting the Price",
+      rentalChallenges: "Factors Limiting the Price",
+      targetTenantProfile: "Target Tenant Profile",
+      suggestedRentalStrategy: "Rental Strategy",
+      marketRisks: "Market Risks",
+      nextSteps: "Next Steps",
       suiteSplitRentalPotential: "Suite Potential Analysis",
       suiteQualityPrivacy: "Suite Quality & Privacy Analysis",
       locationRentAdjustment: "Location Value Analysis",
       communityLocationAnalysis: "Community & Location Analysis",
-      targetTenantProfile: "Target Tenant Profile",
-      communityRentPositioningJudgment: "Rent Positioning Judgment",
-      communityMarketingAngles: "Marketing Angles",
-      communityRisksToVerify: "Risks / Things to Verify",
       airbnbStrRegulationCheck: "Airbnb / STR Reminder",
       legalComplianceRisk: "Legal Risk Reminder",
-      aiConfidenceFlags: "AI Confidence & Flags",
-      aiAssessmentConfidence: "AI 评估信心",
+      aiAssessmentConfidence: "AI Assessment Confidence",
       knowledgeCenter: "Landlord Knowledge Center",
       marketingSuggestions: "Marketing Suggestions",
       ownerGoalAlignment: "Professional Preliminary Recommendation",
-      recommendedNextStep: "Recommended Service",
+      recommendedNextStep: "Recommended Service Path",
       disclaimer: "Disclaimer",
     },
   },
@@ -309,27 +312,26 @@ const COPY = {
     consentText: "我同意 Vanisland 就本次初评联系我。",
     privacyText: "我同意提交这些物业信息供审核使用。",
     report: {
-      executiveSummary: "综合评估",
-      propertyStrengths: "物业优势",
-      rentalChallenges: "需要注意的问题",
-      suggestedRentalStrategy: "出租策略建议",
-      estimatedRentRange: "租金定位建议",
-      suiteSplitRentalPotential: "Suite 潜力分析",
-      suiteQualityPrivacy: "Suite 品质与隐私分析",
+      executiveSummary: "专业结论摘要",
+      propertyPositioning: "物业定位",
+      estimatedRentRange: "本地租金判断",
+      propertyStrengths: "支持价格的因素",
+      rentalChallenges: "限制价格的因素",
+      targetTenantProfile: "目标租客画像",
+      suggestedRentalStrategy: "出租策略",
+      marketRisks: "市场风险",
+      nextSteps: "下一步行动",
+      suiteSplitRentalPotential: "套房 / 分租潜力分析",
+      suiteQualityPrivacy: "套房品质与隐私分析",
       locationRentAdjustment: "地段价值分析",
       communityLocationAnalysis: "社区与位置分析",
-      targetTenantProfile: "目标租客画像",
-      communityRentPositioningJudgment: "租金定位判断",
-      communityMarketingAngles: "营销角度",
-      communityRisksToVerify: "风险 / 待核实事项",
       airbnbStrRegulationCheck: "Airbnb / STR 提醒",
       legalComplianceRisk: "法规风险提醒",
-      aiConfidenceFlags: "AI 信心与标记",
       aiAssessmentConfidence: "AI 评估信心",
       knowledgeCenter: "房东知识中心",
       marketingSuggestions: "营销建议",
       ownerGoalAlignment: "专业初步建议",
-      recommendedNextStep: "推荐下一步服务",
+      recommendedNextStep: "推荐服务方案",
       disclaimer: "免责声明",
     },
   },
@@ -672,6 +674,8 @@ export default function StrategyAssessment({ lang }) {
               <TextInput field="suitePermitStatus" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：有许可 / 无许可 / 未核实" : "e.g. permitted / no permit / unverified"} />
               <SelectInput field="suiteHydroMeter" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={SUITE_HYDRO_METER_OPTIONS} />
               <SelectInput field="suiteYardPrivacy" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={SUITE_YARD_PRIVACY_OPTIONS} />
+              <TextInput field="suiteBedrooms" form={form} update={update} labels={labels} type="number" min="0" placeholder={safeLang === "zh" ? "套间卧室数（如已知）" : "Suite bedrooms (if known)"} />
+              <TextInput field="suiteBathrooms" form={form} update={update} labels={labels} type="number" min="0" placeholder={safeLang === "zh" ? "套间卫生间数（如已知）" : "Suite bathrooms (if known)"} />
             </div>
             <div className="form-row">
               <TextInput field="suiteSharedAreas" form={form} update={update} labels={labels} placeholder={safeLang === "zh" ? "例如：洗衣、车道、院子" : "e.g. laundry, driveway, yard"} />
@@ -1222,21 +1226,29 @@ function TextArea({ field, form, update, labels, rows = 4 }) {
   );
 }
 
+// Section order follows the 9-part professional report structure:
+// summary -> positioning -> local rent judgment -> supporting/limiting
+// factors -> target tenant -> strategy -> market risks -> next steps,
+// followed by supplementary detail sections. communityRentPositioningJudgment
+// / communityMarketingAngles / communityRisksToVerify / aiConfidenceFlags are
+// intentionally left out here (raw AI flags and duplicate rent commentary
+// stay out of the client-facing report) even though they still exist in the
+// saved JSON for admin traceability.
 function buildAssessmentReportRows(assessment, copy) {
   return [
     [copy.report.executiveSummary, assessment.executiveSummary],
+    [copy.report.propertyPositioning, assessment.propertyPositioning],
+    [copy.report.estimatedRentRange, assessment.estimatedRentRange],
     [copy.report.propertyStrengths, assessment.propertyStrengths],
     [copy.report.rentalChallenges, assessment.rentalChallenges],
+    [copy.report.targetTenantProfile, assessment.targetTenantProfile],
     [copy.report.suggestedRentalStrategy, assessment.suggestedRentalStrategy],
-    [copy.report.estimatedRentRange, assessment.estimatedRentRange],
+    [copy.report.marketRisks, assessment.marketRisks],
+    [copy.report.nextSteps, assessment.nextSteps],
     [copy.report.suiteSplitRentalPotential, assessment.suiteSplitRentalPotential],
     [copy.report.suiteQualityPrivacy, assessment.suiteQualityPrivacy],
     [copy.report.locationRentAdjustment, assessment.locationRentAdjustment],
     [copy.report.communityLocationAnalysis, assessment.communityLocationAnalysis],
-    [copy.report.targetTenantProfile, assessment.targetTenantProfile],
-    [copy.report.communityRentPositioningJudgment, assessment.communityRentPositioningJudgment],
-    [copy.report.communityMarketingAngles, assessment.communityMarketingAngles],
-    [copy.report.communityRisksToVerify, assessment.communityRisksToVerify],
     [copy.report.airbnbStrRegulationCheck, assessment.airbnbStrRegulationCheck],
     [copy.report.legalComplianceRisk, assessment.legalComplianceRisk],
     [copy.report.aiAssessmentConfidence, assessment.aiAssessmentConfidence],

@@ -1409,12 +1409,20 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
     colVal_(found.row, headerMap, "AI Strategy Summary");
   var assessmentJson = parsePropertyStrategyAssessmentJson_(assessmentText);
   if (assessmentJson) {
+    // NOTE: kept intentionally close to the previously shipped section order
+    // (minimal compatible change only) - propertyPositioning, marketRisks,
+    // and nextSteps are the only additions, inserted next to the sections
+    // they extend. All previously existing keys/labels are unchanged so
+    // older saved reports (generated before this update) still render the
+    // same way.
     var sectionOrder = [
       ["executiveSummary", "Overall Assessment"],
+      ["propertyPositioning", "Property Positioning"],
       ["propertyStrengths", "Property Strengths"],
       ["rentalChallenges", "Issues to Watch"],
       ["suggestedRentalStrategy", "Rental Strategy Recommendation"],
       ["estimatedRentRange", "Rent Positioning Recommendation"],
+      ["marketRisks", "Market Risks"],
       ["suiteSplitRentalPotential", "Suite Potential Analysis"],
       ["suiteQualityPrivacy", "Suite Quality & Privacy Analysis"],
       ["locationRentAdjustment", "Location Value Analysis"],
@@ -1425,11 +1433,12 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
       ["communityRisksToVerify", "Risks / Things to Verify"],
       ["airbnbStrRegulationCheck", "Airbnb / STR Reminder"],
       ["legalComplianceRisk", "Legal Risk Reminder"],
-      ["aiConfidenceFlags", "AI Confidence & Flags"],
+      ["aiConfidenceFlags", "AI Confidence & Flags (internal)"],
       ["aiAssessmentConfidence", "AI Confidence"],
       ["marketingSuggestions", "Marketing Suggestions"],
       ["professionalPreliminaryRecommendation", "Professional Preliminary Recommendation"],
       ["ownerGoalAlignment", "Owner Goal Alignment"],
+      ["nextSteps", "Next Steps"],
       ["recommendedNextStep", "Recommended Service"],
       ["knowledgeLinks", "Knowledge Links"],
       ["disclaimer", "Disclaimer"]

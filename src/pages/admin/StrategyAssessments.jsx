@@ -4,17 +4,22 @@ import { getStudioRequestAuth } from "../../utils/trialAccess";
 import { useLang } from "../../contexts/LangContext";
 
 const SECTION_LABELS = {
-  executiveSummary: ["Executive Summary", "执行摘要"], propertyStrengths: ["Property Strengths", "物业优势"],
-  rentalChallenges: ["Rental Challenges", "出租挑战"], suggestedRentalStrategy: ["Suggested Rental Strategy", "建议出租策略"],
-  estimatedRentRange: ["Estimated Rent Range", "预估租金范围"], suiteSplitRentalPotential: ["Suite / Split Rental Potential", "套房 / 分租潜力"],
+  executiveSummary: ["Professional Summary", "专业结论摘要"], propertyPositioning: ["Property Positioning", "物业定位"],
+  propertyStrengths: ["Factors Supporting the Price", "支持价格的因素"],
+  rentalChallenges: ["Factors Limiting the Price", "限制价格的因素"], suggestedRentalStrategy: ["Rental Strategy", "出租策略"],
+  estimatedRentRange: ["Local Rent Positioning", "本地租金判断"], marketRisks: ["Market Risks", "市场风险"],
+  nextSteps: ["Next Steps", "下一步行动"],
+  suiteSplitRentalPotential: ["Suite / Split Rental Potential", "套房 / 分租潜力"],
   suiteQualityPrivacy: ["Suite Quality & Privacy", "套房质量与隐私"], locationRentAdjustment: ["Location Rent Adjustment", "位置租金调整"],
   communityLocationAnalysis: ["Community & Location Analysis", "社区与位置分析"], targetTenantProfile: ["Target Tenant Profile", "目标租客画像"],
-  communityRentPositioningJudgment: ["Rent Positioning Judgment", "租金定位判断"], communityMarketingAngles: ["Marketing Angles", "营销角度"],
+  communityRentPositioningJudgment: ["Rent Positioning Judgment (internal, see Local Rent Positioning)", "租金定位判断（内部参考，详见本地租金判断）"],
+  communityMarketingAngles: ["Marketing Angles", "营销角度"],
   communityRisksToVerify: ["Community Risks to Verify", "社区风险核查"], airbnbStrRegulationCheck: ["Airbnb / STR Regulation Check", "Airbnb / 短租法规核查"],
-  legalComplianceRisk: ["Legal / Compliance Risk", "法律 / 合规风险"], aiConfidenceFlags: ["AI Confidence & Flags", "AI 信心与标记"],
+  legalComplianceRisk: ["Legal / Compliance Risk", "法律 / 合规风险"], aiConfidenceFlags: ["AI Internal Flags (ops only)", "AI 内部标记（仅供内部使用）"],
   aiAssessmentConfidence: ["AI Confidence", "AI 信心"], marketingSuggestions: ["Marketing Suggestions", "营销建议"],
   professionalPreliminaryRecommendation: ["Professional Preliminary Recommendation", "专业初步建议"], ownerGoalAlignment: ["Owner Goal Alignment", "业主目标匹配"],
-  recommendedNextStep: ["Recommended Next Step", "建议下一步"], knowledgeLinks: ["Knowledge Links", "知识链接"], disclaimer: ["Disclaimer", "免责声明"],
+  recommendedNextStep: ["Recommended Service Path", "推荐服务方案"], knowledgeLinks: ["Knowledge Links", "知识链接"], disclaimer: ["Disclaimer", "免责声明"],
+  outputGuardWarnings: ["Output Guard Warnings (internal QA)", "输出防错提醒（内部质检）"],
 };
 
 function ReportValue({ value }) {

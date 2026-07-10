@@ -1,4 +1,5 @@
 import { apiPost, isApiConnected } from "./api";
+import { computeLocalRentJudgment, getRegionNarrative } from "./nanaimoRentalPricing";
 
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 
@@ -97,15 +98,6 @@ function formatAssessmentLocation(form, lang = "en") {
   return location || (lang === "zh" ? "本地市场" : "the local market");
 }
 
-function getLocationProfile(form) {
-  const text = [form.city, form.communityArea, form.locationNotes].filter(Boolean).join(" ").toLowerCase();
-  if (text.includes("lantzville")) return "lantzville";
-  if (text.includes("north nanaimo")) return "north-nanaimo";
-  if (text.includes("central nanaimo")) return "central-nanaimo";
-  if (text.includes("south nanaimo")) return "south-nanaimo";
-  if (text.includes("nanaimo")) return "nanaimo";
-  return "general";
-}
 
 function getConfidenceLabel(score, lang = "en") {
   if (score >= 88) return lang === "zh" ? "★★★★★ 高信心" : "★★★★★ High Confidence";
@@ -159,6 +151,8 @@ export function createEmptyStrategyAssessment(overrides = {}) {
     suiteYardPrivacy: "",
     suiteSharedAreas: "",
     suiteRentImpactNotes: "",
+    suiteBedrooms: "",
+    suiteBathrooms: "",
     ownerGoal: "",
     targetRent: "",
     availableDate: "",
@@ -374,20 +368,27 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
   const legalWarning = hasOwnerOccupancyLegalWarning(form);
   const confidence = calculateAssessmentConfidence(form);
   const community = normalizeRentalIntelligenceKnowledge(rentalIntelligence);
+  // Single source of truth for rent judgment: every rent-related section
+  // below reads from this one computed object instead of re-deriving its
+  // own number, so the web report, Admin, and PDF cannot disagree.
+  const judgment = computeLocalRentJudgment(form, followUps);
   const summary = {
-    executiveSummary: buildExecutiveSummary(form, safeLang),
-    propertyStrengths: buildPropertyStrengths(form, followUps, safeLang),
-    rentalChallenges: buildRentalChallenges(form, followUps, legalWarning, safeLang),
-    suggestedRentalStrategy: buildSuggestedStrategy(form, followUps, safeLang),
-    estimatedRentRange: buildRentPositioning(form, safeLang),
+    executiveSummary: buildExecutiveSummary(form, judgment, safeLang),
+    propertyPositioning: buildPropertyPositioning(form, judgment, safeLang),
+    propertyStrengths: buildPropertyStrengths(form, judgment, safeLang),
+    rentalChallenges: buildRentalChallenges(form, judgment, legalWarning, safeLang),
+    suggestedRentalStrategy: buildSuggestedStrategy(form, judgment, followUps, safeLang),
+    estimatedRentRange: buildRentPositioning(form, judgment, safeLang),
+    marketRisks: buildMarketRisks(form, judgment, legalWarning, followUps, safeLang),
+    nextSteps: buildNextSteps(form, judgment, safeLang),
     suiteSplitRentalPotential: buildSuiteSplitPotential(form, followUps, safeLang),
     suiteQualityPrivacy: buildSuiteQualityPrivacy(form, safeLang),
-    locationRentAdjustment: buildLocationRentAdjustment(form, safeLang),
-    communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, safeLang),
-    targetTenantProfile: buildTargetTenantProfile(form, community, safeLang),
-    communityRentPositioningJudgment: buildCommunityRentPositioningJudgment(form, community, safeLang),
-    communityMarketingAngles: buildCommunityMarketingAngles(form, community, safeLang),
-    communityRisksToVerify: buildCommunityRisksToVerify(form, community, safeLang),
+    locationRentAdjustment: buildLocationRentAdjustment(form, judgment, safeLang),
+    communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, judgment, safeLang),
+    targetTenantProfile: buildTargetTenantProfile(form, judgment, safeLang),
+    communityRentPositioningJudgment: buildCommunityRentPositioningJudgment(form, judgment, safeLang),
+    communityMarketingAngles: buildCommunityMarketingAngles(form, judgment, safeLang),
+    communityRisksToVerify: buildCommunityRisksToVerify(form, judgment, safeLang),
     airbnbStrRegulationCheck: buildStrReminder(form, safeLang),
     legalComplianceRisk: buildLegalComplianceRisk(form, safeLang),
     aiConfidenceFlags: buildAiConfidenceAndFlags(form, safeLang),
@@ -396,7 +397,7 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
     marketingSuggestions: buildMarketingSuggestions(form, followUps, safeLang),
     ownerGoalAlignment: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
     professionalPreliminaryRecommendation: buildProfessionalPreliminaryRecommendation(form, followUps, safeLang),
-    recommendedNextStep: buildServiceRecommendation(form, safeLang, community),
+    recommendedNextStep: buildServiceRecommendation(form, safeLang),
     knowledgeLinks: buildKnowledgeLinks(form, safeLang),
     disclaimer: safeLang === "zh" ? STRATEGY_ASSESSMENT_DISCLAIMER_ZH : STRATEGY_ASSESSMENT_DISCLAIMER,
   };
@@ -413,196 +414,226 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
   return summary;
 }
 
-function buildExecutiveSummary(form, lang) {
-  const type = lang === "zh" ? (form.propertyType === "House" ? "独立屋" : form.propertyType || "该物业") : (form.propertyType || "This property");
-  const location = formatAssessmentLocation(form, lang);
-  const target = formatCurrency(form.targetRent, lang);
-  const profile = getLocationProfile(form);
-  const propertyDesc = formatPropertyDescription(form, lang);
-  const locationNoteZh = {
-    lantzville: "Lantzville 的安静居住属性有价值；具体位置卖点需以业主填写和照片确认。",
-    "north-nanaimo": "North Nanaimo 通常更容易支撑便利性和家庭型租客需求，但仍需结合房屋状态、停车和同类竞品判断。",
-    "central-nanaimo": "Central Nanaimo 的优势通常在通勤和生活便利性，租金策略应强调实际便利，而不是只强调面积。",
-    "south-nanaimo": "South Nanaimo 的租金定位通常需要更重视价格竞争力和租客便利性，避免过高定价拉长空置期。",
-    nanaimo: "Nanaimo 市场需要结合具体社区、通勤便利、停车和房屋状态判断，不能只按卧室数量定价。",
-    general: "地段价值需要结合具体社区、通勤便利、停车和房屋状态判断。",
-  }[profile];
-  const locationNoteEn = {
-    lantzville: "Lantzville's quiet residential positioning has value; specific location advantages must be confirmed from the owner's answers and photos.",
-    "north-nanaimo": "North Nanaimo can support stronger family and convenience-driven demand, subject to condition, parking, and comparable listings.",
-    "central-nanaimo": "Central Nanaimo value is usually tied to convenience and access, so the rent strategy should emphasize practical location benefits rather than size alone.",
-    "south-nanaimo": "South Nanaimo positioning usually calls for stronger price discipline and convenience messaging to avoid extended vacancy.",
-    nanaimo: "Nanaimo pricing should be based on the exact neighbourhood, convenience, parking, and property condition rather than bedroom count alone.",
-    general: "Location value should be confirmed against the exact neighbourhood, access, parking, and property condition.",
-  }[profile];
+function money(value) {
+  return `$${Math.round(value).toLocaleString("en-US")}`;
+}
+
+// 1. Professional summary (专业结论摘要): 3-5 decisive bullets, no hedging.
+function buildExecutiveSummary(form, judgment, lang) {
+  const [adjLo, adjHi] = judgment.adjustedRange;
+  const hasTarget = judgment.targetRent !== null;
+  if (lang === "zh") {
+    const lines = [
+      `物业类型判断：${judgment.type.zh}，位于 ${judgment.region.zh}。`,
+      `本地租金判断：调整后合理区间约 ${money(adjLo)}–${money(adjHi)}/月，建议挂牌价 ${money(judgment.recommendedPrice)}/月。`,
+    ];
+    lines.push(hasTarget
+      ? `业主目标租金 ${money(judgment.targetRent)}/月，判断为「${judgment.verdictLabel.zh}」。`
+      : "业主尚未填写目标租金，以上建议价格可直接作为挂牌参考。");
+    lines.push(judgment.marketAcceptance.narrowPool
+      ? "该价位对应的租客群体偏窄，预计出租周期较长，需要更主动的调价机制。"
+      : "该价位对应的租客群体正常，预计能在合理周期内找到合格租客。");
+    if (judgment.limitingFactors.length) {
+      lines.push(`最主要风险：${judgment.limitingFactors[0].zh}`);
+    }
+    return lines;
+  }
+  const lines = [
+    `Property type judgment: ${judgment.type.en}, in ${judgment.region.en}.`,
+    `Local rent judgment: adjusted range is about ${money(adjLo)}-${money(adjHi)}/month, recommended list price ${money(judgment.recommendedPrice)}/month.`,
+  ];
+  lines.push(hasTarget
+    ? `Owner target rent is ${money(judgment.targetRent)}/month, judged as "${judgment.verdictLabel.en}".`
+    : "No target rent was entered, so the recommended price above can be used directly as the listing reference.");
+  lines.push(judgment.marketAcceptance.narrowPool
+    ? "This price point reaches a narrower tenant pool and vacancy is likely to run longer, so an active price-adjustment plan is needed."
+    : "This price point reaches a normal tenant pool and should attract a qualified tenant within a reasonable window.");
+  if (judgment.limitingFactors.length) {
+    lines.push(`Main risk: ${judgment.limitingFactors[0].en}`);
+  }
+  return lines;
+}
+
+// 2. Property positioning (物业定位).
+function buildPropertyPositioning(form, judgment, lang) {
+  const personas = judgment.personas.slice(0, 2).map((p) => (lang === "zh" ? p.zh : p.en));
   if (lang === "zh") {
     return [
-      `${type}位于 ${location}，当前填写为${propertyDesc}。本次目标以${displayOwnerGoal(form.ownerGoal, lang)}为主，目标租金为 ${target}/月。${locationNoteZh}`,
-      buildStrategyScopeSentence(form, lang),
+      `${judgment.type.zh}，${judgment.region.zh}。`,
+      `适合出租给：${personas.join("、")}。`,
     ];
   }
   return [
-    `${type} at ${location} is being assessed for ${displayOwnerGoal(form.ownerGoal, lang)}, with current inputs showing ${propertyDesc}. Owner target rent is ${target}/month. ${locationNoteEn}`,
-    buildStrategyScopeSentence(form, lang),
+    `${judgment.type.en}, ${judgment.region.en}.`,
+    `Best suited to: ${personas.join(", ")}.`,
   ];
 }
 
-function buildPropertyStrengths(form, followUps, lang) {
-  const items = [];
-  const bed = Number(form.bedrooms || 0);
-  const bath = normalizeCellTextForUi(form.bathrooms);
-  const garage = Number(form.garageSpaces || 0);
-  const driveway = Number(form.drivewayParking || 0);
-  if (form.oceanView === "Yes") {
-    items.push(lang === "zh"
-      ? "已确认有海景，可作为广告标题、封面照片和第一组照片的卖点。"
-      : "Ocean view is confirmed and can be used in the headline, cover photo, and first photo sequence.");
+// 4. Factors supporting the price (支持价格的因素) - only genuine
+// price-moving factors, sourced from the pricing engine's scoring, not a
+// restatement of every form field.
+function buildPropertyStrengths(form, judgment, lang) {
+  const items = judgment.supportingFactors.map((f) => (lang === "zh" ? f.zh : f.en));
+  if (!items.length) {
+    return [lang === "zh"
+      ? "根据目前资料，暂未确认明显的加分条件；以下判断以普通装修和正常维护状态为假设。"
+      : "No clear price-supporting features are confirmed yet; this judgment assumes ordinary condition and maintenance until confirmed."];
   }
-  if (form.furnished === "Yes") {
-    items.push(lang === "zh"
-      ? "已确认带家具，可作为减少搬家准备的便利卖点。"
-      : "Furnished status is confirmed and can be positioned as a move-in convenience.");
-  }
-  if (bed > 0 || bath) {
-    items.push(lang === "zh"
-      ? `当前记录为 ${form.bedrooms || "需确认"} 房 ${bath || "需确认"} 卫，应按这个实际户型定位租客。`
-      : `Current record shows ${form.bedrooms || "unconfirmed"} bedroom(s) and ${bath || "unconfirmed"} bathroom(s), so tenant positioning should use this layout only.`);
-  }
-  if (garage > 0) {
-    items.push(lang === "zh"
-      ? `已填写 ${garage} 个车库车位，可作为停车便利卖点。`
-      : `${garage} garage space(s) are confirmed and can be used as a parking convenience point.`);
-  }
-  if (driveway > 0) {
-    items.push(lang === "zh"
-      ? `已填写 ${driveway} 个车道车位，可在广告中准确说明。`
-      : `${driveway} driveway parking space(s) are confirmed and should be stated accurately.`);
-  }
-  if (form.privateYard === "Yes") {
-    items.push(lang === "zh"
-      ? "已确认有私人户外空间，可作为真实卖点；围栏和隐私程度仍需准确说明。"
-      : "Private outdoor space is confirmed and can be used as a real value point; fencing and privacy should still be described accurately.");
-  }
-  if (form.separateEntrance === "Yes") {
-    items.push(lang === "zh"
-      ? "已确认有独立入口，可进入后续合规审核；不得在未审核前直接宣传为合法套间。"
-      : "Separate entrance is confirmed and can move into compliance review; it should not be advertised as a legal suite before review.");
-  }
-  return items.length ? items : [lang === "zh" ? "需要结合照片、平面布局和房屋状态进一步确认物业优势。" : "Property strengths need photo, layout, and condition review."];
+  return items;
 }
 
-function buildRentalChallenges(form, followUps, legalWarning, lang) {
-  const items = [];
-  if (form.targetRent) {
+// 5. Factors limiting the price (限制价格的因素).
+function buildRentalChallenges(form, judgment, legalWarning, lang) {
+  const items = judgment.limitingFactors.map((f) => (lang === "zh" ? f.zh : f.en));
+  if (legalWarning) {
     items.push(lang === "zh"
-      ? `目标租金已填写为 ${formatCurrency(form.targetRent, lang)}/月，需要用当前真实户型、状态和位置验证市场接受度。`
-      : `Target rent is ${formatCurrency(form.targetRent, lang)}/month and should be validated against the current layout, condition, and location.`);
-  }
-  if (hasSplitRentalBasis(form, followUps) && form.utilitiesShared === "Yes") {
-    items.push(lang === "zh"
-      ? "已填写水电共用；如后续审核额外出租配置，需要提前设计费用分摊和租约说明。"
-      : "Shared utilities are noted; if an additional rental configuration is reviewed later, cost allocation and lease wording need care.");
+      ? "已触发屋主自住相关法规风险，正式挂牌前必须先完成专业审核。"
+      : "An owner-occupancy compliance risk was triggered; professional review is required before listing.");
   }
   if (form.airbnbInterest === "Yes") {
     items.push(lang === "zh"
       ? "已选择 Airbnb / 短租意向，必须先核查 BC 和所在城市当前规则、主要住所要求和运营限制。"
       : "Airbnb / STR interest is selected, so BC and city rules, principal-residence requirements, and operating limits must be checked first.");
   }
-  if (form.fencedBackyard === "No" || form.fencedBackyard === "Unsure" || !form.fencedBackyard) {
-    items.push(lang === "zh"
-      ? "围栏后院未确认，不能把完整围栏作为卖点；需进一步确认。"
-      : "Fenced backyard is not confirmed, so a fully fenced yard cannot be used as a value point; it needs confirmation.");
-  }
-  if (legalWarning) {
-    items.push(lang === "zh"
-      ? "已触发屋主自住相关法规风险，正式挂牌前必须先进行专业审核并核查当前规则。"
-      : "An owner-occupancy compliance risk was triggered; professional review should verify current rules before listing.");
-  }
-  return items.length ? items : [lang === "zh" ? "目前没有明显高风险项，但正式挂牌前仍需审核照片、状态、合规和市场价格。" : "No major high-risk issue was flagged, but photos, condition, compliance, and market rent still need review."];
+  return items.length ? items : [lang === "zh"
+    ? "根据目前资料，暂未发现明显的减分条件；以下判断以普通装修和正常维护状态为假设，实际状况仍需现场确认。"
+    : "No clear price-limiting features are identified yet; this judgment assumes ordinary condition and maintenance, pending an on-site confirmation."];
 }
 
-function buildSuggestedStrategy(form, followUps, lang) {
-  const strengths = buildSupportedFeaturePhrases(form, lang);
-  const featureText = strengths.length
-    ? strengths.join(lang === "zh" ? "、" : ", ")
-    : (lang === "zh" ? "当前已填写的物业条件" : "the currently submitted property details");
+// 7. Rental strategy (出租策略): whole vs. split, test duration, when to
+// adjust, whether condition improvements are worth it.
+function buildSuggestedStrategy(form, judgment, followUps, lang) {
   const hasSuiteBasis = hasSplitRentalBasis(form, followUps);
-  if (lang === "zh") {
-    if (form.airbnbInterest === "Yes") {
-      const items = [
-        `第一策略：先按当前资料评估长租或整租路径，广告只突出已确认卖点：${featureText}。`,
-      ];
-      items.push(hasSuiteBasis
-        ? "第二策略：可同步评估合法分租可能性，但必须逐项确认独立入口、厨房、洗衣、水电、停车和合规。"
-        : "第二策略：额外出租配置目前资料不足，只能标记为需进一步确认。");
-      items.push("第三策略：Airbnb / STR 只作为备选方向，必须先完成法规核查，不能在未确认规则前承诺短租收益。");
-      return items;
-    }
-    if (form.ownerGoal === "Rent ASAP") {
-      return [
-        "优先采用务实定价和快速展示策略，减少空置时间。",
-        `广告需清楚说明当前已确认内容：${featureText}，并对未填写信息标注需进一步确认，避免无效咨询。`,
-      ];
-    }
-    return [
-      `建议先基于当前已填写条件进入市场测试租客反馈：${featureText}。`,
-      hasSuiteBasis
-        ? "如果 30 天内没有足够合格申请，可复核租金定位，并评估合法分租方案。"
-        : "如果 30 天内没有足够合格申请，应先复核租金定位、照片和广告表达；额外出租配置需进一步确认。",
-    ];
-  }
+  const isCombo = !!judgment.comboDetails;
+  const plan = judgment.adjustmentPlan.map((p) => (lang === "zh" ? p.zh : p.en));
 
-  if (form.airbnbInterest === "Yes") {
-    const items = [
-      `Primary strategy: assess a long-term or whole-home rental path using only confirmed inputs: ${featureText}.`,
-    ];
-    items.push(hasSuiteBasis
-      ? "Secondary strategy: review legal split-rental feasibility, with entrance, kitchen, laundry, utilities, parking, and compliance confirmed one by one."
-      : "Secondary strategy: additional rental configuration is not supported by current inputs and should be marked as needing confirmation.");
-    items.push("STR strategy: keep Airbnb as an option only after BC and municipal rules are confirmed.");
+  if (lang === "zh") {
+    const items = [];
+    if (isCombo) {
+      const combo = judgment.comboDetails;
+      items.push(`该物业适合两种路径并行评估：分租（楼上约 ${money(combo.upperRange[0])}–${money(combo.upperRange[1])} + 楼下约 ${money(combo.lowerRange[0])}–${money(combo.lowerRange[1])}，理论总收入约 ${money(judgment.baseRange[0])}–${money(judgment.baseRange[1] + (combo.splitTotalRange[1] - judgment.baseRange[1]))}）或整租给同一家庭（约 ${money(judgment.adjustedRange[0])}–${money(judgment.adjustedRange[1])}）。`);
+      items.push("整租对象通常是多代同堂家庭或高收入搬迁专业人士家庭，符合条件的家庭数量较少，出租周期可能更长；分租更容易分别找到租客，但管理复杂度更高，需要提前规划费用分摊和共用区域规则。");
+    } else if (form.airbnbInterest === "Yes") {
+      items.push("第一策略：先按长租 / 整租路径测试市场，广告只突出已确认卖点。");
+      items.push(hasSuiteBasis
+        ? "第二策略：可同步评估合法分租可能性，但须逐项确认独立入口、厨房、洗衣、水电、停车和合规。"
+        : "第二策略：额外出租配置目前资料不足，暂不作为营销卖点。");
+      items.push("Airbnb / STR 仅作为备选方向，须先完成法规核查，不能在未确认规则前承诺短租收益。");
+    } else {
+      items.push(hasSuiteBasis
+        ? `建议整租为主，分租为可选方案；若整租测试价格 ${money(judgment.recommendedPrice)}/月未能在合理周期内找到租客，可评估合法分租的可行性。`
+        : `建议按 ${money(judgment.recommendedPrice)}/月挂牌测试市场反馈，广告聚焦已确认卖点。`);
+    }
+    items.push(...plan);
     return items;
   }
-  if (form.ownerGoal === "Rent ASAP") {
-    return [
-      "Use practical pricing and quick showing availability to reduce vacancy.",
-      `The listing should state confirmed details only: ${featureText}. Missing items should be marked as needing confirmation.`,
-    ];
+
+  const items = [];
+  if (isCombo) {
+    const combo = judgment.comboDetails;
+    items.push(`This property supports two paths worth evaluating in parallel: splitting into two rentals (upper about ${money(combo.upperRange[0])}-${money(combo.upperRange[1])} + lower about ${money(combo.lowerRange[0])}-${money(combo.lowerRange[1])}) or renting the whole property to one family (about ${money(judgment.adjustedRange[0])}-${money(judgment.adjustedRange[1])}).`);
+    items.push("A whole-property tenant is usually a multi-generational family or a high-income relocating professional household - a smaller pool, likely longer vacancy. Splitting fills faster but adds management complexity (cost allocation, shared-area rules) that should be planned up front.");
+  } else if (form.airbnbInterest === "Yes") {
+    items.push("Primary strategy: test the market on a long-term / whole-home path first, using only confirmed features in the listing.");
+    items.push(hasSuiteBasis
+      ? "Secondary strategy: legal split-rental feasibility can be reviewed in parallel, with entrance, kitchen, laundry, utilities, parking, and compliance confirmed one by one."
+      : "Secondary strategy: current inputs do not yet support an additional rental configuration, so it should not be marketed.");
+    items.push("Airbnb / STR remains a backup direction only, pending BC and municipal rule verification.");
+  } else {
+    items.push(hasSuiteBasis
+      ? `Lead with a whole-home rental at ${money(judgment.recommendedPrice)}/month; if it does not find a qualified tenant within a reasonable window, review legal split-rental feasibility as a fallback.`
+      : `List at ${money(judgment.recommendedPrice)}/month to test market response, with the listing focused on confirmed features.`);
   }
-  return [
-    `Start with a rental launch based on the submitted property details: ${featureText}.`,
-    hasSuiteBasis
-      ? "If strong applications do not appear within 30 days, revisit rent positioning or legal split-rental feasibility."
-      : "If strong applications do not appear within 30 days, revisit rent positioning, photos, and listing presentation first; additional rental configuration needs further confirmation.",
-  ];
+  items.push(...plan);
+  return items;
 }
 
-function buildRentPositioning(form, lang) {
-  const target = formatCurrency(form.targetRent, lang);
-  const propertyDesc = formatPropertyDescription(form, lang);
+// 3. Local rent judgment (本地租金判断): base range, adjusted range,
+// recommended list price, and an explicit verdict on the owner's target.
+function buildRentPositioning(form, judgment, lang) {
+  const [baseLo, baseHi] = judgment.baseRange;
+  const [adjLo, adjHi] = judgment.adjustedRange;
+  const hasTarget = judgment.targetRent !== null;
+
   if (lang === "zh") {
-    if (!form.targetRent) {
-      return [
-        `目前未填写目标租金。当前物业资料为${propertyDesc}，租金需进一步确认。`,
-        "不要套用测试案例或按单一卖点定价，必须结合当前房屋状态、照片、位置和目标租客数量。",
-      ];
+    const lines = [
+      `市场基础区间（${judgment.type.zh}，${judgment.region.zh}）：约 ${money(baseLo)}–${money(baseHi)}/月。`,
+      `结合物业条件调整后区间：约 ${money(adjLo)}–${money(adjHi)}/月。`,
+      `建议挂牌价格：${money(judgment.recommendedPrice)}/月。`,
+    ];
+    lines.push(hasTarget
+      ? `业主目标租金 ${money(judgment.targetRent)}/月，判断为「${judgment.verdictLabel.zh}」（与建议价相差约 ${Math.round(judgment.diffRatio * 100)}%）。`
+      : "业主未填写目标租金，以上建议价格可直接作为挂牌参考。");
+    if (judgment.assumptionUsed) {
+      lines.push("根据目前已提供资料，以上判断以普通装修和正常维护状态为假设；确认实际装修、采光和维护状态后，价格可能上下调整。");
     }
-    return [
-      `业主当前填写的目标租金为 ${target}/月。`,
-      `该租金建议必须围绕本次填写资料判断：${propertyDesc}。未填写或未确认的卖点不得用于提高租金定位。`,
-      "建议先用当前真实条件测试市场反馈；如果咨询量或申请质量不足，应及时复核目标租金和展示方式。",
-    ];
+    return lines;
   }
-  if (!form.targetRent) {
-    return [
-      `No target rent was entered. Current property inputs are ${propertyDesc}; rent needs further confirmation.`,
-      "Do not reuse any test-case rent or unconfirmed feature. Pricing must reflect current condition, photos, location, and tenant depth.",
-    ];
-  }
-  return [
-    `Owner target rent is ${target}/month.`,
-    `This rent position must be judged from the current submission: ${propertyDesc}. Unconfirmed features must not be used to justify rent.`,
-    "Launch with accurate photos and confirmed value points first; if inquiry quality is weak, revisit the target rent and presentation.",
+  const lines = [
+    `Market base range (${judgment.type.en}, ${judgment.region.en}): about ${money(baseLo)}-${money(baseHi)}/month.`,
+    `Range adjusted for property condition: about ${money(adjLo)}-${money(adjHi)}/month.`,
+    `Recommended list price: ${money(judgment.recommendedPrice)}/month.`,
   ];
+  lines.push(hasTarget
+    ? `Owner target rent is ${money(judgment.targetRent)}/month, judged as "${judgment.verdictLabel.en}" (about ${Math.round(judgment.diffRatio * 100)}% from the recommended price).`
+    : "No target rent was entered, so the recommended price above can be used directly as the listing reference.");
+  if (judgment.assumptionUsed) {
+    lines.push("Based on current inputs, this judgment assumes ordinary condition and maintenance; the price may move up or down once actual finishes, light, and maintenance are confirmed.");
+  }
+  return lines;
+}
+
+// 8. Market risks (市场风险).
+function buildMarketRisks(form, judgment, legalWarning, followUps, lang) {
+  const items = [];
+  if (judgment.marketAcceptance.narrowPool) {
+    items.push(lang === "zh"
+      ? `当前建议价格接近或超过该户型的市场接受上限（约 ${money(judgment.hardCeiling)}/月），租客群体会明显收窄，预计出租周期约 ${judgment.marketAcceptance.expectedDaysRange[0]}–${judgment.marketAcceptance.expectedDaysRange[1]} 天。`
+      : `The recommended price is near or above this unit type's market ceiling (about ${money(judgment.hardCeiling)}/month), which narrows the tenant pool; expected time to lease is roughly ${judgment.marketAcceptance.expectedDaysRange[0]}-${judgment.marketAcceptance.expectedDaysRange[1]} days.`);
+  }
+  if (judgment.comboDetails) {
+    items.push(lang === "zh"
+      ? "整租给同一家庭的合格候选家庭数量较少，出租周期可能明显长于分租；分租虽更快找到租客，但楼上楼下共用区域和噪音需要清晰的租约规则。"
+      : "Few qualified households can take the whole combined property, so vacancy may run longer than a split rental; splitting fills faster but shared areas and noise between upper and lower units need clear lease terms.");
+  }
+  if (hasSplitRentalBasis(form, followUps) && form.suiteLegalStatus !== "Legal") {
+    items.push(lang === "zh"
+      ? "套间合法状态未完全确认，存在合法套间相关风险；正式营销和定价前应完成专业合规审核。"
+      : "Suite legal status is not fully confirmed, creating legal-suite risk; complete a professional compliance review before marketing and finalizing price.");
+  }
+  if (form.petFriendly === "No") {
+    items.push(lang === "zh" ? "不接受宠物会缩小租客群体，可能延长出租周期。" : "Not accepting pets narrows the tenant pool and may extend time to lease.");
+  }
+  if (Number(form.garageSpaces || 0) === 0 && Number(form.drivewayParking || 0) === 0) {
+    items.push(lang === "zh" ? "没有车库或车道停车位，在需要停车的租客群体中吸引力较弱。" : "No garage or driveway parking, which weakens appeal to tenants who need parking.");
+  }
+  if (hasSplitRentalBasis(form, followUps) || judgment.comboDetails) {
+    items.push(lang === "zh" ? "楼上楼下共用空间和隔音可能引发租客冲突或投诉，需要在租约中明确使用规则。" : "Shared space and sound transfer between upper and lower units can lead to tenant conflict or complaints; lease terms should set clear rules.");
+  }
+  if (legalWarning) {
+    items.push(lang === "zh" ? "屋主自住相关再出租限制存在法律风险，详见法规风险提醒章节。" : "Owner-occupancy re-rental restrictions carry legal risk; see the Legal Risk Reminder section.");
+  }
+  return items.length ? items : [lang === "zh" ? "根据目前资料，暂未发现突出的市场风险；仍建议在正式挂牌前复核照片、状态和合规。" : "No standout market risk is identified from current inputs; photos, condition, and compliance should still be reviewed before listing."];
+}
+
+// 9. Next steps (下一步行动): concrete, executable checklist.
+function buildNextSteps(form, judgment, lang) {
+  if (lang === "zh") {
+    const steps = [
+      `以建议挂牌价 ${money(judgment.recommendedPrice)}/月 完成房源资料和照片准备。`,
+      "确认第一批照片以客厅、厨房和主要卧室为主，如有海景、车库或私人院子需一并确认后再使用。",
+      "挂牌后按「出租策略」章节的调价规则跟踪咨询量和申请质量。",
+    ];
+    if (judgment.comboDetails) steps.push("同时评估分租与整租两条路径的实际申请情况，再决定最终出租方式。");
+    return steps;
+  }
+  const steps = [
+    `Prepare the listing and photos around the recommended price of ${money(judgment.recommendedPrice)}/month.`,
+    "Confirm the first photo set covers the living room, kitchen, and main bedrooms; only use ocean view, garage, or private yard photos once confirmed.",
+    "Track inquiry volume and application quality against the adjustment rules in the Rental Strategy section.",
+  ];
+  if (judgment.comboDetails) steps.push("Track actual applications for both the split-rental and whole-property paths before committing to a final format.");
+  return steps;
 }
 
 function buildSuiteSplitPotential(form, followUps, lang = "en") {
@@ -685,35 +716,12 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   return notes.length ? notes : (lang === "zh" ? "相关品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Quality, privacy, utilities, and yard conditions need layout and photo review.");
 }
 
-function buildLocationRentAdjustment(form, lang = "en") {
+function buildLocationRentAdjustment(form, judgment, lang = "en") {
   const notes = [];
-  const profile = getLocationProfile(form);
+  const narrative = getRegionNarrative(judgment.region.code);
+  notes.push(lang === "zh" ? narrative.overview.zh : narrative.overview.en);
   if (form.nearbyCommercialCentre === "Yes") {
     notes.push(lang === "zh" ? "靠近商业中心能支持一定租金溢价，尤其适合重视便利性的租客。" : "Commercial-centre access supports a modest rent premium for tenants prioritizing convenience.");
-  }
-  const locationNotes = {
-    lantzville: lang === "zh"
-      ? "Lantzville 的安静居住属性有价值；具体位置卖点需以业主填写和照片确认，不能默认写入报告。"
-      : "Lantzville's quiet residential appeal has value; specific location advantages need confirmation from owner inputs and photos.",
-    "north-nanaimo": lang === "zh"
-      ? "North Nanaimo 通常更容易吸引家庭型和重视便利性的租客，租金可更积极，但仍需看竞品、状态和停车。"
-      : "North Nanaimo typically supports stronger family and convenience-driven demand, allowing more confident pricing when condition, parking, and comparables support it.",
-    "central-nanaimo": lang === "zh"
-      ? "Central Nanaimo 更适合强调通勤、生活便利和实际可达性，租金定位应避免只靠房屋面积支撑。"
-      : "Central Nanaimo should emphasize commute, convenience, and access; rent positioning should not rely on property size alone.",
-    "south-nanaimo": lang === "zh"
-      ? "South Nanaimo 通常需要更保守的租金定位和更清晰的价值说明，以减少空置风险。"
-      : "South Nanaimo usually calls for more conservative rent positioning and clearer value messaging to reduce vacancy risk.",
-    nanaimo: lang === "zh"
-      ? "Nanaimo 内不同社区差异明显，租金判断需要结合具体位置、交通、停车、房屋状态和同类竞品。"
-      : "Nanaimo neighbourhoods vary meaningfully; pricing should reflect exact location, access, parking, condition, and comparable listings.",
-    general: lang === "zh"
-      ? "地段价值需要结合城市、社区、通勤便利、停车和附近同类出租房源进一步确认。"
-      : "Location value should be confirmed against city, community, access, parking, and nearby comparable rentals.",
-  };
-  notes.push(locationNotes[profile]);
-  if (profile !== "lantzville" && form.oceanView === "Yes") {
-    notes.push(lang === "zh" ? "海景会提升广告吸引力，但仍需结合实际可见角度、照片质量和目标租客深度判断。" : "Ocean view can improve listing appeal, but actual visibility, photo quality, and tenant depth still matter.");
   }
   if (form.locationRentPremium) {
     notes.push(lang === "zh"
@@ -725,196 +733,140 @@ function buildLocationRentAdjustment(form, lang = "en") {
       ? `租金调整因素：${cleanSentence(form.rentAdjustmentFactors)}`
       : `Rent adjustment factors: ${cleanSentence(form.rentAdjustmentFactors)}`);
   }
-  if (form.locationNotes) {
-    notes.push(lang === "zh"
-      ? `位置备注：${cleanSentence(form.locationNotes)}`
-      : `Location notes: ${cleanSentence(form.locationNotes)}`);
-  }
-  return notes.length ? notes : (lang === "zh" ? "地段价值需要结合附近可比出租房源和租客便利性进一步确认。" : "Location value should be confirmed against nearby comparable rentals and tenant convenience.");
+  return notes;
+}
+
+// Internal-only Knowledge Base columns that must never reach a client-facing
+// report. firstKnowledgeValue/joinKnowledgeRows only ever return values from
+// an explicit allowlist (the preferredFields the caller asks for) - they no
+// longer fall back to dumping every column on a row, which previously leaked
+// columns like "Community ID", "Ready for System Use", "AI Decision Hints",
+// and "Property Fit Matrix" straight into owner-facing reports.
+const INTERNAL_KB_FIELD_BLOCKLIST = [
+  "community id", "id", "row id", "record id", "ready for system use",
+  "ai decision hint", "ai decision hints", "ai flag", "ai flags",
+  "property fit matrix", "internal notes", "internal note", "system prompt",
+  "matrix notes", "status", "last modified", "last modified by", "owner",
+  "created by", "updated by",
+];
+
+function isInternalKbField(name) {
+  return INTERNAL_KB_FIELD_BLOCKLIST.includes(String(name || "").trim().toLowerCase());
 }
 
 function firstKnowledgeValue(record, names) {
   record = record || {};
   for (const name of names) {
+    if (isInternalKbField(name)) continue;
     if (record[name]) return String(record[name]).trim();
   }
   const lowerMap = Object.fromEntries(Object.entries(record).map(([key, value]) => [String(key).toLowerCase(), value]));
   for (const name of names) {
+    if (isInternalKbField(name)) continue;
     const value = lowerMap[String(name).toLowerCase()];
     if (value) return String(value).trim();
   }
   return "";
 }
 
+// Only ever surfaces values from the allowlisted preferredFields. If a row
+// has none of those fields populated, it is skipped rather than dumping the
+// row's raw key:value pairs (that dump was the source of internal-field
+// leaks into client reports).
 function joinKnowledgeRows(rows, preferredFields) {
   return (Array.isArray(rows) ? rows : [])
-    .map((row) => firstKnowledgeValue(row, preferredFields) || Object.entries(row || {})
-      .filter(([, value]) => String(value || "").trim())
-      .map(([key, value]) => `${key}: ${value}`)
-      .join("; "))
+    .map((row) => firstKnowledgeValue(row, preferredFields))
     .filter(Boolean)
     .slice(0, 4);
 }
 
-function translateKnowledgeReference(text, lang) {
-  const clean = cleanSentence(text);
-  if (!clean) return lang === "zh" ? "需进一步确认" : "Needs further confirmation";
-  if (lang !== "zh") return clean;
-  const replacements = [
-    [/\bnot automatic premium rent\b/gi, "不能自动作为高租金依据"],
-    [/\bmust be verified\b/gi, "必须核实"],
-    [/\breference only\b/gi, "仅供参考"],
-    [/\bexact address\b/gi, "具体地址"],
-    [/\bcurrent comparable listings\b/gi, "当前可比房源"],
-    [/\bautomatic premium rent\b/gi, "自动高租金"],
-    [/\brental-market\b/gi, "出租市场"],
-    [/\brental market\b/gi, "出租市场"],
-    [/\brent positioning\b/gi, "租金定位"],
-    [/\btenant appeal\b/gi, "租客吸引力"],
-    [/\bdevelopment trend\b/gi, "发展趋势"],
-    [/\blegal suite\b/gi, "合法 suite"],
-    [/\bsmall households\b/gi, "小家庭"],
-    [/\bresidential\b/gi, "住宅型"],
-    [/\bcommunity\b/gi, "社区"],
-    [/\brenters\b/gi, "租客"],
-    [/\btenant\b/gi, "租客"],
-    [/\bstudents\b/gi, "学生"],
-    [/\bprofessionals\b/gi, "专业人士"],
-    [/\bfamilies\b/gi, "家庭"],
-    [/\bquiet\b/gi, "安静"],
-    [/\blifestyle\b/gi, "生活方式"],
-    [/\btrails\b/gi, "步道"],
-    [/\btrail\b/gi, "步道"],
-    [/\blake\b/gi, "湖"],
-    [/\bparks\b/gi, "公园"],
-    [/\bpark\b/gi, "公园"],
-    [/\bschools\b/gi, "学校"],
-    [/\bschool\b/gi, "学校"],
-    [/\bshopping\b/gi, "购物"],
-    [/\bservices\b/gi, "服务"],
-    [/\btransit\b/gi, "公交"],
-    [/\baccess\b/gi, "通达性"],
-    [/\bparking\b/gi, "停车"],
-    [/\blaundry\b/gi, "洗衣"],
-    [/\bverified\b/gi, "已核实"],
-    [/\bverify\b/gi, "核实"],
-  ];
-  return replacements.reduce((result, [pattern, to]) => result.replace(pattern, to), clean);
-}
-
+// NOTE on Knowledge Base language handling:
+// The Community_Knowledge_Base Google Sheet is maintained in English prose.
+// This system has no live translation model available, so word-by-word
+// substitution was previously used to "translate" it for zh reports - that
+// produced broken Chinglish (e.g. "购物 and 服务 should be 已核实"). Rather
+// than ship broken translations, community/lifestyle commentary is authored
+// natively in both languages via getRegionNarrative() (nanaimoRentalPricing.js)
+// and used for BOTH languages. The live sheet is only consulted for the
+// community name and short allowlisted tags (never full sentences), and only
+// surfaced in English reports where no translation problem exists.
 function normalizeRentalIntelligenceKnowledge(data) {
   const base = data?.communityKnowledgeBase || {};
   const communityName = data?.communityName ||
     firstKnowledgeValue(base, ["Community", "Community Name", "Community_Name", "Neighbourhood", "Neighborhood", "Area"]) ||
-    "Generic Nanaimo";
-  const tags = joinKnowledgeRows(data?.communityTags, ["Tag", "Tags", "Community Tag", "Description", "Notes"]);
-  const scoring = joinKnowledgeRows(data?.communityScoring, ["Score", "Scoring Notes", "Rent Score", "Demand Score", "Notes"]);
-  const fit = joinKnowledgeRows(data?.propertyFitMatrix, ["Fit Notes", "Property Fit", "Best Fit", "Notes", "Matrix Notes"]);
-  const hints = joinKnowledgeRows(data?.aiDecisionHints, ["Hint", "Decision Hint", "AI Hint", "Recommendation", "Notes"]);
+    "";
+  const tags = joinKnowledgeRows(data?.communityTags, ["Tag", "Tags", "Community Tag"]).filter((tag) => tag.length <= 40);
 
   return {
     communityName,
     matchType: data?.matchType || "fallback",
     matchedKeyword: data?.matchedKeyword || "",
-    matchScore: data?.matchScore || 0,
-    profile: firstKnowledgeValue(base, ["Profile", "Community Profile", "profile", "Overview", "Description"]) || "General Nanaimo rental-market reference.",
-    residentProfile: firstKnowledgeValue(base, ["Resident Profile", "residentProfile", "Resident_Profile", "Residents", "Demographics"]) || tags.join("; ") || "Tenant profile needs further confirmation by exact address.",
-    nearbySchools: firstKnowledgeValue(base, ["Nearby Schools", "nearbySchools", "Schools", "School Notes"]) || "School catchment must be verified by exact address.",
-    shoppingAndServices: firstKnowledgeValue(base, ["Shopping And Services", "Shopping & Services", "shoppingAndServices", "Services", "Shopping"]) || "Shopping and services should be verified by exact address.",
-    parksTrailsLifestyle: firstKnowledgeValue(base, ["Parks Trails Lifestyle", "Parks / Trails / Lifestyle", "parksTrailsLifestyle", "Parks", "Lifestyle"]) || "Parks, trails, and lifestyle access should be verified by exact address.",
-    transitAndAccess: firstKnowledgeValue(base, ["Transit And Access", "Transit & Access", "transitAndAccess", "Transit", "Access"]) || "Transit and access should be verified by exact address.",
-    developmentTrend: firstKnowledgeValue(base, ["Development Trend", "developmentTrend", "Trend", "Future Trend"]) || scoring.join("; ") || "Development trend is a reference judgment only.",
-    tenantAppeal: firstKnowledgeValue(base, ["Tenant Appeal", "tenantAppeal", "Tenant Demand", "Demand"]) || fit.join("; ") || "Tenant appeal should be confirmed from property facts and market feedback.",
-    rentPositioningNotes: firstKnowledgeValue(base, ["Rent Positioning Notes", "rentPositioningNotes", "Rent Positioning", "Rent Notes"]) || scoring.join("; ") || "Use target rent and current comparable listings as the starting point.",
-    risksAndCautions: firstKnowledgeValue(base, ["Risks And Cautions", "Risks / Cautions", "risksAndCautions", "Risks", "Cautions"]) || "Do not overstate school, rent, suite, or tenant-quality claims.",
-    marketingAngles: firstKnowledgeValue(base, ["Marketing Angles", "marketingAngles", "Marketing", "Positioning"]) || tags.join("; ") || "Use accurate photos and verified nearby conveniences.",
-    mabelProfessionalNotes: firstKnowledgeValue(base, ["Mabel Professional Notes", "mabelProfessionalNotes", "Professional Notes", "Mabel Notes"]) || hints.join("; ") || "Property facts remain first priority.",
-    lastReviewed: firstKnowledgeValue(base, ["Last Reviewed", "lastReviewed", "Reviewed", "Updated At"]) || data?.lastLoadedAt || "",
     tags,
-    scoring,
-    fit,
-    hints,
   };
 }
 
-function communityReferencePrefix(community, lang = "en") {
-  const matched = community.matchType === "keyword"
-    ? (community.matchedKeyword
-      ? (lang === "zh" ? `匹配关键词：${community.matchedKeyword}` : `matched keyword: ${community.matchedKeyword}`)
-      : (lang === "zh" ? "已通过 Knowledge Base 关键词匹配" : "matched by Knowledge Base keywords"))
-    : (lang === "zh" ? "未匹配到具体社区，使用 Nanaimo 通用参考" : "no specific community matched; using general Nanaimo reference");
-  return lang === "zh"
-    ? `社区参考：${community.communityName}（${matched}）。以下为参考判断，需以具体地址、照片和业主填写资料确认。`
-    : `Community reference: ${community.communityName} (${matched}). This is reference guidance only and must be confirmed against the exact address, photos, and owner inputs.`;
+function communityReferencePrefix(community, region, lang = "en") {
+  const name = community.communityName || region.zh;
+  const nameEn = community.communityName || region.en;
+  if (lang === "zh") {
+    return `社区参考：${name}。以下判断结合 Nanaimo 区域出租经验，最终仍需以具体地址、照片和业主填写资料确认。`;
+  }
+  return `Community reference: ${nameEn}. This reflects general Nanaimo sub-market experience and must still be confirmed against the exact address, photos, and owner inputs.`;
 }
 
-function buildCommunityLocationAnalysis(form, community, lang = "en") {
-  const notes = [communityReferencePrefix(community, lang)];
+function buildCommunityLocationAnalysis(form, community, judgment, lang = "en") {
+  const narrative = getRegionNarrative(judgment.region.code);
+  const notes = [communityReferencePrefix(community, judgment.region, lang)];
   if (lang === "zh") {
-    notes.push(`社区画像：${translateKnowledgeReference(community.profile, lang)}`);
-    notes.push(`学校参考：${translateKnowledgeReference(community.nearbySchools, lang)}`);
-    notes.push(`购物与服务：${translateKnowledgeReference(community.shoppingAndServices, lang)}`);
-    notes.push(`公园 / Trail / Lifestyle：${translateKnowledgeReference(community.parksTrailsLifestyle, lang)}`);
-    notes.push(`交通与通达：${translateKnowledgeReference(community.transitAndAccess, lang)}`);
-    notes.push(`未来趋势参考：${translateKnowledgeReference(community.developmentTrend, lang)}`);
-    if (community.tags?.length) notes.push(`社区标签参考：${community.tags.map((item) => translateKnowledgeReference(item, lang)).join("；")}`);
-    if (form.locationNotes) notes.push(`业主位置备注优先：${cleanSentence(form.locationNotes)}`);
+    notes.push(narrative.overview.zh);
+    if (community.tags.length) notes.push(`社区标签：${community.tags.join("、")}。`);
+    if (form.locationNotes) notes.push(`业主位置备注：${cleanSentence(form.locationNotes)}`);
     return notes;
   }
-  notes.push(`Profile: ${community.profile}`);
-  notes.push(`Schools reference: ${community.nearbySchools}`);
-  notes.push(`Shopping and services: ${community.shoppingAndServices}`);
-  notes.push(`Parks / trails / lifestyle: ${community.parksTrailsLifestyle}`);
-  notes.push(`Transit and access: ${community.transitAndAccess}`);
-  notes.push(`Development trend reference: ${community.developmentTrend}`);
-  if (community.tags?.length) notes.push(`Community tags reference: ${community.tags.join("; ")}`);
-  if (form.locationNotes) notes.push(`Owner location notes take priority: ${cleanSentence(form.locationNotes)}`);
+  notes.push(narrative.overview.en);
+  if (community.tags.length) notes.push(`Community tags: ${community.tags.join(", ")}.`);
+  if (form.locationNotes) notes.push(`Owner location notes: ${cleanSentence(form.locationNotes)}`);
   return notes;
 }
 
-function buildTargetTenantProfile(form, community, lang = "en") {
-  const propertyFacts = buildSupportedFeaturePhrases(form, lang);
+function buildTargetTenantProfile(form, judgment, lang = "en") {
+  const personas = judgment.personas.map((p) => (lang === "zh" ? p.zh : p.en));
+  const narrative = getRegionNarrative(judgment.region.code);
   if (lang === "zh") {
     const notes = [
-      `居民类型参考：${translateKnowledgeReference(community.residentProfile, lang)}`,
-      `租客吸引力参考：${translateKnowledgeReference(community.tenantAppeal, lang)}`,
+      `根据${judgment.type.zh}和当前租金定位，目标租客为：${personas.join("、")}。`,
+      narrative.tenantAppeal.zh,
     ];
-    if (community.fit?.length) notes.push(`Property Fit Matrix 参考：${community.fit.map((item) => translateKnowledgeReference(item, lang)).join("；")}`);
-    if (propertyFacts.length) notes.push(`当前房源事实优先：${propertyFacts.join("、")}。`);
-    notes.push("最终目标租客需结合租金、房屋状态、宠物政策、停车和看房反馈确认。");
+    if (judgment.marketAcceptance.narrowPool) {
+      notes.push("当前价位对应的租客群体偏窄，看房和申请质量需要更密切跟进。");
+    }
     return notes;
   }
   const notes = [
-    `Resident profile reference: ${community.residentProfile}`,
-    `Tenant appeal reference: ${community.tenantAppeal}`,
+    `Based on the ${judgment.type.en.toLowerCase()} and current rent positioning, the target tenant profile is: ${personas.join(", ")}.`,
+    narrative.tenantAppeal.en,
   ];
-  if (community.fit?.length) notes.push(`Property Fit Matrix reference: ${community.fit.join("; ")}`);
-  if (propertyFacts.length) notes.push(`Current property facts take priority: ${propertyFacts.join(", ")}.`);
-  notes.push("Final target tenant profile should be confirmed with rent, condition, pet policy, parking, and showing feedback.");
+  if (judgment.marketAcceptance.narrowPool) {
+    notes.push("This price point reaches a narrower tenant pool, so showings and application quality need closer follow-up.");
+  }
   return notes;
 }
 
-function buildCommunityRentPositioningJudgment(form, community, lang = "en") {
-  const target = formatCurrency(form.targetRent, lang);
+function buildCommunityRentPositioningJudgment(form, judgment, lang = "en") {
+  const [lo, hi] = judgment.adjustedRange;
   if (lang === "zh") {
     return [
-      `当前 Target Rent：${target}/月。`,
-      `社区租金定位参考：${translateKnowledgeReference(community.rentPositioningNotes, lang)}`,
-      ...(community.scoring?.length ? [`Community Scoring 参考：${community.scoring.map((item) => translateKnowledgeReference(item, lang)).join("；")}`] : []),
-      "租金判断必须优先使用当前记录的 bedrooms、bathrooms、property type、parking、yard、pet policy、furnished 和景观字段。",
-      "缺失或未确认的社区卖点只能写需进一步确认，不能用于抬高租金。",
+      `租金判断以本地租金判断章节的结论为准：调整后区间约 $${lo.toLocaleString("en-US")}–$${hi.toLocaleString("en-US")}，建议挂牌价 $${judgment.recommendedPrice.toLocaleString("en-US")}。`,
+      "该判断优先使用当前记录的户型、区域、车库、院子、宠物政策和装修状态字段；未确认的社区卖点不用于抬高租金。",
     ];
   }
   return [
-    `Current Target Rent: ${target}/month.`,
-    `Community rent-positioning reference: ${community.rentPositioningNotes}`,
-    ...(community.scoring?.length ? [`Community Scoring reference: ${community.scoring.join("; ")}`] : []),
-    "Rent judgment must prioritize the current record's bedrooms, bathrooms, property type, parking, yard, pet policy, furnished status, and view field.",
-    "Missing or unconfirmed community advantages should be marked as needing confirmation and must not be used to lift rent positioning.",
+    `This follows the Local Rent Positioning section: adjusted range about $${lo.toLocaleString("en-US")}-$${hi.toLocaleString("en-US")}, recommended list price $${judgment.recommendedPrice.toLocaleString("en-US")}.`,
+    "This judgment prioritizes the current record's unit type, region, garage, yard, pet policy, and condition fields; unconfirmed community advantages are not used to inflate rent.",
   ];
 }
 
-function buildCommunityMarketingAngles(form, community, lang = "en") {
+function buildCommunityMarketingAngles(form, judgment, lang = "en") {
   const baseAngles = lang === "zh"
     ? ["客厅", "厨房", "卧室", "外观", "停车", "清洁状态"]
     : ["living room", "kitchen", "bedrooms", "exterior", "parking", "clean condition"];
@@ -923,42 +875,36 @@ function buildCommunityMarketingAngles(form, community, lang = "en") {
   if (form.furnished === "Yes") conditionalAngles.push(lang === "zh" ? "已确认家具配置" : "confirmed furnished setup");
   if (Number(form.garageSpaces || 0) > 0) conditionalAngles.push(lang === "zh" ? "已确认车库" : "confirmed garage");
   if (form.privateYard === "Yes" || form.fencedBackyard === "Yes") conditionalAngles.push(lang === "zh" ? "已确认户外空间" : "confirmed outdoor space");
+  const narrative = getRegionNarrative(judgment.region.code);
 
   if (lang === "zh") {
     return [
       `基础照片 / 文案角度：${baseAngles.join("、")}。`,
-      `社区营销角度参考：${translateKnowledgeReference(community.marketingAngles, lang)}`,
+      narrative.marketingAngle.zh,
       conditionalAngles.length ? `当前字段支持的额外角度：${conditionalAngles.join("、")}。` : "当前没有额外特殊卖点字段支持，营销应保持基础、准确。",
-      ...(community.hints?.length ? [`AI Decision Hints 参考：${community.hints.map((item) => translateKnowledgeReference(item, lang)).join("；")}`] : []),
-      `Mabel 专业备注：${translateKnowledgeReference(community.mabelProfessionalNotes, lang)}`,
     ];
   }
   return [
     `Base photo / copy angles: ${baseAngles.join(", ")}.`,
-    `Community marketing angle reference: ${community.marketingAngles}`,
+    narrative.marketingAngle.en,
     conditionalAngles.length ? `Additional angles supported by current fields: ${conditionalAngles.join(", ")}.` : "No additional special-feature fields are confirmed, so marketing should stay basic and accurate.",
-    ...(community.hints?.length ? [`AI Decision Hints reference: ${community.hints.join("; ")}`] : []),
-    `Mabel professional notes: ${community.mabelProfessionalNotes}`,
   ];
 }
 
-function buildCommunityRisksToVerify(form, community, lang = "en") {
+function buildCommunityRisksToVerify(form, judgment, lang = "en") {
   const missing = [];
   if (!form.communityArea) missing.push(lang === "zh" ? "具体社区" : "specific community");
-  if (!form.locationNotes) missing.push(lang === "zh" ? "位置备注" : "location notes");
   if (!form.fencedBackyard) missing.push(lang === "zh" ? "后院围栏" : "fenced backyard");
   if (!form.petFriendly) missing.push(lang === "zh" ? "宠物政策" : "pet policy");
   if (!form.availableDate) missing.push(lang === "zh" ? "可出租日期" : "available date");
 
   if (lang === "zh") {
-    const notes = [`社区风险 / 待核实：${translateKnowledgeReference(community.risksAndCautions, lang)}`];
-    if (missing.length) notes.push(`当前记录缺失：${missing.join("、")}，报告只能写需进一步确认。`);
-    notes.push(`资料更新时间：${community.lastReviewed}`);
+    const notes = ["详细市场风险见「市场风险」章节。"];
+    if (missing.length) notes.push(`当前记录缺失：${missing.join("、")}，报告只能以普通装修和正常维护状态假设判断，确认后可能上下调整。`);
     return notes;
   }
-  const notes = [`Community risks / items to verify: ${community.risksAndCautions}`];
-  if (missing.length) notes.push(`Missing current-record details: ${missing.join(", ")}; the report should mark these as needing confirmation.`);
-  notes.push(`Knowledge last reviewed: ${community.lastReviewed}`);
+  const notes = ["See the Market Risks section for the full risk list."];
+  if (missing.length) notes.push(`Missing current-record details: ${missing.join(", ")}; this report assumes ordinary condition and maintenance until confirmed, and the range may move up or down once confirmed.`);
   return notes;
 }
 
@@ -1068,10 +1014,9 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
   return [lang === "zh" ? `Assessment Confidence：${getConfidenceLabel(confidence.score, lang)}` : `Assessment Confidence: ${getConfidenceLabel(confidence.score, lang)}`, ...reasons];
 }
 
-function buildServiceRecommendation(form, lang, community = null) {
+function buildServiceRecommendation(form, lang) {
   const confirmed = buildSupportedFeaturePhrases(form, lang);
   const confirmedText = confirmed.length ? confirmed.join(lang === "zh" ? "、" : ", ") : (lang === "zh" ? "当前已填写资料" : "the submitted property details");
-  const hints = community?.hints || [];
   if (lang === "zh") {
     const items = [
       `★★★★★ AI Marketing Package：适合把${confirmedText}整理成准确广告和照片顺序。`,
@@ -1083,7 +1028,6 @@ function buildServiceRecommendation(form, lang, community = null) {
     if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
       items.push("建议预约专业咨询，先确认法规、租金定位和整租 / 分租路径。");
     }
-    if (hints.length) items.push(`Knowledge Base 下一步参考：${hints.map((item) => translateKnowledgeReference(item, lang)).join("；")}`);
     return items;
   }
   const items = [
@@ -1096,7 +1040,6 @@ function buildServiceRecommendation(form, lang, community = null) {
   if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
     items.push("Book a professional consultation before confirming the final path.");
   }
-  if (hints.length) items.push(`Knowledge Base next-step reference: ${hints.join("; ")}`);
   return items;
 }
 
@@ -1105,64 +1048,8 @@ function asArray(value) {
   return value ? [value] : [];
 }
 
-function formatPropertyDescription(form, lang = "en") {
-  const unknown = lang === "zh" ? "需进一步确认" : "needs confirmation";
-  const bed = normalizeCellTextForUi(form.bedrooms) || unknown;
-  const bath = normalizeCellTextForUi(form.bathrooms) || unknown;
-  const type = normalizeCellTextForUi(form.propertyType) || unknown;
-  const city = normalizeCellTextForUi(form.city) || unknown;
-  const community = normalizeCellTextForUi(form.communityArea);
-  const parkingParts = [];
-  if (normalizeCellTextForUi(form.garageSpaces)) parkingParts.push(lang === "zh" ? `${form.garageSpaces} 个车库车位` : `${form.garageSpaces} garage space(s)`);
-  if (normalizeCellTextForUi(form.drivewayParking)) parkingParts.push(lang === "zh" ? `${form.drivewayParking} 个车道车位` : `${form.drivewayParking} driveway parking space(s)`);
-  const parking = parkingParts.length ? parkingParts.join(lang === "zh" ? "、" : ", ") : unknown;
-  const yard = form.privateYard === "Yes"
-    ? (lang === "zh" ? "有私人院子" : "private yard")
-    : form.fencedBackyard === "Yes"
-      ? (lang === "zh" ? "有围栏后院" : "fenced backyard")
-      : unknown;
-  const pet = form.petFriendly === "Yes"
-    ? (lang === "zh" ? "接受宠物" : "pet friendly")
-    : form.petFriendly === "No"
-      ? (lang === "zh" ? "不接受宠物" : "not pet friendly")
-      : unknown;
-  const furnished = form.furnished === "Yes"
-    ? (lang === "zh" ? "带家具" : "furnished")
-    : form.furnished === "No"
-      ? (lang === "zh" ? "不带家具" : "unfurnished")
-      : unknown;
-  const view = form.oceanView === "Yes"
-    ? (lang === "zh" ? "有海景" : "ocean view")
-    : form.oceanView === "No"
-      ? (lang === "zh" ? "未确认景观卖点" : "no confirmed view feature")
-      : unknown;
-
-  if (lang === "zh") {
-    return `${bed}房${bath}卫，${type}，城市 ${city}${community ? `，社区 ${community}` : ""}，停车：${parking}，院子：${yard}，宠物政策：${pet}，家具：${furnished}，景观：${view}`;
-  }
-  return `${bed} bedroom(s), ${bath} bathroom(s), ${type}, city ${city}${community ? `, community ${community}` : ""}, parking: ${parking}, yard: ${yard}, pet policy: ${pet}, furniture: ${furnished}, view: ${view}`;
-}
-
 function normalizeCellTextForUi(value) {
   return String(value || "").trim();
-}
-
-function buildStrategyScopeSentence(form, lang = "en") {
-  const hasSuiteBasis = hasSplitRentalBasis(form, form.followUpAnswers || {});
-  if (lang === "zh") {
-    const parts = ["根据目前资料，报告只能使用业主本次填写的信息生成。"];
-    parts.push(hasSuiteBasis
-      ? "分租方向可作为待审核选项，但仍需合规、平面布局和独立使用条件确认。"
-      : "未填写或未确认套间、独立入口、独立厨房时，额外出租配置只能标记为需进一步确认。");
-    parts.push("最终策略需结合照片、房屋状态、当前市场反馈和专业审核确认。");
-    return parts.join("");
-  }
-  const parts = ["Based on the current information, this report can only use the owner's current submitted inputs. "];
-  parts.push(hasSuiteBasis
-    ? "Split rental can be reviewed as a pending option, but compliance, layout, and independent-use details still need confirmation. "
-    : "Additional rental configuration can only be marked as needing confirmation unless suite, separate entrance, and separate kitchen details are confirmed. ");
-  parts.push("Final strategy requires photos, property condition, current market feedback, and professional confirmation.");
-  return parts.join("");
 }
 
 function hasSplitRentalBasis(form, followUps = {}) {
