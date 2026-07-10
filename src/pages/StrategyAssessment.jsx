@@ -558,12 +558,12 @@ export default function StrategyAssessment({ lang }) {
   useEffect(() => {
     let active = true;
     setCommunitiesLoading(true);
-    getRentalIntelligenceCommunities(form.city)
+    getRentalIntelligenceCommunities()
       .then((items) => { if (active) setCommunityOptions(Array.isArray(items) ? items : []); })
       .catch(() => { if (active) setCommunityOptions([]); })
       .finally(() => { if (active) setCommunitiesLoading(false); });
     return () => { active = false; };
-  }, [form.city]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -1355,7 +1355,7 @@ function CommunitySelect({ form, setForm, labels, copy, options, loading, lang }
       <label>{labels.communityId}</label>
       <select className="form-control" value={form.communityId} onChange={onChange} disabled={loading}>
         <option value="">{loading ? (lang === "zh" ? "正在读取社区…" : "Loading communities…") : fallbackLabel}</option>
-        {options.map((item) => <option key={item.communityId} value={item.communityId}>{item.communityName}</option>)}
+        {options.map((item) => <option key={item.communityId} value={item.communityId}>{item.communityName}{item.city ? ` — ${item.city}` : ""}</option>)}
       </select>
       {!loading && !options.length && <small className="text-muted">{lang === "zh" ? "社区列表暂时不可用，可选择“其他 / 尚未确定”继续。" : "The community list is temporarily unavailable; continue with Other / Not yet confirmed."}</small>}
     </div>
