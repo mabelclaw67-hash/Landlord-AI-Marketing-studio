@@ -1237,7 +1237,9 @@ function propertyStrategyAnalysisText_(record) {
 
 function propertyStrategyLanguage_(record, analysisText) {
   if (record.Language) return record.Language;
-  return /[\u3400-\u9fff]/.test(analysisText || "") ? "中文" : "English";
+  var text = String(analysisText || "");
+  var chineseCharacters = text.match(/[\u3400-\u9fff]/g) || [];
+  return chineseCharacters.length / Math.max(text.length, 1) >= 0.05 ? "中文" : "English";
 }
 
 function propertyStrategyCreatedAt_(record) {
