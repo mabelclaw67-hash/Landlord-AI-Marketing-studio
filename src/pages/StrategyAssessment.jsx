@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
+  displayStrategyValue,
   generatePreliminaryStrategySummary,
   getRentalIntelligenceKnowledge,
   getLegalRiskFlag,
@@ -641,21 +642,25 @@ export default function StrategyAssessment({ lang }) {
 
     try {
       const rentalIntelligence = await getRentalIntelligenceKnowledge(form);
-      const finalPreliminary = generatePreliminaryStrategySummary(form, safeLang, rentalIntelligence);
+      const reportZh = generatePreliminaryStrategySummary(form, "zh", rentalIntelligence);
+      const reportEn = generatePreliminaryStrategySummary(form, "en", rentalIntelligence);
+      const finalPreliminary = safeLang === "zh" ? reportZh : reportEn;
       const result = await submitStrategyAssessment({
         ...form,
         photoFileNames: photoNames.join(", "),
         preliminaryAssessment: finalPreliminary,
+        reportZh,
+        reportEn,
       }, safeLang);
       setSubmitted({
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
-        assessment: finalPreliminary,
+        reports: { zh: reportZh, en: reportEn },
       });
       saveStrategyReportSession({
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
-        assessment: finalPreliminary,
+        reports: { zh: reportZh, en: reportEn },
         savedAt: new Date().toISOString(),
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -886,7 +891,7 @@ export default function StrategyAssessment({ lang }) {
           <div className="container strategy-container">
             {publicReport ? (
               <StrategyReportResult
-                assessment={publicReport.assessment}
+                assessment={publicReport.reports?.[safeLang] || publicReport.assessment}
                 assessmentId={publicReport.assessmentId}
                 nextStep={publicReport.nextStep}
                 copy={copy}
@@ -916,7 +921,7 @@ export default function StrategyAssessment({ lang }) {
         <section className="section">
           <div className="container strategy-container">
             <StrategyReportResult
-              assessment={submitted.assessment}
+              assessment={submitted.reports?.[safeLang] || submitted.assessment}
               assessmentId={submitted.assessmentId}
               nextStep={submitted.nextStep}
               copy={copy}
@@ -999,7 +1004,7 @@ function StrategyReportResult({ assessment, assessmentId, nextStep, copy, lang, 
           <p className="strategy-success__label">{copy.assessmentId}</p>
           <h2>{assessmentId}</h2>
           <p>{copy.reportGenerated}</p>
-          <p><strong>{copy.nextStepSelected}</strong> {nextStep || copy.notSelected}</p>
+          <p><strong>{copy.nextStepSelected}</strong> {nextStep ? displayStrategyValue(nextStep, lang) : copy.notSelected}</p>
         </div>
         <div className="strategy-result-actions">
           <button

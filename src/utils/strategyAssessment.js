@@ -26,6 +26,19 @@ const OPTION_LABELS_ZH = {
   "Third-party operator": "第三方运营",
   Separated: "已分开",
   Shared: "共用",
+  "Detached House": "独立屋", Condo: "公寓", Townhouse: "联排屋", Duplex: "双拼屋",
+  "Manufactured Home": "活动房屋", Acreage: "大面积土地住宅", Other: "其他",
+  "Entire Detached House": "整栋独立屋", "Main / Upper Unit": "主层 / 楼上单元",
+  "Basement / Secondary Suite": "地下套间 / 第二套房", "Entire Condo": "整套公寓",
+  "Entire Townhouse": "整套联排屋", "Whole House with Main + Suite": "楼上加楼下整体出租",
+  "One Duplex Unit": "双拼屋其中一个单元", "Room Rental": "单个房间出租",
+  "Fully Private": "完全独享", "No Outdoor Space": "无户外空间", Partial: "部分独享",
+  "Fully Fenced": "完全有围栏", "Partially Fenced": "部分有围栏", "Not Fenced": "没有围栏",
+  "Not Applicable": "不适用", "Private In-unit": "套内独立洗衣", "No Laundry": "无洗衣设施",
+  "Separate Meter": "独立电表", "Included in Rent": "包含在租金内",
+  "Shared by Percentage": "按比例分摊", "Shared by Fixed Amount": "按固定金额分摊",
+  "Tenant Pays Own Account": "租客自行开户缴费",
+  "Not ready yet - keep my intake on file": "暂未准备好，先保留资料",
 };
 
 const FOLLOW_UP_QUESTIONS_ZH = {
@@ -62,6 +75,10 @@ const FOLLOW_UP_QUESTIONS_ZH = {
 
 function displayOption(option, lang) {
   return lang === "zh" ? (OPTION_LABELS_ZH[option] || option) : option;
+}
+
+export function displayStrategyValue(value, lang = "en") {
+  return displayOption(String(value || ""), normalizeLang(lang));
 }
 
 function formatCurrency(value, lang) {
@@ -381,7 +398,7 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
   const judgment = computeLocalRentJudgment(form, followUps);
   const summary = {
     propertyClassification: safeLang === "zh"
-      ? [`建筑类型：${form.propertyBuildingType || form.propertyType || "待确认"}`, `出租单元类型：${form.rentalUnitType || form.propertyType || "待确认"}`]
+      ? [`建筑类型：${displayOption(form.propertyBuildingType || form.propertyType, safeLang) || "待确认"}`, `出租单元类型：${displayOption(form.rentalUnitType || form.propertyType, safeLang) || "待确认"}`]
       : [`Building Type: ${form.propertyBuildingType || form.propertyType || "To be confirmed"}`, `Rental Unit Type: ${form.rentalUnitType || form.propertyType || "To be confirmed"}`],
     executiveSummary: buildExecutiveSummary(form, judgment, safeLang),
     propertyPositioning: buildPropertyPositioning(form, judgment, safeLang),
@@ -1034,11 +1051,11 @@ function buildServiceRecommendation(form, lang) {
   const confirmedText = confirmed.length ? confirmed.join(lang === "zh" ? "、" : ", ") : (lang === "zh" ? "当前已填写资料" : "the submitted property details");
   if (lang === "zh") {
     const items = [
-      `★★★★★ AI Marketing Package：适合把${confirmedText}整理成准确广告和照片顺序。`,
-      `★★★★☆ Professional Rental Listing：适合需要正式挂牌、筛选租客和测试 ${formatCurrency(form.targetRent, lang)}/月整租定位的业主。`,
+      `★★★★★ AI 营销方案：适合把${confirmedText}整理成准确广告和照片顺序。`,
+      `★★★★☆ 专业出租挂牌服务：适合需要正式挂牌、筛选租客和测试 ${formatCurrency(form.targetRent, lang)}/月整租定位的业主。`,
       hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
-        ? "★★★★★ Property Management：适合法规、分租或长期管理需要专业把关的物业。"
-        : "★★★★☆ Property Management：适合希望减少日常沟通、筛选和租后管理工作的业主。",
+        ? "★★★★★ 物业管理服务：适合法规、分租或长期管理需要专业把关的物业。"
+        : "★★★★☆ 物业管理服务：适合希望减少日常沟通、筛选和租后管理工作的业主。",
     ];
     if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
       items.push("建议预约专业咨询，先确认法规、租金定位和整租 / 分租路径。");
@@ -1084,7 +1101,7 @@ function buildSupportedFeaturePhrases(form, lang = "en") {
   const items = [];
   const bed = normalizeCellTextForUi(form.bedrooms);
   const bath = normalizeCellTextForUi(form.bathrooms);
-  const type = normalizeCellTextForUi(form.rentalUnitType || form.propertyBuildingType || form.propertyType);
+  const type = normalizeCellTextForUi(displayOption(form.rentalUnitType || form.propertyBuildingType || form.propertyType, lang));
   if (bed || bath || type) {
     items.push(lang === "zh"
       ? `${bed || "需确认"}房${bath || "需确认"}卫${type ? ` ${type}` : ""}`
@@ -1208,6 +1225,8 @@ export async function submitStrategyAssessment(form, lang = "en") {
   const safeLang = normalizeLang(lang);
   const assessmentId = form.assessmentId || createAssessmentId();
   const preliminaryAssessment = form.preliminaryAssessment || generatePreliminaryStrategySummary(form, safeLang);
+  const reportZh = form.reportZh || generatePreliminaryStrategySummary(form, "zh");
+  const reportEn = form.reportEn || generatePreliminaryStrategySummary(form, "en");
   const legal = form.legalCompliance || {};
   const legalRiskFlag = getLegalRiskFlag(form);
   const ownerOccupancyRelated = legal.previousTenantOwnerOccupancy || "";
@@ -1258,6 +1277,8 @@ export async function submitStrategyAssessment(form, lang = "en") {
     "Location Rent Premium": form.locationRentPremium || "",
     "Rent Adjustment Factors": form.rentAdjustmentFactors || "",
     preliminaryAssessment,
+    reportZh,
+    reportEn,
     submittedAt: new Date().toISOString(),
   };
 
@@ -1273,6 +1294,8 @@ export async function submitStrategyAssessment(form, lang = "en") {
   return {
     assessmentId,
     preliminaryAssessment,
+    reportZh,
+    reportEn,
     ...(result || {}),
   };
 }

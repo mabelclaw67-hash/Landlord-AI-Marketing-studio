@@ -913,7 +913,9 @@ function savePropertyStrategyAssessment_(data) {
   var assessmentId = normalizeCellText_(data.assessmentId) || generatePropertyStrategyAssessmentId_();
   var submittedAt = normalizeCellText_(data.submittedAt) || new Date().toISOString();
   var assessmentText = stringifyPropertyStrategyAssessment_(data.preliminaryAssessment);
-  var record = buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText);
+  var reportZhText = stringifyPropertyStrategyAssessment_(data.reportZh);
+  var reportEnText = stringifyPropertyStrategyAssessment_(data.reportEn);
+  var record = buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText, reportZhText, reportEnText);
   var row = headers.map(function(header) {
     return record.hasOwnProperty(header) ? record[header] : "";
   });
@@ -946,11 +948,12 @@ function savePropertyStrategyAssessment_(data) {
     assessmentId: assessmentId,
     rowNumber: rowNumber,
     reportUrl: reportResult ? reportResult.reportUrl : "",
+    reportUrls: reportResult ? reportResult.reportUrls : {},
     reportWarning: reportError,
   };
 }
 
-function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText) {
+function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText, reportZhText, reportEnText) {
   var consentToContact = data.consentToContact ? "Yes" : "";
   var privacyConsent = data.privacyConsent ? "Yes" : "";
   var photoFileNames = normalizeCellText_(data.photoFileNames);
@@ -1041,6 +1044,8 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "Service Path": servicePath,
     "AI Strategy Summary": aiStrategySummary,
     "AI Analysis JSON": aiStrategySummary,
+    "Report ZH JSON": reportZhText || "",
+    "Report EN JSON": reportEnText || "",
     "Consent to Contact": consentToContact,
     "Privacy Consent": privacyConsent,
     "Photo File Names": photoFileNames,
@@ -1272,7 +1277,8 @@ function getPropertyStrategyReports_(auth) {
       community: record["Community / Area"],
       propertyType: record["Rental Unit Type"] || record["Property Building Type"] || record["Property Type"],
       targetRent: record["Target Rent"], language: propertyStrategyLanguage_(record, analysisText),
-      status: record.Status || "New", reportUrl: record["Report URL"]
+      status: record.Status || "New", reportUrl: record["Report URL"],
+      reportUrls: { zh: record["Report ZH URL"] || record["Report URL"], en: record["Report EN URL"] || record["Report URL"] }
     };
   }).filter(function(item) { return item.assessmentId; }).sort(function(a, b) {
     return String(b.createdAt || b.assessmentId).localeCompare(String(a.createdAt || a.assessmentId));
@@ -1285,12 +1291,16 @@ function getPropertyStrategyReport_(assessmentId, auth) {
   var headers = found.sheet.getRange(1, 1, 1, found.sheet.getLastColumn()).getDisplayValues()[0].map(normalizeCellText_);
   var record = propertyStrategyRowObject_(found.displayRow, headers);
   var analysisText = propertyStrategyAnalysisText_(record);
+  var reportZhText = record["Report ZH JSON"];
+  var reportEnText = record["Report EN JSON"];
   return {
     assessmentId: normalizeCellText_(assessmentId),
     createdAt: propertyStrategyCreatedAt_(record),
     language: propertyStrategyLanguage_(record, analysisText),
     status: record.Status || "New", reportUrl: record["Report URL"],
+    reportUrls: { zh: record["Report ZH URL"] || record["Report URL"], en: record["Report EN URL"] || record["Report URL"] },
     fields: record,
+    reports: { zh: parsePropertyStrategyAssessmentJson_(reportZhText), en: parsePropertyStrategyAssessmentJson_(reportEnText) },
     analysis: parsePropertyStrategyAssessmentJson_(analysisText),
     analysisText: analysisText
   };
@@ -1355,7 +1365,48 @@ function appendPropertyStrategySection_(body, title, value) {
   }
 }
 
-function buildPropertyStrategyReportDocument_(found, assessmentId) {
+function propertyStrategyPdfLabel_(label, language) {
+  if (language !== "zh") return label;
+  var labels = {
+    "Assessment ID":"初评编号","Submitted At":"提交时间","Owner Name":"业主姓名","Email":"邮箱","Phone":"电话","Preferred Contact":"偏好联系方式",
+    "Property Address":"物业地址","City":"城市","Community / Area":"社区 / 区域","Property Details":"物业详情","Property Building Type":"物业建筑类型",
+    "Rental Unit Type":"出租单元类型","Property Type":"物业类型","Bedrooms":"卧室数","Bathrooms":"卫生间数","Garage Spaces":"车库车位",
+    "Driveway Parking":"车道停车位","Furnished":"家具","Ocean View":"海景","Outdoor Space Type":"户外空间","Fence Status":"围栏状态",
+    "Laundry Type":"洗衣安排","Utilities Arrangement":"水电安排","Shared Areas":"共用区域","Pet Friendly":"宠物政策","Existing Suite":"现有套间",
+    "Separate Entrance":"独立入口","Separate Kitchen":"独立厨房","Suite Legal Status":"套间合法状态","Suite Permit Status":"套间许可状态",
+    "Suite Bedrooms":"套间卧室数","Suite Bathrooms":"套间卫生间数","Can Add Separate Entrance":"可增设独立入口","Can Add Kitchen":"可增设厨房",
+    "Suite Hydro Meter":"套间电表","Suite Yard Privacy":"套间庭院隐私","Suite Shared Areas":"套间共用区域","Suite Rent Impact Notes":"套间租金影响备注",
+    "Owner Goal and Risk Notes":"业主目标与风险备注","Owner Goal":"业主目标",
+    "Target Rent":"目标租金","Available Date":"可出租日期","Timeline Urgency":"时间要求","Next Step":"下一步","Location and STR":"位置与短租",
+    "Nearby Commercial Centre":"附近商业中心","Location Notes":"位置备注","Location Rent Premium":"位置租金溢价","Rent Adjustment Factors":"租金调整因素",
+    "Airbnb Interest":"短租意向","Principal Residence":"主要住所","Owner Lives On Site":"业主是否住在现场","STR Municipality":"短租所在城市",
+    "Third-party Operator Interest":"第三方运营意向","Follow-up Answers":"追问答案","Privacy Note":"隐私说明",
+    "Known Issues":"已知问题","Legal Risk Flag":"法规风险标记","Owner Occupancy Related":"业主自住相关","Occupied 12 Months":"过去十二个月出租情况",
+    "Owner Occupancy Notes":"业主自住备注","AI Flags":"AI 标记","AI Confidence & Flags":"AI 信心与标记","Service Path":"服务路径",
+    "Building and Rental Unit Classification":"建筑与出租单元分类","Overall Assessment":"专业结论摘要","Property Positioning":"物业定位",
+    "Property Strengths":"支持价格的因素","Issues to Watch":"限制价格的因素","Rental Strategy Recommendation":"出租策略",
+    "Rent Positioning Recommendation":"本地租金判断","Market Risks":"市场风险","Suite Potential Analysis":"套房 / 分租潜力分析",
+    "Suite Quality & Privacy Analysis":"套房品质与隐私分析","Location Value Analysis":"地段价值分析","Community & Location Analysis":"社区与位置分析",
+    "Target Tenant Profile":"目标租客画像","Rent Positioning Judgment":"租金定位判断","Marketing Angles":"营销角度","Risks / Things to Verify":"待核查风险",
+    "Airbnb / STR Reminder":"短租法规提醒","Legal Risk Reminder":"法规风险提醒","AI Confidence & Flags (internal)":"AI 内部标记",
+    "AI Confidence":"AI 评估信心","Marketing Suggestions":"营销建议","Professional Preliminary Recommendation":"专业初步建议",
+    "Owner Goal Alignment":"业主目标匹配","Next Steps":"下一步行动","Recommended Service":"推荐服务方案","Knowledge Links":"知识链接","Disclaimer":"免责声明"
+  };
+  return labels[label] || label;
+}
+
+function propertyStrategyPdfValue_(value, language) {
+  if (language !== "zh") return value;
+  var values = {"Detached House":"独立屋","Condo":"公寓","Townhouse":"联排屋","Duplex":"双拼屋","Manufactured Home":"活动房屋","Acreage":"大面积土地住宅","Other":"其他","Entire Detached House":"整栋独立屋","Main / Upper Unit":"主层 / 楼上单元","Basement / Secondary Suite":"地下套间 / 第二套房","Entire Condo":"整套公寓","Entire Townhouse":"整套联排屋","Whole House with Main + Suite":"楼上加楼下整体出租","One Duplex Unit":"双拼屋其中一个单元","Room Rental":"单个房间出租","Fully Private":"完全独享","Shared":"共用","No Outdoor Space":"无户外空间","Partial":"部分独享","Not Sure":"不确定","Fully Fenced":"完全有围栏","Partially Fenced":"部分有围栏","Not Fenced":"没有围栏","Not Applicable":"不适用","Private In-unit":"套内独立洗衣","No Laundry":"无洗衣设施","Separate Meter":"独立电表","Included in Rent":"包含在租金内","Shared by Percentage":"按比例分摊","Shared by Fixed Amount":"按固定金额分摊","Tenant Pays Own Account":"租客自行开户缴费","Long-term Stable Tenant":"寻找长期稳定租客","Rent ASAP":"尽快出租","Maximize rent":"尽量提高租金","Try Airbnb":"尝试短租","Prepare for Sale Later":"为以后出售做准备","AI Marketing Package":"AI 营销方案","Professional Rental Listing":"专业出租挂牌服务","Property Management":"物业管理服务","Not ready yet - keep my intake on file":"暂未准备好，先保留资料","Yes":"是","No":"否","Unsure":"不确定"};
+  return values[normalizeCellText_(value)] || value;
+}
+
+function appendPropertyStrategyLocalizedValue_(body, label, value, language) {
+  appendPropertyStrategyValue_(body, propertyStrategyPdfLabel_(label, language), propertyStrategyPdfValue_(value, language));
+}
+
+function buildPropertyStrategyReportDocument_(found, assessmentId, language, assessmentTextOverride) {
+  language = language === "zh" ? "zh" : "en";
   var row = found.displayRow || found.row;
   var headerMap = found.headerMap;
   var ownerName = normalizeCellText_(colVal_(row, headerMap, "Owner Name"));
@@ -1366,31 +1417,32 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
     "Property_Strategy_Assessment",
     safePropertyStrategyFileNamePart_(assessmentId, "Assessment"),
     safePropertyStrategyFileNamePart_(ownerName || address, "Owner"),
+    language.toUpperCase()
   ].join("_");
 
   var doc = DocumentApp.create(fileBaseName);
   var body = doc.getBody();
   body.clear();
-  body.appendParagraph("AI Property Strategy Assessment").setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  body.appendParagraph("Internal professional review copy").setHeading(DocumentApp.ParagraphHeading.HEADING2);
-  appendPropertyStrategyValue_(body, "Assessment ID", assessmentId);
-  appendPropertyStrategyValue_(body, "Submitted At", created);
-  appendPropertyStrategyValue_(body, "Owner Name", ownerName);
-  appendPropertyStrategyValue_(body, "Email", colVal_(row, headerMap, "Email"));
-  appendPropertyStrategyValue_(body, "Phone", colVal_(row, headerMap, "Phone"));
-  appendPropertyStrategyValue_(body, "Preferred Contact", colVal_(row, headerMap, "Preferred Contact"));
-  appendPropertyStrategyValue_(body, "Property Address", address);
-  appendPropertyStrategyValue_(body, "City", city);
-  appendPropertyStrategyValue_(body, "Community / Area", colVal_(row, headerMap, "Community / Area"));
+  body.appendParagraph(language === "zh" ? "AI 房产出租策略评估" : "AI Property Strategy Assessment").setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  body.appendParagraph(language === "zh" ? "内部专业审核版本" : "Internal professional review copy").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  appendPropertyStrategyLocalizedValue_(body, "Assessment ID", assessmentId, language);
+  appendPropertyStrategyLocalizedValue_(body, "Submitted At", created, language);
+  appendPropertyStrategyLocalizedValue_(body, "Owner Name", ownerName, language);
+  appendPropertyStrategyLocalizedValue_(body, "Email", colVal_(row, headerMap, "Email"), language);
+  appendPropertyStrategyLocalizedValue_(body, "Phone", colVal_(row, headerMap, "Phone"), language);
+  appendPropertyStrategyLocalizedValue_(body, "Preferred Contact", colVal_(row, headerMap, "Preferred Contact"), language);
+  appendPropertyStrategyLocalizedValue_(body, "Property Address", address, language);
+  appendPropertyStrategyLocalizedValue_(body, "City", city, language);
+  appendPropertyStrategyLocalizedValue_(body, "Community / Area", colVal_(row, headerMap, "Community / Area"), language);
 
-  body.appendParagraph("Property Details").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  body.appendParagraph(propertyStrategyPdfLabel_("Property Details", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var buildingType = colVal_(row, headerMap, "Property Building Type");
   var rentalUnitType = colVal_(row, headerMap, "Rental Unit Type");
   if (buildingType || rentalUnitType) {
-    appendPropertyStrategyValue_(body, "Property Building Type", buildingType);
-    appendPropertyStrategyValue_(body, "Rental Unit Type", rentalUnitType);
+    appendPropertyStrategyLocalizedValue_(body, "Property Building Type", buildingType, language);
+    appendPropertyStrategyLocalizedValue_(body, "Rental Unit Type", rentalUnitType, language);
   } else {
-    appendPropertyStrategyValue_(body, "Property Type", colVal_(row, headerMap, "Property Type"));
+    appendPropertyStrategyLocalizedValue_(body, "Property Type", colVal_(row, headerMap, "Property Type"), language);
   }
   var detailFields = [
     "Bedrooms", "Bathrooms", "Garage Spaces", "Driveway Parking", "Furnished",
@@ -1399,27 +1451,27 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
     "Can Add Kitchen", "Suite Legal Status", "Suite Permit Status", "Suite Hydro Meter",
     "Suite Yard Privacy", "Suite Shared Areas", "Suite Rent Impact Notes"
   ];
-  for (var i = 0; i < detailFields.length; i++) appendPropertyStrategyValue_(body, detailFields[i], colVal_(row, headerMap, detailFields[i]));
+  for (var i = 0; i < detailFields.length; i++) appendPropertyStrategyLocalizedValue_(body, detailFields[i], colVal_(row, headerMap, detailFields[i]), language);
 
-  body.appendParagraph("Owner Goal and Risk Notes").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  body.appendParagraph(propertyStrategyPdfLabel_("Owner Goal and Risk Notes", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var goalFields = [
     "Owner Goal", "Target Rent", "Available Date", "Timeline Urgency", "Next Step",
     "Known Issues", "Legal Risk Flag", "Owner Occupancy Related", "Occupied 12 Months",
     "Owner Occupancy Notes", "AI Flags", "AI Confidence & Flags", "Service Path"
   ];
-  for (var g = 0; g < goalFields.length; g++) appendPropertyStrategyValue_(body, goalFields[g], colVal_(row, headerMap, goalFields[g]));
+  for (var g = 0; g < goalFields.length; g++) appendPropertyStrategyLocalizedValue_(body, goalFields[g], colVal_(row, headerMap, goalFields[g]), language);
 
-  body.appendParagraph("Location and STR").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  body.appendParagraph(propertyStrategyPdfLabel_("Location and STR", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var locationFields = [
     "Nearby Commercial Centre", "Location Notes", "Location Rent Premium", "Rent Adjustment Factors",
     "Airbnb Interest", "Principal Residence", "Owner Lives On Site", "STR Municipality",
     "Third-party Operator Interest"
   ];
-  for (var l = 0; l < locationFields.length; l++) appendPropertyStrategyValue_(body, locationFields[l], colVal_(row, headerMap, locationFields[l]));
+  for (var l = 0; l < locationFields.length; l++) appendPropertyStrategyLocalizedValue_(body, locationFields[l], colVal_(row, headerMap, locationFields[l]), language);
 
-  appendPropertyStrategySection_(body, "Follow-up Answers", colVal_(row, headerMap, "Follow-up Answers"));
+  appendPropertyStrategySection_(body, propertyStrategyPdfLabel_("Follow-up Answers", language), colVal_(row, headerMap, "Follow-up Answers"));
 
-  var assessmentText = colVal_(found.row, headerMap, "AI Analysis JSON") ||
+  var assessmentText = assessmentTextOverride || colVal_(found.row, headerMap, "AI Analysis JSON") ||
     colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
     colVal_(found.row, headerMap, "Preliminary Assessment") ||
     colVal_(found.row, headerMap, "AI Strategy Summary");
@@ -1461,14 +1513,14 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
       ["disclaimer", "Disclaimer"]
     ];
     for (var s = 0; s < sectionOrder.length; s++) {
-      appendPropertyStrategySection_(body, sectionOrder[s][1], assessmentJson[sectionOrder[s][0]]);
+      appendPropertyStrategySection_(body, propertyStrategyPdfLabel_(sectionOrder[s][1], language), assessmentJson[sectionOrder[s][0]]);
     }
   } else {
-    appendPropertyStrategySection_(body, "AI Preliminary Assessment", assessmentText);
+    appendPropertyStrategySection_(body, language === "zh" ? "AI 初步评估" : "AI Preliminary Assessment", assessmentText);
   }
 
-  body.appendParagraph("Privacy Note").setHeading(DocumentApp.ParagraphHeading.HEADING2);
-  body.appendParagraph("This PDF is saved for internal review only. Do not share publicly and do not move it to a public listing folder.");
+  body.appendParagraph(propertyStrategyPdfLabel_("Privacy Note", language)).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  body.appendParagraph(language === "zh" ? "此 PDF 仅供内部审核，请勿公开分享或移动到公开房源文件夹。" : "This PDF is saved for internal review only. Do not share publicly and do not move it to a public listing folder.");
   doc.saveAndClose();
   return doc;
 }
@@ -1479,6 +1531,20 @@ function regeneratePropertyStrategyReport_(assessmentId, auth) {
   return savePropertyStrategyReportForRow_(found, assessmentId);
 }
 
+function createPropertyStrategyPdf_(found, assessmentId, folder, language, assessmentText) {
+  var doc = buildPropertyStrategyReportDocument_(found, assessmentId, language, assessmentText);
+  var docFile = DriveApp.getFileById(doc.getId());
+  try {
+    var pdfName = safePropertyStrategyFileNamePart_(docFile.getName(), "Property_Strategy_Assessment") + ".pdf";
+    var oldFiles = folder.getFilesByName(pdfName);
+    while (oldFiles.hasNext()) oldFiles.next().setTrashed(true);
+    var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
+    return { url: pdfFile.getUrl(), id: pdfFile.getId() };
+  } finally {
+    docFile.setTrashed(true);
+  }
+}
+
 function savePropertyStrategyReportForRow_(found, assessmentId) {
   var headerMap = found.headerMap;
   if (headerMap["Report URL"] === undefined) {
@@ -1487,40 +1553,40 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
 
   var cleanAssessmentId = normalizeCellText_(assessmentId);
   var folder;
-  var doc;
-  var docFile;
   try {
     folder = getPropertyStrategyReportsFolder_();
-    doc = buildPropertyStrategyReportDocument_(found, cleanAssessmentId);
-    docFile = DriveApp.getFileById(doc.getId());
-
-    var pdfName = safePropertyStrategyFileNamePart_(docFile.getName(), "Property_Strategy_Assessment") + ".pdf";
-    var oldFiles = folder.getFilesByName(pdfName);
-    while (oldFiles.hasNext()) oldFiles.next().setTrashed(true);
-    var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
-    docFile.setTrashed(true);
-
-    var reportUrl = pdfFile.getUrl();
-  found.sheet.getRange(found.rowNumber, headerMap["Report URL"] + 1).setValue(reportUrl);
-  var guardWarnings = getPropertyStrategyReportGuardWarnings_(found);
-  if (headerMap["Status"] !== undefined) {
-    found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue(guardWarnings.length ? "Report Warning" : "Report Generated");
-  }
-  SpreadsheetApp.flush();
+    var reportZhText = colVal_(found.row, headerMap, "Report ZH JSON");
+    var reportEnText = colVal_(found.row, headerMap, "Report EN JSON");
+    var reportUrl = "";
+    var reportUrls = {};
+    var driveFileIds = {};
+    if (reportZhText && reportEnText && headerMap["Report ZH URL"] !== undefined && headerMap["Report EN URL"] !== undefined) {
+      var zhPdf = createPropertyStrategyPdf_(found, cleanAssessmentId, folder, "zh", reportZhText);
+      var enPdf = createPropertyStrategyPdf_(found, cleanAssessmentId, folder, "en", reportEnText);
+      reportUrls.zh = zhPdf.url; reportUrls.en = enPdf.url;
+      driveFileIds.zh = zhPdf.id; driveFileIds.en = enPdf.id;
+      found.sheet.getRange(found.rowNumber, headerMap["Report ZH URL"] + 1).setValue(zhPdf.url);
+      found.sheet.getRange(found.rowNumber, headerMap["Report EN URL"] + 1).setValue(enPdf.url);
+      reportUrl = zhPdf.url;
+    } else {
+      var legacyText = colVal_(found.row, headerMap, "AI Analysis JSON") || colVal_(found.row, headerMap, "AI Strategy Summary");
+      var legacyLanguage = /[\u3400-\u9fff]/.test(legacyText || "") ? "zh" : "en";
+      var legacyPdf = createPropertyStrategyPdf_(found, cleanAssessmentId, folder, legacyLanguage, legacyText);
+      reportUrl = legacyPdf.url;
+      driveFileIds.legacy = legacyPdf.id;
+    }
+    found.sheet.getRange(found.rowNumber, headerMap["Report URL"] + 1).setValue(reportUrl);
+    var guardWarnings = getPropertyStrategyReportGuardWarnings_(found);
+    if (headerMap["Status"] !== undefined) found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue(guardWarnings.length ? "Report Warning" : "Report Generated");
+    SpreadsheetApp.flush();
 
     return {
-    success: true,
-    assessmentId: cleanAssessmentId,
-    rowNumber: found.rowNumber,
-    reportUrl: reportUrl,
-    driveFileId: pdfFile.getId(),
-    folderId: folder.getId(),
-    folderName: folder.getName(),
-    generatedAt: new Date().toISOString(),
-    guardWarnings: guardWarnings,
+      success: true, assessmentId: cleanAssessmentId, rowNumber: found.rowNumber,
+      reportUrl: reportUrl, reportUrls: reportUrls, driveFileIds: driveFileIds,
+      folderId: folder.getId(), folderName: folder.getName(),
+      generatedAt: new Date().toISOString(), guardWarnings: guardWarnings,
     };
   } catch (error) {
-    if (docFile) try { docFile.setTrashed(true); } catch (_) {}
     if (headerMap["Status"] !== undefined) {
       found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue("Report Generated - PDF Failed");
       SpreadsheetApp.flush();
