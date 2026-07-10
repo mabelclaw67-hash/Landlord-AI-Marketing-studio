@@ -366,7 +366,23 @@ export function buildAiConfidenceAndFlags(form, lang = "en") {
   const flags = buildAiFlags(form);
   const safeLang = normalizeLang(lang);
   const confidence = calculateAssessmentConfidence(form);
-  if (safeLang === "zh") return `AI 评估信心：${confidence.score}%\nAI 标记：${flags}`;
+  if (safeLang === "zh") {
+    const flagLabels = {
+      LEGAL_OWNER_OCCUPANCY_RENTAL_RISK: "业主自住再出租风险",
+      UNAUTHORIZED_SUITE_REVIEW: "未授权套间需审核",
+      SUITE_SEPARATE_HYDRO_METER: "套间有独立电表",
+      SUITE_YARD_PRIVACY_LIMITATION: "套间庭院隐私受限",
+      LOCATION_COMMERCIAL_CENTRE_PREMIUM: "邻近商业中心位置加分",
+      STR_RULES_VERIFY_REQUIRED: "短租规则需核实",
+      SUITE_SPLIT_RENTAL_REVIEW: "套间分租需审核",
+      POSSIBLE_SUITE_CONVERSION_REVIEW: "潜在套间改造需审核",
+      SHARED_UTILITIES_DISCLOSURE: "共用水电需披露",
+      PET_POLICY_REVIEW: "宠物政策需审核",
+      NO_MAJOR_AI_FLAGS: "未发现重大标记",
+    };
+    const localizedFlags = flags.split(", ").map((flag) => flagLabels[flag] || flag).join("、");
+    return `AI 评估信心：${confidence.score}%\nAI 标记：${localizedFlags}`;
+  }
   return `AI Assessment Confidence: ${confidence.score}%\nAI Flags: ${flags}`;
 }
 
@@ -740,7 +756,7 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   }
   if (form.existingSuite === "Yes" || form.suiteLegalStatus) {
     notes.push(lang === "zh"
-      ? "请查看房东知识中心第二套房 / legal suite 指南，并经专业审核后再作最终决定。"
+      ? "请查看房东知识中心第二套房 / 合法套间指南，并经专业审核后再作最终决定。"
       : "Please review the Secondary Suite / Legal Suite guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.");
   }
   return notes.length ? notes : (lang === "zh" ? "相关品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Quality, privacy, utilities, and yard conditions need layout and photo review.");
@@ -1014,7 +1030,7 @@ function buildLegalComplianceRisk(form, lang) {
       : ["No clear owner-occupancy 12-month warning was triggered, but the owner selected Not sure.", "Please review the related Landlord Knowledge Center guide and confirm through professional review before listing."];
   }
   return lang === "zh"
-    ? "本次答案未触发屋主自住相关再出租 warning。正式挂牌前仍建议由专业团队做最终复核。"
+    ? "本次答案未触发屋主自住相关再出租警示。正式挂牌前仍建议由专业团队做最终复核。"
     : "No owner-occupancy re-rental warning was triggered from the submitted answers. Professional review should still be completed before listing.";
 }
 
@@ -1140,7 +1156,7 @@ function validateStrategyAssessmentOutput(summary, form, lang = "en") {
   };
 
   if (form.oceanView !== "Yes" && /(oceanfront|ocean view|beach access|海景|海边|临海)/i.test(text)) {
-    add(lang === "zh" ? "报告出现海景/海边相关词，但当前表单未确认 ocean view。" : "Report mentions ocean view/beach terms, but ocean view is not confirmed in the current form.");
+    add(lang === "zh" ? "报告出现海景或海边相关词，但当前表单未确认海景。" : "Report mentions ocean view/beach terms, but ocean view is not confirmed in the current form.");
   }
   if (form.furnished !== "Yes" && /(fully furnished|furnished setup|furnished presentation|家具齐全|带家具作为主要卖点)/i.test(text)) {
     add(lang === "zh" ? "报告出现家具卖点，但当前表单未确认 furnished。" : "Report mentions furnished positioning, but furnished is not confirmed in the current form.");
