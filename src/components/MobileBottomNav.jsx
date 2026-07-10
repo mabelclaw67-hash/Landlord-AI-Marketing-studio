@@ -19,6 +19,9 @@ function AdminMobileNav({ lang }) {
       {moreOpen && (
         <div className="ambn-overlay" onClick={() => setMoreOpen(false)} aria-hidden="true">
           <div className="ambn-more-menu" onClick={(e) => e.stopPropagation()} role="menu">
+            <NavLink to="/admin/strategy-assessments" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              📚 {lang === "zh" ? "策略评估报告" : "Strategy Assessment Reports"}
+            </NavLink>
             <NavLink to="/admin/home-sale" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
               🏡 {L.ambnHomeSale}
             </NavLink>

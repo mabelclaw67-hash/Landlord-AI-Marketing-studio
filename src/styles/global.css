@@ -2231,6 +2231,37 @@ tr:hover td { background: #F9F6F0; }
   text-decoration: none;
 }
 
+/* Admin strategy assessment report history */
+.strategy-reports-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
+.strategy-report-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.strategy-report-stats .card { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; }
+.strategy-report-stats strong { font-size: 1.45rem; color: #2f5f46; }
+.strategy-reports-toolbar .form-control { flex: 1; }
+.strategy-reports-table-wrap { overflow-x: auto; padding: 0; }
+.strategy-reports-table { width: 100%; min-width: 1500px; border-collapse: collapse; font-size: .86rem; }
+.strategy-reports-table th, .strategy-reports-table td { padding: 11px 10px; border-bottom: 1px solid var(--border, #e2e8f0); text-align: left; vertical-align: top; }
+.strategy-reports-table th { position: sticky; top: 0; background: #f8fafc; white-space: nowrap; }
+.strategy-reports-table td:first-child { font-weight: 700; white-space: nowrap; }
+.strategy-reports-empty { padding: 24px; }
+.btn--small { padding: 7px 10px; font-size: .8rem; white-space: nowrap; }
+.strategy-report-modal { position: fixed; inset: 0; z-index: 1100; background: rgba(15, 23, 42, .68); padding: 24px; overflow-y: auto; }
+.strategy-report-modal__panel { max-width: 980px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+.strategy-report-modal__header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; position: sticky; top: -24px; z-index: 2; background: #fff; padding: 8px 0 16px; border-bottom: 1px solid #e2e8f0; }
+.strategy-report-detail-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 20px 0; }
+.strategy-report-detail-meta div { display: flex; flex-direction: column; padding: 10px; background: #f8fafc; border-radius: 8px; white-space: pre-wrap; }
+.strategy-report-detail-sections section { padding: 18px 0; border-top: 1px solid #e2e8f0; }
+.strategy-report-detail-sections h3 { margin-bottom: 10px; }
+.strategy-report-detail-sections p, .strategy-report-detail-sections li { line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.strategy-report-raw { white-space: pre-wrap; }
+@media (max-width: 720px) {
+  .strategy-reports-toolbar { align-items: stretch; flex-direction: column; }
+  .strategy-report-stats { grid-template-columns: 1fr; }
+  .strategy-report-modal { padding: 0; }
+  .strategy-report-modal__panel { min-height: 100vh; border-radius: 0; padding: 18px; }
+  .strategy-report-modal__header { top: -18px; }
+  .strategy-report-detail-meta { grid-template-columns: 1fr; }
+}
+
 .strategy-pdf-actions {
   display: flex;
   align-items: center;

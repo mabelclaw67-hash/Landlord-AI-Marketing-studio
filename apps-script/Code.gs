@@ -8,6 +8,7 @@ var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
+var PROPERTY_STRATEGY_REPORTS_FOLDER_ID = "1J4p5SdWLGcSVzbZnAhla3PRR8fJgJUll";
 var RENTAL_INTELLIGENCE_SPREADSHEET_ID = "1hst3mcCLeCbMmRBnH3OkKEPOEWbSVvONsRxMUiPKg5E";
 var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
@@ -261,6 +262,8 @@ function doPost(e) {
     if (action === "saveContact")       return ok(saveContact_(body.data));
     if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
     if (action === "getRentalIntelligenceKnowledge") return ok(getRentalIntelligenceKnowledge_(body.data || body));
+    if (action === "getPropertyStrategyReports") return ok(getPropertyStrategyReports_(auth));
+    if (action === "getPropertyStrategyReport") return ok(getPropertyStrategyReport_(body.assessmentId, auth));
     if (action === "regeneratePropertyStrategyReport") return ok(regeneratePropertyStrategyReport_(body.assessmentId, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
@@ -932,7 +935,7 @@ function savePropertyStrategyAssessment_(data) {
     reportError = reportEx && reportEx.message ? reportEx.message : String(reportEx);
     var statusCol = getHeaderMap_(sheet)["Status"];
     if (statusCol !== undefined) {
-      sheet.getRange(rowNumber, statusCol + 1).setValue("Report Save Failed");
+      sheet.getRange(rowNumber, statusCol + 1).setValue("Report Generated - PDF Failed");
       SpreadsheetApp.flush();
     }
     Logger.log("[savePropertyStrategyAssessment_] Report PDF save failed for " + assessmentId + ": " + reportError);
@@ -1030,6 +1033,7 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "AI Confidence & Flags": aiConfidenceFlags,
     "Service Path": servicePath,
     "AI Strategy Summary": aiStrategySummary,
+    "AI Analysis JSON": aiStrategySummary,
     "Consent to Contact": consentToContact,
     "Privacy Consent": privacyConsent,
     "Photo File Names": photoFileNames,
@@ -1215,13 +1219,71 @@ function findPropertyStrategyAssessmentRow_(assessmentId) {
 
 function getPropertyStrategyReportsFolder_() {
   var configuredFolderId = getSystemSetting_("property_strategy_reports_folder_id");
-  if (configuredFolderId) {
-    return DriveApp.getFolderById(configuredFolderId);
-  }
+  return DriveApp.getFolderById(configuredFolderId || PROPERTY_STRATEGY_REPORTS_FOLDER_ID);
+}
 
-  var parent = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  var folders = parent.getFoldersByName("Property Strategy Assessment Reports");
-  return folders.hasNext() ? folders.next() : parent.createFolder("Property Strategy Assessment Reports");
+function propertyStrategyRowObject_(row, headers) {
+  var record = {};
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i]) record[headers[i]] = normalizeCellText_(row[i]);
+  }
+  return record;
+}
+
+function propertyStrategyAnalysisText_(record) {
+  return record["AI Analysis JSON"] || record["AI Preliminary Assessment"] ||
+    record["Preliminary Assessment"] || record["AI Strategy Summary"] || "";
+}
+
+function propertyStrategyLanguage_(record, analysisText) {
+  if (record.Language) return record.Language;
+  return /[\u3400-\u9fff]/.test(analysisText || "") ? "中文" : "English";
+}
+
+function propertyStrategyCreatedAt_(record) {
+  if (record["Created At"] || record["Submitted At"]) return record["Created At"] || record["Submitted At"];
+  var match = normalizeCellText_(record["Assessment ID"]).match(/^PSA-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+  return match ? match[1] + "-" + match[2] + "-" + match[3] + " " + match[4] + ":" + match[5] + ":" + match[6] : "";
+}
+
+function getPropertyStrategyReports_(auth) {
+  assertAdmin_(auth);
+  var sheet = getSheetBySpreadsheetId_(PROPERTY_STRATEGY_SPREADSHEET_ID, PROPERTY_STRATEGY_ASSESSMENTS_SHEET);
+  if (sheet.getLastRow() < 2) return [];
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0].map(normalizeCellText_);
+  var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getDisplayValues();
+  return rows.map(function(row) {
+    var record = propertyStrategyRowObject_(row, headers);
+    var analysisText = propertyStrategyAnalysisText_(record);
+    return {
+      assessmentId: record["Assessment ID"],
+      createdAt: propertyStrategyCreatedAt_(record),
+      ownerName: record["Owner Name"], email: record.Email, phone: record.Phone,
+      propertyAddress: record["Property Address"], city: record.City,
+      community: record["Community / Area"], propertyType: record["Property Type"],
+      targetRent: record["Target Rent"], language: propertyStrategyLanguage_(record, analysisText),
+      status: record.Status || "New", reportUrl: record["Report URL"]
+    };
+  }).filter(function(item) { return item.assessmentId; }).sort(function(a, b) {
+    return String(b.createdAt || b.assessmentId).localeCompare(String(a.createdAt || a.assessmentId));
+  });
+}
+
+function getPropertyStrategyReport_(assessmentId, auth) {
+  assertAdmin_(auth);
+  var found = findPropertyStrategyAssessmentRow_(assessmentId);
+  var headers = found.sheet.getRange(1, 1, 1, found.sheet.getLastColumn()).getDisplayValues()[0].map(normalizeCellText_);
+  var record = propertyStrategyRowObject_(found.displayRow, headers);
+  var analysisText = propertyStrategyAnalysisText_(record);
+  return {
+    assessmentId: normalizeCellText_(assessmentId),
+    createdAt: propertyStrategyCreatedAt_(record),
+    language: propertyStrategyLanguage_(record, analysisText),
+    status: record.Status || "New", reportUrl: record["Report URL"],
+    fields: record,
+    analysis: parsePropertyStrategyAssessmentJson_(analysisText),
+    analysisText: analysisText
+  };
 }
 
 function safePropertyStrategyFileNamePart_(value, fallback) {
@@ -1289,7 +1351,7 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
   var ownerName = normalizeCellText_(colVal_(row, headerMap, "Owner Name"));
   var address = normalizeCellText_(colVal_(row, headerMap, "Property Address"));
   var city = normalizeCellText_(colVal_(row, headerMap, "City"));
-  var created = normalizeCellText_(colVal_(row, headerMap, "Submitted At"));
+  var created = normalizeCellText_(colVal_(row, headerMap, "Created At") || colVal_(row, headerMap, "Submitted At"));
   var fileBaseName = [
     "Property_Strategy_Assessment",
     safePropertyStrategyFileNamePart_(assessmentId, "Assessment"),
@@ -1339,7 +1401,8 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
 
   appendPropertyStrategySection_(body, "Follow-up Answers", colVal_(row, headerMap, "Follow-up Answers"));
 
-  var assessmentText = colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
+  var assessmentText = colVal_(found.row, headerMap, "AI Analysis JSON") ||
+    colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
     colVal_(found.row, headerMap, "Preliminary Assessment") ||
     colVal_(found.row, headerMap, "AI Strategy Summary");
   var assessmentJson = parsePropertyStrategyAssessmentJson_(assessmentText);
@@ -1361,9 +1424,12 @@ function buildPropertyStrategyReportDocument_(found, assessmentId) {
       ["airbnbStrRegulationCheck", "Airbnb / STR Reminder"],
       ["legalComplianceRisk", "Legal Risk Reminder"],
       ["aiConfidenceFlags", "AI Confidence & Flags"],
+      ["aiAssessmentConfidence", "AI Confidence"],
       ["marketingSuggestions", "Marketing Suggestions"],
-      ["ownerGoalAlignment", "Professional Preliminary Recommendation"],
+      ["professionalPreliminaryRecommendation", "Professional Preliminary Recommendation"],
+      ["ownerGoalAlignment", "Owner Goal Alignment"],
       ["recommendedNextStep", "Recommended Service"],
+      ["knowledgeLinks", "Knowledge Links"],
       ["disclaimer", "Disclaimer"]
     ];
     for (var s = 0; s < sectionOrder.length; s++) {
@@ -1392,17 +1458,21 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
   }
 
   var cleanAssessmentId = normalizeCellText_(assessmentId);
-  var folder = getPropertyStrategyReportsFolder_();
-  var doc = buildPropertyStrategyReportDocument_(found, cleanAssessmentId);
-  var docFile = DriveApp.getFileById(doc.getId());
+  var folder;
+  var doc;
+  var docFile;
+  try {
+    folder = getPropertyStrategyReportsFolder_();
+    doc = buildPropertyStrategyReportDocument_(found, cleanAssessmentId);
+    docFile = DriveApp.getFileById(doc.getId());
 
-  var pdfName = safePropertyStrategyFileNamePart_(docFile.getName(), "Property_Strategy_Assessment") + ".pdf";
-  var oldFiles = folder.getFilesByName(pdfName);
-  while (oldFiles.hasNext()) oldFiles.next().setTrashed(true);
-  var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
-  docFile.setTrashed(true);
+    var pdfName = safePropertyStrategyFileNamePart_(docFile.getName(), "Property_Strategy_Assessment") + ".pdf";
+    var oldFiles = folder.getFilesByName(pdfName);
+    while (oldFiles.hasNext()) oldFiles.next().setTrashed(true);
+    var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
+    docFile.setTrashed(true);
 
-  var reportUrl = pdfFile.getUrl();
+    var reportUrl = pdfFile.getUrl();
   found.sheet.getRange(found.rowNumber, headerMap["Report URL"] + 1).setValue(reportUrl);
   var guardWarnings = getPropertyStrategyReportGuardWarnings_(found);
   if (headerMap["Status"] !== undefined) {
@@ -1410,7 +1480,7 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
   }
   SpreadsheetApp.flush();
 
-  return {
+    return {
     success: true,
     assessmentId: cleanAssessmentId,
     rowNumber: found.rowNumber,
@@ -1420,12 +1490,21 @@ function savePropertyStrategyReportForRow_(found, assessmentId) {
     folderName: folder.getName(),
     generatedAt: new Date().toISOString(),
     guardWarnings: guardWarnings,
-  };
+    };
+  } catch (error) {
+    if (docFile) try { docFile.setTrashed(true); } catch (_) {}
+    if (headerMap["Status"] !== undefined) {
+      found.sheet.getRange(found.rowNumber, headerMap["Status"] + 1).setValue("Report Generated - PDF Failed");
+      SpreadsheetApp.flush();
+    }
+    throw error;
+  }
 }
 
 function getPropertyStrategyReportGuardWarnings_(found) {
   var headerMap = found.headerMap || {};
-  var text = colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
+  var text = colVal_(found.row, headerMap, "AI Analysis JSON") ||
+    colVal_(found.row, headerMap, "AI Preliminary Assessment") ||
     colVal_(found.row, headerMap, "Preliminary Assessment") ||
     colVal_(found.row, headerMap, "AI Strategy Summary");
   var assessment = parsePropertyStrategyAssessmentJson_(text);

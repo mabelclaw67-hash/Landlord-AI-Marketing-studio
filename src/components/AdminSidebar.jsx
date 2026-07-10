@@ -60,6 +60,11 @@ export default function AdminSidebar() {
             📄 {lang === "zh" ? "策略报告" : "Strategy Reports"}
           </NavLink>
         )}
+        {!trialSession && (
+          <NavLink to="/admin/strategy-assessments" className={({ isActive }) => (isActive ? "active" : "")}>
+            📚 {lang === "zh" ? "策略评估报告" : "Strategy Assessment Reports"}
+          </NavLink>
+        )}
       </div>
 
       <div className="admin-sidebar__group">

@@ -23,6 +23,7 @@ import Listings from "./pages/admin/Listings";
 import Leads from "./pages/admin/Leads";
 import TrialRequests from "./pages/admin/TrialRequests";
 import StrategyReports from "./pages/admin/StrategyReports";
+import StrategyAssessments from "./pages/admin/StrategyAssessments";
 import HomeSaleListings from "./pages/admin/HomeSaleListings";
 import HomeSaleListingDetailAdmin from "./pages/admin/HomeSaleListingDetailAdmin";
 import HomeSaleListingForm from "./pages/admin/HomeSaleListingForm";
@@ -83,6 +84,7 @@ function AppInner({ lang, setLang }) {
           <Route path="leads" element={<Leads />} />
           <Route path="trial-requests" element={<TrialRequests />} />
           <Route path="strategy-reports" element={<StrategyReports />} />
+          <Route path="strategy-assessments" element={<StrategyAssessments />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />
           <Route path="home-sale" element={<HomeSaleAdmin />} />
           <Route path="home-sale/listings" element={<HomeSaleListings />} />
