@@ -4,10 +4,10 @@ import { computeLocalRentJudgment, getRegionNarrative } from "./nanaimoRentalPri
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER =
-  "This is an AI preliminary assessment based on Vanisland Property Management's property management framework. Final recommendation requires professional review.";
+  "This report is generated from the available property details, community knowledge base, and local property-management experience for preliminary decision support.";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER_ZH =
-  "本报告为基于 Vanisland Property Management 物业管理经验框架生成的 AI 初步评估，最终建议需由专业审核确认。";
+  "本报告基于现有物业资料、社区知识库及本地物业管理经验生成，供初步决策参考。";
 
 const KNOWLEDGE_CENTER_GUIDE = {
   en: "Please review the latest guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.",
@@ -872,31 +872,33 @@ function buildCommunityKnowledgeNarrative(form, community, lang = "en") {
       ? "具体社区尚未确认，本报告暂以 Nanaimo 整体市场基准评估。"
       : "The specific community is not confirmed; this report currently uses the overall Nanaimo market baseline."];
   }
-  const primarySource = community.primaryTags.length ? community.primaryTags : community.tags;
-  const primary = primarySource.map((tag) => communityTagPhrase(tag, lang)).filter(Boolean);
-  const secondary = community.secondaryTags.map((tag) => communityTagPhrase(tag, lang)).filter(Boolean);
+  const facts = community.facts || {};
   const notes = [];
-  if (primary.length) notes.push(lang === "zh"
-    ? `社区知识显示，主要吸引力来自${primary.join("、")}。`
-    : `Community knowledge indicates that the main appeal comes from ${primary.join(", ")}.`);
-  if (secondary.length) notes.push(lang === "zh"
-    ? `补充特点包括${secondary.join("、")}。`
-    : `Additional characteristics include ${secondary.join(", ")}.`);
-  const outdoorScore = Number(community.scoring?.["Outdoor Lifestyle"] || 0);
-  const demandScore = Number(community.scoring?.["Overall Rental Demand"] || 0);
-  if (outdoorScore >= 4 || demandScore >= 4) notes.push(lang === "zh"
-    ? "Community Scoring 支持将自然环境、休闲生活方式和稳定租住关注度作为辅助判断，但不单独改变核心租金区间。"
-    : "Community Scoring supports using the natural setting, recreation lifestyle, and stable rental interest as supporting context, without independently changing the core rent range.");
-  const fitField = propertyFitField(form);
-  const fit = fitField ? String(community.propertyFit?.[fitField] || "") : "";
-  if (/high/i.test(fit)) notes.push(lang === "zh"
-    ? "Property Fit Matrix 显示当前出租单元类型与该社区匹配度较高。"
-    : "The Property Fit Matrix indicates a strong fit between this rental unit type and the selected community.");
-  const hintField = decisionHintField(form);
-  const selectedHint = hintField ? String(community.decisionHints?.[hintField] || "") : "";
-  if (selectedHint) notes.push(lang === "zh"
-    ? "AI Decision Hints 仅用于确定已确认卖点的表达重点，不用于补充 Knowledge Base 之外的社区特点。"
-    : "AI Decision Hints are used only to prioritize confirmed marketing points and do not add community claims beyond the Knowledge Base.");
+  for (const value of [facts.areaProfile, facts.parksTrailsLakes, facts.transitAccess]) {
+    const localized = localizeKnowledgeText(value, lang);
+    if (localized && !notes.includes(localized)) notes.push(localized);
+  }
+  const demand = localizeKnowledgeText(facts.rentalDemand, lang);
+  if (demand) notes.push(lang === "zh" ? `当地出租需求方面：${demand}` : `Local rental demand: ${demand}`);
+  const rent = localizeKnowledgeText(facts.rentPositioning, lang);
+  if (rent) notes.push(lang === "zh" ? `当地租金定位参考：${rent}` : `Local rent-positioning context: ${rent}`);
+  const pricing = localizeKnowledgeText(facts.pricingSensitivity, lang);
+  if (pricing) notes.push(lang === "zh" ? `价格敏感度方面：${pricing}` : `Pricing sensitivity: ${pricing}`);
+  const seasonal = localizeKnowledgeText(facts.seasonalPattern, lang);
+  if (seasonal) notes.push(lang === "zh" ? `季节性需求方面：${seasonal}` : `Seasonal demand pattern: ${seasonal}`);
+  if (/^high$/i.test(String(facts.matchConfidence || "").trim())) notes.push(lang === "zh"
+    ? "现有社区资料与所选社区的匹配度较高。"
+    : "The available local information is a strong match for the selected community.");
+  const fit = localizeKnowledgeText(facts.propertyTypeNotes, lang);
+  if (fit) notes.push(lang === "zh" ? `物业适配方面：${fit}` : `Property fit: ${fit}`);
+  const marketing = localizeKnowledgeText(facts.marketingAngles, lang);
+  if (marketing) notes.push(lang === "zh" ? `适合自然表达的营销重点包括：${marketing}` : `Natural marketing emphasis includes: ${marketing}`);
+  const risks = localizeKnowledgeText(facts.risksCautions, lang);
+  if (risks) notes.push(lang === "zh" ? `需要如实说明的实际限制：${risks}` : `Practical limitations to disclose: ${risks}`);
+  const development = localizeKnowledgeText(facts.futureDevelopment, lang);
+  if (development) notes.push(lang === "zh" ? `社区发展趋势：${development}` : `Community development outlook: ${development}`);
+  const professional = localizeKnowledgeText(facts.professionalNotes, lang);
+  if (professional) notes.push(lang === "zh" ? `专业复核提示：${professional}` : `Professional review note: ${professional}`);
   return notes;
 }
 
@@ -979,49 +981,67 @@ function normalizeRentalIntelligenceKnowledge(data) {
   const communityName = data?.communityName ||
     firstKnowledgeValue(base, ["Community", "Community Name", "Community_Name", "Neighbourhood", "Neighborhood", "Area"]) ||
     "";
-  const tags = joinKnowledgeRows(data?.communityTags, ["Tag", "Tags", "Community Tag"]).filter((tag) => tag.length <= 40);
-
   return {
     communityId: data?.communityId || firstKnowledgeValue(base, ["Community ID", "Community_ID"]) || "",
     communityName,
     city: data?.city || firstKnowledgeValue(base, ["City"]) || "",
     matchType: data?.matchType || "fallback",
     matchedKeyword: data?.matchedKeyword || "",
-    tags,
-    primaryTags: splitKnowledgeTags(data?.tags?.["Primary Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Primary Tags"])),
-    secondaryTags: splitKnowledgeTags(data?.tags?.["Secondary Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Secondary Tags"])),
-    doNotUseTags: splitKnowledgeTags(data?.tags?.["Do Not Use Tags"] || firstKnowledgeValue(data?.communityTags?.[0], ["Do Not Use Tags"])),
-    scoring: data?.communityScoring || {},
-    propertyFit: data?.propertyFitMatrix || {},
-    decisionHints: data?.aiDecisionHints || {},
+    facts: {
+      keywords: firstKnowledgeValue(base, ["Keywords / Area Names"]),
+      areaProfile: firstKnowledgeValue(base, ["Area Profile"]),
+      nearbySchools: firstKnowledgeValue(base, ["Nearby Schools"]),
+      shoppingServices: firstKnowledgeValue(base, ["Shopping / Services"]),
+      parksTrailsLakes: firstKnowledgeValue(base, ["Parks / Trails / Lakes"]),
+      transitAccess: firstKnowledgeValue(base, ["Transit / Access"]),
+      rentalDemand: firstKnowledgeValue(base, ["Rental Demand"]),
+      rentPositioning: firstKnowledgeValue(base, ["Rent Positioning Notes"]),
+      marketingAngles: firstKnowledgeValue(base, ["Marketing Angles"]),
+      risksCautions: firstKnowledgeValue(base, ["Risks / Cautions"]),
+      futureDevelopment: firstKnowledgeValue(base, ["Future Development / City Plan Notes"]),
+      professionalNotes: firstKnowledgeValue(base, ["Mabel Professional Notes"]),
+      medicalServices: firstKnowledgeValue(base, ["Medical / Pharmacy / Services"]),
+      propertyTypeNotes: firstKnowledgeValue(base, ["Property Type Notes"]),
+      pricingSensitivity: firstKnowledgeValue(base, ["Pricing Sensitivity"]),
+      seasonalPattern: firstKnowledgeValue(base, ["Seasonal Rental Pattern"]),
+      matchConfidence: firstKnowledgeValue(base, ["Community Match Confidence"]),
+    },
     infrastructure: {
       schoolDistrict: infrastructure.schoolDistrict || firstKnowledgeValue(base, ["School District"]),
       schoolDistrictNumber: infrastructure.schoolDistrictNumber || firstKnowledgeValue(base, ["School District Number"]),
       nearbyElementarySchools: infrastructure.nearbyElementarySchools || firstKnowledgeValue(base, ["Nearby Elementary Schools"]),
       nearbySecondarySchools: infrastructure.nearbySecondarySchools || firstKnowledgeValue(base, ["Nearby Secondary Schools"]),
       specialEducationOptions: infrastructure.specialEducationOptions || firstKnowledgeValue(base, ["Special Education Options"]),
-      schoolAccessNotes: infrastructure.schoolAccessNotes || firstKnowledgeValue(base, ["School Access Notes"]),
-      schoolSource: infrastructure.schoolSource || firstKnowledgeValue(base, ["School Source"]),
-      schoolCatchmentDisclaimer: infrastructure.schoolCatchmentDisclaimer || firstKnowledgeValue(base, ["School Catchment Disclaimer"]),
       healthAuthority: infrastructure.healthAuthority || firstKnowledgeValue(base, ["Health Authority"]),
       nearestHospital: infrastructure.nearestHospital || firstKnowledgeValue(base, ["Nearest Hospital"]),
       nearbyMedicalClinics: infrastructure.nearbyMedicalClinics || firstKnowledgeValue(base, ["Nearby Medical Clinics"]),
       nearbyPharmacies: infrastructure.nearbyPharmacies || firstKnowledgeValue(base, ["Nearby Pharmacies"]),
-      medicalSource: infrastructure.medicalSource || firstKnowledgeValue(base, ["Medical Source"]),
-      medicalAccessDisclaimer: infrastructure.medicalAccessDisclaimer || firstKnowledgeValue(base, ["Medical Access Disclaimer"]),
-      majorCommercialCentres: infrastructure.majorCommercialCentres || firstKnowledgeValue(base, ["Major Commercial Centres"]),
-      dailyEssentialsNotes: infrastructure.dailyEssentialsNotes || firstKnowledgeValue(base, ["Daily Essentials Notes"]),
-      accessibilityNotes: infrastructure.accessibilityNotes || firstKnowledgeValue(base, ["Accessibility Notes"]),
-      commercialSource: infrastructure.commercialSource || firstKnowledgeValue(base, ["Commercial Source"]),
-      lastVerifiedDate: infrastructure.lastVerifiedDate || firstKnowledgeValue(base, ["Last Verified Date"]),
     },
   };
 }
 
-const SCHOOL_DISCLAIMER_ZH = "附近学校不等于该物业正式所属学区。具体 catchment 须使用完整地址，通过对应教育局官方 School Locator 或 Catchment Map 确认。学区边界、年级设置和招生容量可能变化。";
-const SCHOOL_DISCLAIMER_EN = "Nearby schools do not confirm the property’s official catchment. The exact catchment must be verified using the full property address and the applicable school district’s official locator or map. Boundaries, grade configurations and capacity may change.";
-const MEDICAL_DISCLAIMER_ZH = "诊所的 walk-in、预约、接收新患者和营业状态可能变化，须以 Island Health、诊所或药房官方最新信息为准。本资料不保证家庭医生名额或当日看诊。";
-const MEDICAL_DISCLAIMER_EN = "Walk-in availability, appointments, acceptance of new patients and operating status may change. Current information must be confirmed with Island Health, the clinic or the pharmacy. This report does not guarantee access to a family doctor or same-day care.";
+const SCHOOL_DISCLAIMER_ZH = "附近学校及教育资源仅供社区生活参考，具体入学安排请向相关教育局确认。";
+const SCHOOL_DISCLAIMER_EN = "Nearby schools and education resources are provided for community-living reference only. Please confirm enrolment arrangements with the applicable school district.";
+const MEDICAL_DISCLAIMER_ZH = "诊所服务和接诊安排可能变化，请以相关医疗机构当前信息为准。";
+const MEDICAL_DISCLAIMER_EN = "Clinic services and patient-intake arrangements may change. Please confirm current information with the relevant medical provider.";
+
+function localizeKnowledgeText(value, lang = "en") {
+  const text = infrastructureValue(value);
+  if (!text) return "";
+  const parts = text.split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
+  if (parts.length < 2) return text;
+  const chinese = parts.find((item) => /[\u3400-\u9fff]/.test(item));
+  const english = parts.find((item) => !/[\u3400-\u9fff]/.test(item));
+  return lang === "zh" ? (chinese || english || text) : (english || chinese || text);
+}
+
+function appendUniqueKnowledge(items, value, lang, prefixZh, prefixEn) {
+  const text = localizeKnowledgeText(value, lang);
+  if (!text) return;
+  const normalized = text.toLowerCase();
+  if (items.some((item) => item.toLowerCase().includes(normalized) || normalized.includes(item.toLowerCase().replace(/^.*?：|^.*?:\s*/, "")))) return;
+  items.push(lang === "zh" ? `${prefixZh}${text}` : `${prefixEn}${text}`);
+}
 
 function infrastructureValue(value) {
   const text = String(value || "").trim();
@@ -1078,12 +1098,11 @@ function buildEducationResources(community, lang = "en") {
   const elementary = infrastructureValue(data.nearbyElementarySchools);
   const secondary = infrastructureValue(data.nearbySecondarySchools);
   const special = infrastructureValue(data.specialEducationOptions);
-  const access = localizeAccessNote(data.schoolAccessNotes, lang);
+  appendUniqueKnowledge(items, community.facts?.nearbySchools, lang, "附近学校及教育资源：", "Nearby schools and education resources: ");
   if (district || number) items.push(lang === "zh" ? `所属教育局：${district || "待确认"}${number ? `（SD${number}）` : ""}` : `School district: ${district || "To be confirmed"}${number ? ` (SD${number})` : ""}`);
   if (elementary) items.push(lang === "zh" ? `附近主要小学：${elementary}` : `Nearby elementary schools: ${elementary}`);
   if (secondary) items.push(lang === "zh" ? `附近主要中学：${secondary}` : `Nearby secondary schools: ${secondary}`);
   if (special) items.push(lang === "zh" ? `特色或语言教育选项：${special}` : `Special or language-program options: ${special}`);
-  if (access) items.push(lang === "zh" ? `学校区域与交通说明：${access}` : `School-area access note: ${access}`);
   if (items.length) items.push(lang === "zh" ? SCHOOL_DISCLAIMER_ZH : SCHOOL_DISCLAIMER_EN);
   return items;
 }
@@ -1096,6 +1115,7 @@ function buildMedicalResources(community, lang = "en") {
   const hospital = infrastructureValue(data.nearestHospital);
   const clinics = infrastructureValue(data.nearbyMedicalClinics);
   const pharmacies = infrastructureValue(data.nearbyPharmacies);
+  appendUniqueKnowledge(items, community.facts?.medicalServices, lang, "社区医疗与药房服务：", "Community medical and pharmacy services: ");
   if (authority) items.push(lang === "zh" ? `卫生管理机构：${authority}` : `Health authority: ${authority}`);
   if (hospital) items.push(lang === "zh" ? `最近主要医院：${hospital}` : `Nearest major hospital: ${hospital}`);
   if (clinics) items.push(lang === "zh" ? `附近诊所：${clinics}` : `Nearby medical clinics: ${clinics}`);
@@ -1106,14 +1126,8 @@ function buildMedicalResources(community, lang = "en") {
 
 function buildShoppingConvenience(community, lang = "en") {
   if (community.status !== "confirmed") return [];
-  const data = community.infrastructure || {};
   const items = [];
-  const centres = infrastructureValue(data.majorCommercialCentres);
-  const essentials = localizeAccessNote(data.dailyEssentialsNotes, lang);
-  const access = localizeAccessNote(data.accessibilityNotes, lang);
-  if (centres) items.push(lang === "zh" ? `主要商业中心：${centres}` : `Major commercial centres: ${centres}`);
-  if (essentials) items.push(lang === "zh" ? `日常采购与基础服务：${essentials}` : `Daily essentials: ${essentials}`);
-  if (access) items.push(lang === "zh" ? `交通与可达性：${access}` : `Accessibility: ${access}`);
+  appendUniqueKnowledge(items, community.facts?.shoppingServices, lang, "购物与生活服务：", "Shopping and daily services: ");
   return items;
 }
 
@@ -1243,14 +1257,14 @@ function buildCommunityMarketingAngles(form, judgment, community, lang = "en") {
     return [
       `基础照片 / 文案角度：${baseAngles.join("、")}。`,
       communityAngles[0],
-      community.doNotUseTags.length ? "社区卖点必须使用审慎表达，不保证特定步道直接可达、VIU 录取或具体通勤时间，也不暗示零售商业高度步行可达。" : "社区卖点只使用已匹配的 Knowledge Base 内容。",
+      community.facts?.risksCautions ? "社区卖点应同时如实说明已记录的生活便利与实际限制，不作无法核实的保证。" : "社区卖点只使用已确认的本地资料。",
       conditionalAngles.length ? `当前字段支持的额外角度：${conditionalAngles.join("、")}。` : "当前没有额外特殊卖点字段支持，营销应保持基础、准确。",
     ];
   }
   return [
     `Base photo / copy angles: ${baseAngles.join(", ")}.`,
     communityAngles[0],
-    community.doNotUseTags.length ? "Community claims must remain qualified: do not guarantee direct access to a specific trail, VIU admission or a specific commute time, or high retail walkability." : "Use only community claims supported by the matched Knowledge Base record.",
+    community.facts?.risksCautions ? "Community marketing should present the recorded advantages and practical limitations together, without unverified guarantees." : "Use only community claims supported by confirmed local information.",
     conditionalAngles.length ? `Additional angles supported by current fields: ${conditionalAngles.join(", ")}.` : "No additional special-feature fields are confirmed, so marketing should stay basic and accurate.",
   ];
 }

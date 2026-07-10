@@ -1118,6 +1118,7 @@ function findCommunityIdInRecord_(record) {
 
 function findKeywordsInRecord_(record) {
   return firstExistingValue_(record, [
+    "Keywords / Area Names",
     "Keywords",
     "keywords",
     "Search Keywords",
@@ -1225,26 +1226,11 @@ function getRentalIntelligenceKnowledge_(payload) {
       nearbyElementarySchools: normalizeCellText_(baseRecord["Nearby Elementary Schools"]),
       nearbySecondarySchools: normalizeCellText_(baseRecord["Nearby Secondary Schools"]),
       specialEducationOptions: normalizeCellText_(baseRecord["Special Education Options"]),
-      schoolAccessNotes: normalizeCellText_(baseRecord["School Access Notes"]),
-      schoolSource: normalizeCellText_(baseRecord["School Source"]),
-      schoolCatchmentDisclaimer: normalizeCellText_(baseRecord["School Catchment Disclaimer"]),
       healthAuthority: normalizeCellText_(baseRecord["Health Authority"]),
       nearestHospital: normalizeCellText_(baseRecord["Nearest Hospital"]),
       nearbyMedicalClinics: normalizeCellText_(baseRecord["Nearby Medical Clinics"]),
       nearbyPharmacies: normalizeCellText_(baseRecord["Nearby Pharmacies"]),
-      medicalSource: normalizeCellText_(baseRecord["Medical Source"]),
-      medicalAccessDisclaimer: normalizeCellText_(baseRecord["Medical Access Disclaimer"]),
-      majorCommercialCentres: normalizeCellText_(baseRecord["Major Commercial Centres"]),
-      dailyEssentialsNotes: normalizeCellText_(baseRecord["Daily Essentials Notes"]),
-      accessibilityNotes: normalizeCellText_(baseRecord["Accessibility Notes"]),
-      commercialSource: normalizeCellText_(baseRecord["Commercial Source"]),
-      lastVerifiedDate: normalizeCellText_(baseRecord["Last Verified Date"]),
     },
-    communityTags: tagRows,
-    tags: tagRows[0] || {},
-    communityScoring: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_SCORING_SHEET), communityId, communityName)[0] || {},
-    propertyFitMatrix: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(PROPERTY_FIT_MATRIX_SHEET), communityId, communityName)[0] || {},
-    aiDecisionHints: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(AI_DECISION_HINTS_SHEET), communityId, communityName)[0] || {},
     lastLoadedAt: new Date().toISOString(),
   };
 }
