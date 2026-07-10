@@ -1055,7 +1055,7 @@ function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmen
     "Photo Upload Notes": photoFileNames,
     "AI Preliminary Assessment": assessmentText,
     "Preliminary Assessment": assessmentText,
-    "Disclaimer": "This is an AI preliminary assessment based on Mabel Chen's rental management framework. Final recommendation requires Mabel's professional review."
+    "Disclaimer": "This is an AI preliminary assessment based on VanIsland Property Management's rental management framework. Professional review is required, and the final strategy is subject to VanIsland Property Management review."
   };
 }
 

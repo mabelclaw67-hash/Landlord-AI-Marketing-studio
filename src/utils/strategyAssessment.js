@@ -897,14 +897,14 @@ function buildCommunityKnowledgeNarrative(form, community, lang = "en") {
   if (risks) notes.push(lang === "zh" ? `需要如实说明的实际限制：${risks}` : `Practical limitations to disclose: ${risks}`);
   const development = localizeKnowledgeText(facts.futureDevelopment, lang);
   if (development) notes.push(lang === "zh" ? `社区发展趋势：${development}` : `Community development outlook: ${development}`);
-  const professional = localizeKnowledgeText(facts.professionalNotes, lang);
-  if (professional) notes.push(lang === "zh" ? `专业复核提示：${professional}` : `Professional review note: ${professional}`);
+  if (facts.professionalNotes) notes.push(lang === "zh"
+    ? "需由 VanIsland Property Management 进行专业复核；最终出租策略需经公司专业审核，本地租金判断需结合当前市场进一步确认。"
+    : "Professional review required. Final strategy is subject to VanIsland Property Management review, and local rent positioning must be confirmed against the current market.");
   return notes;
 }
 
 function buildLocationRentAdjustment(form, judgment, community, lang = "en") {
   const notes = [];
-  notes.push(...buildCommunityKnowledgeNarrative(form, community, lang));
   if (form.nearbyCommercialCentre === "Yes") {
     notes.push(lang === "zh" ? "靠近商业中心能支持一定租金溢价，尤其适合重视便利性的租客。" : "Commercial-centre access supports a modest rent premium for tenants prioritizing convenience.");
   }
@@ -1030,12 +1030,59 @@ function localizeKnowledgeText(value, lang = "en") {
   if (!text) return "";
   const localized = text.split(/\s*\|\s*/).map((segment) => {
     const parts = segment.split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
-    if (parts.length < 2) return segment.trim();
+    const hasChinese = parts.some((item) => /[\u3400-\u9fff]/.test(item));
+    const hasNonChinese = parts.some((item) => !/[\u3400-\u9fff]/.test(item));
+    if (parts.length < 2 || !hasChinese || !hasNonChinese) return segment.trim();
     const chinese = parts.find((item) => /[\u3400-\u9fff]/.test(item));
     const english = parts.find((item) => !/[\u3400-\u9fff]/.test(item));
     return lang === "zh" ? (chinese || english || segment) : (english || chinese || segment);
   }).filter(Boolean);
-  return localized.filter((item, index) => localized.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index).join(" | ");
+  const unique = localized.filter((item, index) => localized.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index);
+  if (lang !== "zh") return unique.join("; ");
+  const chinese = unique.map(localizeChineseKnowledgeSegment).filter(Boolean).map((item, index, items) => {
+    if (item.includes("同时有公交可用") && items.some((other, otherIndex) => otherIndex !== index && other.includes("公交"))) {
+      return item.replace("，同时有公交可用", "");
+    }
+    return item;
+  });
+  let joined = chinese.filter((item, index) => {
+    if (item === "可使用公共交通" && chinese.some((other, otherIndex) => otherIndex !== index && other.includes("公交"))) return false;
+    if (item === "University Village Mall" && chinese.some((other, otherIndex) => otherIndex !== index && other.includes(item))) return false;
+    if (item.startsWith("大学：") && chinese.some((other, otherIndex) => otherIndex !== index && other.includes(item.slice(3).replace(/（附近）/g, "").trim()))) return false;
+    return true;
+  }).join("；").replace(/。；/g, "；");
+  if ((joined.match(/\bVIU\b/gi) || []).length > 1) joined = joined.replace(/；大学：VIU\s*（附近）/i, "");
+  return joined;
+}
+
+function localizeChineseKnowledgeSegment(value) {
+  const text = String(value || "").trim();
+  const exact = {
+    "Car dependent": "日常出行较依赖驾车",
+    "Car dependent / Transit available": "日常出行较依赖驾车，同时有公交可用",
+    "Transit accessible.": "可使用公共交通",
+    "Good access to daily essentials.": "日常采购和基础服务便利",
+    "School year driven (VIU proximity).": "需求受学年周期影响（靠近 VIU）",
+    "Medium (Student budgets vs. premium nature appeal).": "价格敏感度中等，需平衡学生预算与自然环境溢价",
+    "Direct access to premier outdoor recreation; quiet environment; strong appeal for active tenants.": "户外休闲资源便利、环境安静，对重视户外活动的租客有较强吸引力",
+    "Westwood Lake Park (swimming, 5.5km trail), Morrell Nature Sanctuary, hiking, dog walking.": "适合游泳、徒步和遛狗",
+    "Nanaimo Regional General Hospital (NRGH) approx 10-15 mins drive; local clinics nearby.": "Nanaimo Regional General Hospital（NRGH）约 10–15 分钟车程，附近另有本地诊所",
+    "Detached House, Basement Suite, Room Rental (student focus).": "适合独立屋、地下套间及面向学生的房间出租",
+    "Lakefront lifestyle; Nature trails; VIU proximity; Quiet neighborhood; Pet-friendly.": "可补充靠近 VIU；宠物友好仅在物业条件确认后使用",
+    "Car dependency for daily errands; limited immediate commercial amenities; winter road conditions.": "日常采购较依赖驾车，附近商业设施有限，冬季道路条件需要留意",
+    "Do not guarantee VIU admission or specific trail access.": "不应保证 VIU 入学资格或特定步道可直接到达",
+  };
+  if (exact[text]) return exact[text];
+  return text
+    .replace(/^Elementary:\s*/i, "小学：")
+    .replace(/;\s*Secondary:\s*/i, "；中学：")
+    .replace(/;\s*University:\s*/i, "；大学：")
+    .replace(/\(nearby\)/gi, "（附近）")
+    .replace(/^Relies on\s+/i, "大型采购主要依赖 ")
+    .replace(/\s+or\s+/gi, " 或 ")
+    .replace(/\s+for major grocery\.?$/i, "")
+    .replace(/^University:\s*/i, "大学：")
+    .replace(/^Secondary:\s*/i, "中学：");
 }
 
 function appendUniqueKnowledge(items, value, lang, prefixZh, prefixEn) {

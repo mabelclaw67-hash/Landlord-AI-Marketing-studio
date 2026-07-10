@@ -554,6 +554,8 @@ export default function StrategyAssessment({ lang }) {
   const [communityOptions, setCommunityOptions] = useState([]);
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communityIntelligence, setCommunityIntelligence] = useState(null);
+  const cityOptions = useMemo(() => [...new Set(communityOptions.map((item) => item.city).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b)), [communityOptions]);
 
   useEffect(() => {
     let active = true;
@@ -744,7 +746,7 @@ export default function StrategyAssessment({ lang }) {
         <AssessmentSection title={copy.sections.propertyInfo}>
           <TextInput field="propertyAddress" form={form} update={update} labels={labels} required />
           <div className="form-row">
-            <TextInput field="city" form={form} update={update} labels={labels} required />
+            <CitySelect form={form} setForm={setForm} labels={labels} copy={copy} options={cityOptions} loading={communitiesLoading} lang={safeLang} />
             <TextInput field="province" form={form} update={update} labels={labels} required />
           </div>
           <div className="form-row">
@@ -1337,11 +1339,34 @@ function SelectInput({ field, form, update, labels, copy, lang = "en", options, 
   );
 }
 
+function CitySelect({ form, setForm, labels, copy, options, loading, lang }) {
+  const onChange = (event) => {
+    const city = event.target.value;
+    setForm((current) => ({
+      ...current,
+      city,
+      communityId: "",
+      communityName: "",
+      communityArea: "",
+    }));
+  };
+  return (
+    <div className="form-group">
+      <label>{labels.city} *</label>
+      <select className="form-control" value={form.city} onChange={onChange} required disabled={loading}>
+        <option value="">{loading ? (lang === "zh" ? "正在读取城市…" : "Loading cities…") : copy.select}</option>
+        {options.map((city) => <option key={city} value={city}>{city}</option>)}
+      </select>
+    </div>
+  );
+}
+
 function CommunitySelect({ form, setForm, labels, copy, options, loading, lang }) {
   const fallbackLabel = lang === "zh" ? "其他 / 尚未确定" : "Other / Not yet confirmed";
+  const filteredOptions = options.filter((item) => item.city === form.city);
   const onChange = (event) => {
     const communityId = event.target.value;
-    const selected = options.find((item) => item.communityId === communityId);
+    const selected = filteredOptions.find((item) => item.communityId === communityId);
     setForm((current) => ({
       ...current,
       communityId,
@@ -1355,9 +1380,9 @@ function CommunitySelect({ form, setForm, labels, copy, options, loading, lang }
       <label>{labels.communityId}</label>
       <select className="form-control" value={form.communityId} onChange={onChange} disabled={loading}>
         <option value="">{loading ? (lang === "zh" ? "正在读取社区…" : "Loading communities…") : fallbackLabel}</option>
-        {options.map((item) => <option key={item.communityId} value={item.communityId}>{item.communityName}{item.city ? ` — ${item.city}` : ""}</option>)}
+        {filteredOptions.map((item) => <option key={item.communityId} value={item.communityId}>{item.communityName}</option>)}
       </select>
-      {!loading && !options.length && <small className="text-muted">{lang === "zh" ? "社区列表暂时不可用，可选择“其他 / 尚未确定”继续。" : "The community list is temporarily unavailable; continue with Other / Not yet confirmed."}</small>}
+      {!loading && form.city && !filteredOptions.length && <small className="text-muted">{lang === "zh" ? "该城市暂时没有社区资料，可选择“其他 / 尚未确定”继续。" : "No community record is available for this city; continue with Other / Not yet confirmed."}</small>}
     </div>
   );
 }
