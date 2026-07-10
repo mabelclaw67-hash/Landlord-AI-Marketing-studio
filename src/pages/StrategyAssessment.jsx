@@ -248,6 +248,9 @@ const COPY = {
       suiteQualityPrivacy: "Suite Quality & Privacy Analysis",
       locationRentAdjustment: "Location Value Analysis",
       communityLocationAnalysis: "Community & Location Analysis",
+      educationResources: "Education Resources",
+      medicalPharmacyResources: "Medical & Pharmacy",
+      shoppingConvenience: "Shopping & Daily Convenience",
       airbnbStrRegulationCheck: "Airbnb / STR Reminder",
       legalComplianceRisk: "Legal Risk Reminder",
       aiAssessmentConfidence: "AI Assessment Confidence",
@@ -345,6 +348,9 @@ const COPY = {
       suiteQualityPrivacy: "套房品质与隐私分析",
       locationRentAdjustment: "地段价值分析",
       communityLocationAnalysis: "社区与位置分析",
+      educationResources: "教育资源",
+      medicalPharmacyResources: "医疗与药房",
+      shoppingConvenience: "购物与生活便利",
       airbnbStrRegulationCheck: "Airbnb / STR 提醒",
       legalComplianceRisk: "法规风险提醒",
       aiAssessmentConfidence: "AI 评估信心",
@@ -1389,6 +1395,9 @@ function buildAssessmentReportRows(assessment, copy) {
     [copy.report.suiteQualityPrivacy, assessment.suiteQualityPrivacy],
     [copy.report.locationRentAdjustment, assessment.locationRentAdjustment],
     [copy.report.communityLocationAnalysis, assessment.communityLocationAnalysis],
+    [copy.report.educationResources, assessment.educationResources],
+    [copy.report.medicalPharmacyResources, assessment.medicalPharmacyResources],
+    [copy.report.shoppingConvenience, assessment.shoppingConvenience],
     [copy.report.airbnbStrRegulationCheck, assessment.airbnbStrRegulationCheck],
     [copy.report.legalComplianceRisk, assessment.legalComplianceRisk],
     [copy.report.aiAssessmentConfidence, assessment.aiAssessmentConfidence],
@@ -1397,7 +1406,7 @@ function buildAssessmentReportRows(assessment, copy) {
     [copy.report.recommendedNextStep, assessment.recommendedNextStep],
     [copy.report.knowledgeCenter, assessment.knowledgeLinks],
     [copy.report.disclaimer, assessment.disclaimer],
-  ].filter(([, value]) => !(Array.isArray(value) && value.length === 0));
+  ].filter(([, value]) => value != null && value !== "" && !(Array.isArray(value) && value.length === 0));
 }
 
 function buildStrategyResultRows(assessment, copy) {

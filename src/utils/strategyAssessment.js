@@ -443,6 +443,9 @@ export function generatePreliminaryStrategySummary(form, lang = "en", rentalInte
     suiteQualityPrivacy: buildSuiteQualityPrivacy(form, safeLang),
     locationRentAdjustment: buildLocationRentAdjustment(form, reportJudgment, community, safeLang),
     communityLocationAnalysis: buildCommunityLocationAnalysis(form, community, reportJudgment, safeLang),
+    educationResources: buildEducationResources(community, safeLang),
+    medicalPharmacyResources: buildMedicalResources(community, safeLang),
+    shoppingConvenience: buildShoppingConvenience(community, safeLang),
     targetTenantProfile: buildTargetTenantProfile(form, reportJudgment, safeLang),
     communityRentPositioningJudgment: buildCommunityRentPositioningJudgment(form, judgment, safeLang),
     communityMarketingAngles: buildCommunityMarketingAngles(form, judgment, community, safeLang),
@@ -972,6 +975,7 @@ function joinKnowledgeRows(rows, preferredFields) {
 // surfaced in English reports where no translation problem exists.
 function normalizeRentalIntelligenceKnowledge(data) {
   const base = data?.communityKnowledgeBase || {};
+  const infrastructure = data?.infrastructure || {};
   const communityName = data?.communityName ||
     firstKnowledgeValue(base, ["Community", "Community Name", "Community_Name", "Neighbourhood", "Neighborhood", "Area"]) ||
     "";
@@ -990,7 +994,127 @@ function normalizeRentalIntelligenceKnowledge(data) {
     scoring: data?.communityScoring || {},
     propertyFit: data?.propertyFitMatrix || {},
     decisionHints: data?.aiDecisionHints || {},
+    infrastructure: {
+      schoolDistrict: infrastructure.schoolDistrict || firstKnowledgeValue(base, ["School District"]),
+      schoolDistrictNumber: infrastructure.schoolDistrictNumber || firstKnowledgeValue(base, ["School District Number"]),
+      nearbyElementarySchools: infrastructure.nearbyElementarySchools || firstKnowledgeValue(base, ["Nearby Elementary Schools"]),
+      nearbySecondarySchools: infrastructure.nearbySecondarySchools || firstKnowledgeValue(base, ["Nearby Secondary Schools"]),
+      specialEducationOptions: infrastructure.specialEducationOptions || firstKnowledgeValue(base, ["Special Education Options"]),
+      schoolAccessNotes: infrastructure.schoolAccessNotes || firstKnowledgeValue(base, ["School Access Notes"]),
+      schoolSource: infrastructure.schoolSource || firstKnowledgeValue(base, ["School Source"]),
+      schoolCatchmentDisclaimer: infrastructure.schoolCatchmentDisclaimer || firstKnowledgeValue(base, ["School Catchment Disclaimer"]),
+      healthAuthority: infrastructure.healthAuthority || firstKnowledgeValue(base, ["Health Authority"]),
+      nearestHospital: infrastructure.nearestHospital || firstKnowledgeValue(base, ["Nearest Hospital"]),
+      nearbyMedicalClinics: infrastructure.nearbyMedicalClinics || firstKnowledgeValue(base, ["Nearby Medical Clinics"]),
+      nearbyPharmacies: infrastructure.nearbyPharmacies || firstKnowledgeValue(base, ["Nearby Pharmacies"]),
+      medicalSource: infrastructure.medicalSource || firstKnowledgeValue(base, ["Medical Source"]),
+      medicalAccessDisclaimer: infrastructure.medicalAccessDisclaimer || firstKnowledgeValue(base, ["Medical Access Disclaimer"]),
+      majorCommercialCentres: infrastructure.majorCommercialCentres || firstKnowledgeValue(base, ["Major Commercial Centres"]),
+      dailyEssentialsNotes: infrastructure.dailyEssentialsNotes || firstKnowledgeValue(base, ["Daily Essentials Notes"]),
+      accessibilityNotes: infrastructure.accessibilityNotes || firstKnowledgeValue(base, ["Accessibility Notes"]),
+      commercialSource: infrastructure.commercialSource || firstKnowledgeValue(base, ["Commercial Source"]),
+      lastVerifiedDate: infrastructure.lastVerifiedDate || firstKnowledgeValue(base, ["Last Verified Date"]),
+    },
   };
+}
+
+const SCHOOL_DISCLAIMER_ZH = "附近学校不等于该物业正式所属学区。具体 catchment 须使用完整地址，通过对应教育局官方 School Locator 或 Catchment Map 确认。学区边界、年级设置和招生容量可能变化。";
+const SCHOOL_DISCLAIMER_EN = "Nearby schools do not confirm the property’s official catchment. The exact catchment must be verified using the full property address and the applicable school district’s official locator or map. Boundaries, grade configurations and capacity may change.";
+const MEDICAL_DISCLAIMER_ZH = "诊所的 walk-in、预约、接收新患者和营业状态可能变化，须以 Island Health、诊所或药房官方最新信息为准。本资料不保证家庭医生名额或当日看诊。";
+const MEDICAL_DISCLAIMER_EN = "Walk-in availability, appointments, acceptance of new patients and operating status may change. Current information must be confirmed with Island Health, the clinic or the pharmacy. This report does not guarantee access to a family doctor or same-day care.";
+
+function infrastructureValue(value) {
+  const text = String(value || "").trim();
+  return /^(n\/a|none|not available|unknown|需按具体地址确认)$/i.test(text) ? "" : text;
+}
+
+function localizeAccessNote(value, lang) {
+  const text = infrastructureValue(value);
+  if (!text || lang !== "zh") return text;
+  const exact = {
+    "Car dependent / Transit available": "日常出行较依赖驾车，同时有公共交通可用。",
+    "Transit accessible.": "可使用公共交通。",
+    "Car-dependent.": "日常出行较依赖驾车。",
+    "Highly car-dependent.": "日常出行高度依赖驾车。",
+    "Good access to daily essentials.": "日常采购和基础服务相对便利。",
+    "Good access to essentials.": "日常采购和基础服务相对便利。",
+    "Limited local essentials.": "社区内日常采购选择有限，可能需要前往邻近商业区。",
+    "Suburban access": "郊区出行条件，日常通常以驾车为主。",
+    "Car dependent": "日常出行较依赖驾车。",
+    "Semi-rural, car dependent": "半乡村环境，日常出行较依赖驾车。",
+    "Rural, car dependent": "乡村环境，日常出行较依赖驾车。",
+    "Suburban, car dependent": "郊区环境，日常出行较依赖驾车。",
+    "Walkable core, transit available": "核心区域具备一定步行条件，并有公共交通可用。",
+    "Walkable village, car dependent for regional": "村镇中心具备一定步行条件，跨区域出行仍较依赖驾车。",
+    "Central convenience": "中心区域生活便利。",
+    "Suburban growth": "郊区发展区域，出行条件应结合具体地址确认。",
+    "Seaside village, car dependent for high school": "海滨村镇环境，中学通学较依赖驾车。",
+    "Ferry-dependent for high school": "中学通学需要依赖渡轮。",
+    "Evolving market, car dependent": "发展中的市场，日常出行较依赖驾车。",
+    "Excellent access to shopping and groceries.": "购物和日常食品采购选择丰富。",
+    "Excellent access to shopping.": "购物条件便利。",
+    "Excellent access to daily essentials.": "日常采购和基础服务便利。",
+    "Excellent access to all essentials.": "日常采购及基础服务较为集中。",
+    "Basic essentials available locally.": "社区内可满足部分基本日常需求。",
+    "Basic essentials available.": "可满足部分基本日常需求。",
+    "Basic essentials available, ferry required for major shopping.": "社区内可满足基本日常需求，大型采购需要乘渡轮前往。",
+    "Good access to essentials nearby.": "邻近区域可满足日常采购和基础服务需求。",
+    "Good access to shopping.": "购物条件相对便利。",
+    "Somewhat walkable, transit available.": "具备一定步行条件，并有公共交通可用。",
+    "Walkable town centre.": "镇中心具备一定步行便利性，具体距离须结合物业地址确认。",
+    "Mostly car-dependent.": "日常出行主要依赖驾车。",
+    "Car-dependent but transit available.": "日常出行较依赖驾车，同时有公共交通可用。",
+    "Car-dependent, ferry access required.": "日常出行较依赖驾车，离岛交通需要使用渡轮。",
+  };
+  return exact[text] || text;
+}
+
+function buildEducationResources(community, lang = "en") {
+  if (community.status !== "confirmed") return [];
+  const data = community.infrastructure || {};
+  const items = [];
+  const district = infrastructureValue(data.schoolDistrict);
+  const number = infrastructureValue(data.schoolDistrictNumber);
+  const elementary = infrastructureValue(data.nearbyElementarySchools);
+  const secondary = infrastructureValue(data.nearbySecondarySchools);
+  const special = infrastructureValue(data.specialEducationOptions);
+  const access = localizeAccessNote(data.schoolAccessNotes, lang);
+  if (district || number) items.push(lang === "zh" ? `所属教育局：${district || "待确认"}${number ? `（SD${number}）` : ""}` : `School district: ${district || "To be confirmed"}${number ? ` (SD${number})` : ""}`);
+  if (elementary) items.push(lang === "zh" ? `附近主要小学：${elementary}` : `Nearby elementary schools: ${elementary}`);
+  if (secondary) items.push(lang === "zh" ? `附近主要中学：${secondary}` : `Nearby secondary schools: ${secondary}`);
+  if (special) items.push(lang === "zh" ? `特色或语言教育选项：${special}` : `Special or language-program options: ${special}`);
+  if (access) items.push(lang === "zh" ? `学校区域与交通说明：${access}` : `School-area access note: ${access}`);
+  if (items.length) items.push(lang === "zh" ? SCHOOL_DISCLAIMER_ZH : SCHOOL_DISCLAIMER_EN);
+  return items;
+}
+
+function buildMedicalResources(community, lang = "en") {
+  if (community.status !== "confirmed") return [];
+  const data = community.infrastructure || {};
+  const items = [];
+  const authority = infrastructureValue(data.healthAuthority);
+  const hospital = infrastructureValue(data.nearestHospital);
+  const clinics = infrastructureValue(data.nearbyMedicalClinics);
+  const pharmacies = infrastructureValue(data.nearbyPharmacies);
+  if (authority) items.push(lang === "zh" ? `卫生管理机构：${authority}` : `Health authority: ${authority}`);
+  if (hospital) items.push(lang === "zh" ? `最近主要医院：${hospital}` : `Nearest major hospital: ${hospital}`);
+  if (clinics) items.push(lang === "zh" ? `附近诊所：${clinics}` : `Nearby medical clinics: ${clinics}`);
+  if (pharmacies) items.push(lang === "zh" ? `附近药房：${pharmacies}` : `Nearby pharmacies: ${pharmacies}`);
+  if (items.length) items.push(lang === "zh" ? MEDICAL_DISCLAIMER_ZH : MEDICAL_DISCLAIMER_EN);
+  return items;
+}
+
+function buildShoppingConvenience(community, lang = "en") {
+  if (community.status !== "confirmed") return [];
+  const data = community.infrastructure || {};
+  const items = [];
+  const centres = infrastructureValue(data.majorCommercialCentres);
+  const essentials = localizeAccessNote(data.dailyEssentialsNotes, lang);
+  const access = localizeAccessNote(data.accessibilityNotes, lang);
+  if (centres) items.push(lang === "zh" ? `主要商业中心：${centres}` : `Major commercial centres: ${centres}`);
+  if (essentials) items.push(lang === "zh" ? `日常采购与基础服务：${essentials}` : `Daily essentials: ${essentials}`);
+  if (access) items.push(lang === "zh" ? `交通与可达性：${access}` : `Accessibility: ${access}`);
+  return items;
 }
 
 function splitKnowledgeTags(value) {

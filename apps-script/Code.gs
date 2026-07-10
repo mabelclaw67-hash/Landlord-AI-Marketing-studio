@@ -1209,6 +1209,7 @@ function getRentalIntelligenceKnowledge_(payload) {
   var communityName = findCommunityNameInRecord_(selected.record);
   var city = normalizeCellText_(selected.record.City || selected.record.city);
   var tagRows = filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_TAGS_SHEET), communityId, communityName);
+  var baseRecord = selected.record || {};
   return {
     communityId: communityId,
     communityName: communityName,
@@ -1217,7 +1218,28 @@ function getRentalIntelligenceKnowledge_(payload) {
     matchScore: selected.score,
     source: "VanIsland Rental Intelligence Knowledge Base",
     sourceSpreadsheetId: getRentalIntelligenceSpreadsheetId_(),
-    communityKnowledgeBase: selected.record || {},
+    communityKnowledgeBase: baseRecord,
+    infrastructure: {
+      schoolDistrict: normalizeCellText_(baseRecord["School District"]),
+      schoolDistrictNumber: normalizeCellText_(baseRecord["School District Number"]),
+      nearbyElementarySchools: normalizeCellText_(baseRecord["Nearby Elementary Schools"]),
+      nearbySecondarySchools: normalizeCellText_(baseRecord["Nearby Secondary Schools"]),
+      specialEducationOptions: normalizeCellText_(baseRecord["Special Education Options"]),
+      schoolAccessNotes: normalizeCellText_(baseRecord["School Access Notes"]),
+      schoolSource: normalizeCellText_(baseRecord["School Source"]),
+      schoolCatchmentDisclaimer: normalizeCellText_(baseRecord["School Catchment Disclaimer"]),
+      healthAuthority: normalizeCellText_(baseRecord["Health Authority"]),
+      nearestHospital: normalizeCellText_(baseRecord["Nearest Hospital"]),
+      nearbyMedicalClinics: normalizeCellText_(baseRecord["Nearby Medical Clinics"]),
+      nearbyPharmacies: normalizeCellText_(baseRecord["Nearby Pharmacies"]),
+      medicalSource: normalizeCellText_(baseRecord["Medical Source"]),
+      medicalAccessDisclaimer: normalizeCellText_(baseRecord["Medical Access Disclaimer"]),
+      majorCommercialCentres: normalizeCellText_(baseRecord["Major Commercial Centres"]),
+      dailyEssentialsNotes: normalizeCellText_(baseRecord["Daily Essentials Notes"]),
+      accessibilityNotes: normalizeCellText_(baseRecord["Accessibility Notes"]),
+      commercialSource: normalizeCellText_(baseRecord["Commercial Source"]),
+      lastVerifiedDate: normalizeCellText_(baseRecord["Last Verified Date"]),
+    },
     communityTags: tagRows,
     tags: tagRows[0] || {},
     communityScoring: filterKnowledgeByCommunity_(getRentalIntelligenceSheetRows_(COMMUNITY_SCORING_SHEET), communityId, communityName)[0] || {},
@@ -1361,6 +1383,7 @@ function appendPropertyStrategyValue_(body, label, value) {
 
 function appendPropertyStrategySection_(body, title, value) {
   if (value === null || value === undefined || value === "") return;
+  if (Object.prototype.toString.call(value) === "[object Array]" && value.length === 0) return;
   body.appendParagraph(title).setHeading(DocumentApp.ParagraphHeading.HEADING2);
   if (Object.prototype.toString.call(value) === "[object Array]") {
     for (var i = 0; i < value.length; i++) {
@@ -1425,6 +1448,7 @@ function propertyStrategyPdfLabel_(label, language) {
     "Property Strengths":"支持价格的因素","Issues to Watch":"限制价格的因素","Rental Strategy Recommendation":"出租策略",
     "Rent Positioning Recommendation":"本地租金判断","Market Risks":"市场风险","Suite Potential Analysis":"套房 / 分租潜力分析",
     "Suite Quality & Privacy Analysis":"套房品质与隐私分析","Location Value Analysis":"地段价值分析","Community & Location Analysis":"社区与位置分析",
+    "Education Resources":"教育资源","Medical & Pharmacy":"医疗与药房","Shopping & Daily Convenience":"购物与生活便利",
     "Target Tenant Profile":"目标租客画像","Rent Positioning Judgment":"租金定位判断","Marketing Angles":"营销角度","Risks / Things to Verify":"待核查风险",
     "Airbnb / STR Reminder":"短租法规提醒","Legal Risk Reminder":"法规风险提醒","AI Confidence & Flags (internal)":"AI 内部标记",
     "AI Confidence":"AI 评估信心","Marketing Suggestions":"营销建议","Professional Preliminary Recommendation":"专业初步建议",
@@ -1531,6 +1555,9 @@ function buildPropertyStrategyReportDocument_(found, assessmentId, language, ass
       ["suiteQualityPrivacy", "Suite Quality & Privacy Analysis"],
       ["locationRentAdjustment", "Location Value Analysis"],
       ["communityLocationAnalysis", "Community & Location Analysis"],
+      ["educationResources", "Education Resources"],
+      ["medicalPharmacyResources", "Medical & Pharmacy"],
+      ["shoppingConvenience", "Shopping & Daily Convenience"],
       ["targetTenantProfile", "Target Tenant Profile"],
       ["communityRentPositioningJudgment", "Rent Positioning Judgment"],
       ["communityMarketingAngles", "Marketing Angles"],
