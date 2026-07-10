@@ -1043,7 +1043,7 @@ function buildAiAssessmentConfidence(form, confidence, lang) {
   if (form.knownIssues) reasons.push(lang === "zh" ? "✓ 已提供业主关注点和已知问题" : "✓ Owner concerns and known issues were provided");
   if (form.airbnbInterest === "Yes") reasons.push(lang === "zh" ? "⚠ STR 法规需实时确认" : "⚠ STR rules need current verification");
   reasons.push(lang === "zh" ? "⚠ 最终租金仍需结合当前市场和照片状态确认" : "⚠ Final rent still needs current market and photo/condition review");
-  return [lang === "zh" ? `Assessment Confidence：${getConfidenceLabel(confidence.score, lang)}` : `Assessment Confidence: ${getConfidenceLabel(confidence.score, lang)}`, ...reasons];
+  return [lang === "zh" ? `评估信心：${getConfidenceLabel(confidence.score, lang)}` : `Assessment Confidence: ${getConfidenceLabel(confidence.score, lang)}`, ...reasons];
 }
 
 function buildServiceRecommendation(form, lang) {
