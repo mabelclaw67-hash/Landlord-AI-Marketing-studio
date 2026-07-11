@@ -48,6 +48,7 @@ import SupportDocuments from "./pages/SupportDocuments";
 import PublicListing from "./pages/PublicListing";
 import PublicVideoPage from "./pages/PublicVideoPage";
 import TenantContact from "./pages/TenantContact";
+import TenantServiceRequest from "./pages/TenantServiceRequest";
 import WebsiteReport from "./pages/WebsiteReport";
 import DailyMarketBriefReport from "./pages/DailyMarketBriefReport";
 import RetirementLivingBriefReport from "./pages/RetirementLivingBriefReport";
@@ -119,6 +120,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/reports/retirement-living-brief" element={<RetirementLivingBriefReport lang={lang} />} />
         <Route path="/reports/:reportId" element={<WebsiteReport lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
+        <Route path="/tenant-service-request" element={<TenantServiceRequest lang={lang} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Footer />
