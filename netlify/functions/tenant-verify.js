@@ -10,7 +10,9 @@ export async function handler(event) {
     const input = parse(event, 20_000);
     if (!(await verifyTurnstile(input.turnstileToken, event))) return json(400, { ok: false, error: "Verification failed. Please try again." }, origin);
     const result = await bridge("verifyTenant", { email: input.email, phoneLast4: input.phoneLast4, turnstileVerified: true, ipDigest: digest });
+    console.warn("tenant_verify_bridge_result", {
+      outcome: result?.verified ? "verified" : result?.error === "Unauthorized" ? "auth" : result?.error ? "no_match" : "other",
+    });
     return json(result.verified ? 200 : 400, result.verified ? result : { ok: false, verified: false, error: "We could not verify your information. Please contact your property manager." }, origin);
   } catch (error) { const [status, message] = safeError(error); return json(status, { ok: false, error: message }, origin); }
 }
-
