@@ -1145,6 +1145,159 @@ tr:hover td { background: #F9F6F0; }
   gap: 24px;
 }
 
+.tenant-service-module {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.tenant-service-card {
+  padding: 22px;
+  border: 1px solid #d9e3dc;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fff 0%, #f7faf7 100%);
+  box-shadow: 0 14px 36px rgba(45, 68, 53, 0.08);
+}
+
+.tenant-service-card__eyebrow {
+  margin: 0 0 6px;
+  color: #3d6d4c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tenant-service-card h2 {
+  margin: 0;
+  color: #213128;
+  font-size: 1.25rem;
+}
+
+.tenant-service-card > p:not(.tenant-service-card__eyebrow):not(.tenant-service-emergency) {
+  margin: 10px 0 0;
+  color: #66736b;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.tenant-service-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  margin-top: 18px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: #2d5a3d;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.tenant-service-card__action:hover {
+  background: #234b32;
+  color: #fff;
+  text-decoration: none;
+}
+
+.tenant-service-before {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8e3;
+}
+
+.tenant-service-before h3,
+.tenant-service-before p {
+  margin: 0;
+}
+
+.tenant-service-before h3 {
+  color: #2b3c32;
+  font-size: 0.92rem;
+}
+
+.tenant-service-before p {
+  margin-top: 6px;
+  color: #637068;
+  font-size: 0.78rem;
+}
+
+.tenant-service-before ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 18px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #445249;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.tenant-service-emergency {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-left: 4px solid #bd3b31;
+  background: #fff3f1;
+  color: #77251f;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.tenant-service-process__step {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+.tenant-service-process__copy {
+  display: grid;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.tenant-service-process__copy strong {
+  color: #2d3b34;
+  font-size: 0.84rem;
+}
+
+.tenant-service-process__copy span {
+  color: #69756e;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 900px) {
+  .tenant-service-module {
+    grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 600px) {
+  .tenant-page {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .tenant-service-module {
+    margin-bottom: 24px;
+  }
+
+  .tenant-service-card,
+  .tenant-service-process {
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  .tenant-service-card__action {
+    width: 100%;
+  }
+
+  .tenant-service-before ul {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tenant-listings-main {
   min-width: 0;
 }

@@ -4,6 +4,7 @@ import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } fr
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
 import { DesktopApplicationProcessSidebar, MobileApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
+import TenantServiceProcessPanel from "../components/TenantServiceProcessPanel";
 import {
   getListingStatusMeta,
   resolveRentalListingCover,
@@ -221,6 +222,8 @@ export default function Examples({ lang = "en" }) {
       </section>
 
       <div className="tenant-listings-body">
+
+        <TenantServiceProcessPanel />
 
         {loading && (
           <p className="tenant-loading">{labels.loading}</p>
