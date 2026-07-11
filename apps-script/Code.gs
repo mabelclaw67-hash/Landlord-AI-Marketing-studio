@@ -1865,6 +1865,37 @@ function summaryFromSectionSentence_(section) {
   return match ? match[1].trim() : summary;
 }
 
+function normalizeMarketSummaryForDuplicateCheck_(value) {
+  return normalizeCellText_(value)
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]/gu, "");
+}
+
+function guardDuplicateMarketSummaries_(record) {
+  var fields = [
+    "bcRentalSummary",
+    "bcSaleSummary",
+    "nanaimoRentalSummary",
+    "nanaimoSaleSummary",
+  ];
+  var seen = {};
+  var duplicates = [];
+
+  for (var i = 0; i < fields.length; i++) {
+    var field = fields[i];
+    var normalized = normalizeMarketSummaryForDuplicateCheck_(record[field]);
+    if (!normalized) continue;
+    if (seen[normalized]) {
+      duplicates.push(field + " duplicates " + seen[normalized]);
+      record[field] = "待更新";
+      continue;
+    }
+    seen[normalized] = field;
+  }
+
+  return duplicates;
+}
+
 function formatBriefActionNotes_(section) {
   var lines = sectionLines_(section);
   var formatted = [];
@@ -1968,23 +1999,23 @@ function parseDailyMarketBriefRecord_(file) {
   );
   var zhRental = extractBriefSectionSmart_(
     text,
-    ["## 2. BC租赁市场概览", "2. BC租赁市场概览"],
+    ["## 2. BC住宅租赁市场概览", "## 2. BC租赁市场概览", "2. BC住宅租赁市场概览", "2. BC租赁市场概览"],
     ["## 3. BC房屋销售市场概览", "3. BC房屋销售市场概览"],
-    [/BC.*租赁/i, /租赁市场/i],
+    [/BC\s*[住宅房屋]*\s*租赁市场\s*[：:—–-]*\s*概览/i, /BC.*租赁/i, /租赁市场/i],
     [/房屋销售/i, /买卖市场/i, /销售市场/i]
   );
   var zhSale = extractBriefSectionSmart_(
     text,
     ["## 3. BC房屋销售市场概览", "3. BC房屋销售市场概览"],
     ["## 4. 纳奈莫本地市场", "4. 纳奈莫本地市场"],
-    [/房屋销售/i, /买卖市场/i, /销售市场/i],
-    [/纳奈莫/i, /nanaimo/i]
+    [/BC\s*房屋\s*销售市场\s*[：:—–-]*\s*概览/i, /房屋销售/i, /买卖市场/i, /销售市场/i],
+    [/纳奈莫\s*本地市场/i, /纳奈莫/i, /nanaimo/i]
   );
   var zhNanaimo = extractBriefSectionSmart_(
     text,
     ["## 4. 纳奈莫本地市场", "4. 纳奈莫本地市场"],
     ["## 5. 房东与投资者行动建议", "5. 房东与投资者行动建议"],
-    [/纳奈莫/i, /nanaimo/i],
+    [/纳奈莫\s*本地市场\s*[：:—–-]*/i, /纳奈莫/i, /nanaimo/i],
     [/行动建议/i, /房东/i, /投资者/i]
   );
   var zhActions = extractBriefSectionSmart_(
@@ -2006,14 +2037,14 @@ function parseDailyMarketBriefRecord_(file) {
     zhNanaimo,
     ["### 租赁市场——本地强势表现", "### 租赁市场", "租赁市场——本地强势表现"],
     ["### 房屋销售", "房屋销售"],
-    [/租赁市场/i, /租金/i, /空置率/i],
+    [/租赁市场\s*[：:—–-]*/i, /租金/i, /空置率/i],
     [/房屋销售/i, /买卖/i]
   );
   var zhNanaimoSale = extractBriefSectionSmart_(
     zhNanaimo,
     ["### 房屋销售", "房屋销售"],
     ["### 房东机会", "房东机会"],
-    [/房屋销售/i, /买卖/i],
+    [/房屋\s*销售\s*[：:—–-]*/i, /买卖/i],
     [/房东机会/i, /行动/i]
   );
 
@@ -2080,9 +2111,9 @@ function parseDailyMarketBriefRecord_(file) {
     buildFallbackSummaryFromText_(text, [/bc.*租赁|租赁市场|rent|rental|vacancy/i], 3);
   var bcSaleSummary = summaryFromSection_(zhSale || enSale, 3) ||
     buildFallbackSummaryFromText_(text, [/销售|买卖|sale|sales|benchmark|inventory/i], 3);
-  var nanaimoRentalSummary = summaryFromSection_(zhNanaimoRental || zhNanaimo || enNanaimoRental || enNanaimo, 3) ||
+  var nanaimoRentalSummary = summaryFromSection_(zhNanaimoRental || enNanaimoRental, 3) ||
     buildFallbackSummaryFromText_(text, [/纳奈莫|nanaimo|rent|rental|vacancy/i], 3);
-  var nanaimoSaleSummary = summaryFromSection_(zhNanaimoSale || enNanaimoSale || zhNanaimo || enNanaimo, 2) ||
+  var nanaimoSaleSummary = summaryFromSection_(zhNanaimoSale || enNanaimoSale, 2) ||
     buildFallbackSummaryFromText_(text, [/纳奈莫|nanaimo|sale|sales|inventory|price/i], 2);
   var landlordActionNotes = formatBriefActionNotes_(zhActions || enActions) ||
     buildFallbackSummaryFromText_(text, [/建议|行动|策略|landlord|investor|action|focus/i], 4);
@@ -2147,6 +2178,7 @@ function findExistingBriefRow_(sheet, headerMap, record) {
 
 function upsertDailyMarketBriefRecord_(record, updatedBy) {
   var sheet = getBriefSheet_();
+  var duplicateWarnings = guardDuplicateMarketSummaries_(record);
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var headerMap = getHeaderMap_(sheet);
   var rowNumber = findExistingBriefRow_(sheet, headerMap, record);
@@ -2196,6 +2228,16 @@ function upsertDailyMarketBriefRecord_(record, updatedBy) {
     "Upserted row " + rowNumber + " for " + record.dateText,
     updatedBy || "Apps Script"
   );
+
+  if (duplicateWarnings.length) {
+    logBriefSync_(
+      record.sourceFileName,
+      "duplicateSummaryGuard",
+      "WARNING",
+      duplicateWarnings.join("; ") + ". Later duplicate field set to 待更新.",
+      updatedBy || "Apps Script"
+    );
+  }
 
   return {
     rowNumber: rowNumber,
