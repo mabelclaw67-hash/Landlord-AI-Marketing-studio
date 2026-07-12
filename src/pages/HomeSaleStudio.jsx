@@ -9,7 +9,7 @@ import {
   getSalePhotoData,
   resolveHomeSaleImageUrl,
 } from "../utils/homeSaleSheet";
-import { sortSaleListings } from "../utils/listingSort";
+import { getSaleStatusMeta, sortSaleListingsNewestFirst } from "../utils/saleListingMeta";
 import { normalizeLang } from "../utils/lang";
 
 const LABELS = {
@@ -78,7 +78,8 @@ function formatPrice(value, labels) {
 }
 
 export default function HomeSaleStudio({ lang }) {
-  const labels = LABELS[normalizeLang(lang)] || LABELS.en;
+  const safeLang = normalizeLang(lang);
+  const labels = LABELS[safeLang] || LABELS.en;
   const [listings, setListings] = useState([]);
   const [listingImages, setListingImages] = useState({});
   const [loading, setLoading] = useState(true);
@@ -91,7 +92,10 @@ export default function HomeSaleStudio({ lang }) {
     getPublicSaleListings()
       .then((rows) => {
         if (cancelled) return;
-        setListings(sortSaleListings(rows));
+        // Public visibility is decided by the backend (mirrors the rental model),
+        // so the frontend does not re-filter. Just order newest-first; Pending /
+        // Sold / Subject Removed all stay visible as a public track record.
+        setListings(sortSaleListingsNewestFirst(rows));
         setLoading(false);
 
         Promise.all(
@@ -179,6 +183,7 @@ export default function HomeSaleStudio({ lang }) {
                 const imageKey = listing.id || listing.address;
                 const imageSrc = listingImages[listing.id] || resolveHomeSaleImageUrl(listing);
                 const isDataImage = String(imageSrc || "").startsWith("data:");
+                const statusMeta = getSaleStatusMeta(listing, safeLang);
 
                 return (
                   <article key={imageKey} className="rental-card">
@@ -225,8 +230,8 @@ export default function HomeSaleStudio({ lang }) {
                           📍 {listing.city || ""}{listing.province ? `, ${listing.province}` : ""}
                         </p>
                       </div>
-                      <span className="rental-card__badge" style={{ background: "#f7efe4", color: "#8a5a22", border: "1px solid #e7cda7" }}>
-                        {listing.status || labels.draft}
+                      <span className="rental-card__badge" style={{ background: statusMeta.background, color: statusMeta.color, border: `1px solid ${statusMeta.border}` }}>
+                        {statusMeta.label}
                       </span>
                     </div>
 

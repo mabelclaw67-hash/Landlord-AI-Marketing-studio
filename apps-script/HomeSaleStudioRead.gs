@@ -200,7 +200,9 @@ function homeSaleCanAccessListing_(record, auth) {
   if (auth.mode === "admin") return true;
   if (auth.mode === "public") {
     var status = String(record["Status"] || "").trim();
-    return status === "Published" || status === "Active";
+    // Public across the whole lifecycle (Sold/Pending stay visible like a Rented
+    // rental); hide only pre-publish / withdrawn states.
+    return status !== "" && ["draft", "in review", "ready to publish", "archived", "hidden", "unpublished", "deleted"].indexOf(status.toLowerCase()) === -1;
   }
   // Trial mode: match by email first, then fall back to access code for listings
   // created before the "Created By Email" column existed.
