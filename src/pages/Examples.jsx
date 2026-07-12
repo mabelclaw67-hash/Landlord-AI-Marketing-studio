@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } from "../utils/storage";
+import { buildPublicSiteUrl } from "../utils/publicUrls";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
 import { RentalApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
@@ -70,6 +72,15 @@ const RENTAL_PUBLIC_TEXT = {
     heroApply: "Apply Now",
     heroService: "Start Service Request",
     heroContact: "Contact Us",
+
+    // Share portal
+    shareTitle: "Share This Rental Portal",
+    shareDesc: "Send tenants and applicants straight to this page — copy the link or let them scan the QR code.",
+    copyBtn: "Copy Portal Link",
+    copiedBtn: "✓ Link Copied",
+    qrBtn: "Show QR Code",
+    qrHideBtn: "Hide QR Code",
+    qrCaption: "Scan to open the rental portal",
 
     // Core services
     coreTitle: "How can we help you today?",
@@ -170,6 +181,15 @@ const RENTAL_PUBLIC_TEXT = {
     heroApply: "立即申请",
     heroService: "提交服务申请",
     heroContact: "联系我们",
+
+    // Share portal
+    shareTitle: "分享租赁门户",
+    shareDesc: "让租客和申请人直达本页——复制链接，或让他们扫描二维码。",
+    copyBtn: "复制门户链接",
+    copiedBtn: "✓ 已复制链接",
+    qrBtn: "显示二维码",
+    qrHideBtn: "隐藏二维码",
+    qrCaption: "扫码进入租赁门户",
 
     // Core services
     coreTitle: "今天需要什么帮助？",
@@ -295,6 +315,20 @@ export default function Examples({ lang = "en" }) {
   const [coverPhotos, setCoverPhotos] = useState({});
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
+  const [showQr,   setShowQr]   = useState(false);
+  const [portalCopied, setPortalCopied] = useState(false);
+
+  const portalUrl = buildPublicSiteUrl("/examples");
+
+  const copyPortalLink = async () => {
+    try {
+      await navigator.clipboard.writeText(portalUrl);
+      setPortalCopied(true);
+      setTimeout(() => setPortalCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable — leave the URL visible under the QR code so it can be copied manually.
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -369,6 +403,38 @@ export default function Examples({ lang = "en" }) {
       </section>
 
       <div className="rp-body">
+
+        {/* ── Share this portal (copy link + QR) ───────────── */}
+        <section className="rp-share" aria-labelledby="rp-share-title">
+          <div className="rp-share__main">
+            <div className="rp-share__text">
+              <h2 id="rp-share-title" className="rp-share__title">{labels.shareTitle}</h2>
+              <p className="rp-share__desc">{labels.shareDesc}</p>
+            </div>
+            <div className="rp-share__actions">
+              <button type="button" className="rp-share__btn rp-share__btn--primary" onClick={copyPortalLink}>
+                {portalCopied ? labels.copiedBtn : labels.copyBtn}
+              </button>
+              <button
+                type="button"
+                className="rp-share__btn rp-share__btn--outline"
+                onClick={() => setShowQr((v) => !v)}
+                aria-expanded={showQr}
+              >
+                {showQr ? labels.qrHideBtn : labels.qrBtn}
+              </button>
+            </div>
+          </div>
+          {showQr && (
+            <div className="rp-share__qr">
+              <div className="rp-share__qr-code">
+                <QRCodeSVG value={portalUrl} size={168} fgColor="#2f4338" bgColor="#ffffff" />
+              </div>
+              <p className="rp-share__qr-caption">{labels.qrCaption}</p>
+              <span className="rp-share__qr-url">{portalUrl}</span>
+            </div>
+          )}
+        </section>
 
         {/* ── Three core service entries ───────────────────── */}
         <section className="rp-section" aria-labelledby="rp-core-title">
