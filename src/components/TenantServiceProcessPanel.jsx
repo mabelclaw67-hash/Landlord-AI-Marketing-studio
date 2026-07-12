@@ -62,6 +62,33 @@ const TENANT_SERVICE_TEXT = {
   },
 };
 
+// Standalone Tenant Service Request Process card — shares the unified
+// .application-process-card styling so it can sit next to the Rental
+// Application Process card in the portal's process section.
+export function TenantServiceProcessCard() {
+  const lang = useLang();
+  const text = TENANT_SERVICE_TEXT[lang === "zh" ? "zh" : "en"];
+
+  return (
+    <div className="application-process-card tenant-service-process" aria-label={text.processTitle}>
+      <div className="application-process-card__header">
+        <h2 className="application-process-card__title">{text.processTitle}</h2>
+      </div>
+      <ol className="application-process-steps">
+        {text.steps.map(([title, description], index) => (
+          <li key={title} className="application-process-step tenant-service-process__step">
+            <span className="application-process-step__index">{index + 1}</span>
+            <span className="tenant-service-process__copy">
+              <strong>{title}</strong>
+              <span>{description}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export default function TenantServiceProcessPanel() {
   const lang = useLang();
   const text = TENANT_SERVICE_TEXT[lang === "zh" ? "zh" : "en"];
@@ -85,22 +112,7 @@ export default function TenantServiceProcessPanel() {
         <p className="tenant-service-emergency" role="note">{text.emergency}</p>
       </div>
 
-      <div className="application-process-card tenant-service-process" aria-label={text.processTitle}>
-        <div className="application-process-card__header">
-          <h2 className="application-process-card__title">{text.processTitle}</h2>
-        </div>
-        <ol className="application-process-steps">
-          {text.steps.map(([title, description], index) => (
-            <li key={title} className="application-process-step tenant-service-process__step">
-              <span className="application-process-step__index">{index + 1}</span>
-              <span className="tenant-service-process__copy">
-                <strong>{title}</strong>
-                <span>{description}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      <TenantServiceProcessCard />
     </section>
   );
 }

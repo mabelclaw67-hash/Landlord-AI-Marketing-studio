@@ -35,7 +35,7 @@ const APPLICATION_PROCESS_TEXT = {
   },
 };
 
-function RentalApplicationProcessCard() {
+export function RentalApplicationProcessCard() {
   const lang = useLang();
   const text = APPLICATION_PROCESS_TEXT[lang === "zh" ? "zh" : "en"];
 

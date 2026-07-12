@@ -6459,3 +6459,393 @@ tr:hover td { background: #F9F6F0; }
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 }
+
+/* ==========================================================================
+   Rental Portal — Vanisland Rentals public landing (/examples)
+   Namespaced .rp-* so it never collides with existing tenant/admin styles.
+   ========================================================================== */
+
+/* Tenant nav polish: clearer spacing, Apply Now as gold CTA, Admin subdued */
+.navbar__links--tenant { gap: 6px; align-items: center; }
+.navbar__links--tenant a {
+  padding: 9px 15px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px;
+  color: var(--color-text);
+  transition: background 0.15s, color 0.15s;
+}
+.navbar__links--tenant a:hover { background: rgba(45, 90, 61, 0.08); color: var(--color-primary); }
+.navbar__links--tenant a.admin-link {
+  background: transparent !important;
+  color: var(--color-text-muted) !important;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+}
+.navbar__links--tenant a.admin-link:hover {
+  background: rgba(45, 90, 61, 0.06) !important;
+  color: var(--color-primary) !important;
+}
+
+.rental-portal { background: var(--color-bg); }
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.rp-hero {
+  background:
+    radial-gradient(circle at 82% 18%, rgba(201, 169, 97, 0.16), transparent 45%),
+    radial-gradient(circle at 12% 88%, rgba(45, 90, 61, 0.14), transparent 42%),
+    linear-gradient(135deg, #eef4ee 0%, #FAF7F2 55%, #f4efe6 100%);
+  border-bottom: 1px solid #e5dfd6;
+  padding: 68px 20px 60px;
+}
+.rp-hero__inner { max-width: 860px; margin: 0 auto; text-align: center; }
+.rp-hero__eyebrow {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #dbe6dd;
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+.rp-hero__title {
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.1;
+  margin: 0 0 14px;
+}
+.rp-hero__sub {
+  font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+  color: #55625a;
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0 auto 28px;
+}
+.rp-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.rp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s, color 0.15s;
+}
+.rp-btn:hover { text-decoration: none; transform: translateY(-2px); }
+.rp-btn--primary { background: var(--color-primary); color: #fff; }
+.rp-btn--primary:hover { background: var(--color-primary-dark); box-shadow: 0 10px 26px rgba(45, 90, 61, 0.28); }
+.rp-btn--gold { background: var(--color-accent); color: #fff; }
+.rp-btn--gold:hover { background: #b8986d; box-shadow: 0 10px 26px rgba(201, 169, 97, 0.3); }
+.rp-btn--outline { background: #fff; color: var(--color-primary); border-color: var(--color-primary); }
+.rp-btn--outline:hover { background: rgba(45, 90, 61, 0.06); box-shadow: 0 8px 20px rgba(45, 90, 61, 0.14); }
+.rp-btn--ghost { background: transparent; color: #55625a; border-color: #d4ccbf; }
+.rp-btn--ghost:hover { background: rgba(0, 0, 0, 0.03); color: var(--color-primary); }
+
+/* ── Body + sections ────────────────────────────────────────────────────── */
+.rp-body {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 56px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+.rp-section { scroll-margin-top: 90px; }
+.rp-section__head { margin-bottom: 24px; text-align: center; }
+.rp-section__head--row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  flex-wrap: wrap;
+}
+.rp-section__title {
+  font-size: clamp(1.4rem, 3.5vw, 1.85rem);
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+}
+.rp-section__sub {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  max-width: 620px;
+}
+.rp-section__head:not(.rp-section__head--row) .rp-section__sub {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Three core service cards ───────────────────────────────────────────── */
+.rp-core-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+.rp-core-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: 0 12px 30px rgba(45, 68, 53, 0.07);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+.rp-core-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(45, 68, 53, 0.12); }
+.rp-core-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(45, 90, 61, 0.09);
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+}
+.rp-core-card__title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0 0 12px;
+}
+.rp-core-card__list {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.rp-core-card__list li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #5a655d;
+}
+.rp-core-card__list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--color-primary);
+  font-weight: 800;
+}
+.rp-core-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.rp-core-card__cta:hover { background: var(--color-primary-dark); color: #fff; text-decoration: none; }
+
+/* ── Listings grid ──────────────────────────────────────────────────────── */
+.rp-listing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+.rp-listing-grid .rental-card__fact-value--date { font-size: 0.78rem; }
+.rp-share-kit-wrap { flex-shrink: 0; }
+
+/* ── Process modules ────────────────────────────────────────────────────── */
+.rp-process-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+.rp-process-grid .application-process-card { height: 100%; }
+
+/* ── Emergency notice ───────────────────────────────────────────────────── */
+.rp-emergency {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: #fff5f3;
+  border: 1px solid #f0c6bf;
+  border-left: 5px solid #bd3b31;
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.rp-emergency__icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; }
+.rp-emergency__title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #8f2a22;
+  margin: 0 0 8px;
+}
+.rp-emergency__intro {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #77332c;
+}
+.rp-emergency__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.rp-emergency__list li {
+  background: #fff;
+  border: 1px solid #f0c6bf;
+  color: #8f2a22;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* ── Trust highlights ───────────────────────────────────────────────────── */
+.rp-trust-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+.rp-trust-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  text-align: center;
+  box-shadow: 0 8px 22px rgba(45, 68, 53, 0.05);
+}
+.rp-trust-card__icon { font-size: 1.7rem; }
+.rp-trust-card__title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 12px 0 6px;
+}
+.rp-trust-card__desc {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+/* ── Quick help accordion ───────────────────────────────────────────────── */
+.rp-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.rp-help-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.rp-help-item__q {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rp-help-item__q::-webkit-details-marker { display: none; }
+.rp-help-item__q::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(45, 90, 61, 0.08);
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.rp-help-item[open] .rp-help-item__q::after { content: "\2212"; }
+.rp-help-item__a {
+  margin: 0;
+  padding: 0 20px 18px;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: #5a655d;
+}
+
+/* ── Tenant quick-links strip (light; global Footer holds company + copyright) ── */
+.rp-quicklinks {
+  border-top: 1px solid var(--color-border);
+  padding-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 20px;
+  text-align: center;
+}
+.rp-quicklinks__title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.rp-quicklinks__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+}
+.rp-quicklinks__links a { font-size: 0.9rem; font-weight: 600; color: var(--color-text); }
+.rp-quicklinks__links a:hover { color: var(--color-primary); }
+
+/* ── Responsive breakpoints ─────────────────────────────────────────────── */
+@media (min-width: 700px) {
+  .rp-core-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rp-listing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rp-trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 900px) {
+  .rp-process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rp-trust-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .rp-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .rp-hero { padding: 48px 16px 40px; }
+  .rp-body { padding: 40px 16px 32px; gap: 44px; }
+  .rp-hero__actions .rp-btn { flex: 1 1 100%; }
+  .rp-section__head--row { flex-direction: column; align-items: stretch; }
+  .rp-emergency { flex-direction: column; gap: 12px; padding: 18px 16px; }
+}
