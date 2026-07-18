@@ -1671,12 +1671,14 @@ function getBriefSourceFolderId_() {
 }
 
 function isSupportedBriefSourceFile_(file) {
+  var name = file.getName();
+  if (!/^Daily_BC_Rent_Sale_Intelligence_Brief_/i.test(name)) return false;
+
   var mimeType = file.getMimeType();
   if (mimeType === MimeType.GOOGLE_DOCS) return true;
   if (mimeType === MimeType.PLAIN_TEXT) return true;
   if (mimeType === "text/markdown") return true;
   if (mimeType === "text/x-markdown") return true;
-  var name = file.getName().toLowerCase();
   return /\.md$/i.test(name) || /\.txt$/i.test(name);
 }
 
