@@ -248,7 +248,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -266,6 +266,16 @@ function doPost(e) {
     if (action === "getPropertyStrategyReports") return ok(getPropertyStrategyReports_(auth));
     if (action === "getPropertyStrategyReport") return ok(getPropertyStrategyReport_(body.assessmentId, auth));
     if (action === "regeneratePropertyStrategyReport") return ok(regeneratePropertyStrategyReport_(body.assessmentId, auth));
+    // ── AI Dispute Review (see DisputeReview.gs) ──
+    if (action === "startDisputeReview")  return ok(startDisputeReview_(body.data || body));
+    if (action === "uploadDisputeFile")   return ok(uploadDisputeFile_(body.data || body));
+    if (action === "deleteDisputeFile")   return ok(deleteDisputeFile_(body.data || body));
+    if (action === "submitDisputeReview") return ok(submitDisputeReview_(body.data));
+    if (action === "getDisputeReviews")   return ok(getDisputeReviews_(auth));
+    if (action === "getDisputeReview")    return ok(getDisputeReview_(body.reviewId, auth));
+    if (action === "updateDisputeProfessionalReview") return ok(updateDisputeProfessionalReview_(body.data, auth));
+    if (action === "generateDisputeReport") return ok(generateDisputeReport_(body.reviewId, body.data, auth));
+    if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
     if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));

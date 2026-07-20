@@ -5,7 +5,7 @@ import { AL } from "../utils/adminLabels";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
-  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", strategy: "AI Plan", sale: "Sale", contact: "Contact", admin: "Admin" },
+  en: { home: "Home", photoGuide: "Photos", rentals: "Rentals", strategy: "Review", sale: "Sale", contact: "Contact", admin: "Admin" },
   zh: { home: "首页", photoGuide: "拍照", rentals: "出租", strategy: "初评", sale: "出售", contact: "联系", admin: "后台" },
 };
 
@@ -21,6 +21,9 @@ function AdminMobileNav({ lang }) {
           <div className="ambn-more-menu" onClick={(e) => e.stopPropagation()} role="menu">
             <NavLink to="/admin/strategy-assessments" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
               📚 {lang === "zh" ? "策略评估报告" : "Strategy Assessment Reports"}
+            </NavLink>
+            <NavLink to="/admin/dispute-reviews" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
+              ⚖️ {lang === "zh" ? "争议初评案件" : "Dispute Reviews"}
             </NavLink>
             <NavLink to="/admin/home-sale" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
               🏡 {L.ambnHomeSale}
@@ -100,7 +103,7 @@ function PublicMobileNav({ lang }) {
         <span>🏘️</span>
         <span>{labels.rentals}</span>
       </NavLink>
-      <NavLink to="/landlord-ai/strategy-assessment" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+      <NavLink to="/landlord-ai/review-center" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>🧭</span>
         <span>{labels.strategy}</span>
       </NavLink>

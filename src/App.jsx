@@ -13,6 +13,8 @@ import Contact from "./pages/Contact";
 import TrialAccess from "./pages/TrialAccess";
 import HomeSaleStudio from "./pages/HomeSaleStudio";
 import StrategyAssessment from "./pages/StrategyAssessment";
+import AIReviewCenter from "./pages/AIReviewCenter";
+import DisputeReview from "./pages/DisputeReview";
 import HomeSaleListingDetail from "./pages/HomeSaleListingDetail";
 import HomeSaleAdmin from "./pages/HomeSaleAdmin";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -24,6 +26,7 @@ import Leads from "./pages/admin/Leads";
 import TrialRequests from "./pages/admin/TrialRequests";
 import StrategyReports from "./pages/admin/StrategyReports";
 import StrategyAssessments from "./pages/admin/StrategyAssessments";
+import DisputeReviews from "./pages/admin/DisputeReviews";
 import HomeSaleListings from "./pages/admin/HomeSaleListings";
 import HomeSaleListingDetailAdmin from "./pages/admin/HomeSaleListingDetailAdmin";
 import HomeSaleListingForm from "./pages/admin/HomeSaleListingForm";
@@ -73,6 +76,9 @@ function AppInner({ lang, setLang }) {
         <Route path="/home-sale-studio" element={<HomeSaleStudio lang={lang} />} />
         <Route path="/landlord-ai/strategy-assessment" element={<StrategyAssessment lang={lang} />} />
         <Route path="/strategy-assessment/report/:assessmentId" element={<StrategyAssessment lang={lang} />} />
+        <Route path="/landlord-ai/review-center" element={<AIReviewCenter lang={lang} />} />
+        <Route path="/landlord-ai/dispute-review" element={<DisputeReview lang={lang} />} />
+        <Route path="/dispute-review/report/:reviewId" element={<DisputeReview lang={lang} />} />
         <Route path="/demo/ai-screening" element={<AITenantScreeningDemo lang={lang} />} />
         <Route path="/demo/ai-screening/:demoLang/:demoId" element={<AITenantScreeningDemoViewer lang={lang} />} />
         <Route path="/home-sale-studio/listings/:listingId" element={<HomeSaleListingDetail lang={lang} />} />
@@ -86,6 +92,7 @@ function AppInner({ lang, setLang }) {
           <Route path="trial-requests" element={<TrialRequests />} />
           <Route path="strategy-reports" element={<StrategyReports />} />
           <Route path="strategy-assessments" element={<StrategyAssessments />} />
+          <Route path="dispute-reviews" element={<DisputeReviews />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />
           <Route path="home-sale" element={<HomeSaleAdmin />} />
           <Route path="home-sale/listings" element={<HomeSaleListings />} />
