@@ -43,31 +43,6 @@ export const translations = {
         "All AI-generated content must be reviewed before publishing. AI-enhanced or virtually staged images must be clearly disclosed.",
       complianceCh: "",
     },
-    services: {
-      title: "Our Services",
-      chTitle: "",
-      subtitle: "Four core marketing outputs for your rental listing.",
-      chSubtitle: "",
-      s1: "Bilingual Rental Ad Copy",
-      s1Ch: "",
-      s1Desc:
-        "Full rental ad copy in both English and Simplified Chinese. Covers highlights, features, rent, availability, and contact.",
-      s2: "Facebook / Craigslist Post",
-      s2Ch: "",
-      s2Desc:
-        "Platform-optimized posts for Facebook Marketplace and Craigslist, formatted with emojis and clear sections.",
-      s3: "Listing Cover Text",
-      s3Ch: "",
-      s3Desc:
-        "Short punchy headlines and sub-lines for cover photos — ready to overlay on your listing images.",
-      s4: "Short Video Script",
-      s4Ch: "",
-      s4Desc:
-        "Scene-by-scene narration script for a 30–60 second property walkthrough video. Bilingual or single language.",
-      futureNote:
-        "AI image and video generation will be available in a future version.",
-      futureNoteCh: "",
-    },
     examples: {
       title: "Sample Listings",
       chTitle: "",
@@ -236,26 +211,6 @@ export const translations = {
       complianceCh:
         "All AI-generated content must be reviewed before publishing. AI-enhanced or virtually staged images must be clearly disclosed.",
       ctaLearn: "了解更多",
-    },
-    services: {
-      title: "服务项目",
-      chTitle: "Our Services",
-      subtitle: "四项核心房源营销内容生成服务。",
-      chSubtitle: "Four core marketing outputs for your rental listing.",
-      s1: "中英文广告文案",
-      s1Ch: "Bilingual Rental Ad Copy",
-      s1Desc: "完整的中英文出租广告文案，涵盖亮点、设施、租金、入住时间和联系方式。",
-      s2: "平台发帖文案",
-      s2Ch: "Facebook / Craigslist Post",
-      s2Desc: "针对 Facebook Marketplace 和 Craigslist 优化的发帖内容，格式清晰、排版规范。",
-      s3: "封面标题文案",
-      s3Ch: "Listing Cover Text",
-      s3Desc: "适合叠加在封面图片上的简短有力标题和副标题文案。",
-      s4: "短视频脚本",
-      s4Ch: "Short Video Script",
-      s4Desc: "30-60 秒房源展示视频的逐场景旁白脚本，支持中英文或双语版本。",
-      futureNote: "AI 图片和视频生成功能将在未来版本中上线。",
-      futureNoteCh: "AI image and video generation will be available in a future version.",
     },
     examples: {
       title: "房源示例",
