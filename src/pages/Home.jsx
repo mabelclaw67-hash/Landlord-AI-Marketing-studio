@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import ShareKit from "../components/ShareKit";
+import ContentAccordion from "../components/ContentAccordion";
 import { PUBLIC_SITE_BASE_URL } from "../utils/publicUrls";
 import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
 import { getRetirementBrief, field as rlField, roomType as rlRoomType, strategyScore as rlStrategyScore, bestPick as rlBestPick } from "../utils/retirementBrief";
@@ -490,7 +491,12 @@ export default function Home({ lang }) {
           ) : briefError ? (
             <div className="lh-daily-brief__status lh-daily-brief__status--error">{briefError}</div>
           ) : brief ? (
-            <>
+            <ContentAccordion
+              title={safeLang === "zh" ? "展开今日简报" : "View Today's Brief"}
+              summary={brief.title}
+              defaultOpen={false}
+              className="lh-daily-brief__accordion"
+            >
               <div className="lh-daily-brief__title-card">
                 <div className="lh-daily-brief__label">{safeLang === "zh" ? "标题" : "Title"}</div>
                 <h3>{brief.title || "Untitled Brief"}</h3>
@@ -589,14 +595,18 @@ export default function Home({ lang }) {
                   {wechatCopied ? s.copiedWechat : s.copyWechat}
                 </button>
               </div>
-            </>
+            </ContentAccordion>
           ) : null}
 
-          {/* ── 退休生活房源简报 (6th card) — independent data source, renders
-                regardless of the market-brief API state; click to open detail ── */}
+          {/* ── 退休生活房源简报 — independent data source; separate accordion ── */}
           {retireBrief ? (
-            <>
-              <div className="lh-daily-brief__section-head" style={{ marginTop: 28 }}>
+            <ContentAccordion
+              title="退休生活房源简报"
+              summary={rlField(retireBrief.dailySummary, "")}
+              defaultOpen={false}
+              className="lh-daily-brief__accordion"
+            >
+              <div className="lh-daily-brief__section-head">
                 <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--flash">
                   退休生活房源简报
                 </span>
@@ -639,7 +649,7 @@ export default function Home({ lang }) {
                   <span className="lh-daily-brief__detail-link">查看详情 →</span>
                 </Link>
               </div>
-            </>
+            </ContentAccordion>
           ) : null}
         </div>
       </section>
@@ -724,11 +734,12 @@ export default function Home({ lang }) {
           <p>{s.generateDesc}</p>
         </div>
 
-        <div className="lh-output-group">
-          <div className="lh-output-group__head">
-            <h3>{s.rentalOutputsTitle}</h3>
-            <p>{s.rentalOutputsDesc}</p>
-          </div>
+        <ContentAccordion
+          title={s.rentalOutputsTitle}
+          summary={s.rentalOutputsDesc}
+          defaultOpen={false}
+          className="lh-output-accordion"
+        >
           <div className="lh-feature-grid lh-feature-grid--primary">
             {rentalPrimary.map(({ icon, title, desc, href }) => (
               <article key={title} className="lh-feature-card">
@@ -754,13 +765,14 @@ export default function Home({ lang }) {
               </div>
             </div>
           )}
-        </div>
+        </ContentAccordion>
 
-        <div className="lh-output-group">
-          <div className="lh-output-group__head">
-            <h3>{s.saleOutputsTitle}</h3>
-            <p>{s.saleOutputsDesc}</p>
-          </div>
+        <ContentAccordion
+          title={s.saleOutputsTitle}
+          summary={s.saleOutputsDesc}
+          defaultOpen={false}
+          className="lh-output-accordion"
+        >
           <div className="lh-feature-grid lh-feature-grid--primary">
             {salePrimary.map(({ icon, title, desc }) => (
               <article key={title} className="lh-feature-card">
@@ -784,7 +796,7 @@ export default function Home({ lang }) {
               </div>
             </div>
           )}
-        </div>
+        </ContentAccordion>
       </section>
 
       {/* Platform QR Promotion */}

@@ -6,6 +6,7 @@ import {
   roomType,
   strategyScore,
 } from "../utils/retirementBrief";
+import ContentAccordion from "../components/ContentAccordion";
 
 const TODO = "待确认"; // shown for genuinely missing fields (never fabricate)
 
@@ -62,6 +63,11 @@ function ListingCard({ listing }) {
       ) : null}
     </div>
   );
+}
+
+function listingGroupSummary(items) {
+  if (!items.length) return "暂无房源";
+  return items.map((listing) => field(listing?.address, TODO)).join("、");
 }
 
 export default function RetirementLivingBriefReport() {
@@ -131,10 +137,14 @@ export default function RetirementLivingBriefReport() {
 
             <article className="website-report__content">
               {/* 1. 今日总结 */}
-              <section className="website-report__section">
-                <h2>今日总结</h2>
+              <ContentAccordion
+                title="今日总结"
+                summary={field(brief?.dailySummary, TODO)}
+                defaultOpen={false}
+                className="website-report__section"
+              >
                 <p>{field(brief?.dailySummary, TODO)}</p>
-              </section>
+              </ContentAccordion>
 
               {/* 2–5. 房源分区 */}
               {ORDER.map(([key, fallbackLabel]) => {
@@ -148,8 +158,13 @@ export default function RetirementLivingBriefReport() {
                   : (legacyKey && Array.isArray(sections[legacyKey]) ? sections[legacyKey] : []);
                 const label = field(titles[key], fallbackLabel);
                 return (
-                  <section key={key} className="website-report__section">
-                    <h2>{label}</h2>
+                  <ContentAccordion
+                    key={key}
+                    title={`${label}${items.length ? ` (${items.length})` : ""}`}
+                    summary={listingGroupSummary(items)}
+                    defaultOpen={false}
+                    className="website-report__section"
+                  >
                     {items.length ? (
                       items.map((listing, i) => (
                         <ListingCard key={`${key}-${i}`} listing={listing} />
@@ -157,13 +172,17 @@ export default function RetirementLivingBriefReport() {
                     ) : (
                       <p className="rl-listing__todo">暂无房源</p>
                     )}
-                  </section>
+                  </ContentAccordion>
                 );
               })}
 
               {/* 6. 下一步建议 */}
-              <section className="website-report__section">
-                <h2>下一步建议</h2>
+              <ContentAccordion
+                title="下一步建议"
+                summary={nextSteps.length ? nextSteps.map((s) => `${s.address} — ${s.action}`).join("；") : TODO}
+                defaultOpen={false}
+                className="website-report__section"
+              >
                 {nextSteps.length ? (
                   <ul className="rl-nextsteps">
                     {nextSteps.map((s, i) => (
@@ -173,7 +192,7 @@ export default function RetirementLivingBriefReport() {
                 ) : (
                   <p className="rl-listing__todo">{TODO}</p>
                 )}
-              </section>
+              </ContentAccordion>
             </article>
 
           </>

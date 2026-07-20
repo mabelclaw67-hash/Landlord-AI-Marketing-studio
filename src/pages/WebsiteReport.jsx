@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getWebsiteReport } from "../utils/dailyMarketBrief";
+import ContentAccordion from "../components/ContentAccordion";
 
 function getLineType(line) {
   if (/^[一二三四五六七八九十]+、/.test(line)) return "h2";
@@ -19,6 +20,49 @@ function ReportLine({ line }) {
   if (type === "callout") return <p className="website-report__callout">{text}</p>;
   if (type === "bullet") return <li>{text}</li>;
   return <p>{text}</p>;
+}
+
+function renderLines(lines) {
+  return lines.map((line, index) => {
+    const type = getLineType(line);
+    if (type !== "bullet") {
+      return <ReportLine key={`${index}-${line}`} line={line} />;
+    }
+    return (
+      <ul key={`${index}-${line}`} className="website-report__list">
+        <ReportLine line={line} />
+      </ul>
+    );
+  });
+}
+
+// Group lines into h2 sections so each section can render as its own
+// collapsible accordion. Lines before the first h2 (if any) stay outside.
+function groupSections(lines) {
+  const preamble = [];
+  const sections = [];
+  let current = null;
+
+  lines.forEach((line) => {
+    if (getLineType(line) === "h2") {
+      current = { title: line, lines: [] };
+      sections.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    } else {
+      preamble.push(line);
+    }
+  });
+
+  return { preamble, sections };
+}
+
+function sectionSummary(lines) {
+  return lines
+    .filter((line) => getLineType(line) !== "h3")
+    .map((line) => line.replace(/^\*\s+/, "").replace(/^⚠\s*/, ""))
+    .join(" ")
+    .trim();
 }
 
 export default function WebsiteReport({ lang }) {
@@ -49,6 +93,7 @@ export default function WebsiteReport({ lang }) {
   const title = safeLang === "zh" ? report?.titleCn : report?.titleEn;
   const description = safeLang === "zh" ? report?.descriptionCn : report?.descriptionEn;
   const lines = useMemo(() => Array.isArray(report?.lines) ? report.lines : [], [report]);
+  const { preamble, sections } = useMemo(() => groupSections(lines), [lines]);
 
   return (
     <main className="website-report">
@@ -77,17 +122,18 @@ export default function WebsiteReport({ lang }) {
             </header>
 
             <article className="website-report__content">
-              {lines.map((line, index) => {
-                const type = getLineType(line);
-                if (type !== "bullet") {
-                  return <ReportLine key={`${index}-${line}`} line={line} />;
-                }
-                return (
-                  <ul key={`${index}-${line}`} className="website-report__list">
-                    <ReportLine line={line} />
-                  </ul>
-                );
-              })}
+              {preamble.length > 0 && renderLines(preamble)}
+              {sections.map((section, index) => (
+                <ContentAccordion
+                  key={`${index}-${section.title}`}
+                  title={section.title}
+                  summary={sectionSummary(section.lines)}
+                  defaultOpen={false}
+                  className="website-report__section"
+                >
+                  {renderLines(section.lines)}
+                </ContentAccordion>
+              ))}
             </article>
           </>
         )}

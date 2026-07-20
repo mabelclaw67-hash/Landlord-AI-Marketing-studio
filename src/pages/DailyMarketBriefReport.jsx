@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
+import ContentAccordion from "../components/ContentAccordion";
 
 const FIELDS = {
   en: [
@@ -80,10 +81,16 @@ export default function DailyMarketBriefReport({ lang }) {
 
             <article className="website-report__content">
               {(FIELDS[safeLang] || FIELDS.en).map(([key, label]) => (
-                <section key={key} id={key} className="website-report__section">
-                  <h2>{label}</h2>
+                <ContentAccordion
+                  key={key}
+                  id={key}
+                  title={label}
+                  summary={brief?.[key] || "—"}
+                  defaultOpen={typeof window !== "undefined" && window.location.hash === `#${key}`}
+                  className="website-report__section"
+                >
                   <p>{brief?.[key] || "—"}</p>
-                </section>
+                </ContentAccordion>
               ))}
             </article>
           </>

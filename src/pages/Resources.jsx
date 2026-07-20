@@ -438,6 +438,8 @@ const COPY = {
   },
 };
 
+import ContentAccordion from "../components/ContentAccordion";
+
 export default function Resources({ lang }) {
   const safeLang = lang === "zh" ? "zh" : "en";
   const copy = COPY[safeLang];
@@ -504,14 +506,16 @@ function KnowledgeCard({ item, pillarTitle, copy }) {
 
 function PolicySection({ section, labels }) {
   return (
-    <article id={section.id} className="card knowledge-policy">
-      <div className="knowledge-policy__header">
-        <div>
-          <p className="knowledge-policy__eyebrow">{labels.lastUpdated}</p>
-          <h2>{section.title}</h2>
-          <p>{section.intro}</p>
-        </div>
-      </div>
+    <ContentAccordion
+      id={section.id}
+      title={section.title}
+      summary={section.intro}
+      defaultOpen={false}
+      className="knowledge-policy-accordion"
+    >
+      <p className="knowledge-policy__eyebrow" style={{ marginBottom: 12, color: "var(--color-text-muted)", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        {labels.lastUpdated}
+      </p>
 
       <div className="knowledge-policy__source-box">
         <h3>{labels.officialSources}</h3>
@@ -531,7 +535,7 @@ function PolicySection({ section, labels }) {
       <div className="notice notice--warm knowledge-policy__notice">
         <p>{labels.disclaimer}</p>
       </div>
-    </article>
+    </ContentAccordion>
   );
 }
 
