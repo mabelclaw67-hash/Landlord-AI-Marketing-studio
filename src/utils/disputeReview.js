@@ -847,7 +847,7 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
         { label: zh ? "争议类型" : "Dispute type", value: value(opt(form.disputeType)) },
         { label: zh ? "机构 / 主管" : "Tribunal / Authority", value: value(opt(form.tribunal)) },
         { label: zh ? "物业地址" : "Property address", value: value([form.propertyAddress, form.city, form.province].filter(Boolean).join(", ")) },
-        { label: zh ? "涉及金额" : "Monetary amount", value: value(form.monetaryAmount) },
+        { label: zh ? "涉及金额" : "Monetary amount", value: value(formatDisputeMoney(form.monetaryAmount)) },
         { label: zh ? "程序状态" : "Proceeding status", value: value(opt(form.proceedingStatus)) },
       ],
     },
@@ -870,7 +870,7 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
       title: zh ? "关键时间线" : "Key Timeline",
       type: "table",
       rows: a.timeline.length
-        ? a.timeline.map((entry) => ({ label: t(entry.label, safeLang), value: entry.date }))
+        ? a.timeline.map((entry) => ({ label: t(entry.label, safeLang), value: formatDisputeDate(entry.date, safeLang) }))
         : [{ label: zh ? "日期" : "Dates", value: zh ? "未提供任何关键日期。" : "No key dates were provided." }],
     },
     {
@@ -880,7 +880,7 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
       rows: a.uploaded.length
         ? a.uploaded.map((file) => ({
           label: opt(file.documentCategory),
-          value: [file.fileName, file.documentDate, file.senderIssuer, file.description].filter(Boolean).join(" · "),
+          value: [file.fileName, formatDisputeDate(file.documentDate, safeLang), file.senderIssuer, file.description].filter(Boolean).join(" · "),
         }))
         : [{ label: zh ? "已上传文件" : "Uploaded documents", value: zh ? "无。" : "None." }],
     },
@@ -1012,8 +1012,8 @@ function buildServiceItems(form, a, lang) {
       : "For this dispute type, service requirements must be verified against the rules of the chosen forum.");
   }
   items.push(zh
-    ? `送达方式：${displayDisputeOption(form.serviceMethod, "zh") || "未提供"}。送达日期：${form.serviceDate || "未提供"}。`
-    : `Method of service: ${form.serviceMethod || "not provided"}. Service date: ${form.serviceDate || "not provided"}.`);
+    ? `送达方式：${displayDisputeOption(form.serviceMethod, "zh") || "未提供"}。送达日期：${formatDisputeDate(form.serviceDate, "zh") || "未提供"}。`
+    : `Method of service: ${form.serviceMethod || "not provided"}. Service date: ${formatDisputeDate(form.serviceDate, "en") || "not provided"}.`);
   a.procedureRisks.forEach((risk) => items.push(t(risk.text, lang)));
   a.deadlineRisks.forEach((risk) => items.push(t(risk.text, lang)));
   if (a.serviceRelevant && a.serviceEstablished && !a.procedureRisks.length) {
@@ -1095,6 +1095,7 @@ export async function submitDisputeReview(form, files, lang = "en") {
   const payload = {
     ...form,
     reviewId,
+    serviceConcerns: composeServiceConcerns(form.serviceMethod, form.serviceConcerns),
     status: analysis.sufficient ? "AI Drafted" : "Intake Incomplete",
     importantDates: analysis.timeline.map((entry) => `${entry.label.en}: ${entry.date}`).join("; "),
     followUpAnswersText: formatDisputeFollowUpAnswers(form, "en"),
@@ -1203,7 +1204,32 @@ export function recordToForm(record = {}) {
     legalIssues: get("Legal / Compliance Issues"),
     clientServiceInterest: get("Client Service Interest"),
     nextStep: get("Next Step"),
+    ...parseServiceConcerns(get("Service / Procedure Concerns")),
   });
+}
+
+const SERVICE_METHOD_PREFIX = "Method of service:";
+
+// The 57-column sheet has no Service Method column, so the intake value is kept
+// as a labelled first line inside Service / Procedure Concerns and parsed back
+// out here. No schema change, and the value survives a round trip.
+export function composeServiceConcerns(serviceMethod, concerns) {
+  const method = String(serviceMethod || "").trim();
+  const rest = String(concerns || "").trim();
+  if (!method) return rest;
+  return [`${SERVICE_METHOD_PREFIX} ${method}`, rest].filter(Boolean).join("\n");
+}
+
+function parseServiceConcerns(stored) {
+  const text = String(stored || "");
+  const lines = text.split("\n");
+  if (!lines[0] || !lines[0].startsWith(SERVICE_METHOD_PREFIX)) {
+    return { serviceMethod: "", serviceConcerns: text.trim() };
+  }
+  return {
+    serviceMethod: lines[0].slice(SERVICE_METHOD_PREFIX.length).trim(),
+    serviceConcerns: lines.slice(1).join("\n").trim(),
+  };
 }
 
 // ── Report download ───────────────────────────────────────────────────────────
@@ -1250,7 +1276,8 @@ const EN_MONTHS = ["January", "February", "March", "April", "May", "June",
 
 // Accepts "2026-04-01" or a full ISO timestamp and never shows raw ISO text.
 export function formatDisputeDate(value, lang = "en") {
-  const text = String(value || "").trim();
+  // Older records stored a JSON-stringified Date, so strip any wrapping quotes.
+  const text = String(value || "").trim().replace(/^"+|"+$/g, "");
   if (!text) return "";
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return text;

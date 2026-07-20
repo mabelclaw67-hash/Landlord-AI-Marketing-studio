@@ -670,10 +670,17 @@ function createDisputeReportPdf_(report, reviewId, languageTag, folder) {
     }
   });
 
-  // The disclaimer is fixed wording and always appears, whatever the sections say.
-  body.appendHorizontalRule();
-  body.appendParagraph(zh ? "免责声明" : "Disclaimer").setHeading(DocumentApp.ParagraphHeading.HEADING2);
-  body.appendParagraph(zh ? DISPUTE_DISCLAIMER_ZH : DISPUTE_DISCLAIMER_EN);
+  // The disclaimer is fixed wording and must always be present. Section 15
+  // normally carries it; append it only if the report somehow lacks that
+  // section, so it appears exactly once.
+  var hasDisclaimer = (report.sections || []).some(function (section) {
+    return section.key === "disclaimer";
+  });
+  if (!hasDisclaimer) {
+    body.appendHorizontalRule();
+    body.appendParagraph(zh ? "免责声明" : "Disclaimer").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    body.appendParagraph(zh ? DISPUTE_DISCLAIMER_ZH : DISPUTE_DISCLAIMER_EN);
+  }
 
   doc.saveAndClose();
 
