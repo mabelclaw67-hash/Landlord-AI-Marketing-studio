@@ -21,6 +21,7 @@ import {
   getDisputeFollowUpQuestions,
   startDisputeReview,
   submitDisputeReview,
+  downloadDisputeReportPdf,
   suggestedTribunal,
   uploadDisputeFile,
   validateDisputeFile,
@@ -88,6 +89,10 @@ const L = {
     reviewId: "Review ID",
     printSavePdf: "Print / Save PDF",
     reportLanguage: "Report language",
+    downloadEn: "Download English PDF",
+    downloadZh: "Download Chinese PDF",
+    downloading: "Downloading…",
+    downloadPending: "The professional PDF is not ready yet. You can still print this page.",
     fields: {
       clientName: "Full Name",
       email: "Email",
@@ -202,6 +207,10 @@ const L = {
     reviewId: "案件编号",
     printSavePdf: "打印 / 另存 PDF",
     reportLanguage: "报告语言",
+    downloadEn: "下载英文 PDF",
+    downloadZh: "下载中文 PDF",
+    downloading: "下载中…",
+    downloadPending: "专业版 PDF 尚未生成，您仍可打印本页。",
     fields: {
       clientName: "姓名",
       email: "邮箱",
@@ -453,6 +462,8 @@ export default function DisputeReview({ lang }) {
       const payload = {
         reviewId: result.reviewId,
         reports: result.reports,
+        // Scoped to this case only; it never exposes another review.
+        downloadToken: result.downloadToken || "",
         savedAt: new Date().toISOString(),
       };
       setSubmitted(payload);
@@ -486,6 +497,7 @@ export default function DisputeReview({ lang }) {
         lang={safeLang}
         reviewId={routeReviewId}
         reports={publicReport?.reports}
+        downloadToken={publicReport?.downloadToken}
       />
     );
   }
@@ -498,6 +510,7 @@ export default function DisputeReview({ lang }) {
         lang={safeLang}
         reviewId={submitted.reviewId}
         reports={submitted.reports}
+        downloadToken={submitted.downloadToken}
         onStartOver={startOver}
       />
     );
@@ -873,7 +886,22 @@ export default function DisputeReview({ lang }) {
 
 // The report page always opens in the interface language, and offers an
 // explicit switch. Both versions belong to the same Review ID.
-function ReportPage({ copy, lang, reviewId, reports, onStartOver }) {
+function ReportPage({ copy, lang, reviewId, reports, downloadToken, onStartOver }) {
+  const [downloading, setDownloading] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+
+  const handleDownload = async (language) => {
+    setDownloading(language);
+    setDownloadError("");
+    try {
+      await downloadDisputeReportPdf(reviewId, language, downloadToken || "");
+    } catch (err) {
+      setDownloadError(err.message || copy.downloadPending);
+    } finally {
+      setDownloading("");
+    }
+  };
+
   // Mounted with key={lang} by the caller, so switching the interface language
   // resets the report to that language while still allowing a manual override.
   const [reportLang, setReportLang] = useState(lang);
@@ -931,8 +959,28 @@ function ReportPage({ copy, lang, reviewId, reports, onStartOver }) {
 
             <DisputeReportBody report={report} />
 
+            {downloadError && (
+              <div className="notice notice--warm strategy-inline-notice"><p>{downloadError}</p></div>
+            )}
+
             <div className="strategy-result-actions">
-              <button type="button" className="btn btn--sage" onClick={() => openDisputeReportPdf(report, reviewId)}>
+              <button
+                type="button"
+                className="btn btn--sage"
+                onClick={() => handleDownload("en")}
+                disabled={downloading === "en"}
+              >
+                {downloading === "en" ? copy.downloading : copy.downloadEn}
+              </button>
+              <button
+                type="button"
+                className="btn btn--sage"
+                onClick={() => handleDownload("zh")}
+                disabled={downloading === "zh"}
+              >
+                {downloading === "zh" ? copy.downloading : copy.downloadZh}
+              </button>
+              <button type="button" className="btn btn--ghost" onClick={() => openDisputeReportPdf(report, reviewId)}>
                 {copy.printSavePdf}
               </button>
               {onStartOver && (

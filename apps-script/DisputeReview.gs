@@ -84,6 +84,12 @@ function verifyDisputeSchema() {
 
 function disputeText_(value) {
   if (value === null || value === undefined) return "";
+  // Sheets turns a "2026-04-01" cell into a Date, which would otherwise reach
+  // the UI as "2026-04-01T07:00:00.000Z". Normalise it back to a plain date.
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    if (isNaN(value.getTime())) return "";
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
   if (typeof value === "object") return JSON.stringify(value);
   return String(value).trim();
 }
@@ -328,7 +334,10 @@ function submitDisputeReview_(data) {
     reviewId: reviewId,
     fileFolderUrl: folder.getUrl(),
     fileCount: countDisputeFilesForReview_(reviewId),
-    status: record["Status"]
+    status: record["Status"],
+    // Lets this client download their own report later without exposing any
+    // other case or the Drive folder itself.
+    downloadToken: disputeAccessToken_(reviewId)
   };
 }
 
@@ -423,7 +432,11 @@ function getDisputeReview_(reviewId, auth) {
   var row = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
   var record = {};
   for (var c = 0; c < headers.length; c++) record[headers[c]] = disputeText_(row[c]);
-  return { review: record, files: getDisputeFilesForReview_(id) };
+  return {
+    review: record,
+    files: getDisputeFilesForReview_(id),
+    downloadToken: disputeAccessToken_(id)
+  };
 }
 
 function updateDisputeProfessionalReview_(data, auth) {
@@ -499,7 +512,10 @@ function generateDisputeReport_(reviewId, data, auth) {
     generatedAt: generatedAt,
     reportEnUrl: enUrl,
     reportZhUrl: zhUrl,
+    reportEnFileName: disputeReportFileName_(id, "EN"),
+    reportZhFileName: disputeReportFileName_(id, "ZH"),
     reportFolderUrl: folder.getUrl(),
+    downloadToken: disputeAccessToken_(id),
     professionalReviewIncluded: !!professionalText
   };
 }
@@ -539,6 +555,75 @@ function applyProfessionalRecommendation_(report, recommendation, notes, languag
     break;
   }
   return report;
+}
+
+// ── Report download ───────────────────────────────────────────────────────────
+// The Dispute Reports folder is never shared. A report is downloadable only by
+// an admin, or by whoever holds the per-review token issued when the intake was
+// submitted. The token is derived from the Review ID plus a script-side secret,
+// so it needs no extra column in the sheet and cannot be guessed from the ID.
+
+function disputeTokenSecret_() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty("DISPUTE_REPORT_TOKEN_SECRET");
+  if (!secret) {
+    secret = Utilities.getUuid() + "-" + Utilities.getUuid();
+    props.setProperty("DISPUTE_REPORT_TOKEN_SECRET", secret);
+  }
+  return secret;
+}
+
+function disputeAccessToken_(reviewId) {
+  var raw = String(reviewId || "") + "|" + disputeTokenSecret_();
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
+  return digest.map(function (b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+}
+
+function disputeReportFileName_(reviewId, languageTag) {
+  return reviewId + "_AI_Dispute_Review_" + languageTag + ".pdf";
+}
+
+// Returns the actual PDF bytes as base64 so the browser can save a real .pdf
+// file. Drive preview links cannot be turned into a reliable cross-origin
+// download, so the file is streamed through this authorized endpoint instead.
+function downloadDisputeReportPdf_(body, auth) {
+  body = body || {};
+  var reviewId = disputeText_(body.reviewId);
+  var language = disputeText_(body.language).toUpperCase() === "ZH" ? "ZH" : "EN";
+  if (!reviewId) throw new Error("Review ID is required.");
+
+  var isAdmin = auth && auth.mode === "admin";
+  if (!isAdmin) {
+    var token = disputeText_(body.token);
+    if (!token || token !== disputeAccessToken_(reviewId)) {
+      throw new Error("This report link is invalid or has expired.");
+    }
+  }
+
+  var fileName = disputeReportFileName_(reviewId, language);
+  var parent = DriveApp.getFolderById(DISPUTE_REPORTS_FOLDER_ID);
+  var folders = parent.getFoldersByName(reviewId);
+  if (!folders.hasNext()) {
+    throw new Error("No report has been generated for " + reviewId + " yet.");
+  }
+  var files = folders.next().getFilesByName(fileName);
+  if (!files.hasNext()) {
+    throw new Error("The " + language + " report has not been generated for " + reviewId + " yet.");
+  }
+
+  var file = files.next();
+  var blob = file.getBlob();
+  return {
+    reviewId: reviewId,
+    language: language,
+    fileName: fileName,
+    mimeType: "application/pdf",
+    sizeBytes: blob.getBytes().length,
+    base64: Utilities.base64Encode(blob.getBytes())
+  };
 }
 
 // Builds a Google Doc from the report object, exports it to PDF into

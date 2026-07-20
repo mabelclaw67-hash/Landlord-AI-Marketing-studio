@@ -4,7 +4,12 @@ import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
   REVIEW_PRIORITIES,
+  disputeColumnLabel,
   displayDisputeOption,
+  downloadDisputeReportPdf,
+  formatDisputeDate,
+  formatDisputeDateTime,
+  formatDisputeFieldValue,
   generateDisputeReport,
   getDisputeReview,
   getDisputeReviews,
@@ -69,6 +74,7 @@ export default function DisputeReviews() {
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
+  const [downloading, setDownloading] = useState("");
 
   async function loadRows() {
     setLoading(true);
@@ -178,8 +184,41 @@ export default function DisputeReviews() {
     }
   }
 
+  async function runDownload(language) {
+    if (!selected) return;
+    setDownloading(language);
+    setError("");
+    setMessage("");
+    try {
+      const saved = await downloadDisputeReportPdf(
+        selected.review["Review ID"],
+        language,
+        selected.downloadToken || ""
+      );
+      const kb = Math.max(1, Math.round(saved.sizeBytes / 1024));
+      setMessage(isZh
+        ? `已下载 ${saved.fileName}（${kb} KB）。`
+        : `Downloaded ${saved.fileName} (${kb} KB).`);
+    } catch (err) {
+      setError(err.message || "Download failed.");
+    } finally {
+      setDownloading("");
+    }
+  }
+
   const review = selected?.review;
   const activeReport = rebuilt?.[detailLang];
+  const reportEnUrl = review?.["Report EN URL"] || "";
+  const reportZhUrl = review?.["Report ZH URL"] || "";
+  const reportsReady = !!(reportEnUrl && reportZhUrl);
+  // The generation timestamp lives inside the stored report JSON.
+  const generatedAt = (() => {
+    try {
+      return JSON.parse(review?.["Report EN JSON"] || "{}").generatedAt || "";
+    } catch {
+      return "";
+    }
+  })();
 
   return (
     <div className="admin-page strategy-reports-page">
@@ -222,12 +261,12 @@ export default function DisputeReviews() {
               {filtered.map((item) => (
                 <tr key={item["Review ID"]}>
                   <td>{item["Review ID"]}</td>
-                  <td>{item["Created At"] || "-"}</td>
+                  <td>{formatDisputeFieldValue("Created At", item["Created At"], lang) || "-"}</td>
                   <td>{item["Client Name"] || "-"}</td>
                   <td>{displayDisputeOption(item["Dispute Type"], lang) || "-"}</td>
                   <td>{displayDisputeOption(item["Status"], lang) || "-"}</td>
-                  <td>{item["Hearing Date"] || "-"}</td>
-                  <td>{item["Filing Deadline"] || "-"}</td>
+                  <td>{formatDisputeDate(item["Hearing Date"], lang) || "-"}</td>
+                  <td>{formatDisputeDate(item["Filing Deadline"], lang) || "-"}</td>
                   <td>{item["AI Risk Level"] ? displayDisputeOption(item["AI Risk Level"], lang) : (isZh ? "无法评估" : "Not assessable")}</td>
                   <td>{displayDisputeOption(item["Review Priority"], lang) || "-"}</td>
                   <td>{professionalState(item, isZh)}</td>
@@ -247,41 +286,93 @@ export default function DisputeReviews() {
       {review && (
         <div className="strategy-report-modal" role="dialog" aria-modal="true" aria-label="Dispute review">
           <div className="strategy-report-modal__panel">
-            <div className="strategy-report-modal__header">
-              <div>
+            {/* Sticky so the report actions stay reachable while scrolling. */}
+            <div className="dispute-admin-bar">
+              <div className="dispute-admin-bar__id">
                 <h2>{review["Review ID"]}</h2>
-                <p>{displayDisputeOption(review["Dispute Type"], lang)} · {displayDisputeOption(review["Status"], lang)}</p>
+                <p>
+                  {displayDisputeOption(review["Dispute Type"], lang)} · {displayDisputeOption(review["Status"], lang)}
+                  {reportsReady && generatedAt && (
+                    <> · {isZh ? "报告生成于 " : "Reports generated "}{formatDisputeDateTime(generatedAt, lang)}</>
+                  )}
+                </p>
+                {!reportsReady && (
+                  <p className="dispute-admin-bar__warn">{isZh ? "报告尚未生成" : "Reports not generated yet"}</p>
+                )}
               </div>
-              <button className="btn btn--secondary" onClick={() => setSelected(null)}>{isZh ? "关闭" : "Close"}</button>
-            </div>
 
-            <div className="dispute-admin-actions">
-              {review["File Folder URL"] && (
-                <a className="btn btn--secondary btn--small" href={review["File Folder URL"]} target="_blank" rel="noreferrer">
-                  {isZh ? "打开证据文件夹" : "Open Evidence Folder"}
+              <div className="dispute-admin-bar__actions">
+                <button className="btn btn--primary btn--small" onClick={runGenerateReport} disabled={generating || !rebuilt}>
+                  {generating
+                    ? (isZh ? "生成中…" : "Generating…")
+                    : reportsReady
+                      ? (isZh ? "生成/更新报告" : "Generate / Update Reports")
+                      : (isZh ? "生成报告" : "Generate Reports")}
+                </button>
+
+                <a
+                  className={`btn btn--secondary btn--small${reportEnUrl ? "" : " is-disabled"}`}
+                  href={reportEnUrl || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-disabled={!reportEnUrl}
+                  onClick={(e) => { if (!reportEnUrl) e.preventDefault(); }}
+                >
+                  {isZh ? "打开英文报告" : "Open English Report"}
                 </a>
-              )}
-              {review["Report EN URL"] && (
-                <a className="btn btn--secondary btn--small" href={review["Report EN URL"]} target="_blank" rel="noreferrer">
-                  {isZh ? "英文报告 PDF" : "English Report PDF"}
+                <button
+                  className="btn btn--secondary btn--small"
+                  onClick={() => runDownload("en")}
+                  disabled={!reportsReady || downloading === "en"}
+                >
+                  {downloading === "en"
+                    ? (isZh ? "下载中…" : "Downloading…")
+                    : (isZh ? "下载英文 PDF" : "Download English PDF")}
+                </button>
+
+                <a
+                  className={`btn btn--secondary btn--small${reportZhUrl ? "" : " is-disabled"}`}
+                  href={reportZhUrl || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-disabled={!reportZhUrl}
+                  onClick={(e) => { if (!reportZhUrl) e.preventDefault(); }}
+                >
+                  {isZh ? "打开中文报告" : "Open Chinese Report"}
                 </a>
-              )}
-              {review["Report ZH URL"] && (
-                <a className="btn btn--secondary btn--small" href={review["Report ZH URL"]} target="_blank" rel="noreferrer">
-                  {isZh ? "中文报告 PDF" : "Chinese Report PDF"}
-                </a>
-              )}
+                <button
+                  className="btn btn--secondary btn--small"
+                  onClick={() => runDownload("zh")}
+                  disabled={!reportsReady || downloading === "zh"}
+                >
+                  {downloading === "zh"
+                    ? (isZh ? "下载中…" : "Downloading…")
+                    : (isZh ? "下载中文 PDF" : "Download Chinese PDF")}
+                </button>
+
+                {review["File Folder URL"] && (
+                  <a className="btn btn--ghost btn--small" href={review["File Folder URL"]} target="_blank" rel="noreferrer">
+                    {isZh ? "证据文件夹" : "Evidence Folder"}
+                  </a>
+                )}
+                <button className="btn btn--ghost btn--small" onClick={() => setSelected(null)}>
+                  {isZh ? "关闭" : "Close"}
+                </button>
+              </div>
             </div>
 
             <h3 className="dispute-admin-heading">{isZh ? "问询资料" : "Intake"}</h3>
             <div className="strategy-report-detail-meta">
               {INTAKE_FIELDS.map((key) => review[key] ? (
-                <div key={key}><strong>{key}</strong><span>{displayDisputeOption(review[key], lang)}</span></div>
+                <div key={key}>
+                  <strong>{disputeColumnLabel(key, lang)}</strong>
+                  <span>{formatDisputeFieldValue(key, review[key], lang)}</span>
+                </div>
               ) : null)}
             </div>
             {LONG_FIELDS.map((key) => review[key] ? (
               <div className="dispute-admin-long" key={key}>
-                <strong>{key}</strong>
+                <strong>{disputeColumnLabel(key, lang)}</strong>
                 <p>{review[key]}</p>
               </div>
             ) : null)}
@@ -297,7 +388,7 @@ export default function DisputeReviews() {
                   <li key={file["File ID"]}>
                     <div>
                       <strong>{file["File Name"]}</strong>
-                      <span>{[displayDisputeOption(file["Document Category"], lang), file["Document Date"], file["Sender / Issuer"], file["Description"]].filter(Boolean).join(" · ")}</span>
+                      <span>{[displayDisputeOption(file["Document Category"], lang), formatDisputeDate(file["Document Date"], lang), file["Sender / Issuer"], file["Description"]].filter(Boolean).join(" · ")}</span>
                     </div>
                     {file["Google Drive URL"] && (
                       <a className="btn btn--ghost btn--sm" href={file["Google Drive URL"]} target="_blank" rel="noreferrer">
@@ -354,11 +445,6 @@ export default function DisputeReviews() {
             <div className="dispute-admin-actions">
               <button className="btn btn--primary" onClick={saveProfessionalReview} disabled={saving}>
                 {saving ? (isZh ? "保存中…" : "Saving…") : (isZh ? "保存专业审核" : "Save Professional Review")}
-              </button>
-              <button className="btn btn--secondary" onClick={runGenerateReport} disabled={generating || !rebuilt}>
-                {generating
-                  ? (isZh ? "生成中…" : "Generating…")
-                  : (isZh ? "生成 / 重新生成英文 + 中文报告" : "Generate / Regenerate EN + ZH Reports")}
               </button>
             </div>
 

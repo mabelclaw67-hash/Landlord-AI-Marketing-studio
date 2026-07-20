@@ -1205,3 +1205,153 @@ export function recordToForm(record = {}) {
     nextStep: get("Next Step"),
   });
 }
+
+// ── Report download ───────────────────────────────────────────────────────────
+
+export function disputeReportFileName(reviewId, language) {
+  return `${reviewId}_AI_Dispute_Review_${language === "zh" ? "ZH" : "EN"}.pdf`;
+}
+
+// Pulls the real PDF bytes through the authorized backend and saves them as a
+// genuine .pdf file. Drive preview URLs cannot be downloaded cross-origin, and
+// the Dispute Reports folder is deliberately not shared, so the bytes come back
+// base64-encoded from an endpoint that checks admin rights or a review token.
+export async function downloadDisputeReportPdf(reviewId, language, token = "") {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  const result = await apiPost({
+    action: "downloadDisputeReportPdf",
+    data: { reviewId, language: language === "zh" ? "ZH" : "EN", token },
+    ...getStudioRequestAuth("rental"),
+  });
+
+  const binary = atob(result.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = result.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoke on the next tick so the browser has started the save.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  return { fileName: result.fileName, sizeBytes: result.sizeBytes, mimeType: result.mimeType };
+}
+
+// ── Display formatting ────────────────────────────────────────────────────────
+
+const ZH_MONTHS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const EN_MONTHS = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
+
+// Accepts "2026-04-01" or a full ISO timestamp and never shows raw ISO text.
+export function formatDisputeDate(value, lang = "en") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return text;
+  const [, y, m, d] = match;
+  const monthIndex = Number(m) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return text;
+  return normalizeLang(lang) === "zh"
+    ? `${y}年${ZH_MONTHS[monthIndex]}月${Number(d)}日`
+    : `${EN_MONTHS[monthIndex]} ${Number(d)}, ${y}`;
+}
+
+export function formatDisputeDateTime(value, lang = "en") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return formatDisputeDate(text, lang);
+  const datePart = formatDisputeDate(parsed.toISOString().slice(0, 10), lang);
+  const hh = String(parsed.getHours()).padStart(2, "0");
+  const mm = String(parsed.getMinutes()).padStart(2, "0");
+  return `${datePart} ${hh}:${mm}`;
+}
+
+// "4200" and "$4,200" both render as "$4,200.00 CAD".
+export function formatDisputeMoney(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const numeric = Number(text.replace(/[$,\s]/g, "").replace(/CAD/i, ""));
+  if (!Number.isFinite(numeric)) return text;
+  return `$${numeric.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD`;
+}
+
+// Chinese labels for the Dispute_Reviews columns shown in the Admin detail view.
+// The sheet's English header stays the stored name; this is display only.
+const COLUMN_LABELS_ZH = {
+  "Review ID": "案件编号",
+  "Created At": "创建时间",
+  "Last Updated": "最后更新",
+  "Status": "状态",
+  "Lead Source": "来源",
+  "Client Name": "客户姓名",
+  "Email": "电子邮箱",
+  "Phone": "联系电话",
+  "Preferred Contact": "首选联系方式",
+  "Client Role": "客户身份",
+  "Dispute Type": "争议类型",
+  "Tribunal / Authority": "审理机构",
+  "Property Address": "物业地址",
+  "City": "城市",
+  "Province": "省份",
+  "Opposing Party Name": "对方姓名或名称",
+  "Relationship to Opposing Party": "与对方的关系",
+  "Dispute Summary": "争议概述",
+  "Client Position": "客户主张",
+  "Opposing Party Position": "对方主张",
+  "Desired Outcome": "希望达到的结果",
+  "Important Dates": "重要日期",
+  "Notice Date": "通知日期",
+  "Service Date": "送达日期",
+  "Filing Deadline": "提交截止日期",
+  "Hearing Date": "听证日期",
+  "Limitation Date": "时效期限",
+  "Current Proceeding Status": "当前程序状态",
+  "Application Filed": "是否已提交申请",
+  "Response / Counterclaim Received": "是否收到答辩或反诉",
+  "Monetary Amount": "争议金额",
+  "Key Evidence Summary": "关键证据概述",
+  "Missing Evidence": "缺失的证据",
+  "Service / Procedure Concerns": "送达 / 程序疑虑",
+  "Legal / Compliance Issues": "法律与合规问题",
+  "AI Risk Level": "AI 风险等级",
+  "AI Confidence Score": "AI 信心分数",
+  "AI Flags": "AI 风险标记",
+  "Follow-up Answers": "补充问题答案",
+  "Professional Notes": "专业审核备注",
+  "Professional Final Recommendation": "专业最终建议",
+  "Review Priority": "审核优先级",
+  "Next Step": "建议下一步",
+  "Client Service Interest": "希望获得的协助",
+  "Intake Completion Score": "问询完整度",
+  "File Folder URL": "证据文件夹",
+  "Consent to Contact": "同意联系",
+  "Privacy Consent": "隐私同意",
+};
+
+export function disputeColumnLabel(column, lang = "en") {
+  if (normalizeLang(lang) !== "zh") return column;
+  return COLUMN_LABELS_ZH[column] || column;
+}
+
+const DATE_COLUMNS = ["Notice Date", "Service Date", "Filing Deadline", "Hearing Date", "Limitation Date"];
+const DATETIME_COLUMNS = ["Created At", "Last Updated"];
+const MONEY_COLUMNS = ["Monetary Amount"];
+
+// One place that decides how a stored cell is rendered, so the Admin list, the
+// detail view and the report all agree.
+export function formatDisputeFieldValue(column, value, lang = "en") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (DATE_COLUMNS.includes(column)) return formatDisputeDate(text, lang);
+  if (DATETIME_COLUMNS.includes(column)) return formatDisputeDateTime(text, lang);
+  if (MONEY_COLUMNS.includes(column)) return formatDisputeMoney(text);
+  if (column === "Intake Completion Score" || column === "AI Confidence Score") return `${text}%`;
+  return displayDisputeOption(text, lang);
+}

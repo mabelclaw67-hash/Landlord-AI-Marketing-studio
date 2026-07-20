@@ -248,7 +248,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -275,6 +275,7 @@ function doPost(e) {
     if (action === "getDisputeReview")    return ok(getDisputeReview_(body.reviewId, auth));
     if (action === "updateDisputeProfessionalReview") return ok(updateDisputeProfessionalReview_(body.data, auth));
     if (action === "generateDisputeReport") return ok(generateDisputeReport_(body.reviewId, body.data, auth));
+    if (action === "downloadDisputeReportPdf") return ok(downloadDisputeReportPdf_(body.data || body, auth));
     if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
