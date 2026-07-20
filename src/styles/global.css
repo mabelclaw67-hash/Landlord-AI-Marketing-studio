@@ -3963,7 +3963,7 @@ tr:hover td { background: #F9F6F0; }
   background:
     linear-gradient(to right, rgba(8,24,18,0.72) 0%, rgba(8,24,18,0.45) 45%, rgba(8,24,18,0.18) 100%),
     linear-gradient(to bottom, rgba(8,24,18,0.15) 0%, rgba(8,24,18,0.35) 100%),
-    url('/hero-lake.jpg') center 40%/cover no-repeat;
+    url('/hero-lake.jpg?v=20260720') center 40%/cover no-repeat;
 }
 
 .lh-hero__inner {
