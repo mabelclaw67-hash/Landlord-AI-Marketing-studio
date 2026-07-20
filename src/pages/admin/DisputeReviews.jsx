@@ -225,7 +225,7 @@ export default function DisputeReviews() {
       <div className="admin-page__header">
         <div>
           <p className="eyebrow">Dispute_Reviews</p>
-          <h1>{isZh ? "争议初评案件" : "Dispute Reviews"}</h1>
+          <h1>{isZh ? "法律争议AI初评" : "AI Dispute Reviews"}</h1>
           <p className="text-muted">
             {isZh
               ? "管理员专用。法律与争议资料仅对授权管理员显示，不进入房产数据表。"

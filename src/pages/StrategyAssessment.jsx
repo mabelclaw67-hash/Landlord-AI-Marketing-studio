@@ -262,7 +262,7 @@ const COPY = {
     },
   },
   zh: {
-    title: "AI 房产出租策略评估",
+    title: "房产出租策略AI初评",
     subtitle: "3-5 分钟获得一份基于 Vanisland Property Management 物业管理经验的 AI 初步出租建议。",
     desc: "按步骤填写关键信息，提交前可先查看 AI 初步评估摘要。",
     bullets: [
@@ -275,7 +275,7 @@ const COPY = {
     successTitle: "初评已成功提交",
     successDesc: "Vanisland 会先审核您提交的信息，再给出最终建议。",
     successThanks: "谢谢，您的房产出租策略初评表已成功提交。",
-    resultTitle: "物业出租策略评估结果",
+    resultTitle: "房产出租策略AI初评结果",
     reportGenerated: "评估报告已生成。您可以查看专业报告，或打印 / 保存为 PDF。",
     viewProfessionalReport: "查看专业报告",
     printSavePdf: "打印 / 保存 PDF",

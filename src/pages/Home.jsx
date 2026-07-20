@@ -67,6 +67,7 @@ const T = {
     saleCardTitle: "Home Sale Studio",
     saleCardDesc:
       "Create home sale listing pages, bilingual marketing copy, photo/video promotion materials, QR codes, and buyer inquiry links.",
+    saleCardCta: "Open Home Sale Studio",
     knowledgeEyebrow: "For landlord reference and policy review",
     knowledgeCardTitle: "Landlord Knowledge Center",
     knowledgeCardDesc:
@@ -204,12 +205,13 @@ const T = {
     strategyEyebrow: "适用于房东、租客及争议当事人",
     strategyCardTitle: "AI 初评中心",
     strategyCardDesc:
-      "先由 AI 收集和整理资料，生成初步评估，再由专业经验复核。目前包括房产出租策略初评和争议案件初评。",
+      "先由 AI 收集和整理资料，生成初步评估，再由专业经验复核。目前包括房产出租策略AI初评和法律争议AI初评。",
     strategyCardCta: "进入 AI 初评中心",
     saleEyebrow: "适用于卖家、自售业主和房产经纪人",
     saleCardTitle: "出售房源工作台",
     saleCardDesc:
       "创建出售房源页面、双语营销文案、照片/视频推广素材、二维码和买家咨询链接。",
+    saleCardCta: "进入出售房源工作台",
     knowledgeEyebrow: "适用于房东参考和政策核查",
     knowledgeCardTitle: "房东知识中心",
     knowledgeCardDesc:
@@ -673,7 +675,7 @@ export default function Home({ lang }) {
               <div className="lh-platform-card__eyebrow">{s.saleEyebrow}</div>
               <h3>{s.saleCardTitle}</h3>
               <p>{s.saleCardDesc}</p>
-              <Link to="/home-sale-studio" className="lh-btn lh-btn--white">{s.saleCardTitle}</Link>
+              <Link to="/home-sale-studio" className="lh-btn lh-btn--sand">{s.saleCardCta}</Link>
             </article>
 
             <article className="lh-platform-card">

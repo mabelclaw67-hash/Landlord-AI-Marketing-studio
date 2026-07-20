@@ -56,18 +56,13 @@ export default function AdminSidebar() {
           </NavLink>
         )}
         {!trialSession && (
-          <NavLink to="/admin/strategy-reports" className={({ isActive }) => (isActive ? "active" : "")}>
-            📄 {lang === "zh" ? "策略报告" : "Strategy Reports"}
-          </NavLink>
-        )}
-        {!trialSession && (
           <NavLink to="/admin/strategy-assessments" className={({ isActive }) => (isActive ? "active" : "")}>
-            📚 {lang === "zh" ? "策略评估报告" : "Strategy Assessment Reports"}
+            📚 {lang === "zh" ? "房产出租策略初评" : "Property Strategy Reviews"}
           </NavLink>
         )}
         {!trialSession && (
           <NavLink to="/admin/dispute-reviews" className={({ isActive }) => (isActive ? "active" : "")}>
-            ⚖️ {lang === "zh" ? "争议初评案件" : "Dispute Reviews"}
+            ⚖️ {lang === "zh" ? "法律争议AI初评" : "AI Dispute Reviews"}
           </NavLink>
         )}
       </div>

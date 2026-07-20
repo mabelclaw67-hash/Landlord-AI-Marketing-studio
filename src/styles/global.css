@@ -3885,6 +3885,8 @@ tr:hover td { background: #F9F6F0; }
   padding: 24px 28px 20px;
   box-shadow: 0 12px 28px rgba(92,99,92,0.05);
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .lh-platform-card--soft {
@@ -3943,6 +3945,11 @@ tr:hover td { background: #F9F6F0; }
   color: #6e756c;
   font-size: 0.96rem;
   line-height: 1.75;
+}
+
+.lh-platform-card > .lh-btn {
+  width: 100%;
+  margin-top: auto;
 }
 
 /* ── Hero — full banner with overlay card on right ───────────────────────── */
@@ -6950,10 +6957,6 @@ tr:hover td { background: #F9F6F0; }
   margin-bottom: 34px;
 }
 
-.review-center__grid--soon {
-  grid-template-columns: repeat(3, 1fr);
-}
-
 .review-center__card {
   display: block;
   text-decoration: none;
@@ -6998,21 +7001,6 @@ a.review-center__card:hover {
   color: #3e5b4b;
   font-size: 0.88rem;
   font-weight: 600;
-}
-
-.review-center__card--soon {
-  opacity: 0.62;
-  cursor: default;
-}
-
-.review-center__badge {
-  display: inline-block;
-  background: #edf3ee;
-  border-radius: 999px;
-  color: #3e5b4b;
-  font-size: 0.76rem;
-  font-weight: 600;
-  padding: 4px 10px;
 }
 
 .dispute-file-heading {
@@ -7070,8 +7058,7 @@ a.review-center__card:hover {
 }
 
 @media (max-width: 860px) {
-  .review-center__grid,
-  .review-center__grid--soon {
+  .review-center__grid {
     grid-template-columns: 1fr;
   }
 }

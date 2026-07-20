@@ -51,7 +51,7 @@ function readDisputeReportSession() {
 // both languages. There is no mixed-language state.
 const L = {
   en: {
-    title: "AI Preliminary Dispute Review",
+    title: "AI Dispute Review",
     subtitle: "A structured preliminary review of your dispute, prepared for professional review.",
     desc: "AI organizes the facts. Professional experience reviews the risk.",
     bullets: [
@@ -83,7 +83,7 @@ const L = {
     aiPreviewTitle: "AI Preliminary Review",
     reviewTitle: "Review & Submit",
     reviewDesc: "Check your answers and uploaded documents before submitting.",
-    resultTitle: "AI Preliminary Dispute Review",
+    resultTitle: "AI Dispute Review",
     reportGenerated: "Your preliminary review has been generated. You can read it below, or print and save it as a PDF.",
     publicReportMissing: "No local report was found for this review on this device. Please complete the intake again.",
     reviewId: "Review ID",
@@ -169,7 +169,7 @@ const L = {
     errSummary: "Please describe the dispute in more detail so it can be assessed.",
   },
   zh: {
-    title: "AI 争议初步审阅",
+    title: "法律争议AI初评",
     subtitle: "对您的争议进行结构化初步审阅，供专业审核使用。",
     desc: "AI 整理事实，专业经验审阅风险。",
     bullets: [
@@ -201,7 +201,7 @@ const L = {
     aiPreviewTitle: "AI 初步审阅",
     reviewTitle: "确认并提交",
     reviewDesc: "提交前请检查您的回答和已上传的文件。",
-    resultTitle: "AI 争议初步审阅",
+    resultTitle: "法律争议AI初评",
     reportGenerated: "您的初步审阅已生成。您可以在下方阅读，也可以打印或另存为 PDF。",
     publicReportMissing: "本设备上未找到该案件的报告记录，请重新完成问询。",
     reviewId: "案件编号",

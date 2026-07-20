@@ -24,7 +24,6 @@ import ListingDetail from "./pages/admin/ListingDetail";
 import Listings from "./pages/admin/Listings";
 import Leads from "./pages/admin/Leads";
 import TrialRequests from "./pages/admin/TrialRequests";
-import StrategyReports from "./pages/admin/StrategyReports";
 import StrategyAssessments from "./pages/admin/StrategyAssessments";
 import DisputeReviews from "./pages/admin/DisputeReviews";
 import HomeSaleListings from "./pages/admin/HomeSaleListings";
@@ -90,7 +89,7 @@ function AppInner({ lang, setLang }) {
           <Route path="listings" element={<Listings lang={lang} />} />
           <Route path="leads" element={<Leads />} />
           <Route path="trial-requests" element={<TrialRequests />} />
-          <Route path="strategy-reports" element={<StrategyReports />} />
+          <Route path="strategy-reports" element={<Navigate to="/admin/strategy-assessments" replace />} />
           <Route path="strategy-assessments" element={<StrategyAssessments />} />
           <Route path="dispute-reviews" element={<DisputeReviews />} />
           <Route path="listing/:id" element={<ListingDetail lang={lang} />} />

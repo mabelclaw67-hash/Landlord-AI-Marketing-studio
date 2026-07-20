@@ -21,10 +21,10 @@ function AdminMobileNav({ lang }) {
         <div className="ambn-overlay" onClick={() => setMoreOpen(false)} aria-hidden="true">
           <div className="ambn-more-menu" onClick={(e) => e.stopPropagation()} role="menu">
             <NavLink to="/admin/strategy-assessments" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
-              📚 {lang === "zh" ? "策略评估报告" : "Strategy Assessment Reports"}
+              📚 {lang === "zh" ? "房产出租策略初评" : "Property Strategy Reviews"}
             </NavLink>
             <NavLink to="/admin/dispute-reviews" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
-              ⚖️ {lang === "zh" ? "争议初评案件" : "Dispute Reviews"}
+              ⚖️ {lang === "zh" ? "法律争议AI初评" : "AI Dispute Reviews"}
             </NavLink>
             <NavLink to="/admin/home-sale" className="ambn-more-item" onClick={() => setMoreOpen(false)}>
               🏡 {L.ambnHomeSale}
