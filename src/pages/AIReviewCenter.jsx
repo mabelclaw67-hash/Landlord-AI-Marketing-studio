@@ -9,14 +9,12 @@ const SERVICES = [
     to: "/landlord-ai/strategy-assessment",
     icon: "🏠",
     en: {
-      title: "Property Assessment",
-      subtitle: "Rental strategy preliminary review",
-      desc: "Positioning, rent range, whole-home versus split rental, and the risks to check before listing.",
+      title: "AI Property Strategy Assessment",
+      desc: "Review whole-house rental, split-rental potential, rent positioning, Airbnb / STR risks, and rental strategy.",
     },
     zh: {
-      title: "Property Assessment",
-      subtitle: "房产出租策略初评",
-      desc: "物业定位、租金区间、整租与分租的取舍，以及挂牌前需要核实的风险。",
+      title: "AI 房产出租策略初评",
+      desc: "评估整租、分租、租金定位、Airbnb / 短租风险及出租策略。",
     },
   },
   {
@@ -24,14 +22,12 @@ const SERVICES = [
     to: "/landlord-ai/dispute-review",
     icon: "⚖️",
     en: {
-      title: "Dispute Review",
-      subtitle: "Dispute case preliminary review",
-      desc: "For RTB, CRT, Strata, Small Claims and similar disputes. AI organizes the facts, evidence and deadlines for professional review.",
+      title: "AI Dispute Review",
+      desc: "For RTB, CRT, Strata, and Small Claims disputes. AI organizes facts, timelines, evidence, and missing materials before professional review.",
     },
     zh: {
-      title: "Dispute Review",
-      subtitle: "争议案件初评",
-      desc: "适用于 RTB、CRT、Strata、Small Claims 等争议。AI 整理事实、证据与期限，供专业审阅。",
+      title: "AI 争议初评",
+      desc: "适用于 RTB、CRT、Strata 和 Small Claims。AI 整理事实、时间线、证据及缺失材料，再进入专业复核。",
     },
   },
 ];
@@ -90,7 +86,6 @@ export default function AIReviewCenter({ lang }) {
                 <Link key={service.key} to={service.to} className="card review-center__card">
                   <span className="review-center__icon" aria-hidden="true">{service.icon}</span>
                   <h3>{text.title}</h3>
-                  <p className="review-center__subtitle">{text.subtitle}</p>
                   <p className="review-center__desc">{text.desc}</p>
                   <span className="review-center__cta">{copy.start} →</span>
                 </Link>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { normalizeLang } from "../utils/lang";
 import { AL } from "../utils/adminLabels";
+import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
@@ -87,7 +88,7 @@ function AdminMobileNav({ lang }) {
 }
 
 // ── Public nav (original, preserved exactly) ──────────────────────────────────
-function PublicMobileNav({ lang }) {
+function PublicMobileNav({ lang, pathname }) {
   const labels = PUBLIC_NAV[lang] || PUBLIC_NAV.en;
   return (
     <nav className="lh-mobile-bottom" aria-label={lang === "zh" ? "手机底部导航" : "Mobile navigation"}>
@@ -103,7 +104,7 @@ function PublicMobileNav({ lang }) {
         <span>🏘️</span>
         <span>{labels.rentals}</span>
       </NavLink>
-      <NavLink to="/landlord-ai/review-center" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+      <NavLink to={REVIEW_CENTER_PATH} className={({ isActive }) => `lh-mobile-bottom__item${(isActive || isReviewCenterRoute(pathname)) ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>🧭</span>
         <span>{labels.strategy}</span>
       </NavLink>
@@ -130,5 +131,5 @@ export default function MobileBottomNav({ lang }) {
   const isAdmin = pathname.startsWith("/admin");
 
   if (isAdmin) return <AdminMobileNav lang={safeLang} />;
-  return <PublicMobileNav lang={safeLang} />;
+  return <PublicMobileNav lang={safeLang} pathname={pathname} />;
 }

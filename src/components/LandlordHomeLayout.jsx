@@ -1,6 +1,7 @@
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import Home from "../pages/Home";
 import { normalizeLang } from "../utils/lang";
+import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
 
 const NAV = {
   en: {
@@ -8,7 +9,7 @@ const NAV = {
     home: "Home",
     services: "Services",
     rental: "Rental Studio",
-    strategy: "AI Strategy Assessment",
+    strategy: "AI Review",
     sale: "Home Sale Studio",
     photoGuide: "Photo Guide",
     faq: "FAQ",
@@ -27,7 +28,7 @@ const NAV = {
     home: "首页",
     services: "服务介绍",
     rental: "出租工作台",
-    strategy: "AI 出租策略初评",
+    strategy: "AI 初评",
     sale: "出售工作台",
     photoGuide: "拍照指南",
     faq: "常见问题",
@@ -44,6 +45,7 @@ const NAV = {
 };
 
 export default function LandlordHomeLayout({ lang, setLang }) {
+  const { pathname } = useLocation();
   const safeLang = normalizeLang(lang);
   const n = NAV[safeLang] || NAV.en;
 
@@ -72,7 +74,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
             <span className="lh-nav-item__icon">🏢</span>
             <span><strong>{n.rental}</strong></span>
           </NavLink>
-          <NavLink to="/landlord-ai/strategy-assessment" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+          <NavLink to={REVIEW_CENTER_PATH} className={({ isActive }) => `lh-nav-item${(isActive || isReviewCenterRoute(pathname)) ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🧭</span>
             <span><strong>{n.strategy}</strong></span>
           </NavLink>

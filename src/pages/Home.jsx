@@ -58,10 +58,11 @@ const T = {
     rentalCardTitle: "Rental Studio",
     rentalCardDesc:
       "Create bilingual rental ads, listing pages, QR codes, online rental application links, and social sharing packages.",
-    strategyEyebrow: "For owners comparing rental options",
-    strategyCardTitle: "AI Property Strategy Assessment",
+    strategyEyebrow: "For landlords, tenants, and dispute parties",
+    strategyCardTitle: "AI Review Center",
     strategyCardDesc:
-      "For landlords deciding how to rent their property: whole-house rental, split rental, Airbnb, rent positioning, and rental risks.",
+      "AI organizes the information and prepares a preliminary review, followed by professional review. Current services include Property Assessment and Dispute Review.",
+    strategyCardCta: "Open AI Review Center",
     saleEyebrow: "For home sellers, FSBO owners, and realtors",
     saleCardTitle: "Home Sale Studio",
     saleCardDesc:
@@ -200,10 +201,11 @@ const T = {
     rentalCardTitle: "出租房源工作台",
     rentalCardDesc:
       "创建双语出租广告、房源页面、二维码、在线租客申请链接和社交分享套件。",
-    strategyEyebrow: "适用于正在比较出租方案的业主",
-    strategyCardTitle: "AI 房产出租策略初评",
+    strategyEyebrow: "适用于房东、租客及争议当事人",
+    strategyCardTitle: "AI 初评中心",
     strategyCardDesc:
-      "适合正在犹豫如何出租房源的业主：整租、分租、Airbnb、租金定位、出租风险，先做一次 AI 初评。",
+      "先由 AI 收集和整理资料，生成初步评估，再由专业经验复核。目前包括房产出租策略初评和争议案件初评。",
+    strategyCardCta: "进入 AI 初评中心",
     saleEyebrow: "适用于卖家、自售业主和房产经纪人",
     saleCardTitle: "出售房源工作台",
     saleCardDesc:
@@ -663,7 +665,7 @@ export default function Home({ lang }) {
               <div className="lh-platform-card__eyebrow">{s.strategyEyebrow}</div>
               <h3>{s.strategyCardTitle}</h3>
               <p>{s.strategyCardDesc}</p>
-              <Link to="/landlord-ai/strategy-assessment" className="lh-btn lh-btn--sand">{s.strategyCardTitle}</Link>
+              <Link to="/landlord-ai/review-center" className="lh-btn lh-btn--sand">{s.strategyCardCta}</Link>
             </article>
 
             <article className="lh-platform-card lh-platform-card--soft">

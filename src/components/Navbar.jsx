@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 import { normalizeLang } from "../utils/lang";
+import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
 
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
@@ -142,7 +143,7 @@ export default function Navbar({ lang, setLang }) {
             ["home", "/"],
             ["services", "/services"],
             ["examples", "/examples"],
-            ["strategyAssessment", "/landlord-ai/strategy-assessment"],
+            ["strategyAssessment", REVIEW_CENTER_PATH],
             ["saleListing", "/home-sale-studio"],
             ["resources", "/resources"],
             ["contact", "/contact"],
@@ -151,7 +152,9 @@ export default function Navbar({ lang, setLang }) {
               <NavLink
                 to={path}
                 end={path === "/"}
-                className={({ isActive }) => (isActive ? "active" : "")}
+                className={({ isActive }) =>
+                  (path === REVIEW_CENTER_PATH ? isReviewCenterRoute(pathname) : isActive) ? "active" : ""
+                }
                 onClick={() => setOpen(false)}
               >
                 {t(lang, `nav.${key}`)}
