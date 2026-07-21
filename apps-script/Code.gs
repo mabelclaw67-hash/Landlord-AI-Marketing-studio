@@ -230,7 +230,7 @@ function doGet(e) {
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
-    if (action === "getRetirementBrief") return ok(getRetirementBrief_());
+    if (action === "getRetirementBrief") return ok(getRetirementBrief_(e && e.parameter ? e.parameter.date : ""));
     if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
     if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
@@ -377,6 +377,19 @@ function colVal_(row, headerMap, name) {
   return (idx !== undefined && idx < row.length) ? (row[idx] || "") : "";
 }
 
+// Like colVal_ but tries several candidate header names (spelling variants),
+// returning the first non-empty cell. Missing headers yield "" (never throws).
+function colValAny_(row, headerMap, names) {
+  for (var i = 0; i < names.length; i++) {
+    var idx = headerMap[names[i]];
+    if (idx !== undefined && idx < row.length) {
+      var v = row[idx];
+      if (v !== "" && v !== null && v !== undefined) return v;
+    }
+  }
+  return "";
+}
+
 function firstHeaderMatch_(headerMap, names) {
   for (var i = 0; i < names.length; i++) {
     if (headerMap[names[i]] !== undefined) return names[i];
@@ -507,7 +520,7 @@ function getDailyMarketBrief_() {
   };
 }
 
-function getRetirementBrief_() {
+function getRetirementBrief_(requestedDateParam) {
   var sheet = getBriefSpreadsheet_().getSheetByName(RETIREMENT_CONDO_BRIEF_SHEET);
   if (!sheet) {
     throw new Error('Sheet not found: "' + RETIREMENT_CONDO_BRIEF_SHEET + '".');
@@ -566,8 +579,20 @@ function getRetirementBrief_() {
     throw new Error('No Published record found in "' + RETIREMENT_CONDO_BRIEF_SHEET + '".');
   }
 
+  // All published dates (yyyy-MM-dd), newest first — powers the date picker.
+  var tz = Session.getScriptTimeZone();
+  var dateSet = {};
+  for (var di = 0; di < publishedRows.length; di++) {
+    dateSet[Utilities.formatDate(publishedRows[di].dateValue, tz, "yyyy-MM-dd")] = true;
+  }
+  var availableDates = Object.keys(dateSet).sort().reverse();
+
+  // Select the requested date if it exists, otherwise the latest date.
+  var requestedDate = requestedDateParam ? String(requestedDateParam).trim() : "";
+  var selectedCanon = (requestedDate && dateSet[requestedDate]) ? requestedDate : availableDates[0];
+
   var latestRows = publishedRows.filter(function(item) {
-    return item.dateValue.getTime() === latestDateValue.getTime();
+    return Utilities.formatDate(item.dateValue, tz, "yyyy-MM-dd") === selectedCanon;
   });
   var v3Rows = latestRows.filter(function(item) {
     return normalizeCellText_(colVal_(item.row, headerMap, "Brief ID")).toUpperCase().indexOf("V3") >= 0;
@@ -591,12 +616,14 @@ function getRetirementBrief_() {
   };
   var dailySummary = "";
   var latestUpdatedText = "";
+  var listings = [];
 
   for (var selectedIndex = 0; selectedIndex < selectedRows.length; selectedIndex++) {
     var item = selectedRows[selectedIndex];
     var listing = buildRetirementListingFromRow_(item.row, item.displayRow || item.row, headerMap);
     var sectionKey = getRetirementSectionKey_(item.row, headerMap, listing);
     sections[sectionKey].push(listing);
+    listings.push(listing);
     if (!dailySummary && listing.aiReason) dailySummary = listing.aiReason;
     if (!latestUpdatedText && updatedHeader) {
       latestUpdatedText = normalizeCellText_(colVal_(item.displayRow || item.row, headerMap, updatedHeader));
@@ -605,12 +632,14 @@ function getRetirementBrief_() {
 
   return {
     date: normalizeCellText_(colVal_(selectedRows[0].displayRow || selectedRows[0].row, headerMap, dateHeader)) ||
-      Utilities.formatDate(latestDateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+      selectedCanon,
+    availableDates: availableDates,
     updatedAt: latestUpdatedText,
     cardTitle: "退休生活房源简报",
     rankingNote: "",
     dailySummary: dailySummary,
     rowCount: selectedRows.length,
+    listings: listings,
     sectionTitles: {
       "Top Pick": "今日最佳退休生活推荐",
       "Best Opportunity": "今日最佳退休生活推荐",
@@ -649,33 +678,50 @@ function getRetirementSortValue_(row, headerMap) {
 }
 
 function buildRetirementListingFromRow_(row, displayRow, headerMap) {
+  // Public source link only. Report Doc Link and any Google Docs/Drive URL are
+  // intentionally kept internal (never exposed on the public page).
   var sourceUrl = normalizePublicRetirementSourceUrl_(
-    colVal_(row, headerMap, "Source Link") ||
-    colVal_(row, headerMap, "Listing Link") ||
-    colVal_(row, headerMap, "MLS Link") ||
-    colVal_(row, headerMap, "Property Link")
+    colValAny_(row, headerMap, ["Source Link", "Listing Link", "MLS Link", "Property Link", "Source Url", "Source"])
   );
-  var ratingText = normalizeCellText_(colVal_(row, headerMap, "AI Rating"));
-  var scoreText = normalizeCellText_(colVal_(displayRow, headerMap, "AI Score") || colVal_(row, headerMap, "AI Score"));
-  var parsedScore = ratingText.match(/AI\s*Score\s*[:：]?\s*([0-9]+(?:\s*[–-]\s*[0-9]+)?\/100)/i);
-  if (!scoreText && parsedScore) scoreText = parsedScore[1].replace(/\s+/g, "");
-  var cleanRating = ratingText.replace(/\s*·?\s*AI\s*Score\s*[:：]?\s*[0-9]+(?:\s*[–-]\s*[0-9]+)?\/100\s*/i, "").trim();
+  var ratingText = normalizeCellText_(colValAny_(row, headerMap, ["AI Rating"]));
+  // AI Score: prefer explicit column; else parse "NN/100" out of the rating string
+  // (e.g. "Worth Watching · 88/100 · High-Medium Confidence").
+  var scoreText = normalizeCellText_(colValAny_(displayRow, headerMap, ["AI Score"]) || colValAny_(row, headerMap, ["AI Score"]));
+  if (!scoreText) {
+    var m = ratingText.match(/([0-9]{1,3})\s*\/\s*100/);
+    if (m) scoreText = m[1] + "/100";
+  }
   return {
-    briefId: normalizeCellText_(colVal_(row, headerMap, "Brief ID")),
-    address: normalizeCellText_(colVal_(row, headerMap, "Listing Address") || colVal_(row, headerMap, "Address")),
-    region: normalizeCellText_(colVal_(row, headerMap, "Area") || colVal_(row, headerMap, "Region")),
-    price: normalizeCellText_(colVal_(displayRow, headerMap, "Price") || colVal_(row, headerMap, "Price")),
-    yearBuilt: normalizeCellText_(colVal_(displayRow, headerMap, "Year Built") || colVal_(row, headerMap, "Year Built")),
-    bedBath: normalizeCellText_(colVal_(row, headerMap, "Bed / Bath") || colVal_(row, headerMap, "Beds / Baths")),
-    bed: normalizeCellText_(colVal_(displayRow, headerMap, "Bed") || colVal_(row, headerMap, "Bed")),
-    bath: normalizeCellText_(colVal_(displayRow, headerMap, "Bath") || colVal_(row, headerMap, "Bath")),
-    sqft: normalizeCellText_(colVal_(displayRow, headerMap, "Sqft") || colVal_(displayRow, headerMap, "Sq Ft") || colVal_(displayRow, headerMap, "Square Feet") || colVal_(displayRow, headerMap, "Size") || colVal_(row, headerMap, "Sqft") || colVal_(row, headerMap, "Sq Ft")),
-    strataFee: normalizeCellText_(colVal_(displayRow, headerMap, "Strata Fee") || colVal_(row, headerMap, "Strata Fee")),
-    aiRating: cleanRating || ratingText,
+    briefId: normalizeCellText_(colValAny_(row, headerMap, ["Brief ID"])),
+    date: normalizeCellText_(colValAny_(displayRow, headerMap, ["Date", "Published Date", "Publish Date", "Created Date"])),
+    reportSection: normalizeCellText_(colValAny_(row, headerMap, ["Report Section", "Section", "Category", "Listing Type", "Brief Section"])),
+    searchCriteria: normalizeCellText_(colValAny_(row, headerMap, ["Search Criteria"])),
+    address: normalizeCellText_(colValAny_(row, headerMap, ["Listing Address", "Address"])),
+    region: normalizeCellText_(colValAny_(row, headerMap, ["Area", "Region"])),
+    mls: normalizeCellText_(colValAny_(row, headerMap, ["MLS#", "MLS #", "MLS", "MLS Number", "MLS No", "MLS No."])),
+    price: normalizeCellText_(colValAny_(displayRow, headerMap, ["Price"]) || colValAny_(row, headerMap, ["Price"])),
+    priceChange: normalizeCellText_(colValAny_(displayRow, headerMap, ["Price Change", "Price Δ", "Price Reduction"]) || colValAny_(row, headerMap, ["Price Change"])),
+    daysOnMarket: normalizeCellText_(colValAny_(displayRow, headerMap, ["Days on Market", "Days On Market", "DOM"]) || colValAny_(row, headerMap, ["Days on Market"])),
+    yearBuilt: normalizeCellText_(colValAny_(displayRow, headerMap, ["Year Built"]) || colValAny_(row, headerMap, ["Year Built"])),
+    bed: normalizeCellText_(colValAny_(displayRow, headerMap, ["Bed", "Beds"]) || colValAny_(row, headerMap, ["Bed", "Beds"])),
+    bath: normalizeCellText_(colValAny_(displayRow, headerMap, ["Bath", "Baths"]) || colValAny_(row, headerMap, ["Bath", "Baths"])),
+    bedBath: normalizeCellText_(colValAny_(row, headerMap, ["Bed / Bath", "Beds / Baths", "Bed/Bath"])),
+    sqft: normalizeCellText_(colValAny_(displayRow, headerMap, ["Sqft", "Sq Ft", "Square Feet", "Size"]) || colValAny_(row, headerMap, ["Sqft", "Sq Ft"])),
+    strataFee: normalizeCellText_(colValAny_(displayRow, headerMap, ["Strata Fee"]) || colValAny_(row, headerMap, ["Strata Fee"])),
+    propertyType: normalizeCellText_(colValAny_(row, headerMap, ["Property Type", "Type"])),
+    parking: normalizeCellText_(colValAny_(row, headerMap, ["Parking", "Parking / Storage", "Parking/Storage"])),
+    transit: normalizeCellText_(colValAny_(row, headerMap, ["Transit / Walkability", "Transit/Walkability", "Transit", "Walkability"])),
+    distanceUvicHospital: normalizeCellText_(colValAny_(row, headerMap, ["Distance to UVic / Hospital", "Distance to UVic/Hospital", "Distance to UVic", "Distance to Hospital", "Distance"])),
+    aiRating: ratingText,
     aiScore: scoreText,
-    aiReason: normalizeCellText_(colVal_(row, headerMap, "AI Reason")),
-    risk: normalizeCellText_(colVal_(row, headerMap, "Risk Notes") || colVal_(row, headerMap, "Risk") || colVal_(row, headerMap, "Risks") || colVal_(row, headerMap, "Notes")),
-    action: normalizeCellText_(colVal_(row, headerMap, "Action")),
+    aiReason: normalizeCellText_(colValAny_(row, headerMap, ["AI Reason"])),
+    notes: normalizeCellText_(colValAny_(row, headerMap, ["Notes"])),
+    risk: normalizeCellText_(colValAny_(row, headerMap, ["Risk Notes", "Risk", "Risks"]) || colValAny_(row, headerMap, ["Notes"])),
+    action: normalizeCellText_(colValAny_(row, headerMap, ["Action"])),
+    realtorFollowup: normalizeCellText_(colValAny_(row, headerMap, ["Realtor Follow-up", "Realtor Followup", "Realtor Follow Up", "Realtor Follow-up Notes"])),
+    status: normalizeCellText_(colValAny_(row, headerMap, ["Status", "Publish Status", "Record Status"])),
+    createdAt: normalizeCellText_(colValAny_(displayRow, headerMap, ["Created At", "Created Date"]) || colValAny_(row, headerMap, ["Created At"])),
+    updatedAt: normalizeCellText_(colValAny_(displayRow, headerMap, ["Updated At", "Last Updated", "Updated"]) || colValAny_(row, headerMap, ["Updated At"])),
     sourceUrl: sourceUrl,
   };
 }

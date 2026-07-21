@@ -3876,6 +3876,107 @@ tr:hover td { background: #F9F6F0; }
   margin-bottom: 6px;
 }
 
+/* ── Rich listing card additions ─────────────────────────────────────────── */
+.rl-listing__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.rl-listing__chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef2ea;
+  color: #3c5340;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.rl-listing__group {
+  margin: 0 0 12px;
+}
+
+.rl-listing__group:last-of-type {
+  margin-bottom: 0;
+}
+
+.rl-listing__group-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9aa398;
+}
+
+.rl-listing__links {
+  margin-top: 14px;
+}
+
+.rl-listing__link-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: #3c5340;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.rl-listing__link-btn:hover {
+  background: #33482f;
+}
+
+.rl-listing__empty {
+  color: #9aa398;
+  font-weight: 500;
+  margin: 0;
+}
+
+.rl-nextsteps__item {
+  margin-bottom: 12px;
+}
+
+.rl-nextsteps__item > strong {
+  color: #26332b;
+}
+
+.rl-nextsteps__item ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.rl-datepicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.95rem;
+  color: #4a5750;
+}
+
+.rl-datepicker select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #d7dccf;
+  background: #fff;
+  color: #26332b;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rl-datepicker__loading {
+  color: #9aa398;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 720px) {
   .lh-daily-brief__card--retire {
     grid-column: 1 / -1;
@@ -3887,7 +3988,12 @@ tr:hover td { background: #F9F6F0; }
     grid-template-columns: 1fr;
   }
   .rl-listing__row {
-    grid-template-columns: 110px 1fr;
+    grid-template-columns: 96px 1fr;
+    gap: 8px;
+  }
+  .rl-listing__link-btn {
+    display: block;
+    text-align: center;
   }
 }
 
