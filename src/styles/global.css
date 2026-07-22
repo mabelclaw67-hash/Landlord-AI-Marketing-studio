@@ -2204,6 +2204,17 @@ tr:hover td { background: #F9F6F0; }
   margin-bottom: 0;
 }
 
+.strategy-follow-up__checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.strategy-check--sm {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
 .strategy-goal-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -7219,6 +7230,24 @@ a.review-center__card:hover {
   font-size: 1rem;
   color: #213128;
   margin: 26px 0 12px;
+}
+
+.dispute-admin-subheading {
+  font-size: 0.92rem;
+  color: #3e5b4b;
+  margin: 18px 0 10px;
+}
+
+.dispute-form2-row {
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.dispute-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
 }
 
 .dispute-admin-actions {

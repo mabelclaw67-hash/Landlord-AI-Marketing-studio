@@ -4,6 +4,8 @@ import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
   REVIEW_PRIORITIES,
+  assessFormTwoEligibility,
+  buildFormTwoWorkingDraft,
   disputeColumnLabel,
   displayDisputeOption,
   downloadDisputeReportPdf,
@@ -11,9 +13,12 @@ import {
   formatDisputeDateTime,
   formatDisputeFieldValue,
   generateDisputeReport,
+  generateFormTwoDraftPdf,
   getDisputeReview,
   getDisputeReviews,
   rebuildReportsFromRecord,
+  recordToForm,
+  splitFollowUpAnswersStored,
   updateDisputeProfessionalReview,
 } from "../../utils/disputeReview";
 
@@ -47,6 +52,30 @@ const LONG_FIELDS = [
   "Legal / Compliance Issues", "Follow-up Answers",
 ];
 
+// Quick-triage chips. Each checks only fields already present in the list
+// view (AI Flags / Dispute Type / Review Priority), so no extra fetch is
+// needed just to filter the table. The Form 2 chip is therefore an
+// approximation (dispute type + role + registry/file number present in the
+// Follow-up Answers text) — the authoritative check, which also needs the
+// uploaded files, is assessFormTwoEligibility() run in the detail panel.
+const QUICK_FILTERS = [
+  { key: "supremeCourt", en: "Supreme Court", zh: "高院诉讼", test: (item) => item["Dispute Type"] === "Supreme Court Litigation" },
+  { key: "urgentDeadline", en: "Urgent deadline", zh: "紧急期限", test: (item) => /URGENT|PASSED/.test(String(item["AI Flags"] || "")) },
+  { key: "injunction", en: "Injunction", zh: "禁令", test: (item) => String(item["AI Flags"] || "").includes("INJUNCTION") },
+  { key: "multipleDefendants", en: "Multiple defendants", zh: "多名被告", test: (item) => String(item["AI Flags"] || "").includes("MULTI_DEFENDANT") },
+  { key: "insurerNotNotified", en: "Insurer not notified", zh: "未通知保险公司", test: (item) => String(item["AI Flags"] || "").includes("INSURER_NOT_NOTIFIED") },
+  { key: "expertMissing", en: "Expert evidence missing", zh: "缺少专家证据", test: (item) => String(item["AI Flags"] || "").includes("EXPERT_EVIDENCE_MISSING") },
+  {
+    key: "formTwoLikely",
+    en: "Form 2 likely eligible",
+    zh: "可能符合 Form 2 条件",
+    test: (item) => item["Dispute Type"] === "Supreme Court Litigation"
+      && item["Client Role"] === "Defendant"
+      && /Court Registry/.test(String(item["Follow-up Answers"] || ""))
+      && /Court File Number/.test(String(item["Follow-up Answers"] || "")),
+  },
+];
+
 function professionalState(record, isZh) {
   if (String(record["Professional Final Recommendation"] || "").trim()) {
     return isZh ? "已完成" : "Reviewed";
@@ -62,6 +91,7 @@ export default function DisputeReviews() {
   const isZh = lang === "zh";
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
+  const [activeFilters, setActiveFilters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
@@ -75,6 +105,12 @@ export default function DisputeReviews() {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
   const [downloading, setDownloading] = useState("");
+
+  // Form 2 Working Draft (Supreme Court Litigation only)
+  const [formTwoParagraphs, setFormTwoParagraphs] = useState([{ allegationText: "", position: "" }]);
+  const [formTwoLegalBasis, setFormTwoLegalBasis] = useState("");
+  const [formTwoReliefSought, setFormTwoReliefSought] = useState("");
+  const [formTwoGenerating, setFormTwoGenerating] = useState(false);
 
   async function loadRows() {
     setLoading(true);
@@ -99,28 +135,45 @@ export default function DisputeReviews() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((item) => ["Review ID", "Client Name", "Email", "Dispute Type", "Status"]
-      .some((key) => String(item[key] || "").toLowerCase().includes(needle)));
-  }, [query, rows]);
+    const activeTests = QUICK_FILTERS.filter((filter) => activeFilters.includes(filter.key));
+    return rows.filter((item) => {
+      if (needle && !["Review ID", "Client Name", "Email", "Dispute Type", "Status"]
+        .some((key) => String(item[key] || "").toLowerCase().includes(needle))) return false;
+      return activeTests.every((filter) => filter.test(item));
+    });
+  }, [query, rows, activeFilters]);
+
+  const toggleFilter = (key) => {
+    setActiveFilters((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  };
+
+  const mappedFiles = useMemo(() => (selected?.files || []).map((file) => ({
+    fileId: file["File ID"],
+    fileName: file["File Name"],
+    documentCategory: file["Document Category"],
+    documentDate: file["Document Date"],
+    senderIssuer: file["Sender / Issuer"],
+    description: file["Description"],
+  })), [selected]);
 
   // Rebuilt locally from the stored record so the reviewer sees exactly the
   // content that will be written to the PDFs.
   const rebuilt = useMemo(() => {
     if (!selected?.review) return null;
     try {
-      return rebuildReportsFromRecord(selected.review, (selected.files || []).map((file) => ({
-        fileId: file["File ID"],
-        fileName: file["File Name"],
-        documentCategory: file["Document Category"],
-        documentDate: file["Document Date"],
-        senderIssuer: file["Sender / Issuer"],
-        description: file["Description"],
-      })));
+      return rebuildReportsFromRecord(selected.review, mappedFiles);
     } catch {
       return null;
     }
-  }, [selected]);
+  }, [selected, mappedFiles]);
+
+  // Form 2 eligibility is recomputed fresh from the stored record and files
+  // every time — it is never a persisted flag, so it can never go stale.
+  const formTwoForm = useMemo(() => (selected?.review ? recordToForm(selected.review) : null), [selected]);
+  const formTwoEligibility = useMemo(
+    () => (formTwoForm ? assessFormTwoEligibility(formTwoForm, mappedFiles) : null),
+    [formTwoForm, mappedFiles]
+  );
 
   async function openReview(reviewId) {
     setError("");
@@ -206,7 +259,41 @@ export default function DisputeReviews() {
     }
   }
 
+  function updateFormTwoParagraph(index, field, value) {
+    setFormTwoParagraphs((current) => current.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  }
+  function addFormTwoParagraph() {
+    setFormTwoParagraphs((current) => [...current, { allegationText: "", position: "" }]);
+  }
+  function removeFormTwoParagraph(index) {
+    setFormTwoParagraphs((current) => current.filter((_, i) => i !== index));
+  }
+
+  async function runGenerateFormTwoDraft() {
+    if (!formTwoForm || !selected) return;
+    setFormTwoGenerating(true);
+    setError("");
+    setMessage("");
+    try {
+      const draft = buildFormTwoWorkingDraft(
+        formTwoForm,
+        formTwoParagraphs,
+        { legalBasis: formTwoLegalBasis, reliefSought: formTwoReliefSought },
+        detailLang
+      );
+      const saved = await generateFormTwoDraftPdf(selected.review["Review ID"], draft);
+      setMessage(isZh
+        ? `已生成并下载 ${saved.fileName}。此工作稿尚未提交至法院，须经律师审阅定稿。`
+        : `Generated and downloaded ${saved.fileName}. This working draft is not filed and must be reviewed and finalized by counsel.`);
+    } catch (err) {
+      setError(err.message || "Failed to generate the Form 2 working draft.");
+    } finally {
+      setFormTwoGenerating(false);
+    }
+  }
+
   const review = selected?.review;
+  const isSupremeCourt = review?.["Dispute Type"] === "Supreme Court Litigation";
   const activeReport = rebuilt?.[detailLang];
   const reportEnUrl = review?.["Report EN URL"] || "";
   const reportZhUrl = review?.["Report ZH URL"] || "";
@@ -243,6 +330,19 @@ export default function DisputeReviews() {
           placeholder={isZh ? "搜索案件编号、姓名、邮箱、类型或状态" : "Search Review ID, name, email, type, or status"}
         />
         <button className="btn btn--secondary" onClick={loadRows}>{isZh ? "刷新" : "Refresh"}</button>
+      </div>
+
+      <div className="dispute-filter-chips">
+        {QUICK_FILTERS.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            className={`btn btn--ghost btn--small${activeFilters.includes(filter.key) ? " is-active" : ""}`}
+            onClick={() => toggleFilter(filter.key)}
+          >
+            {isZh ? filter.zh : filter.en}
+          </button>
+        ))}
       </div>
 
       {error && <div className="notice notice--error"><p>{error}</p></div>}
@@ -373,7 +473,7 @@ export default function DisputeReviews() {
             {LONG_FIELDS.map((key) => review[key] ? (
               <div className="dispute-admin-long" key={key}>
                 <strong>{disputeColumnLabel(key, lang)}</strong>
-                <p>{review[key]}</p>
+                <p>{key === "Follow-up Answers" ? splitFollowUpAnswersStored(review[key]).text : review[key]}</p>
               </div>
             ) : null)}
 
@@ -484,6 +584,82 @@ export default function DisputeReviews() {
               </div>
             ) : (
               <p className="text-muted">{isZh ? "无法重建报告内容。" : "Report content could not be rebuilt."}</p>
+            )}
+
+            {isSupremeCourt && formTwoEligibility && (
+              <>
+                <h3 className="dispute-admin-heading">{isZh ? "Form 2 工作稿" : "Form 2 Working Draft"}</h3>
+                <p className="strategy-help">
+                  {isZh
+                    ? "工作稿 — 不得用于提交法院。仅供内部使用，须经律师审阅并最终定稿后方可提交或送达。"
+                    : "WORKING DRAFT — NOT FOR FILING. For internal use only; must be reviewed and finalized by counsel before filing or service."}
+                </p>
+                {formTwoEligibility.eligible ? (
+                  <div className="notice notice--success strategy-inline-notice">
+                    <p>{isZh ? "已满足生成 Form 2 工作稿的条件。" : "This file meets the requirements to generate a Form 2 working draft."}</p>
+                  </div>
+                ) : (
+                  <div className="notice notice--warm strategy-inline-notice">
+                    <p>{isZh ? "尚不符合生成条件，缺少：" : "Not yet eligible. Missing:"}</p>
+                    <ul>{formTwoEligibility.missing.map((item, index) => <li key={index}>{isZh ? item.zh : item.en}</li>)}</ul>
+                  </div>
+                )}
+
+                {formTwoEligibility.eligible && (
+                  <>
+                    <h4 className="dispute-admin-subheading">{isZh ? "逐段答辩" : "Paragraph-by-Paragraph Response"}</h4>
+                    {formTwoParagraphs.map((row, index) => (
+                      <div className="form-row dispute-form2-row" key={index}>
+                        <div className="form-group">
+                          <label>{isZh ? `第 ${index + 1} 段 — 指控内容` : `Paragraph ${index + 1} — Allegation`}</label>
+                          <textarea
+                            className="form-control"
+                            rows={2}
+                            value={row.allegationText}
+                            onChange={(e) => updateFormTwoParagraph(index, "allegationText", e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>{isZh ? "答复" : "Position"}</label>
+                          <select
+                            className="form-control"
+                            value={row.position}
+                            onChange={(e) => updateFormTwoParagraph(index, "position", e.target.value)}
+                          >
+                            <option value="">{isZh ? "请选择" : "Please select"}</option>
+                            <option value="Admitted">{isZh ? "承认" : "Admitted"}</option>
+                            <option value="Denied">{isZh ? "否认" : "Denied"}</option>
+                            <option value="Outside Knowledge">{isZh ? "非本人所知" : "Outside Knowledge"}</option>
+                          </select>
+                        </div>
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => removeFormTwoParagraph(index)}>
+                          {isZh ? "删除" : "Remove"}
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn--secondary btn--small" onClick={addFormTwoParagraph}>
+                      {isZh ? "+ 添加段落" : "+ Add Paragraph"}
+                    </button>
+
+                    <div className="form-group">
+                      <label>{isZh ? "答辩的法律依据" : "Defendant's Legal Basis"}</label>
+                      <textarea className="form-control" rows={3} value={formTwoLegalBasis} onChange={(e) => setFormTwoLegalBasis(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>{isZh ? "请求的济助" : "Relief Sought"}</label>
+                      <textarea className="form-control" rows={2} value={formTwoReliefSought} onChange={(e) => setFormTwoReliefSought(e.target.value)} />
+                    </div>
+
+                    <div className="dispute-admin-actions">
+                      <button className="btn btn--primary" onClick={runGenerateFormTwoDraft} disabled={formTwoGenerating}>
+                        {formTwoGenerating
+                          ? (isZh ? "生成中…" : "Generating…")
+                          : (isZh ? "生成 Form 2 工作稿 PDF" : "Generate Form 2 Working Draft PDF")}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>

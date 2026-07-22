@@ -55,7 +55,7 @@ function tList(pairs, lang) {
 // the single source of truth. The English value is what gets stored; ZH is
 // display only. Do not add a value here that the sheet does not offer.
 
-export const DISPUTE_TYPES = ["RTB", "CRT", "Strata", "Small Claims", "Other"];
+export const DISPUTE_TYPES = ["RTB", "CRT", "Strata", "Small Claims", "Supreme Court Litigation", "Other"];
 
 export const CLIENT_ROLES = [
   "Landlord",
@@ -65,10 +65,16 @@ export const CLIENT_ROLES = [
   "Strata Corporation",
   "Claimant",
   "Respondent",
+  "Plaintiff",
+  "Defendant",
+  "Petitioner",
+  "Applicant",
+  "Application Respondent",
+  "Third Party",
   "Other",
 ];
 
-export const TRIBUNALS = ["BC RTB", "BC CRT", "BC Provincial Court", "Strata Council", "Other"];
+export const TRIBUNALS = ["BC RTB", "BC CRT", "BC Provincial Court", "Strata Council", "Supreme Court of British Columbia", "Other"];
 
 export const RISK_LEVELS = ["Low", "Medium", "High", "Critical"];
 
@@ -81,6 +87,17 @@ export const NEXT_STEPS = [
   "Prepare Response",
   "Prepare Filing",
   "Prepare Hearing",
+  "Prepare Litigation Assessment",
+  "Obtain Legal Counsel",
+  "Prepare Form 2 Working Draft",
+  "Prepare Application Response",
+  "Prepare Injunction Response",
+  "Notify Insurer",
+  "Retain Expert",
+  "Request Particulars",
+  "Preserve Evidence",
+  "Consider Counterclaim",
+  "Consider Third Party Claim",
   "No Further Action",
 ];
 
@@ -148,8 +165,64 @@ export const DOCUMENT_CATEGORIES = [
   "Strata Document",
   "Tribunal Document",
   "Court Document",
+  "Pleading",
+  "Affidavit",
+  "Exhibit",
+  "Court Order",
+  "Application Record",
+  "Expert Report",
+  "Engineering Report",
+  "Survey",
+  "Permit / Municipal Record",
+  "Contract",
+  "Insurance Document",
+  "Correspondence",
+  "Financial Record",
+  "Title / Property Record",
   "Other",
 ];
+
+// ── Supreme Court Litigation-only option sets (not shared with other dispute
+// types, so these do not need a Dropdown_Options column — see Form_Fields). ──
+export const SC_PROCEEDING_TYPES = [
+  "Notice of Civil Claim",
+  "Petition",
+  "Notice of Application",
+  "Injunction Application",
+  "Counterclaim",
+  "Third Party Notice",
+  "Judicial Review",
+  "Other",
+];
+export const SC_PLEADING_TYPES = [
+  "Notice of Civil Claim",
+  "Petition",
+  "Notice of Application",
+  "Counterclaim",
+  "Third Party Notice",
+  "Other",
+];
+export const SC_SERVICE_LOCATIONS = [
+  "British Columbia",
+  "Elsewhere in Canada",
+  "United States",
+  "Outside Canada and United States",
+  "Not sure",
+];
+export const SC_SERVICE_METHODS = [
+  "Personal service",
+  "Lawyer acceptance",
+  "Registered mail",
+  "Email",
+  "Substitutional service",
+  "Other",
+  "Not sure",
+];
+export const SC_MATERIALS_STATUS = ["Complete", "Partial", "None", "Not sure"];
+export const SC_LAWYER_STATUS = ["Yes", "No", "Consultation booked", "Not sure"];
+export const SC_HOLD_STATUS = ["Yes", "No", "Partly", "Not sure"];
+export const SC_INSURER_STATUS = ["Yes", "No", "Not applicable", "Not sure"];
+export const SC_EXPERT_TYPES = ["Engineering", "Survey", "Appraisal", "Accounting", "Medical", "Construction", "Other", "Not sure"];
 
 export const CLIENT_SERVICE_INTERESTS = [
   "Professional preliminary review only",
@@ -227,6 +300,64 @@ const OPTION_LABELS_ZH = {
   "Help organizing evidence": "协助整理证据",
   "Full representation referral": "转介全程代理",
   "Not ready yet - keep my intake on file": "暂未准备好，先保留资料",
+  // Supreme Court Litigation
+  "Supreme Court Litigation": "BC省高等法院民事诉讼",
+  "Supreme Court of British Columbia": "BC省最高法院",
+  Plaintiff: "原告",
+  Defendant: "被告",
+  Petitioner: "呈请人",
+  Applicant: "申请人",
+  "Application Respondent": "申请答辩人",
+  "Third Party": "第三方",
+  Pleading: "诉讼文件",
+  Affidavit: "宣誓陈述书",
+  Exhibit: "证物",
+  "Court Order": "法院命令",
+  "Application Record": "申请记录",
+  "Expert Report": "专家报告",
+  "Engineering Report": "工程报告",
+  Survey: "测量报告",
+  "Permit / Municipal Record": "许可证 / 市政记录",
+  Contract: "合同",
+  "Insurance Document": "保险文件",
+  Correspondence: "往来信件",
+  "Financial Record": "财务记录",
+  "Title / Property Record": "产权 / 物业记录",
+  "Prepare Litigation Assessment": "准备诉讼评估",
+  "Obtain Legal Counsel": "聘请律师",
+  "Prepare Form 2 Working Draft": "准备 Form 2 工作稿",
+  "Prepare Application Response": "准备申请答辩",
+  "Prepare Injunction Response": "准备禁令答辩",
+  "Notify Insurer": "通知保险公司",
+  "Retain Expert": "聘请专家",
+  "Request Particulars": "要求详情陈述",
+  "Preserve Evidence": "保全证据",
+  "Consider Counterclaim": "考虑反诉",
+  "Consider Third Party Claim": "考虑第三方诉讼",
+  "Notice of Civil Claim": "民事诉讼通知书",
+  Petition: "呈请状",
+  "Notice of Application": "申请通知",
+  "Injunction Application": "禁令申请",
+  Counterclaim: "反诉",
+  "Third Party Notice": "第三方通知",
+  "Judicial Review": "司法复核",
+  "British Columbia": "卑诗省内",
+  "Elsewhere in Canada": "加拿大其他地区",
+  "United States": "美国",
+  "Outside Canada and United States": "加拿大及美国以外地区",
+  "Personal service": "亲自送达",
+  "Lawyer acceptance": "律师代收",
+  "Substitutional service": "替代送达",
+  Complete: "完整",
+  Partial: "部分",
+  None: "无",
+  "Consultation booked": "已预约咨询",
+  Partly: "部分",
+  Engineering: "工程",
+  Appraisal: "估价",
+  Accounting: "会计",
+  Medical: "医疗",
+  Construction: "建筑",
   Low: "低",
   Medium: "中",
   High: "高",
@@ -264,6 +395,7 @@ export function suggestedTribunal(disputeType) {
     case "CRT": return "BC CRT";
     case "Strata": return "Strata Council";
     case "Small Claims": return "BC Provincial Court";
+    case "Supreme Court Litigation": return "Supreme Court of British Columbia";
     default: return "";
   }
 }
@@ -358,6 +490,40 @@ export function getDisputeFollowUpQuestions(form) {
     add("Small Claims", "small_claims_pleadings", "Notice of Claim / Reply Available?", "是否有诉状或答辩", "choice", SMALL_CLAIMS_PLEADING_OPTIONS);
   }
 
+  // Supreme Court Litigation. The client's litigation role reuses the generic
+  // Client Role question already asked in Step 1 (Dispute Type) rather than
+  // asking it a second time here — CLIENT_ROLES already carries Plaintiff /
+  // Defendant / Petitioner / Respondent / Applicant / Application Respondent /
+  // Third Party.
+  if (form.disputeType === "Supreme Court Litigation") {
+    add("Proceeding & Registry", "sc_proceeding_type", "Proceeding Type", "程序类型", "choice", SC_PROCEEDING_TYPES);
+    add("Proceeding & Registry", "sc_registry", "Court Registry", "法院登记处", "text");
+    add("Proceeding & Registry", "sc_court_file_number", "Court File Number", "法院档案号", "text");
+    add("Proceeding & Registry", "sc_pleading_type", "Pleading Received", "收到的诉讼文件", "choice", SC_PLEADING_TYPES);
+
+    add("Service & Deadlines", "sc_service_location", "Place of Service", "送达地点", "choice", SC_SERVICE_LOCATIONS);
+    add("Service & Deadlines", "sc_service_method", "Method of Service", "送达方式", "choice", SC_SERVICE_METHODS);
+    add("Service & Deadlines", "sc_proof_service", "Proof of Service Available?", "是否有送达证明");
+    add("Service & Deadlines", "sc_response_deadline_known", "Response Deadline Known?", "是否知道答辩期限");
+    add("Service & Deadlines", "sc_response_deadline", "Response Deadline", "答辩截止日期", "date");
+    add("Service & Deadlines", "sc_application_hearing_date", "Application Hearing Date", "申请听证日期", "date");
+    add("Service & Deadlines", "sc_injunction_requested", "Injunction Requested?", "是否申请禁令");
+    add("Service & Deadlines", "sc_application_materials", "Application Materials Received?", "是否收到申请材料", "choice", SC_MATERIALS_STATUS);
+
+    add("Parties & Representation", "sc_multiple_plaintiffs", "Multiple Plaintiffs?", "是否有多名原告");
+    add("Parties & Representation", "sc_multiple_defendants", "Multiple Defendants?", "是否有多名被告");
+    add("Parties & Representation", "sc_defendant_count", "Number of Defendants", "被告人数", "text");
+    add("Parties & Representation", "sc_joint_representation", "Joint Representation Considered?", "是否考虑共同代理");
+    add("Parties & Representation", "sc_lawyer_retained", "Lawyer Retained?", "是否已经聘请律师", "choice", SC_LAWYER_STATUS);
+    add("Parties & Representation", "sc_insurer_notified", "Insurance Notified?", "是否已通知保险公司", "choice", SC_INSURER_STATUS);
+
+    add("Risk & Evidence", "sc_counterclaim_considered", "Counterclaim Considered?", "是否考虑反诉");
+    add("Risk & Evidence", "sc_third_party_claim", "Third Party Claim Considered?", "是否考虑第三方诉讼");
+    add("Risk & Evidence", "sc_expert_evidence", "Expert Evidence Required?", "是否需要专家证据", "multichoice", SC_EXPERT_TYPES);
+    add("Risk & Evidence", "sc_urgent_preservation_issue", "Immediate Safety or Preservation Issue?", "是否存在紧急安全或证据保全问题");
+    add("Risk & Evidence", "sc_litigation_hold", "Documents Preserved?", "是否已保全文件和电子记录", "choice", SC_HOLD_STATUS);
+  }
+
   return questions;
 }
 
@@ -366,9 +532,12 @@ export function formatDisputeFollowUpAnswers(form, lang = "en") {
   const answers = form.followUpAnswers || {};
   return getDisputeFollowUpQuestions(form)
     .map((item) => {
-      const answer = String(answers[item.id] || "").trim();
-      if (!answer) return "";
-      return `- ${t(item.question, safeLang)} ${displayDisputeOption(answer, safeLang)}`;
+      const raw = String(answers[item.id] || "").trim();
+      if (!raw) return "";
+      const displayValue = item.type === "multichoice"
+        ? raw.split(",").map((value) => displayDisputeOption(value.trim(), safeLang)).filter(Boolean).join(", ")
+        : displayDisputeOption(raw, safeLang);
+      return `- ${t(item.question, safeLang)} ${displayValue}`;
     })
     .filter(Boolean)
     .join("\n");
@@ -500,6 +669,41 @@ export function analyseDispute(form, files = []) {
   }
   if (hasText(form.serviceConcerns)) {
     procedureRisks.push({ code: "CLIENT_REPORTED_SERVICE_CONCERN", text: { en: "You raised a concern about service or procedure, which is carried forward for professional review.", zh: "您提出了关于送达或程序的疑虑，此项已转交专业审核。" } });
+  }
+
+  // Supreme Court Litigation dynamic flags. These read directly from the
+  // follow-up answers (no new Dispute_Reviews columns) and feed into the same
+  // deadlineRisks/procedureRisks arrays every other dispute type already uses.
+  if (form.disputeType === "Supreme Court Litigation") {
+    const scResponseDeadlineIn = daysFromToday(answers.sc_response_deadline);
+    if (scResponseDeadlineIn !== null && scResponseDeadlineIn < 0) {
+      deadlineRisks.push({ code: "COURT_RESPONSE_DEADLINE_PASSED", severity: "high", text: { en: "The response deadline entered has already passed. Whether any extension or relief from default is available must be verified immediately.", zh: "所填写的答辩截止日期已过。是否仍可申请延期或获得免于缺席判决的救济，必须立即核实。" } });
+    } else if (scResponseDeadlineIn !== null && scResponseDeadlineIn <= 7) {
+      deadlineRisks.push({ code: "COURT_RESPONSE_DEADLINE_URGENT", severity: "high", text: { en: `The response deadline is about ${scResponseDeadlineIn} day(s) away, which leaves very little time to respond.`, zh: `答辩截止日期约在 ${scResponseDeadlineIn} 天后，可用时间非常有限。` } });
+    }
+    if (answers.sc_proof_service === "No" || answers.sc_proof_service === "Not sure") {
+      procedureRisks.push({ code: "COURT_SERVICE_PROOF_MISSING", text: { en: "Proof of service is missing or uncertain. Whether service was valid can determine whether the proceeding is properly before the court.", zh: "送达证明缺失或不确定。送达是否有效，可能决定本案能否成立。" } });
+    }
+    if (answers.sc_injunction_requested === "Yes" && (answers.sc_application_materials === "Partial" || answers.sc_application_materials === "None")) {
+      procedureRisks.push({ code: "INJUNCTION_MATERIALS_INCOMPLETE", text: { en: "An injunction has been requested but the application materials are incomplete. Injunction applications are time-sensitive and require a complete supporting record.", zh: "已申请禁令，但申请材料不完整。禁令申请具有时间紧迫性，需要完整的支持材料。" } });
+    }
+    if (answers.sc_multiple_defendants === "Yes" && (answers.sc_joint_representation === "Yes" || answers.sc_joint_representation === "Not sure")) {
+      procedureRisks.push({ code: "MULTI_DEFENDANT_CONFLICT_REVIEW", text: { en: "There are multiple defendants and joint representation has not been ruled out. A conflict-of-interest review is required before one lawyer can act for more than one defendant.", zh: "存在多名被告，且尚未排除共同代理的可能性。在一名律师代表多名被告之前，须先完成利益冲突审查。" } });
+    }
+    const scExpertTypes = String(answers.sc_expert_evidence || "").split(",").map((value) => value.trim()).filter(Boolean);
+    if (scExpertTypes.length && !scExpertTypes.includes("Not sure")) {
+      const expertCategoryMap = { Engineering: "Engineering Report", Survey: "Survey" };
+      const hasMatchingExpertFile = scExpertTypes.some((type) => categories.has(expertCategoryMap[type] || "Expert Report")) || categories.has("Expert Report");
+      if (!hasMatchingExpertFile) {
+        procedureRisks.push({ code: "EXPERT_EVIDENCE_MISSING", text: { en: "Expert evidence was identified as needed, but no matching expert report has been uploaded yet.", zh: "已确认需要专家证据，但尚未上传相应的专家报告。" } });
+      }
+    }
+    if (answers.sc_urgent_preservation_issue === "Yes" && (answers.sc_litigation_hold === "No" || answers.sc_litigation_hold === "Partly")) {
+      procedureRisks.push({ code: "LITIGATION_HOLD_REQUIRED", text: { en: "An immediate safety or evidence-preservation issue was identified but documents and electronic records have not been fully preserved. A litigation hold should be put in place without delay.", zh: "已发现紧急安全或证据保全问题，但文件与电子记录尚未完全保全。应立即实施证据保全措施。" } });
+    }
+    if (answers.sc_insurer_notified === "No") {
+      procedureRisks.push({ code: "INSURER_NOT_NOTIFIED", text: { en: "The insurer has not been notified. Late notice to an insurer can jeopardize coverage for this claim.", zh: "尚未通知保险公司。延迟通知保险公司可能危及本案的保险承保。" } });
+    }
   }
 
   // Evidence sufficiency gate — everything above feeds this one decision.
@@ -649,6 +853,12 @@ function expectedDocumentsFor(form) {
     push("Tenancy Agreement / Contract", true, "The contract the claim is based on.", "索偿所依据的合同。");
     push("Invoice / Receipt", true, "Documents proving the amount claimed.", "证明索偿金额的文件。");
     push("Response / Counterclaim", false, "The Reply, if one was filed.", "如已提交，对方的 Reply。");
+  } else if (form.disputeType === "Supreme Court Litigation") {
+    push("Pleading", true, "The pleading the proceeding turns on (Notice of Civil Claim, Petition, or Notice of Application).", "本程序所依据的诉讼文件（民事诉讼通知书、呈请状或申请通知）。");
+    push("Affidavit", false, "Sworn evidence supporting the facts relied on.", "支持所依赖事实的宣誓证据。");
+    push("Exhibit", false, "Documents or records referred to in an affidavit.", "宣誓陈述书中提及的文件或记录。");
+    push("Court Order", false, "Any order already made in this proceeding.", "本程序中已作出的任何法院命令。");
+    push("Correspondence", false, "Communication between the parties or their counsel.", "双方或其律师之间的往来信件。");
   } else {
     push("Tenancy Agreement / Contract", false, "Any written agreement between the parties.", "双方之间的任何书面协议。");
     push("Email / Message", false, "Communication between the parties.", "双方之间的往来沟通。");
@@ -794,6 +1004,24 @@ function buildLegalIssuesToVerify(form) {
   if (form.disputeType === "Small Claims") {
     push("Verify the current monetary limit for Small Claims and whether the claim must instead proceed at the CRT.", "核实小额索偿的现行金额上限，以及本索偿是否必须改由 CRT 处理。");
     push("Verify the service requirements and the time allowed for filing a Reply.", "核实送达要求，以及提交 Reply 的期限。");
+  }
+  if (form.disputeType === "Supreme Court Litigation") {
+    push(
+      "Verify the current BC Supreme Court Civil Rules deadlines for filing a response, and whether any extension has been granted or should be sought.",
+      "核实当前 BC Supreme Court Civil Rules 中关于提交答辩的期限，以及是否已获得或应当申请延期。"
+    );
+    push(
+      "Verify whether the pleading used complies with the current Supreme Court Civil Rules form and service requirements.",
+      "核实所使用的诉讼文件是否符合现行 Supreme Court Civil Rules 的表格及送达要求。"
+    );
+    push(
+      "If an injunction is sought or opposed, verify the current test for interim injunctive relief and the evidentiary record required.",
+      "如涉及申请或反对禁令，须核实现行的临时禁令救济标准及所需的证据记录。"
+    );
+    push(
+      "If multiple defendants are involved, verify whether a conflict of interest prevents joint representation.",
+      "如涉及多名被告，须核实是否存在阻碍共同代理的利益冲突。"
+    );
   }
   if (form.monetaryAmount) {
     push("Verify how the amount claimed is calculated and whether each component is recoverable in this forum.", "核实索偿金额的计算方式，以及其中各项在本机构是否可获支持。");
@@ -951,7 +1179,9 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
   return {
     language: safeLang,
     reviewId: form.reviewId || "",
-    title: zh ? "AI 争议初步审阅" : "AI Preliminary Dispute Review",
+    title: form.disputeType === "Supreme Court Litigation"
+      ? (zh ? "初步诉讼评估报告" : "Preliminary Litigation Assessment Report")
+      : (zh ? "AI 争议初步审阅" : "AI Preliminary Dispute Review"),
     brandLine: zh ? DISPUTE_BRAND_LINE_ZH : DISPUTE_BRAND_LINE_EN,
     sufficient: a.sufficient,
     riskLevel: a.riskLevel,
@@ -964,6 +1194,121 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
     executiveSummary,
     sections,
     disclaimer: zh ? DISPUTE_DISCLAIMER_ZH : DISPUTE_DISCLAIMER_EN,
+  };
+}
+
+// ── Supreme Court: Form 2 (Response to Civil Claim) Working Draft ───────────
+// Admin-only, generate-on-demand scaffolding tool. It never invents facts or
+// silently chooses an admission — every paragraph's Admitted / Denied /
+// Outside Knowledge position is a deliberate choice made by the reviewer.
+// Nothing here is persisted back to the sheet; it is rendered to PDF on
+// request, matching the existing Report EN/ZH PDF pipeline.
+
+export function assessFormTwoEligibility(form, files = []) {
+  const pair = (en, zh) => ({ en, zh });
+  const answers = form.followUpAnswers || {};
+  const uploaded = Array.isArray(files) ? files : [];
+  const categories = new Set(uploaded.map((file) => file.documentCategory));
+  const missing = [];
+
+  if (form.disputeType !== "Supreme Court Litigation") {
+    missing.push(pair("This is not a Supreme Court Litigation file.", "本案件并非 BC 省高等法院民事诉讼案件。"));
+  }
+  if (form.clientRole !== "Defendant") {
+    missing.push(pair("Form 2 is a Response to Civil Claim filed by a Defendant; the client's role is not recorded as Defendant.", "Form 2（民事诉讼答辩状）由被告提交；客户身份未记录为被告。"));
+  }
+  if (!categories.has("Pleading")) {
+    missing.push(pair("No Pleading (the Notice of Civil Claim) has been uploaded.", "尚未上传诉讼文件（民事诉讼通知书）。"));
+  }
+  if (!hasText(answers.sc_registry)) {
+    missing.push(pair("Court Registry is not recorded.", "尚未记录法院登记处。"));
+  }
+  if (!hasText(answers.sc_court_file_number)) {
+    missing.push(pair("Court File Number is not recorded.", "尚未记录法院档案号。"));
+  }
+  if (!hasText(form.clientName) || !hasText(form.opposingPartyName)) {
+    missing.push(pair("The exact names of both the client and the opposing party are required.", "须提供客户与对方当事人的确切姓名或名称。"));
+  }
+  if (!form.serviceDate || !hasText(answers.sc_service_location)) {
+    missing.push(pair("Service date and place of service are required.", "须提供送达日期及送达地点。"));
+  }
+  if (!hasText(form.professionalFinalRecommendation) && !hasText(form.professionalNotes)) {
+    missing.push(pair("A professional reviewer has not yet reviewed this file.", "尚未有专业审核人对本案件进行审核。"));
+  }
+  if (answers.sc_multiple_defendants === "Yes" && answers.sc_joint_representation === "Not sure") {
+    missing.push(pair("Whether joint representation creates a conflict has not been resolved.", "尚未确定共同代理是否构成利益冲突。"));
+  }
+
+  return { eligible: missing.length === 0, missing };
+}
+
+// `paragraphs`: [{ allegationText, position: "Admitted"|"Denied"|"Outside Knowledge" }]
+// `meta`: { legalBasis, reliefSought }
+export function buildFormTwoWorkingDraft(form, paragraphs = [], meta = {}, lang = "en") {
+  const safeLang = normalizeLang(lang);
+  const zhOut = safeLang === "zh";
+  const answers = form.followUpAnswers || {};
+  const rows = Array.isArray(paragraphs) ? paragraphs : [];
+  const unresolved = rows.filter((row) => !hasText(row.allegationText) || !hasText(row.position));
+
+  const sections = [
+    {
+      key: "workingDraftBanner",
+      title: zhOut ? "工作稿状态" : "Working Draft Status",
+      items: [
+        zhOut ? "工作稿 — 不得用于提交法院" : "WORKING DRAFT — NOT FOR FILING",
+        zhOut
+          ? "本文件须经卑诗省执业律师审阅并最终定稿后，方可提交或送达。"
+          : "This document must be reviewed and finalized by British Columbia legal counsel before filing or service.",
+      ],
+    },
+    {
+      key: "partiesAndFile",
+      title: zhOut ? "当事人与案件信息" : "Parties and File Information",
+      type: "table",
+      rows: [
+        { label: zhOut ? "法院登记处" : "Court Registry", value: String(answers.sc_registry || "") },
+        { label: zhOut ? "法院档案号" : "Court File Number", value: String(answers.sc_court_file_number || "") },
+        { label: zhOut ? "被告（客户）" : "Defendant (Client)", value: form.clientName || "" },
+        { label: zhOut ? "原告" : "Plaintiff", value: form.opposingPartyName || "" },
+      ],
+    },
+    {
+      key: "paragraphResponses",
+      title: zhOut ? "逐段答辩" : "Paragraph-by-Paragraph Response",
+      items: rows.length
+        ? rows.map((row, index) => {
+          const position = hasText(row.position) ? row.position : (zhOut ? "[未解决 — 待填写]" : "[UNRESOLVED — TO BE COMPLETED]");
+          const allegation = hasText(row.allegationText) ? row.allegationText : (zhOut ? "[待填写指控内容]" : "[allegation text to be entered]");
+          return `${index + 1}. ${allegation} — ${position}`;
+        })
+        : [zhOut ? "尚未录入任何段落。" : "No paragraphs have been entered yet."],
+    },
+    {
+      key: "defenceBasis",
+      title: zhOut ? "答辩的事实与法律依据" : "Defendant's Facts and Legal Basis",
+      items: [hasText(meta.legalBasis) ? meta.legalBasis : (zhOut ? "[待填写法律依据]" : "[legal basis to be entered]")],
+    },
+    {
+      key: "reliefSought",
+      title: zhOut ? "请求的济助" : "Relief Sought",
+      items: [hasText(meta.reliefSought) ? meta.reliefSought : (zhOut ? "[待填写请求的济助]" : "[relief sought to be entered]")],
+    },
+    {
+      key: "unresolvedPlaceholders",
+      title: zhOut ? "尚未解决的占位项" : "Unresolved Placeholders",
+      items: unresolved.length
+        ? rows.map((row, index) => (hasText(row.allegationText) && hasText(row.position) ? null : (zhOut ? `第 ${index + 1} 段尚未完成。` : `Paragraph ${index + 1} is incomplete.`))).filter(Boolean)
+        : [zhOut ? "没有尚未解决的占位项。" : "No unresolved placeholders."],
+    },
+  ];
+
+  return {
+    language: safeLang,
+    reviewId: form.reviewId || "",
+    title: zhOut ? "Form 2 工作稿 — 民事诉讼答辩状" : "Form 2 Working Draft — Response to Civil Claim",
+    brandLine: zhOut ? "工作稿 — 不得用于提交法院" : "WORKING DRAFT — NOT FOR FILING",
+    sections,
   };
 }
 
@@ -1098,7 +1443,7 @@ export async function submitDisputeReview(form, files, lang = "en") {
     serviceConcerns: composeServiceConcerns(form.serviceMethod, form.serviceConcerns),
     status: analysis.sufficient ? "AI Drafted" : "Intake Incomplete",
     importantDates: analysis.timeline.map((entry) => `${entry.label.en}: ${entry.date}`).join("; "),
-    followUpAnswersText: formatDisputeFollowUpAnswers(form, "en"),
+    followUpAnswersText: encodeFollowUpAnswers(form),
     aiReview: {
       timelineText: analysis.timeline.map((entry) => `${entry.label.en}: ${entry.date}`).join("\n"),
       issuesText: tList(analysis.legalIssuesToVerify, "en").join("\n"),
@@ -1204,6 +1549,9 @@ export function recordToForm(record = {}) {
     legalIssues: get("Legal / Compliance Issues"),
     clientServiceInterest: get("Client Service Interest"),
     nextStep: get("Next Step"),
+    professionalNotes: get("Professional Notes"),
+    professionalFinalRecommendation: get("Professional Final Recommendation"),
+    followUpAnswers: splitFollowUpAnswersStored(get("Follow-up Answers")).answers,
     ...parseServiceConcerns(get("Service / Procedure Concerns")),
   });
 }
@@ -1230,6 +1578,37 @@ function parseServiceConcerns(stored) {
     serviceMethod: lines[0].slice(SERVICE_METHOD_PREFIX.length).trim(),
     serviceConcerns: lines.slice(1).join("\n").trim(),
   };
+}
+
+const FOLLOWUP_JSON_MARKER = "\n\n[FOLLOWUP_JSON]";
+
+// The sheet has one "Follow-up Answers" column. The human-readable text (shown
+// in the report and in Admin) is stored first; a hidden JSON tail after the
+// marker preserves the raw per-field answers, the same "pack it into an
+// existing free-text column" pattern as composeServiceConcerns above. Without
+// this, Admin's "Generate / Update Reports" round trip (recordToForm ->
+// analyseDispute) would lose every dispute-type-specific follow-up answer and
+// silently drop flags the original AI Drafted report had. Old rows saved
+// before this change have no marker and simply come back with no answers,
+// exactly as they do today — no regression, no schema change.
+export function encodeFollowUpAnswers(form) {
+  const text = formatDisputeFollowUpAnswers(form, "en");
+  const answers = form.followUpAnswers || {};
+  if (!Object.keys(answers).length) return text;
+  return `${text}${FOLLOWUP_JSON_MARKER}${JSON.stringify(answers)}`;
+}
+
+export function splitFollowUpAnswersStored(stored) {
+  const raw = String(stored || "");
+  const markerIndex = raw.indexOf(FOLLOWUP_JSON_MARKER);
+  if (markerIndex < 0) return { text: raw, answers: {} };
+  const text = raw.slice(0, markerIndex);
+  try {
+    const parsed = JSON.parse(raw.slice(markerIndex + FOLLOWUP_JSON_MARKER.length));
+    return { text, answers: parsed && typeof parsed === "object" ? parsed : {} };
+  } catch {
+    return { text, answers: {} };
+  }
 }
 
 // ── Report download ───────────────────────────────────────────────────────────
@@ -1263,6 +1642,35 @@ export async function downloadDisputeReportPdf(reviewId, language, token = "") {
   link.click();
   link.remove();
   // Revoke on the next tick so the browser has started the save.
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  return { fileName: result.fileName, sizeBytes: result.sizeBytes, mimeType: result.mimeType };
+}
+
+// Admin-only. Sends the already-assembled Form 2 Working Draft to the backend
+// for PDF rendering (reusing the same Google-Docs-template pipeline as the
+// EN/ZH reports) and downloads the real PDF bytes. Nothing is written back to
+// the sheet — eligibility and the draft itself are recomputed fresh every time.
+export async function generateFormTwoDraftPdf(reviewId, draft) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  const result = await apiPost({
+    action: "generateFormTwoDraft",
+    data: { reviewId, draft: JSON.stringify(draft) },
+    ...getStudioRequestAuth("rental"),
+  });
+
+  const binary = atob(result.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = result.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 
   return { fileName: result.fileName, sizeBytes: result.sizeBytes, mimeType: result.mimeType };

@@ -277,6 +277,7 @@ function doPost(e) {
     if (action === "generateDisputeReport") return ok(generateDisputeReport_(body.reviewId, body.data, auth));
     if (action === "downloadDisputeReportPdf") return ok(downloadDisputeReportPdf_(body.data || body, auth));
     if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
+    if (action === "generateFormTwoDraft") return ok(generateFormTwoDraft_(body.data || body, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
     if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));

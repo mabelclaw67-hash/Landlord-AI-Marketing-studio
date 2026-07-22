@@ -141,7 +141,7 @@ const L = {
       title: "Documents & Evidence",
       intro: "Upload the documents your dispute relies on. You can upload several files at once.",
       limits: `Accepted: PDF, JPG, PNG, HEIC, WEBP, DOC, DOCX, TXT, CSV, XLS, XLSX. Up to 15 MB per file and ${DISPUTE_MAX_FILES} files in total.`,
-      examples: "Examples: tenancy agreement, notices, applications and responses, email or message screenshots, payment records, invoices, inspection photos, strata documents, tribunal or court documents.",
+      examples: "Examples: tenancy agreement, notices, applications and responses, email or message screenshots, payment records, invoices, inspection photos, strata documents, tribunal or court documents. For Supreme Court Litigation: the pleading (Notice of Civil Claim, Petition, or Notice of Application), affidavits, exhibits, court orders, expert reports and correspondence.",
       category: "Document category",
       documentDate: "Document date",
       senderIssuer: "Sender / issuer",
@@ -259,7 +259,7 @@ const L = {
       title: "文件与证据",
       intro: "请上传您争议所依据的文件。可以一次上传多个文件。",
       limits: `支持格式：PDF、JPG、PNG、HEIC、WEBP、DOC、DOCX、TXT、CSV、XLS、XLSX。每个文件不超过 15 MB，最多 ${DISPUTE_MAX_FILES} 个文件。`,
-      examples: "例如：租约、通知书、申请与答辩、邮件或信息截图、付款记录、发票、检查照片、分契物业文件、仲裁机构或法院文件。",
+      examples: "例如：租约、通知书、申请与答辩、邮件或信息截图、付款记录、发票、检查照片、分契物业文件、仲裁机构或法院文件。如为 BC省高等法院民事诉讼：诉讼文件（民事诉讼通知书、呈请状或申请通知）、宣誓陈述书、证物、法院命令、专家报告及往来信件。",
       category: "文件类别",
       documentDate: "文件日期",
       senderIssuer: "发出方 / 签发方",
@@ -364,6 +364,19 @@ export default function DisputeReview({ lang }) {
       ...current,
       followUpAnswers: { ...(current.followUpAnswers || {}), [id]: value },
     }));
+  };
+
+  // Multi Select follow-ups (e.g. sc_expert_evidence) store a comma-joined
+  // string, the same shape a single text answer already round-trips as.
+  const toggleFollowUpMulti = (id, option) => (event) => {
+    const checked = event.target.checked;
+    setForm((current) => {
+      const existing = String((current.followUpAnswers || {})[id] || "").split(",").map((v) => v.trim()).filter(Boolean);
+      const next = checked
+        ? Array.from(new Set([...existing, option]))
+        : existing.filter((value) => value !== option);
+      return { ...current, followUpAnswers: { ...(current.followUpAnswers || {}), [id]: next.join(",") } };
+    });
   };
 
   const handleFileSelect = async (event) => {
@@ -610,37 +623,65 @@ export default function DisputeReview({ lang }) {
             <Area field="serviceConcerns" form={form} update={update} copy={copy} rows={3} />
           </Section>
 
-          {followUps.length > 0 && (
-            <Section title={`${displayDisputeOption(form.disputeType, safeLang)} — ${safeLang === "zh" ? "补充问题" : "Follow-up Questions"}`}>
-              <div className="strategy-follow-up__grid">
-                {followUps.map((item) => {
-                  const value = (form.followUpAnswers || {})[item.id] || "";
-                  return (
-                    <div className="form-group strategy-follow-up__field" key={item.id}>
-                      <label>{safeLang === "zh" ? item.question.zh : item.question.en}</label>
-                      {item.type === "choice" ? (
-                        <select className="form-control" value={value} onChange={updateFollowUp(item.id)}>
-                          <option value="">{copy.select}</option>
-                          {item.options.map((option) => (
-                            <option key={option} value={option}>{displayDisputeOption(option, safeLang)}</option>
-                          ))}
-                        </select>
-                      ) : item.type === "textarea" ? (
-                        <textarea className="form-control" rows={3} value={value} onChange={updateFollowUp(item.id)} />
-                      ) : (
-                        <input
-                          className="form-control"
-                          type={item.type === "date" ? "date" : "text"}
-                          value={value}
-                          onChange={updateFollowUp(item.id)}
-                        />
-                      )}
+          {followUps.length > 0 && (() => {
+            const groups = [];
+            followUps.forEach((item) => {
+              if (!groups.includes(item.group)) groups.push(item.group);
+            });
+            const showGroupHeadings = groups.length > 1;
+            return (
+              <Section title={`${displayDisputeOption(form.disputeType, safeLang)} — ${safeLang === "zh" ? "补充问题" : "Follow-up Questions"}`}>
+                {groups.map((group) => (
+                  <div className="strategy-follow-up__group" key={group}>
+                    {showGroupHeadings && <h3>{group}</h3>}
+                    <div className="strategy-follow-up__grid">
+                      {followUps.filter((item) => item.group === group).map((item) => {
+                        const value = (form.followUpAnswers || {})[item.id] || "";
+                        return (
+                          <div className="form-group strategy-follow-up__field" key={item.id}>
+                            <label>{safeLang === "zh" ? item.question.zh : item.question.en}</label>
+                            {item.type === "choice" ? (
+                              <select className="form-control" value={value} onChange={updateFollowUp(item.id)}>
+                                <option value="">{copy.select}</option>
+                                {item.options.map((option) => (
+                                  <option key={option} value={option}>{displayDisputeOption(option, safeLang)}</option>
+                                ))}
+                              </select>
+                            ) : item.type === "textarea" ? (
+                              <textarea className="form-control" rows={3} value={value} onChange={updateFollowUp(item.id)} />
+                            ) : item.type === "multichoice" ? (
+                              <div className="strategy-follow-up__checkboxes">
+                                {item.options.map((option) => {
+                                  const selectedValues = value.split(",").map((v) => v.trim());
+                                  return (
+                                    <label className="strategy-check strategy-check--sm" key={option}>
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedValues.includes(option)}
+                                        onChange={toggleFollowUpMulti(item.id, option)}
+                                      />
+                                      <span>{displayDisputeOption(option, safeLang)}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <input
+                                className="form-control"
+                                type={item.type === "date" ? "date" : "text"}
+                                value={value}
+                                onChange={updateFollowUp(item.id)}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
+                  </div>
+                ))}
+              </Section>
+            );
+          })()}
         </>
       );
     }

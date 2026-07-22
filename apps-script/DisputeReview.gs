@@ -626,6 +626,64 @@ function downloadDisputeReportPdf_(body, auth) {
   };
 }
 
+// ── Supreme Court: Form 2 (Response to Civil Claim) Working Draft ───────────
+// Admin-only. Builds a Google Doc from the already-assembled draft object (the
+// client builds it with buildFormTwoWorkingDraft — allegation admit/deny
+// choices, legal basis, relief sought), exports it to PDF into the same
+// "Dispute Reports/<Review ID>/" folder as the EN/ZH reports, and returns the
+// PDF bytes directly in this one call so Admin can download it immediately.
+// Nothing is written back to Dispute_Reviews: eligibility and the draft
+// content are recomputed fresh every time this is generated.
+function generateFormTwoDraft_(body, auth) {
+  assertAdmin_(auth);
+  body = body || {};
+  var reviewId = disputeText_(body.reviewId);
+  if (!reviewId) throw new Error("Review ID is required.");
+  var draft = parseDisputeReportJson_(body.draft);
+  if (!draft) throw new Error("No Form 2 draft content was provided.");
+
+  var fileName = reviewId + "_Form2_Working_Draft.pdf";
+  var doc = DocumentApp.create(fileName.replace(/\.pdf$/, "") + "_tmp");
+  var docBody = doc.getBody();
+
+  docBody.appendParagraph(draft.title || "Form 2 Working Draft").setHeading(DocumentApp.ParagraphHeading.TITLE);
+  if (draft.brandLine) docBody.appendParagraph(draft.brandLine).setBold(true);
+  docBody.appendParagraph("Review ID: " + reviewId);
+  docBody.appendParagraph("Generated: " + new Date().toISOString());
+
+  (draft.sections || []).forEach(function (section) {
+    docBody.appendParagraph(String(section.title || "")).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    if (section.type === "table" && section.rows && section.rows.length) {
+      var cells = section.rows.map(function (r) {
+        return [String(r.label || ""), String(r.value || "")];
+      });
+      docBody.appendTable(cells);
+    } else {
+      (section.items || []).forEach(function (item) {
+        docBody.appendListItem(String(item)).setGlyphType(DocumentApp.GlyphType.BULLET);
+      });
+    }
+  });
+
+  doc.saveAndClose();
+  var docFile = DriveApp.getFileById(doc.getId());
+  var pdfBlob = docFile.getAs("application/pdf").setName(fileName);
+
+  var folder = getDisputeReportFolder_(reviewId);
+  var existing = folder.getFilesByName(fileName);
+  while (existing.hasNext()) existing.next().setTrashed(true);
+  var pdfFile = folder.createFile(pdfBlob);
+  docFile.setTrashed(true);
+
+  return {
+    reviewId: reviewId,
+    fileName: fileName,
+    mimeType: "application/pdf",
+    sizeBytes: pdfFile.getSize(),
+    base64: Utilities.base64Encode(pdfFile.getBlob().getBytes())
+  };
+}
+
 // Builds a Google Doc from the report object, exports it to PDF into
 // "Dispute Reports/<Review ID>/", then removes the temporary Doc.
 function createDisputeReportPdf_(report, reviewId, languageTag, folder) {
