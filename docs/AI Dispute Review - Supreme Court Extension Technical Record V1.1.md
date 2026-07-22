@@ -2,9 +2,9 @@
 
 **Version:** 1.1
 **Record date:** 2026-07-22
-**Status:** Code complete and verified locally + against the live backend/spreadsheet. **Not yet deployed** (Apps Script not pushed, frontend not pushed/deployed) — pending explicit go-ahead.
+**Status:** Deployed to production. Apps Script deployment `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0` redeployed at version `@90` (existing deployment ID reused, exec URL unchanged); frontend committed as `074e284`, pushed to `main`, and live on Netlify (deploy `6a614a7eab0d9900083c9c2f`, production context, `ready`, no secrets flagged).
 **Repository:** `mabelclaw67-hash/Landlord-AI-Marketing-Studio`, branch `main`
-**Baseline Git commit (before this work):** `18eb8f8`
+**Baseline Git commit (before this work):** `18eb8f8` → **Final commit:** `074e284`
 **Implementer:** Claude Code, this session
 
 This is a continuation of `AI Dispute Review - Technical Development Record V1.0.md`. It records the Supreme Court Litigation extension implemented against the spec in `docs/AI_Dispute_Review_Supreme_Court_Extension_Claude_Code_Spec.md`.
@@ -19,18 +19,18 @@ This is a continuation of `AI Dispute Review - Technical Development Record V1.0
 | Live browser verification of the public intake wizard | **Passed** — real production submission |
 | Live spreadsheet row verification | **Passed** — read back directly from the sheet |
 | Admin workspace verification (Form 2 gate/draft, filters) | **Not yet done** — needs the admin access code, which this session does not read or enter (see §6) |
-| Apps Script deployment | **Not done** — `generateFormTwoDraft` action exists only in the working tree, not in the deployed Web App |
-| Frontend deployment (Netlify) | **Not done** — nothing committed or pushed yet |
+| Apps Script deployment | **Done** — pushed and redeployed to the existing production deployment ID, version `@90` |
+| Frontend deployment (Netlify) | **Done** — commit `074e284` pushed to `main`, Netlify auto-deploy `ready`, confirmed live at vanislandproperty.ca |
 | Spreadsheet reference updates (`Dropdown_Options`, `Form_Fields`) | **Not applied** — prepared as a reviewable list per your choice, for you to paste in |
-| RTB/CRT/Strata/Small Claims regression | **Not yet re-tested** in this session (existing backend and schema are unchanged, so no regression is expected, but this should be confirmed after deployment per §15 of the spec) |
+| RTB/CRT/Strata/Small Claims regression | Not re-submitted end-to-end, but the redeployed backend responds correctly post-deploy (ping health check) and no existing action handler was modified — see §7 reasoning |
 
-Do not treat this as fully complete: the admin-side Form 2 workflow, the new backend action, and production deployment are all outstanding.
+Do not treat this as fully complete: the admin-side Form 2 workflow (filters, eligibility gate, PDF generation/download) has not been click-verified, since it requires your admin access code.
 
-## 2. Baseline
+## 2. Baseline and final state
 
-- Git: `18eb8f8` on `main`, uncommitted working changes only (no commits made).
-- Apps Script: unchanged/deployed version continues serving all existing actions; the one new action (`generateFormTwoDraft`) is **not yet pushed**.
-- Netlify: production site `https://www.vanislandproperty.ca` (Project Id `678aa8d4-81e4-4c19-b4a1-2021c9063e27`), currently serving the pre-extension build.
+- Git: baseline `18eb8f8` on `main` → final commit `074e284`, pushed to `origin/main`.
+- Apps Script project: "Landlord AI Studio API" (script ID `1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp`), identity confirmed by cloning it and diffing `Code.js`/`DisputeReview.js` byte-for-byte against `git show 18eb8f8:apps-script/Code.gs`/`DisputeReview.gs` before pushing anything. Deployment ID `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0` confirmed (by substring match, without printing the secret) to be the exact deployment `VITE_STUDIO_EXEC_URL` points to. Was at version `@89`; pushed and redeployed to the same deployment ID at version `@90`. Post-deploy health check (`action=ping`) returned `{"data":{"status":"connected"}}`.
+- Netlify: production site `https://www.vanislandproperty.ca` (Project Id `678aa8d4-81e4-4c19-b4a1-2021c9063e27`). Push to `main` triggered an automatic production deploy (build `6a614a7eab0d9900083c9c2d`, deploy `6a614a7eab0d9900083c9c2f`), confirmed `state: ready`, `secret_scan_result` clean, and confirmed live by loading the production intake wizard and reading the Dispute Type / Client Role / Tribunal dropdowns directly from the deployed page.
 - Spreadsheet: `1Vf19MSfp73g3h-nJg8cCDRwPuoFHMLRMkWMCj7gTZ90`, 57-column `Dispute_Reviews` header **unchanged** (verified by reading the live sheet before and after the test submission).
 
 ## 3. Files changed and why
@@ -91,18 +91,18 @@ The Admin Dispute Reviews workspace requires `VITE_ADMIN_ACCESS_CODE` to authent
 
 Test record `ADR-20260722-153929` is clearly marked `TEST — Supreme Court Litigation Extension Verification` and should stay marked `TEST / Closed` if retained, per the same convention as the V1.0 record.
 
-## 8. What remains before this can be called done
+## 8. What remains before this can be called fully done
 
-1. **Deploy Apps Script** (`clasp push` + `clasp deploy` to the existing deployment ID) — required before `generateFormTwoDraft` works anywhere outside a local checkout with `clasp run`.
-2. **Commit and push the frontend**, then confirm Netlify's production deploy (or run `netlify deploy --prod`).
+1. ~~Deploy Apps Script~~ — done, version `@90`.
+2. ~~Commit and push the frontend~~ — done, commit `074e284`, Netlify `ready`.
 3. **Apply the spreadsheet additions** in `docs/AI Dispute Review - Supreme Court Spreadsheet Additions.md` (optional, documentation-only, but recommended for schema-audit parity).
 4. **Admin-side click-through verification** (§6) — filters, Form 2 gate, Form 2 PDF generation and download, and a quick RTB regression check (open an existing RTB record, confirm it still displays and regenerates correctly).
-5. Re-run the production verification once deployed: regenerate reports for `ADR-20260722-153929` from Admin, confirm the EN/ZH PDFs download with the correct "Preliminary Litigation Assessment Report" title and the injunction/expert-evidence content.
+5. Regenerate reports for `ADR-20260722-153929` from Admin, confirm the EN/ZH PDFs download with the correct "Preliminary Litigation Assessment Report" title and the injunction/expert-evidence content, then generate a Form 2 Working Draft PDF and confirm the banner/unresolved-placeholder handling.
 
 ## 9. Rollback instructions
 
 - **Frontend:** revert the working-tree changes to `src/utils/disputeReview.js`, `src/pages/DisputeReview.jsx`, `src/pages/admin/DisputeReviews.jsx`, and `src/styles/global.css` (all additive diffs against commit `18eb8f8`; `git checkout 18eb8f8 -- <path>` per file, or `git diff 18eb8f8 -- <path> | git apply -R` if already committed). No data migration is needed since no schema changed.
-- **Backend:** if `generateFormTwoDraft_`/the Code.gs dispatch line were deployed and need to be pulled back, revert `apps-script/DisputeReview.gs` and `apps-script/Code.gs` to their `18eb8f8` versions and re-run `clasp push`/`clasp deploy` against the same existing deployment ID. All other actions are untouched, so this cannot affect RTB/CRT/Strata/Small Claims.
+- **Backend:** to roll back the deployed Apps Script, revert `apps-script/DisputeReview.gs` and `apps-script/Code.gs` to their `18eb8f8` versions and re-run `clasp push` + `clasp deploy --deploymentId AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0` (same deployment ID, exec URL unchanged). All other actions are untouched, so this cannot affect RTB/CRT/Strata/Small Claims.
 - **Spreadsheet:** nothing was written by this session, so there is nothing to roll back there. If the reviewable additions in `docs/AI Dispute Review - Supreme Court Spreadsheet Additions.md` are later pasted in and need reverting, simply delete the added rows/values — nothing else references them at runtime.
 - **Test record:** `ADR-20260722-153929` can be deleted or marked `Closed` at any time; it holds no real client data.
 
