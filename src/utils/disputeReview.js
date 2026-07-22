@@ -873,14 +873,25 @@ function expectedDocumentsFor(form) {
 }
 
 function buildTimeline(form) {
+  const isSupremeCourt = form.disputeType === "Supreme Court Litigation";
+  const answers = form.followUpAnswers || {};
   const entries = [
-    { date: form.noticeDate, label: { en: "Notice date", zh: "通知日期" } },
+    // For Supreme Court Litigation, form.noticeDate is populated with the
+    // pleading's court filing/amendment date, not a service date — the label
+    // says so explicitly so it can never be misread as confirming service.
+    { date: form.noticeDate, label: isSupremeCourt
+      ? { en: "Pleading date — court filing/amendment date, not a service date", zh: "诉讼文件日期——法院提交或修改日期，并非送达日期" }
+      : { en: "Notice date", zh: "通知日期" } },
     { date: form.serviceDate, label: { en: "Service date", zh: "送达日期" } },
     { date: form.filingDeadline, label: { en: "Filing deadline", zh: "提交期限" } },
     { date: form.limitationDate, label: { en: "Limitation date", zh: "时效期限" } },
     { date: form.hearingDate, label: { en: "Hearing date", zh: "听证日期" } },
-  ].filter((entry) => !!entry.date);
-  return entries.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  ];
+  if (isSupremeCourt) {
+    entries.push({ date: answers.sc_response_deadline, label: { en: "Response deadline", zh: "答辩截止日期" } });
+    entries.push({ date: answers.sc_application_hearing_date, label: { en: "Application hearing date", zh: "申请听证日期" } });
+  }
+  return entries.filter((entry) => !!entry.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
 function findTimelineConflicts(form) {
@@ -1040,6 +1051,18 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
   const notProvided = zh ? "未提供" : "Not provided";
   const value = (raw) => (String(raw || "").trim() || notProvided);
 
+  // Supreme Court Litigation reuses the generic Proceeding Status enum, but
+  // "Application filed" reads there as though a Rule 8 application (e.g. an
+  // injunction application) had been filed, when in fact only the
+  // originating civil claim has been. Display-only override for the report —
+  // the stored value and the shared PROCEEDING_STATUS enum are unchanged.
+  const proceedingStatusDisplay = (raw) => {
+    if (form.disputeType === "Supreme Court Litigation" && raw === "Application filed") {
+      return zh ? "民事诉讼已提交" : "Civil claim filed";
+    }
+    return opt(raw);
+  };
+
   const executiveSummary = [];
   executiveSummary.push(zh
     ? `本文件为 ${opt(form.disputeType) || "未指定类型"} 争议的 AI 初步审阅，客户身份为${opt(form.clientRole) || "未指定"}。`
@@ -1076,7 +1099,7 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
         { label: zh ? "机构 / 主管" : "Tribunal / Authority", value: value(opt(form.tribunal)) },
         { label: zh ? "物业地址" : "Property address", value: value([form.propertyAddress, form.city, form.province].filter(Boolean).join(", ")) },
         { label: zh ? "涉及金额" : "Monetary amount", value: value(formatDisputeMoney(form.monetaryAmount)) },
-        { label: zh ? "程序状态" : "Proceeding status", value: value(opt(form.proceedingStatus)) },
+        { label: zh ? "程序状态" : "Proceeding status", value: value(proceedingStatusDisplay(form.proceedingStatus)) },
       ],
     },
     {
@@ -1151,7 +1174,10 @@ export function buildDisputeReport(form, files, lang = "en", analysis = null) {
       type: "table",
       rows: [
         { label: zh ? "AI 信心" : "AI confidence", value: `${a.confidenceScore}%` },
-        { label: zh ? "问询完整度" : "Intake completion", value: `${a.intakeCompletionScore}%` },
+        { label: zh ? "问卷填写完成度" : "Intake Form Completion", value: `${a.intakeCompletionScore}%` },
+        { label: zh ? "说明" : "Note", value: zh
+          ? "问卷填写完成度仅反映问询表单的填写情况，不代表证据充分性或诉讼准备程度。"
+          : "This measures questionnaire completion only; it does not measure evidence sufficiency or litigation readiness." },
         { label: zh ? "风险等级" : "Risk level", value: a.sufficient ? opt(a.riskLevel) : opt("Not assessable") },
         { label: zh ? "审核优先级" : "Review priority", value: opt(a.reviewPriority) },
         { label: zh ? "AI 标记" : "AI flags", value: a.flags.join(", ") },
