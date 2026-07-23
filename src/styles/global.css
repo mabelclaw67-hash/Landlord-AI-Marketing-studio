@@ -7147,6 +7147,26 @@ a.review-center__card:hover {
   font-weight: 600;
 }
 
+.review-center__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.review-center__badge {
+  display: inline-block;
+  background: #EEF5F0;
+  color: #3e5b4b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #d8e6dc;
+}
+
 .dispute-file-heading {
   font-size: 0.98rem;
   color: #213128;

@@ -163,10 +163,37 @@ const L = {
     },
     consentText: "I agree to be contacted about this preliminary review.",
     privacyText: "I agree that the information and documents I provide may be stored and used for this preliminary review.",
-    notLegalAdvice: "This preliminary review is not legal advice and does not guarantee any tribunal or court outcome.",
+    notLegalAdvice: "All AI reviews are preliminary working drafts based on the information and materials submitted. They are provided for case organization and professional review only and do not constitute legal advice, legal representation, or a guarantee of outcome. Applicable law, procedure, deadlines, and evidentiary requirements must still be verified under the current rules.",
     insufficientBanner: "Based on what has been provided so far, this file cannot yet be assessed reliably. The review below sets out exactly what is missing.",
     errRequiredRole: "Please select your role and the dispute type.",
     errSummary: "Please describe the dispute in more detail so it can be assessed.",
+    explain: {
+      heading: "Prepare the case before preparing the submission",
+      body: "AI Dispute Review does not simply write a favourable submission based on one party’s position.",
+      points: [
+        "Distinguish confirmed facts, party allegations, and matters requiring verification",
+        "Organize the key timeline, deadlines, and procedural status",
+        "Review the available evidence and identify missing or defective materials",
+        "Flag service, jurisdiction, limitation, expert-evidence, and other procedural risks",
+        "Generate preliminary English and Chinese assessment reports for professional review and further preparation",
+      ],
+      note: "The AI does not automatically assume that either party is correct and does not manufacture missing facts. Where the materials are insufficient, the report will clearly identify what cannot yet be confirmed.",
+    },
+    receive: {
+      heading: "What you may receive",
+      items: [
+        "Case and dispute summary",
+        "Key timeline",
+        "Organized party allegations",
+        "Available-evidence inventory",
+        "Missing or defective evidence",
+        "Procedural and deadline risk flags",
+        "Strengths and weaknesses",
+        "Recommended documents and next steps",
+        "Preliminary AI assessment reports in English and Chinese",
+      ],
+      footer: "Available outputs depend on the dispute type and materials provided.",
+    },
   },
   zh: {
     title: "法律争议AI初评",
@@ -281,10 +308,37 @@ const L = {
     },
     consentText: "我同意就本次初步审阅与我联系。",
     privacyText: "我同意我所提供的信息和文件可被保存并用于本次初步审阅。",
-    notLegalAdvice: "本初步审阅不构成法律意见，也不保证任何仲裁机构或法院的结果。",
+    notLegalAdvice: "所有AI初评均为根据用户提交信息和材料生成的辅助性草稿，仅供案件整理及专业审核使用，不构成法律意见、律师代理或结果保证。适用法律、程序、期限及证据要求仍须根据案件所在地和当前规则核实。",
     insufficientBanner: "根据目前所提供的内容，本案尚无法作出可靠评估。下方审阅已列明具体缺少哪些内容。",
     errRequiredRole: "请选择您的身份和争议类型。",
     errSummary: "请更详细地描述争议，以便进行评估。",
+    explain: {
+      heading: "在准备陈述之前，先把案件准备清楚",
+      body: "AI争议初评不会仅仅按照您的立场替您撰写一份有利陈述。",
+      points: [
+        "区分已经确认的事实、当事人的主张和仍待核实的事项",
+        "整理关键时间线、期限和程序状态",
+        "检查现有证据及缺失或有缺陷的材料",
+        "识别送达、管辖权、期限、专家证据及其他程序风险",
+        "生成中英文初步评估报告，供专业审核和下一步准备使用",
+      ],
+      note: "AI不会自动认定任何一方正确，也不会补造缺失事实。资料不足时，报告会明确指出无法确认的事项。",
+    },
+    receive: {
+      heading: "您可能获得",
+      items: [
+        "案件事实与争议摘要",
+        "关键时间线",
+        "当事人主张整理",
+        "现有证据清单",
+        "缺失或有缺陷的证据",
+        "程序和期限风险提示",
+        "案件有利因素与薄弱环节",
+        "建议补充的材料及下一步",
+        "中英文AI初步评估报告",
+      ],
+      footer: "具体输出会根据争议类型及所提交材料而有所不同。",
+    },
   },
 };
 
@@ -880,6 +934,27 @@ export default function DisputeReview({ lang }) {
         <ul className="strategy-hero-bullets">
           {copy.bullets.map((item) => <li key={item}>{item}</li>)}
         </ul>
+      </section>
+
+      <section className="section">
+        <div className="container strategy-container">
+          <Section title={copy.explain.heading}>
+            <p>{copy.explain.body}</p>
+            <ul>
+              {copy.explain.points.map((point) => <li key={point}>{point}</li>)}
+            </ul>
+            <div className="notice notice--info strategy-inline-notice">
+              <p>{copy.explain.note}</p>
+            </div>
+          </Section>
+
+          <Section title={copy.receive.heading}>
+            <ul>
+              {copy.receive.items.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <p className="strategy-help">{copy.receive.footer}</p>
+          </Section>
+        </div>
       </section>
 
       <section className="section">

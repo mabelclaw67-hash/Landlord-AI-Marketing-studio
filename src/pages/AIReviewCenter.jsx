@@ -23,11 +23,13 @@ const SERVICES = [
     icon: "⚖️",
     en: {
       title: "AI Dispute Review",
-      desc: "For RTB, CRT, Strata, and Small Claims disputes. AI organizes facts, timelines, evidence, and missing materials before professional review.",
+      desc: "For Residential Tenancy Branch matters, CRT, Strata disputes, Small Claims, and Supreme Court of British Columbia civil litigation. AI organizes the facts, timeline, party allegations, and evidence, identifies missing materials and procedural risks, and prepares the matter for professional review.",
+      badges: ["Residential Tenancy", "CRT", "Strata", "Small Claims", "BC Supreme Court"],
     },
     zh: {
       title: "法律争议AI初评",
-      desc: "适用于 RTB、CRT、Strata 和 Small Claims。AI 整理事实、时间线、证据及缺失材料，再进入专业复核。",
+      desc: "适用于住宅租赁RTB、CRT、Strata、Small Claims及BC省最高法院民事诉讼。AI整理事实、时间线、当事人主张和证据，识别缺失材料、程序风险及需要进一步核实的问题，再交由专业人员审核。",
+      badges: ["RTB住宅租赁", "CRT", "Strata", "Small Claims", "BC省最高法院"],
     },
   },
 ];
@@ -35,17 +37,17 @@ const SERVICES = [
 const COPY = {
   en: {
     title: "AI Review Center",
-    sub: "Please choose what you would like an AI preliminary review of.",
-    desc: "AI organizes the facts. Professional experience reviews the risk.",
+    sub: "Organize the facts and evidence before assessing the risk.",
+    desc: "AI reviews the information and documents provided, organizes the timeline, identifies evidence gaps and procedural risks, and prepares a preliminary assessment report for professional review.",
     available: "Available now",
     start: "Start",
     notice:
       "Every AI preliminary review is a draft for professional review. It is not legal advice and does not guarantee any outcome.",
   },
   zh: {
-    title: "AI 初评中心",
-    sub: "请选择您需要 AI 初评的内容。",
-    desc: "AI 整理事实，专业经验审阅风险。",
+    title: "AI初评中心",
+    sub: "先整理事实和证据，再判断案件风险。",
+    desc: "AI根据您提交的信息和材料，梳理时间线、识别证据缺口、提示程序风险，并生成供专业审核使用的初步评估报告。",
     available: "现已开放",
     start: "开始",
     notice: "所有 AI 初评均为供专业审核使用的草稿，不构成法律意见，也不保证任何结果。",
@@ -75,6 +77,13 @@ export default function AIReviewCenter({ lang }) {
                   <span className="review-center__icon" aria-hidden="true">{service.icon}</span>
                   <h3>{text.title}</h3>
                   <p className="review-center__desc">{text.desc}</p>
+                  {text.badges && (
+                    <ul className="review-center__badges">
+                      {text.badges.map((badge) => (
+                        <li key={badge} className="review-center__badge">{badge}</li>
+                      ))}
+                    </ul>
+                  )}
                   <span className="review-center__cta">{copy.start} →</span>
                 </Link>
               );
