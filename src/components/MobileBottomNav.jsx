@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { normalizeLang } from "../utils/lang";
 import { AL } from "../utils/adminLabels";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
+import { isAdminSessionActive } from "../utils/trialAccess";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
@@ -100,7 +101,7 @@ function PublicMobileNav({ lang, pathname }) {
         <span>📷</span>
         <span>{labels.photoGuide}</span>
       </NavLink>
-      <NavLink to="/examples" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+      <NavLink to="/rentals" className={({ isActive }) => `lh-mobile-bottom__item${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
         <span>🏘️</span>
         <span>{labels.rentals}</span>
       </NavLink>
@@ -116,10 +117,12 @@ function PublicMobileNav({ lang, pathname }) {
         <span>✉️</span>
         <span>{labels.contact}</span>
       </NavLink>
-      <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item lh-mobile-bottom__item--admin${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
-        <span>⚙️</span>
-        <span>{labels.admin}</span>
-      </NavLink>
+      {isAdminSessionActive() && (
+        <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item lh-mobile-bottom__item--admin${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
+          <span>⚙️</span>
+          <span>{labels.admin}</span>
+        </NavLink>
+      )}
     </nav>
   );
 }

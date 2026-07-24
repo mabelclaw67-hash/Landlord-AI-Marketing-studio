@@ -14,6 +14,7 @@ import {
   resolveRentalListingCover,
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
+import { splitFeatureList } from "../utils/listingFormat";
 
 const PUBLIC_LISTING_TEXT = {
   en: {
@@ -256,8 +257,7 @@ export default function PublicListing({ lang = "en" }) {
     [safeLang === "zh" ? "吸烟政策" : "Smoking Policy", listing.smoking],
   ].filter(([, v]) => v);
 
-  const featureList = (listing.features || "")
-    .split(/[,\n]/).map((f) => f.trim()).filter(Boolean);
+  const featureList = splitFeatureList(listing.features);
   const statusMeta = getListingStatusMeta(listing);
   const acceptsApplications = isRentalListingAcceptingApplications(listing);
   const openHouseInfo = getOpenHouseInfo(listing);

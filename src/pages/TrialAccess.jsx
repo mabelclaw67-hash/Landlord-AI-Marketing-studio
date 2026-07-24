@@ -16,7 +16,7 @@ const INVALID_ACCESS_MESSAGE = "Access code not found, expired, or not approved.
 function inferModuleFromPath(path) {
   if (!path) return "";
   if (path.startsWith("/home-sale-studio")) return "sale";
-  if (path === "/examples" || path === "/apply" || path === "/supporting-documents" || path.startsWith("/listings/") || path.startsWith("/apply/")) return "rental";
+  if (path === "/rentals" || path === "/examples" || path === "/apply" || path === "/supporting-documents" || path.startsWith("/listings/") || path.startsWith("/apply/")) return "rental";
   return "";
 }
 

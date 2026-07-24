@@ -68,7 +68,9 @@ function AppInner({ lang, setLang }) {
       <Routes>
         <Route path="/" element={<LandlordHomeLayout lang={lang} setLang={setLang} />} />
         <Route path="/services" element={<Services lang={lang} />} />
-        <Route path="/examples" element={<Examples lang={lang} />} />
+        <Route path="/rentals" element={<Examples lang={lang} />} />
+        {/* Old public rental homepage URL — keep working for existing links/QR codes */}
+        <Route path="/examples" element={<Navigate to="/rentals" replace />} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
         <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
@@ -129,7 +131,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/tenant-service-request" element={<TenantServiceRequest lang={lang} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Footer />
+      <Footer lang={lang} />
       <MobileBottomNav lang={lang} />
     </>
   );

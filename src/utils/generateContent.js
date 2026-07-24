@@ -1,6 +1,8 @@
 // Template-based content generator (v0.1 — no AI API)
 // In v0.3 this function will call the Claude API instead.
 
+import { splitFeatureList } from "./listingFormat";
+
 // ── Protected-term filter ────────────────────────────────────────────────────
 // BC Human Rights Code prohibits tenant preference based on these characteristics.
 const PROTECTED_TERMS = [
@@ -144,11 +146,7 @@ const FORM_LABEL_PATTERNS = [
 ];
 
 function cleanFeaturesList(raw) {
-  if (!raw || !raw.trim()) return [];
-  return raw
-    .split(/[,\n]/)
-    .map((f) => f.trim())
-    .filter((f) => f && !FORM_LABEL_PATTERNS.some((p) => p.test(f)));
+  return splitFeatureList(raw).filter((f) => !FORM_LABEL_PATTERNS.some((p) => p.test(f)));
 }
 
 // ── Application Requirements (mandatory on all public ad copy) ───────────────

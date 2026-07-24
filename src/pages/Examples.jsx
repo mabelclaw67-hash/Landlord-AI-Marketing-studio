@@ -13,6 +13,7 @@ import {
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
 import { sortRentalListings } from "../utils/listingSort";
+import { splitFeatureList } from "../utils/listingFormat";
 
 const TENANT_SHARE_MESSAGES = [
   {
@@ -318,7 +319,7 @@ export default function Examples({ lang = "en" }) {
   const [showQr,   setShowQr]   = useState(false);
   const [portalCopied, setPortalCopied] = useState(false);
 
-  const portalUrl = buildPublicSiteUrl("/examples");
+  const portalUrl = buildPublicSiteUrl("/rentals");
 
   const copyPortalLink = async () => {
     try {
@@ -394,7 +395,7 @@ export default function Examples({ lang = "en" }) {
           <h1 className="rp-hero__title">{labels.heroBrand}</h1>
           <p className="rp-hero__sub">{labels.heroSub}</p>
           <div className="rp-hero__actions">
-            <Link to="/examples" className="rp-btn rp-btn--primary">{labels.heroBrowse}</Link>
+            <Link to="/rentals" className="rp-btn rp-btn--primary">{labels.heroBrowse}</Link>
             <Link to="/apply" className="rp-btn rp-btn--gold">{labels.heroApply}</Link>
             <Link to="/tenant-service-request" className="rp-btn rp-btn--outline">{labels.heroService}</Link>
             <Link to="/tenant-contact" className="rp-btn rp-btn--ghost">{labels.heroContact}</Link>
@@ -449,7 +450,7 @@ export default function Examples({ lang = "en" }) {
               <ul className="rp-core-card__list">
                 {labels.findDesc.map((d) => <li key={d}>{d}</li>)}
               </ul>
-              <Link to="/examples" className="rp-core-card__cta">{labels.findCta}</Link>
+              <Link to="/rentals" className="rp-core-card__cta">{labels.findCta}</Link>
             </div>
             <div className="rp-core-card">
               <span className="rp-core-card__icon">📝</span>
@@ -511,9 +512,7 @@ export default function Examples({ lang = "en" }) {
           {!loading && !error && listings.length > 0 && (
             <div className="rp-listing-grid">
               {listings.map((listing) => {
-                const firstFeature = listing.features
-                  ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)[0]
-                  : null;
+                const firstFeature = splitFeatureList(listing.features)[0] || null;
                 const avail = formatDate(listing.available);
                 const statusMeta = getListingStatusMeta(listing);
                 const coverPhoto = coverPhotos[listing.id] || null;
@@ -660,7 +659,7 @@ export default function Examples({ lang = "en" }) {
         <nav className="rp-quicklinks" aria-label={labels.footerLinksTitle}>
           <span className="rp-quicklinks__title">{labels.footerLinksTitle}</span>
           <div className="rp-quicklinks__links">
-            <Link to="/examples">{labels.footerRentalListings}</Link>
+            <Link to="/rentals">{labels.footerRentalListings}</Link>
             <Link to="/apply">{labels.footerApply}</Link>
             <Link to="/tenant-service-request">{labels.footerService}</Link>
             <Link to="/tenant-contact">{labels.footerContact}</Link>

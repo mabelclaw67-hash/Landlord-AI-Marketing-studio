@@ -124,7 +124,9 @@ export default function NewListing({ lang: langProp }) {
         openHouseParkingNotes: "",
       };
       await saveListing(listing);
-      navigate(`/admin/listing/${id}`);
+      // Send the landlord straight into photo upload — the natural next step
+      // after basic listing info is saved.
+      navigate(`/admin/listing/${id}?step=photos`);
     } catch (err) {
       alert("Error saving listing: " + err.message);
     } finally {

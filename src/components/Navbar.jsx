@@ -3,11 +3,13 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 import { normalizeLang } from "../utils/lang";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
+import { isAdminSessionActive } from "../utils/trialAccess";
 
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
   return (
-    pathname === "/examples" ||
+    pathname === "/rentals" ||
+    pathname === "/examples" || // legacy URL — redirects to /rentals, but keep tenant chrome during the redirect flash
     pathname === "/tenant-contact" ||
     pathname === "/apply" ||
     pathname === "/supporting-documents" ||
@@ -30,7 +32,7 @@ const TENANT_NAV = {
     rentalListings: "Rental Listings",
     contact: "Contact",
     applyNow: "Apply Now",
-    admin: "Admin",
+    admin: "Admin Dashboard",
   },
   zh: {
     brand: "Vanisland 出租",
@@ -38,7 +40,7 @@ const TENANT_NAV = {
     rentalListings: "出租房源",
     contact: "联系",
     applyNow: "立即申请",
-    admin: "后台",
+    admin: "管理后台",
   },
 };
 
@@ -48,6 +50,9 @@ export default function Navbar({ lang, setLang }) {
   const safeLang = normalizeLang(lang);
   const tenant = isTenantRoute(pathname);
   const tenantLabels = TENANT_NAV[safeLang] || TENANT_NAV.en;
+  // Tenants never see "Admin" — only an already-logged-in admin session does.
+  // The admin dashboard itself still requires login; this only controls visibility of the nav link.
+  const showAdminLink = isAdminSessionActive();
   // When on a specific listing page, route Apply Now to the in-app form for that listing.
   const listingId = getListingIdFromPath(pathname);
   const applyTo = listingId ? `/apply/${listingId}` : "/apply";
@@ -65,9 +70,11 @@ export default function Navbar({ lang, setLang }) {
             {/* Desktop tenant links */}
             <ul className="navbar__links navbar__links--tenant" style={{ display: "flex" }}>
               <li><Link to="/" onClick={() => setOpen(false)}>{tenantLabels.home}</Link></li>
-              <li><Link to="/examples" onClick={() => setOpen(false)}>{tenantLabels.rentalListings}</Link></li>
+              <li><Link to="/rentals" onClick={() => setOpen(false)}>{tenantLabels.rentalListings}</Link></li>
               <li><Link to="/tenant-contact" onClick={() => setOpen(false)}>{tenantLabels.contact}</Link></li>
-              <li><Link to="/admin" className="admin-link" onClick={() => setOpen(false)}>{tenantLabels.admin}</Link></li>
+              {showAdminLink && (
+                <li><Link to="/admin" className="admin-link" onClick={() => setOpen(false)}>{tenantLabels.admin}</Link></li>
+              )}
               <li>
                 <Link
                   to={applyTo}
@@ -142,7 +149,7 @@ export default function Navbar({ lang, setLang }) {
           {[
             ["home", "/"],
             ["services", "/services"],
-            ["examples", "/examples"],
+            ["examples", "/rentals"],
             ["strategyAssessment", REVIEW_CENTER_PATH],
             ["saleListing", "/home-sale-studio"],
             ["resources", "/resources"],

@@ -63,7 +63,7 @@ export default function RentalWorkflowNav({ listing }) {
     copy:         "section-copy",
     video:        "section-photos",
     review:       "section-checklist",
-    publish:      "section-checklist",
+    publish:      "section-publish",
     applications: "section-details",
     leads:        "section-details",
   };

@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
-import { formatListingDate, formatMonthlyRent } from "../../utils/listingFormat";
+import { formatListingDate, formatMonthlyRent, splitFeatureList } from "../../utils/listingFormat";
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
 import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
@@ -274,6 +274,7 @@ export default function ListingDetail({ lang: langProp }) {
   const [error,         setError]         = useState(null);
   const [activeTab,     setActiveTab]     = useState(null);
   const [saving,        setSaving]        = useState(false);
+  const [publishBlockedItems, setPublishBlockedItems] = useState(null);
 
   // Initial Screening Summary (listing-level applicant ranking report) state
   const [screeningSummaryBusy, setScreeningSummaryBusy] = useState(false);
@@ -516,6 +517,21 @@ export default function ListingDetail({ lang: langProp }) {
     }
   };
 
+  // Primary publish entry point — validates readiness, then reuses updateOverallStatus.
+  const handlePublishListing = async () => {
+    if (publishMissing.length > 0) {
+      setPublishBlockedItems(publishMissing);
+      return;
+    }
+    setPublishBlockedItems(null);
+    await updateOverallStatus("Published");
+  };
+
+  const handleSaveAsDraft = async () => {
+    setPublishBlockedItems(null);
+    await updateOverallStatus("Draft");
+  };
+
   const toggleMediaCheck = (i) => {
     const mc = [...(listing.mediaChecklist || [false, false, false, false])];
     mc[i] = !mc[i];
@@ -633,7 +649,7 @@ export default function ListingDetail({ lang: langProp }) {
   };
 
   // ── Upload helpers ───────────────────────────────────────────────────────────
-  const MAX_BATCH = 10;
+  const MAX_BATCH = 20;
 
   const handleFileChange = (e) => {
     const MAX_PHOTOS = 50;
@@ -649,6 +665,8 @@ export default function ListingDetail({ lang: langProp }) {
     const clipped = selected.slice(0, Math.min(MAX_BATCH, remaining));
     if (selected.length > remaining) {
       setUploadMsg({ type: "error", text: lang === "zh" ? `还可上传 ${remaining} 张（总上限 ${MAX_PHOTOS} 张）。` : `Only ${remaining} more photo(s) can be uploaded (max ${MAX_PHOTOS} total).` });
+    } else if (selected.length > MAX_BATCH) {
+      setUploadMsg({ type: "error", text: lang === "zh" ? `一次最多上传 ${MAX_BATCH} 张，已选择 ${selected.length} 张，先上传前 ${MAX_BATCH} 张。剩余照片请再次选择上传。` : `You can upload up to ${MAX_BATCH} photos at once. You selected ${selected.length} — uploading the first ${MAX_BATCH} now. Select the rest in a second batch.` });
     }
     const batch = clipped;
     const oversized = batch.find((f) => f.size > MAX_FILE_MB * 1024 * 1024);
@@ -671,7 +689,7 @@ export default function ListingDetail({ lang: langProp }) {
     const errors = [];
     let succeeded = 0;
     for (let i = 0; i < files.length; i++) {
-      setUploadProgress(`Uploading ${i + 1} of ${files.length}…`);
+      setUploadProgress(lang === "zh" ? `正在上传第 ${i + 1} / ${files.length} 张…` : `Uploading ${i + 1} of ${files.length}…`);
       try {
         await uploadToSubfolder(folderId, "", files[i], id);
         succeeded++;
@@ -685,11 +703,16 @@ export default function ListingDetail({ lang: langProp }) {
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (errors.length > 0 && succeeded === 0) {
-      setUploadMsg({ type: "error", text: `Upload failed. ${errors[0]}` });
+      setUploadMsg({ type: "error", text: (lang === "zh" ? "上传失败。" : "Upload failed. ") + errors[0] });
     } else if (errors.length > 0) {
-      setUploadMsg({ type: "success", text: `Uploaded ${succeeded}. ${errors.length} failed: ${errors[0]}` });
+      setUploadMsg({
+        type: "success",
+        text: lang === "zh"
+          ? `成功上传 ${succeeded} 张，失败 ${errors.length} 张：${errors[0]}`
+          : `Uploaded ${succeeded} succeeded, ${errors.length} failed: ${errors[0]}`,
+      });
     } else {
-      setUploadMsg({ type: "success", text: `Uploaded ${succeeded} file(s) successfully.` });
+      setUploadMsg({ type: "success", text: lang === "zh" ? `成功上传 ${succeeded} 张照片。` : `Uploaded ${succeeded} photo(s) successfully.` });
     }
     if (succeeded > 0) await loadFolderFiles(folderId);
   };
@@ -728,6 +751,16 @@ export default function ListingDetail({ lang: langProp }) {
   // Build ordered + filtered photo arrays for all package sections
   const orderedPhotos = photoOrder.map((fid) => folderFiles.find((f) => f.fileId === fid)).filter(Boolean);
   const activePhotos  = orderedPhotos.filter((f) => !excluded.has(f.fileId));
+
+  // Publish readiness — reuses existing listing fields, no new schema needed.
+  const publishChecklist = [
+    { key: "info",   ok: !!(listing.address && listing.city), label: lang === "zh" ? "房源基本信息（地址/城市）" : "Basic listing info (address/city)" },
+    { key: "avail",  ok: !!listing.available,                 label: lang === "zh" ? "可入住日期" : "Available date" },
+    { key: "rent",   ok: !!listing.rent,                      label: lang === "zh" ? "租金" : "Monthly rent" },
+    { key: "photos", ok: activePhotos.length > 0,             label: lang === "zh" ? "至少一张房源照片" : "At least one listing photo" },
+    { key: "copy",   ok: outputKeys.length > 0,                label: lang === "zh" ? "已生成广告文案" : "Generated ad copy" },
+  ];
+  const publishMissing = publishChecklist.filter((c) => !c.ok).map((c) => c.label);
 
   // Effective cover: manual selection takes priority over auto-detect
   let effectiveCover, coverIsManual, coverIsFallback;
@@ -1008,9 +1041,7 @@ export default function ListingDetail({ lang: langProp }) {
     const avail  = fmtDate(listing.available);
     const addr   = listing.address || "";
     const pubUrl = buildRentalListingPublicUrl(listing.id);
-    const feats  = listing.features
-      ? listing.features.split(/[,\n·•]+/).map(s => s.trim()).filter(Boolean)
-      : [];
+    const feats  = splitFeatureList(listing.features);
 
     // ── Drawing helpers ──────────────────────────────────────────────────────
     const FF = "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
@@ -1902,219 +1933,6 @@ export default function ListingDetail({ lang: langProp }) {
       </div>
       </CollapsibleCard>
 
-      {/* Platform Outputs — with copy edit layer */}
-      <CollapsibleCard
-        title={t(lang, "detail.outputs")}
-        icon="📤"
-        defaultOpen={!activeStep || activeStep === "copy"}
-        id="section-copy"
-      >
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: infoEdited ? 8 : 16, flexWrap: "wrap", gap: 8 }}>
-          <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
-            📤 {t(lang, "detail.outputs")}
-          </h3>
-          <button
-            className="btn btn--ghost btn--sm"
-            onClick={regenerateCopy}
-            disabled={regenerating || saving}
-            title="Regenerate copy from current listing info. Application Requirements section is always included."
-          >
-            {regenerating ? "Regenerating…" : "↺ Regenerate Copy from Current Listing Info"}
-          </button>
-        </div>
-        {infoEdited && (
-          <div className="notice notice--info" style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: "0.8rem", lineHeight: 1.7 }}>
-              <strong>⚠️ Listing fields were edited after copy was generated.</strong>{" "}
-              Review the copy carefully — it may still reference old values (e.g. old Available Date).
-              Use the ✏️ Edit button on each tab to update the copy text if needed.
-            </p>
-          </div>
-        )}
-
-        <div className="tabs">
-          {outputKeys.map((key) => (
-            <button key={key} className={`tab-btn${currentTab === key ? " active" : ""}`}
-              onClick={() => { setActiveTab(key); if (copyEditMode && copyEditMode !== key) setCopyEditMode(null); }}>
-              {TAB_LABELS[key] || key}
-              {editedCopy[key] !== undefined && <span style={{ marginLeft: 4, fontSize: "0.65rem", color: "#f59e0b" }}>●</span>}
-            </button>
-          ))}
-        </div>
-
-        {currentTab && listing.outputs?.[currentTab] && (() => {
-          const displayText = editedCopy[currentTab] ?? listing.outputs[currentTab];
-          const isEditing   = copyEditMode === currentTab;
-          const hasDraft    = editedCopy[currentTab] !== undefined;
-          const copyStatus  = hasDraft ? "Edited Draft (local, unsaved)" : "Generated";
-          return (
-            <div className="output-card">
-              <div className="output-card__header">
-                <span className="output-card__platform">{TAB_LABELS[currentTab] || currentTab}</span>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.7rem", color: hasDraft ? "#f59e0b" : "var(--color-text-muted)", fontWeight: 600, border: `1px solid ${hasDraft ? "#fde68a" : "var(--color-border)"}`, borderRadius: 4, padding: "1px 6px" }}>
-                    {copyStatus}
-                  </span>
-                  {!isEditing && <CopyButton text={displayText} lang={lang} />}
-                  {!isEditing && (
-                    <button className="btn btn--ghost btn--sm" onClick={() => startEditCopy(currentTab)}>
-                      ✏️ Edit
-                    </button>
-                  )}
-                  {!isEditing && hasDraft && (
-                    <button className="btn btn--ghost btn--sm" style={{ color: "#dc2626" }}
-                      onClick={() => resetCopy(currentTab)}>
-                      Reset to Generated
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {isEditing ? (
-                <div>
-                  <textarea
-                    value={editingText}
-                    onChange={(e) => setEditingText(e.target.value)}
-                    style={{
-                      width: "100%", minHeight: 200, padding: "10px 12px",
-                      fontFamily: "inherit", fontSize: "0.875rem", lineHeight: 1.7,
-                      border: "1px solid var(--color-primary)", borderRadius: 6,
-                      resize: "vertical", boxSizing: "border-box",
-                    }}
-                  />
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button className="btn btn--primary btn--sm" onClick={saveDraftCopy}>
-                      💾 Save Draft
-                    </button>
-                    <button className="btn btn--ghost btn--sm" onClick={cancelEditCopy}>
-                      Cancel
-                    </button>
-                    <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", alignSelf: "center" }}>
-                      ⚠️ Unsaved local draft — not written to sheet until a save path is added.
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="output-card__body">{displayText}</div>
-              )}
-
-              <div className="output-card__controls">
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, marginRight: 6 }}>{t(lang, "detail.reviewStatus")}:</label>
-                  <select className="select-control" value={listing.reviewStatus?.[currentTab] || "Draft"}
-                    onChange={(e) => updateReviewStatus(currentTab, e.target.value)} disabled={saving}>
-                    {["Draft", "Reviewed", "Ready to Publish"].map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, marginRight: 6 }}>{t(lang, "detail.complianceFlag")}:</label>
-                  <select className="select-control" value={listing.complianceFlag?.[currentTab] || "Review Needed"}
-                    onChange={(e) => updateComplianceFlag(currentTab, e.target.value)} disabled={saving}>
-                    {["Clear", "Review Needed"].map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="output-card__compliance">
-                ⚠️ {t(lang, "detail.complianceNote")}<br />{t(lang, "detail.complianceNoteCh")}
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-      </CollapsibleCard>
-
-      {/* Media Checklist */}
-      <CollapsibleCard
-        title={t(lang, "detail.mediaChecklist")}
-        icon="🖼️"
-        defaultOpen={!activeStep || activeStep === "review" || activeStep === "publish"}
-        id="section-checklist"
-      >
-      <div className="card">
-        <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-          🖼️ {t(lang, "detail.mediaChecklist")}
-        </h3>
-        <ul className="media-checklist">
-          {mediaItems.map((item, i) => (
-            <li key={i}>
-              <input type="checkbox" checked={!!(listing.mediaChecklist?.[i])} onChange={() => toggleMediaCheck(i)} disabled={saving} />
-              <span style={{ textDecoration: listing.mediaChecklist?.[i] ? "line-through" : "none", color: listing.mediaChecklist?.[i] ? "var(--color-text-muted)" : "var(--color-text)" }}>
-                {item}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      </CollapsibleCard>
-
-      {/* ── Review Status Summary ──────────────────────────────────────────────── */}
-      {folderFiles.length > 0 && (
-        <div className="card mb-24" style={{ background: "#f8fafc" }}>
-          <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
-            📋 {lang === "zh" ? "审核状态" : "Review Status"}
-          </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Cover Photo</p>
-              <p style={{ fontSize: "0.85rem", fontWeight: 700 }}>
-                {coverIsManual ? "🟡 Manual Selected" : coverIsFallback ? "⚠️ Fallback" : "✅ Auto Detected"}
-              </p>
-              {effectiveCover && <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: 2 }}><code>{effectiveCover.name}</code></p>}
-              {coverIsManual && (
-                <button style={{ fontSize: "0.68rem", marginTop: 6, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  onClick={() => setManualCover(null)}>
-                  ↩ Revert to auto-detect
-                </button>
-              )}
-            </div>
-            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Active Ad Photos</p>
-              <p style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)" }}>{activePhotos.length}</p>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>of {folderFiles.length} total</p>
-            </div>
-            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Excluded Photos</p>
-              <p style={{ fontSize: "1.4rem", fontWeight: 800, color: excluded.size > 0 ? "#dc2626" : "var(--color-text-muted)" }}>{excluded.size}</p>
-              {excluded.size > 0 && (
-                <button style={{ fontSize: "0.68rem", marginTop: 4, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  onClick={() => setExcluded(new Set())}>
-                  Restore all
-                </button>
-              )}
-            </div>
-            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Listing Info</p>
-              <p style={{ fontSize: "0.85rem", fontWeight: 700, color: infoEdited ? "#16a34a" : "var(--color-text)" }}>
-                {infoEdited ? "✅ Saved to Sheet" : "Sheet Data"}
-              </p>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: 2 }}>
-                Available: <strong>{listing.available || "—"}</strong>
-              </p>
-              {infoEdited && (
-                <p style={{ fontSize: "0.72rem", color: "#d97706", marginTop: 2 }}>
-                  Review generated copy for old dates.
-                </p>
-              )}
-            </div>
-            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
-              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Copy Status</p>
-              {outputKeys.length === 0
-                ? <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>No generated copy</p>
-                : outputKeys.map((key) => (
-                    <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", marginBottom: 2 }}>
-                      <span style={{ color: "var(--color-text-muted)" }}>{TAB_LABELS[key] || key}</span>
-                      <span style={{ fontWeight: 600, color: editedCopy[key] !== undefined ? "#f59e0b" : "#16a34a" }}>
-                        {editedCopy[key] !== undefined ? "Edited Draft" : "Generated"}
-                      </span>
-                    </div>
-                  ))
-              }
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Property Photos */}
       <CollapsibleCard
         title={L.photoAssets}
@@ -2190,7 +2008,13 @@ export default function ListingDetail({ lang: langProp }) {
             )}
             {folderLoading && <p className="text-muted text-sm" style={{ marginBottom: 14 }}>Loading photos…</p>}
             {!folderLoading && folderFiles.length === 0 && (
-              <p className="text-muted text-sm" style={{ marginBottom: 14 }}>No JPG/PNG files found in this folder.</p>
+              <div className="notice notice--info" style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: "0.85rem" }}>
+                  {lang === "zh"
+                    ? "📤 还没有照片。请先使用上方「Upload Photos」按钮上传照片，之后才能使用封面选择与 AI 照片优化。"
+                    : <>📤 No photos yet. Use <strong>Upload Photos</strong> above first — cover selection and AI photo enhancement will unlock once photos are uploaded.</>}
+                </p>
+              </div>
             )}
 
             {/* ── Detected Cover Photo ─────────────────────────────────── */}
@@ -2214,7 +2038,7 @@ export default function ListingDetail({ lang: langProp }) {
                       {coverIsManual
                         ? <><strong style={{ color: "#f59e0b" }}>🟡 Manual Cover Selected</strong><br />File: <code>{effectiveCover.name}</code></>
                         : coverIsFallback
-                          ? <><strong style={{ color: "#d97706" }}>⚠️ Fallback cover in use</strong><br />File: <code>{effectiveCover.name}</code></>
+                          ? <><strong style={{ color: "#d97706" }}>📷 Current Cover</strong><br />File: <code>{effectiveCover.name}</code></>
                           : <><strong style={{ color: "var(--color-text)" }}>✅ Cover auto-detected</strong><br />Filename starts with "1": <code>{effectiveCover.name}</code></>
                       }
                       <br />{lang === "zh" ? "此图将作为房源主图使用。" : "This photo will be used as the listing cover image."}<br />
@@ -2886,6 +2710,286 @@ export default function ListingDetail({ lang: langProp }) {
         )}
       </div>
       </CollapsibleCard>
+
+      {/* Platform Outputs — with copy edit layer */}
+      <CollapsibleCard
+        title={t(lang, "detail.outputs")}
+        icon="📤"
+        defaultOpen={!activeStep || activeStep === "copy"}
+        id="section-copy"
+      >
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: infoEdited ? 8 : 16, flexWrap: "wrap", gap: 8 }}>
+          <h3 style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-primary)", margin: 0 }}>
+            📤 {t(lang, "detail.outputs")}
+          </h3>
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={regenerateCopy}
+            disabled={regenerating || saving}
+            title="Regenerate copy from current listing info. Application Requirements section is always included."
+          >
+            {regenerating ? "Regenerating…" : "↺ Regenerate Copy from Current Listing Info"}
+          </button>
+        </div>
+        {infoEdited && (
+          <div className="notice notice--info" style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: "0.8rem", lineHeight: 1.7 }}>
+              <strong>⚠️ Listing fields were edited after copy was generated.</strong>{" "}
+              Review the copy carefully — it may still reference old values (e.g. old Available Date).
+              Use the ✏️ Edit button on each tab to update the copy text if needed.
+            </p>
+          </div>
+        )}
+
+        <div className="tabs">
+          {outputKeys.map((key) => (
+            <button key={key} className={`tab-btn${currentTab === key ? " active" : ""}`}
+              onClick={() => { setActiveTab(key); if (copyEditMode && copyEditMode !== key) setCopyEditMode(null); }}>
+              {TAB_LABELS[key] || key}
+              {editedCopy[key] !== undefined && <span style={{ marginLeft: 4, fontSize: "0.65rem", color: "#f59e0b" }}>●</span>}
+            </button>
+          ))}
+        </div>
+
+        {currentTab && listing.outputs?.[currentTab] && (() => {
+          const displayText = editedCopy[currentTab] ?? listing.outputs[currentTab];
+          const isEditing   = copyEditMode === currentTab;
+          const hasDraft    = editedCopy[currentTab] !== undefined;
+          const copyStatus  = hasDraft ? "Edited Draft (local, unsaved)" : "Generated";
+          return (
+            <div className="output-card">
+              <div className="output-card__header">
+                <span className="output-card__platform">{TAB_LABELS[currentTab] || currentTab}</span>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.7rem", color: hasDraft ? "#f59e0b" : "var(--color-text-muted)", fontWeight: 600, border: `1px solid ${hasDraft ? "#fde68a" : "var(--color-border)"}`, borderRadius: 4, padding: "1px 6px" }}>
+                    {copyStatus}
+                  </span>
+                  {!isEditing && <CopyButton text={displayText} lang={lang} />}
+                  {!isEditing && (
+                    <button className="btn btn--ghost btn--sm" onClick={() => startEditCopy(currentTab)}>
+                      ✏️ Edit
+                    </button>
+                  )}
+                  {!isEditing && hasDraft && (
+                    <button className="btn btn--ghost btn--sm" style={{ color: "#dc2626" }}
+                      onClick={() => resetCopy(currentTab)}>
+                      Reset to Generated
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {isEditing ? (
+                <div>
+                  <textarea
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    style={{
+                      width: "100%", minHeight: 200, padding: "10px 12px",
+                      fontFamily: "inherit", fontSize: "0.875rem", lineHeight: 1.7,
+                      border: "1px solid var(--color-primary)", borderRadius: 6,
+                      resize: "vertical", boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button className="btn btn--primary btn--sm" onClick={saveDraftCopy}>
+                      💾 Save Draft
+                    </button>
+                    <button className="btn btn--ghost btn--sm" onClick={cancelEditCopy}>
+                      Cancel
+                    </button>
+                    <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", alignSelf: "center" }}>
+                      ⚠️ Unsaved local draft — not written to sheet until a save path is added.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="output-card__body">{displayText}</div>
+              )}
+
+              <div className="output-card__controls">
+                <div>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, marginRight: 6 }}>{t(lang, "detail.reviewStatus")}:</label>
+                  <select className="select-control" value={listing.reviewStatus?.[currentTab] || "Draft"}
+                    onChange={(e) => updateReviewStatus(currentTab, e.target.value)} disabled={saving}>
+                    {["Draft", "Reviewed", "Ready to Publish"].map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, marginRight: 6 }}>{t(lang, "detail.complianceFlag")}:</label>
+                  <select className="select-control" value={listing.complianceFlag?.[currentTab] || "Review Needed"}
+                    onChange={(e) => updateComplianceFlag(currentTab, e.target.value)} disabled={saving}>
+                    {["Clear", "Review Needed"].map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="output-card__compliance">
+                ⚠️ {t(lang, "detail.complianceNote")}<br />{t(lang, "detail.complianceNoteCh")}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+      </CollapsibleCard>
+
+      {/* Media Checklist */}
+      <CollapsibleCard
+        title={t(lang, "detail.mediaChecklist")}
+        icon="🖼️"
+        defaultOpen={!activeStep || activeStep === "review" || activeStep === "publish"}
+        id="section-checklist"
+      >
+      <div className="card">
+        <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: "0.95rem", color: "var(--color-primary)" }}>
+          🖼️ {t(lang, "detail.mediaChecklist")}
+        </h3>
+        <ul className="media-checklist">
+          {mediaItems.map((item, i) => (
+            <li key={i}>
+              <input type="checkbox" checked={!!(listing.mediaChecklist?.[i])} onChange={() => toggleMediaCheck(i)} disabled={saving} />
+              <span style={{ textDecoration: listing.mediaChecklist?.[i] ? "line-through" : "none", color: listing.mediaChecklist?.[i] ? "var(--color-text-muted)" : "var(--color-text)" }}>
+                {item}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      </CollapsibleCard>
+
+      {/* ── Review Status Summary ──────────────────────────────────────────────── */}
+      {folderFiles.length > 0 && (
+        <div className="card mb-24" style={{ background: "#f8fafc" }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: "0.95rem", color: "var(--color-primary)" }}>
+            📋 {lang === "zh" ? "审核状态" : "Review Status"}
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Cover Photo</p>
+              <p style={{ fontSize: "0.85rem", fontWeight: 700 }}>
+                {coverIsManual ? "🟡 Manual Selected" : coverIsFallback ? "📷 Current Cover" : "✅ Auto Detected"}
+              </p>
+              {effectiveCover && <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: 2 }}><code>{effectiveCover.name}</code></p>}
+              {coverIsManual && (
+                <button style={{ fontSize: "0.68rem", marginTop: 6, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  onClick={() => setManualCover(null)}>
+                  ↩ Revert to auto-detect
+                </button>
+              )}
+            </div>
+            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Active Ad Photos</p>
+              <p style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)" }}>{activePhotos.length}</p>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>of {folderFiles.length} total</p>
+            </div>
+            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Excluded Photos</p>
+              <p style={{ fontSize: "1.4rem", fontWeight: 800, color: excluded.size > 0 ? "#dc2626" : "var(--color-text-muted)" }}>{excluded.size}</p>
+              {excluded.size > 0 && (
+                <button style={{ fontSize: "0.68rem", marginTop: 4, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  onClick={() => setExcluded(new Set())}>
+                  Restore all
+                </button>
+              )}
+            </div>
+            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Listing Info</p>
+              <p style={{ fontSize: "0.85rem", fontWeight: 700, color: infoEdited ? "#16a34a" : "var(--color-text)" }}>
+                {infoEdited ? "✅ Saved to Sheet" : "Sheet Data"}
+              </p>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", marginTop: 2 }}>
+                Available: <strong>{listing.available || "—"}</strong>
+              </p>
+              {infoEdited && (
+                <p style={{ fontSize: "0.72rem", color: "#d97706", marginTop: 2 }}>
+                  Review generated copy for old dates.
+                </p>
+              )}
+            </div>
+            <div style={{ background: "#fff", border: "1px solid var(--color-border)", borderRadius: 7, padding: "10px 14px" }}>
+              <p style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Copy Status</p>
+              {outputKeys.length === 0
+                ? <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>No generated copy</p>
+                : outputKeys.map((key) => (
+                    <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", marginBottom: 2 }}>
+                      <span style={{ color: "var(--color-text-muted)" }}>{TAB_LABELS[key] || key}</span>
+                      <span style={{ fontWeight: 600, color: editedCopy[key] !== undefined ? "#f59e0b" : "#16a34a" }}>
+                        {editedCopy[key] !== undefined ? "Edited Draft" : "Generated"}
+                      </span>
+                    </div>
+                  ))
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Publish Action Panel ─────────────────────────────────────────────── */}
+      <div className="card mb-24" id="section-publish" style={{ border: "2px solid var(--color-primary)" }}>
+        <h3 style={{ fontWeight: 700, marginBottom: 4, fontSize: "1rem", color: "var(--color-primary)" }}>
+          🚀 {lang === "zh" ? "发布房源" : "Publish Listing"}
+        </h3>
+        <p className="text-muted text-sm" style={{ marginBottom: 14 }}>
+          {lang === "zh"
+            ? "确认以下内容准备就绪后发布，租客即可在公开房源页面看到并申请。"
+            : "Confirm the items below are ready, then publish — tenants will be able to see and apply for this listing on the public page."}
+        </p>
+
+        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", display: "grid", gap: 6 }}>
+          {publishChecklist.map((c) => (
+            <li key={c.key} style={{ fontSize: "0.85rem", color: c.ok ? "#16a34a" : "#dc2626", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>{c.ok ? "✅" : "❌"}</span> {c.label}
+            </li>
+          ))}
+        </ul>
+
+        {publishBlockedItems && (
+          <div className="notice notice--error" style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: "0.85rem" }}>
+              <strong>{lang === "zh" ? "⚠️ 尚不能发布 — 缺少：" : "⚠️ Cannot publish yet — missing:"}</strong>
+              <br />{publishBlockedItems.join(lang === "zh" ? "、" : ", ")}
+            </p>
+          </div>
+        )}
+
+        {listing.status === "Published" && (
+          <div className="notice notice--success" style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: "0.9rem", fontWeight: 700 }}>✅ {lang === "zh" ? "已发布" : "Published"}</p>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" className="btn btn--primary" disabled={saving} onClick={handlePublishListing}>
+            {saving
+              ? (lang === "zh" ? "处理中…" : "Working…")
+              : listing.status === "Published"
+                ? (lang === "zh" ? "🚀 重新发布" : "🚀 Re-publish")
+                : (lang === "zh" ? "🚀 发布房源" : "🚀 Publish Listing")}
+          </button>
+          <button type="button" className="btn btn--ghost" disabled={saving || listing.status === "Draft"} onClick={handleSaveAsDraft}>
+            💾 {lang === "zh" ? "保存为草稿" : "Save Draft"}
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => document.getElementById("section-details")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            ← {lang === "zh" ? "返回修改" : "Back to Edit"}
+          </button>
+        </div>
+
+        {listing.status === "Published" && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--color-border)" }}>
+            <a href={`/listings/${listing.id}`} target="_blank" rel="noopener noreferrer" className="btn btn--ghost btn--sm">
+              🔗 {L.openPublicListingPreview}
+            </a>
+            <Link to={`/admin/leads?listingId=${encodeURIComponent(listing.id)}`} className="btn btn--ghost btn--sm">
+              {lang === "zh" ? "查看租客申请" : "View Tenant Applications"}
+            </Link>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

@@ -70,7 +70,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
             <span className="lh-nav-item__icon">🏷️</span>
             <span><strong>{n.services}</strong></span>
           </NavLink>
-          <NavLink to="/examples" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
+          <NavLink to="/rentals" className={({ isActive }) => `lh-nav-item${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">🏢</span>
             <span><strong>{n.rental}</strong></span>
           </NavLink>

@@ -355,7 +355,7 @@ export default function SupportDocuments() {
       {!publicListingId && (
         <div className="notice notice--warm">
           <p>Please open this page from a current rental listing.</p>
-          <Link to="/examples" className="btn btn--ghost btn--sm" style={{ marginTop: 10 }}>View Rental Listings</Link>
+          <Link to="/rentals" className="btn btn--ghost btn--sm" style={{ marginTop: 10 }}>View Rental Listings</Link>
         </div>
       )}
 
@@ -369,7 +369,7 @@ export default function SupportDocuments() {
           <p style={{ color: "var(--color-text-muted)", lineHeight: 1.7, marginBottom: 16 }}>
             {CLOSED_MESSAGE}
           </p>
-          <Link to="/examples" className="btn btn--primary">View Available Rentals</Link>
+          <Link to="/rentals" className="btn btn--primary">View Available Rentals</Link>
         </div>
       )}
 

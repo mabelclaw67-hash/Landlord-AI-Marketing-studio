@@ -57,7 +57,7 @@ export default function TenantContact() {
             View all current listings before you apply.
           </p>
           <Link
-            to="/examples"
+            to="/rentals"
             style={{
               display: "block", textAlign: "center",
               border: "1.5px solid var(--color-primary)", color: "var(--color-primary)",

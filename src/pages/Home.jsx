@@ -669,7 +669,7 @@ export default function Home({ lang }) {
               <div className="lh-platform-card__eyebrow">{s.rentalEyebrow}</div>
               <h3>{s.rentalCardTitle}</h3>
               <p>{s.rentalCardDesc}</p>
-              <Link to="/examples" className="lh-btn lh-btn--sand">{s.rentalCardTitle}</Link>
+              <Link to="/rentals" className="lh-btn lh-btn--sand">{s.rentalCardTitle}</Link>
             </article>
 
             <article className="lh-platform-card">

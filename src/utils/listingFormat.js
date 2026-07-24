@@ -45,3 +45,21 @@ export function formatMonthlyRent(rent, lang) {
   const suffix = lang === "zh" ? "/月" : "/mo";
   return `$${n.toLocaleString()}${suffix}`;
 }
+
+/**
+ * Split a "Key Features" field into a list of bullet items.
+ *
+ * The field is documented to landlords as a comma-separated tag list
+ * ("Mountain views, hardwood floors, updated kitchen"), so commas are still
+ * a valid separator — but a comma should never break a plain-English
+ * sentence apart at a thousands separator ("2,000 sq ft") or a date
+ * ("September 1, 2026"). Newlines and bullet characters (• ·) are always
+ * treated as explicit separators.
+ */
+export function splitFeatureList(raw) {
+  if (!raw || !String(raw).trim()) return [];
+  return String(raw)
+    .split(/\n+|[•·]+|,(?!\d)(?!\s*\d{4}\b)/)
+    .map((f) => f.trim())
+    .filter(Boolean);
+}
