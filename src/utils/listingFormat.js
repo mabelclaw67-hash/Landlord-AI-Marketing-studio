@@ -63,3 +63,82 @@ export function splitFeatureList(raw) {
     .map((f) => f.trim())
     .filter(Boolean);
 }
+
+// Known section labels inside a listing's ad-copy field. Matched whole-line,
+// case-insensitive, trailing colon optional — never inferred from punctuation.
+const AD_COPY_SECTION_HEADINGS = [
+  "highlights",
+  "location",
+  "lease details",
+  "utilities",
+  "application",
+  "open house & contact",
+  "open house and contact",
+];
+
+function isAdCopyHeadingLine(line) {
+  const normalized = line.trim().replace(/:$/, "").toLowerCase();
+  return AD_COPY_SECTION_HEADINGS.includes(normalized);
+}
+
+// A line counts as an explicit bullet only when it starts (after leading
+// whitespace) with a real list marker — never inferred from a comma,
+// semicolon, period, or mid-sentence dash.
+const AD_COPY_BULLET_LINE = /^[ \t]*[•·\-*][ \t]+/;
+
+/**
+ * Parse a listing's free-text ad-copy field ("features") into display
+ * blocks — paragraphs, section headings, and bullet lists — without ever
+ * treating a comma, semicolon, period, or dash as a list separator.
+ *
+ * A line becomes a bullet-list item only if it already starts with an
+ * explicit marker (•, ·, -, *) or a known section heading (Highlights,
+ * Location, Lease Details, Utilities, Application, Open House & Contact)
+ * precedes it. Everything else stays a plain paragraph line, exactly as
+ * typed. Blank lines end a running list/paragraph run but are otherwise
+ * dropped. If the field has no recognizable structure at all, the whole
+ * thing falls back to a single paragraph — never a guessed split.
+ *
+ * Returns an array of:
+ *   { type: "heading",   text: string }
+ *   { type: "paragraph", text: string }
+ *   { type: "list",      items: string[] }
+ */
+export function parseListingAdCopy(raw) {
+  const text = String(raw || "").replace(/\r\n?/g, "\n");
+  if (!text.trim()) return [];
+
+  const blocks = [];
+  let currentList = null;
+
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      currentList = null;
+      continue;
+    }
+
+    if (isAdCopyHeadingLine(line)) {
+      blocks.push({ type: "heading", text: line.replace(/:$/, "") });
+      currentList = null;
+      continue;
+    }
+
+    const bulletMatch = rawLine.match(AD_COPY_BULLET_LINE);
+    if (bulletMatch) {
+      const item = rawLine.slice(bulletMatch[0].length).trim();
+      if (!item) continue;
+      if (!currentList) {
+        currentList = [];
+        blocks.push({ type: "list", items: currentList });
+      }
+      currentList.push(item);
+      continue;
+    }
+
+    blocks.push({ type: "paragraph", text: line });
+    currentList = null;
+  }
+
+  return blocks;
+}

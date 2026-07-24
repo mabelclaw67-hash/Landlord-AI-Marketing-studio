@@ -738,6 +738,32 @@ tr:hover td { background: #F9F6F0; }
 }
 
 /* =====================
+   Public Listing Detail — ad copy (headline / paragraphs / highlight lists)
+   ===================== */
+.listing-ad-copy { max-width: 68ch; }
+.listing-ad-copy__heading {
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-text-muted); margin: 20px 0 8px;
+}
+.listing-ad-copy__heading:first-child { margin-top: 0; }
+.listing-ad-copy__paragraph {
+  font-size: 0.92rem; line-height: 1.7; color: var(--color-text); margin: 0 0 12px;
+}
+.listing-ad-copy__list {
+  list-style: none; margin: 0 0 12px; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px;
+}
+.listing-ad-copy__list li {
+  display: flex; gap: 7px; align-items: flex-start;
+  font-size: 0.88rem; line-height: 1.5; color: var(--color-text);
+}
+.listing-ad-copy__list li::before { content: "•"; color: #3e5b4b; font-weight: 700; flex-shrink: 0; }
+
+@media (max-width: 768px) {
+  .listing-ad-copy__list { grid-template-columns: 1fr; }
+}
+
+/* =====================
    Public Listing Detail — mobile
    ===================== */
 @media (max-width: 600px) {

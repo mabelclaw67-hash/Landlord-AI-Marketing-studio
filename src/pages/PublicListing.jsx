@@ -14,7 +14,7 @@ import {
   resolveRentalListingCover,
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
-import { splitFeatureList } from "../utils/listingFormat";
+import { parseListingAdCopy } from "../utils/listingFormat";
 
 const PUBLIC_LISTING_TEXT = {
   en: {
@@ -30,6 +30,7 @@ const PUBLIC_LISTING_TEXT = {
     perMonthShort: "/mo",
     propertyDetails: "Property Details",
     keyFeatures: "Key Features",
+    aboutProperty: "About This Property",
     loadingPhotos: "Loading photos...",
     photos: "photos",
     applyTitle: "Apply for This Rental",
@@ -57,6 +58,7 @@ const PUBLIC_LISTING_TEXT = {
     perMonthShort: "每月",
     propertyDetails: "房源详情",
     keyFeatures: "主要特点",
+    aboutProperty: "房源介绍",
     loadingPhotos: "正在加载照片...",
     photos: "张照片",
     applyTitle: "申请此出租房源",
@@ -257,7 +259,7 @@ export default function PublicListing({ lang = "en" }) {
     [safeLang === "zh" ? "吸烟政策" : "Smoking Policy", listing.smoking],
   ].filter(([, v]) => v);
 
-  const featureList = splitFeatureList(listing.features);
+  const adCopyBlocks = parseListingAdCopy(listing.features);
   const statusMeta = getListingStatusMeta(listing);
   const acceptsApplications = isRentalListingAcceptingApplications(listing);
   const openHouseInfo = getOpenHouseInfo(listing);
@@ -673,20 +675,31 @@ export default function PublicListing({ lang = "en" }) {
                 ))}
               </div>
 
-              {featureList.length > 0 && (
-                <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--color-border)" }}>
-                  <div style={{ ...labelStyle, marginBottom: 10 }}>{labels.keyFeatures}</div>
-                  <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {featureList.map((f, i) => (
-                      <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.9rem", lineHeight: 1.55 }}>
-                        <span style={{ color: "#3e5b4b", fontWeight: 700, flexShrink: 0 }}>•</span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
+
+            {/* ── About This Property (ad copy: paragraphs + real Highlights) ───── */}
+            {adCopyBlocks.length > 0 && (
+              <div style={{ ...sectionCard, marginTop: 24 }}>
+                <h2 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 16, color: "#3e5b4b" }}>
+                  {labels.aboutProperty}
+                </h2>
+                <div className="listing-ad-copy">
+                  {adCopyBlocks.map((block, i) => {
+                    if (block.type === "heading") {
+                      return <div key={i} className="listing-ad-copy__heading">{block.text}</div>;
+                    }
+                    if (block.type === "list") {
+                      return (
+                        <ul key={i} className="listing-ad-copy__list">
+                          {block.items.map((item, j) => <li key={j}>{item}</li>)}
+                        </ul>
+                      );
+                    }
+                    return <p key={i} className="listing-ad-copy__paragraph">{block.text}</p>;
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── Apply for This Rental ────────────────────────────────────────── */}
             <div style={{
