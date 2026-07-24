@@ -101,6 +101,7 @@ function escapePrintHtml(value) {
 
 function CoverPhoto({ file }) {
   const src = resolveRentalListingImageSrc(file);
+  const isGenerated = !!file?.isGeneratedCover;
   const [failed, setFailed] = useState(false);
 
   if (failed || !src) {
@@ -111,12 +112,19 @@ function CoverPhoto({ file }) {
       </div>
     );
   }
+  // Generated collages bake price/date/badge text into a fixed 4:3 canvas —
+  // give them a container matching that ratio so nothing gets cropped.
+  // Regular photos keep the original capped-height crop behavior.
   return (
     <img
       src={src}
       alt="Property cover"
       onError={() => setFailed(true)}
-      style={{ width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }}
+      style={
+        isGenerated
+          ? { width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }
+          : { width: "100%", maxHeight: 340, objectFit: "cover", display: "block" }
+      }
     />
   );
 }

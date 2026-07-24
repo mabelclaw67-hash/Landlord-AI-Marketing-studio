@@ -271,6 +271,7 @@ const RENTAL_PUBLIC_TEXT = {
 // Always renders the photo area — shows a placeholder when no URL or image fails to load.
 function ListingCardCover({ coverPhoto, label }) {
   const src = resolveRentalListingImageSrc(coverPhoto);
+  const isGenerated = !!coverPhoto?.isGeneratedCover;
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -278,13 +279,13 @@ function ListingCardCover({ coverPhoto, label }) {
   }, [src]);
 
   return (
-    <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#eef2f0", aspectRatio: "16/10" }}>
+    <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: isGenerated ? "#f5f2ea" : "#eef2f0", aspectRatio: "16/10" }}>
       {src && !failed ? (
         <img
           src={src}
           alt="Listing cover"
           onError={() => setFailed(true)}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{ width: "100%", height: "100%", objectFit: isGenerated ? "contain" : "cover", display: "block" }}
         />
       ) : (
         <div style={{

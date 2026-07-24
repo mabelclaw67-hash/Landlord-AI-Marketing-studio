@@ -295,18 +295,29 @@ export function extractDriveFolderId(link) {
   return match ? match[1] : null;
 }
 
+// Tags the resolved cover file with `isGeneratedCover` so display layers can
+// apply different fit rules to the AI-generated collage (baked-in text
+// overlay, fixed 4:3 canvas) without cropping it like a regular photo.
+// `coverImageFileId` is the most reliable signal — it is written to the
+// sheet only by the collage "Save as Cover" flow (see ListingDetail.jsx).
+// The "collage_cover__" filename prefix is a fallback for the rare case
+// where a collage sits in the cover folder without that field being set.
+function tagGeneratedCover(file, isGeneratedCover) {
+  return file ? { ...file, isGeneratedCover } : file;
+}
+
 export function resolveRentalListingCover(rootPhotos = [], coverFiles = [], coverImageFileId = "") {
   const allFiles = [...coverFiles, ...rootPhotos];
   if (coverImageFileId) {
     const match = allFiles.find((file) => file.fileId === coverImageFileId);
-    if (match) return match;
-    return {
+    if (match) return tagGeneratedCover(match, true);
+    return tagGeneratedCover({
       fileId: coverImageFileId,
       name: "cover-image",
       thumbUrl: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w640-h480`,
       thumbUrlLg: `https://drive.google.com/thumbnail?id=${coverImageFileId}&sz=w1600`,
       url: "",
-    };
+    }, true);
   }
 
   if (allFiles.length === 0) return null;
@@ -315,14 +326,14 @@ export function resolveRentalListingCover(rootPhotos = [], coverFiles = [], cove
     const collages = coverFiles
       .filter((file) => file.name && file.name.startsWith("collage_cover__"))
       .sort((a, b) => b.name.localeCompare(a.name));
-    if (collages.length > 0) return collages[0];
-    return coverFiles[0];
+    if (collages.length > 0) return tagGeneratedCover(collages[0], true);
+    return tagGeneratedCover(coverFiles[0], false);
   }
 
   const sortedRootPhotos = [...rootPhotos].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { numeric: true })
   );
-  return sortedRootPhotos.find((file) => /^1/i.test(file.name)) || sortedRootPhotos[0];
+  return tagGeneratedCover(sortedRootPhotos.find((file) => /^1/i.test(file.name)) || sortedRootPhotos[0], false);
 }
 
 export function resolveRentalListingImageSrc(file) {
