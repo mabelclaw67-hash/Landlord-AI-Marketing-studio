@@ -31,6 +31,40 @@ import { renderStructuredProfessionalReportHtml } from "../components/reports/pr
 
 const DISPUTE_REPORT_SESSION_KEY = "vipm_dispute_review_report_v1";
 
+// Step 7 material guidance, keyed by Dispute Type. Every dispute type shares
+// the same upload step, action, and storage — only this hint text changes.
+const DISPUTE_UPLOAD_EXAMPLES = {
+  RTB: {
+    en: "For RTB matters, upload: the tenancy agreement, notices and applications, inspection reports, payment records, communications, photographs, and proof of service.",
+    zh: "如为 RTB 案件，请上传：租约、通知书及申请文件、检查报告、付款记录、往来沟通记录、照片及送达证明。",
+  },
+  CRT: {
+    en: "For CRT matters, upload: the dispute notice, response, submissions, evidence, correspondence, and any orders or directions.",
+    zh: "如为 CRT 案件，请上传：争议通知、答辩、陈述材料、证据、往来信件及任何命令或指示。",
+  },
+  Strata: {
+    en: "For Strata matters, upload: bylaws, notices, council correspondence, hearing requests, minutes, photographs, and invoices or professional reports.",
+    zh: "如为 Strata 案件，请上传：章程、通知书、与管委会的往来信件、听证申请、会议记录、照片及发票或专业报告。",
+  },
+  "Small Claims": {
+    en: "For Small Claims matters, upload: the Notice of Claim, Reply, contracts, invoices, payment records, correspondence, and service documents.",
+    zh: "如为小额索偿案件，请上传：Notice of Claim、Reply、合同、发票、付款记录、往来信件及送达文件。",
+  },
+  "Supreme Court Litigation": {
+    en: "For Supreme Court Litigation, upload: pleadings, affidavits, exhibits, application records, court orders, service evidence, expert reports, insurance documents, and correspondence.",
+    zh: "如为 BC省高等法院民事诉讼，请上传：诉讼文件、宣誓陈述书、证物、申请记录、法院命令、送达证据、专家报告、保险文件及往来信件。",
+  },
+  Other: {
+    en: "Upload: any relevant agreements, notices, communications, photographs, financial records, and other supporting evidence.",
+    zh: "请上传：任何相关协议、通知书、往来沟通记录、照片、财务记录及其他支持证据。",
+  },
+};
+
+function getDisputeUploadExamples(disputeType, lang) {
+  const entry = DISPUTE_UPLOAD_EXAMPLES[disputeType] || DISPUTE_UPLOAD_EXAMPLES.Other;
+  return lang === "zh" ? entry.zh : entry.en;
+}
+
 function saveDisputeReportSession(payload) {
   try {
     sessionStorage.setItem(DISPUTE_REPORT_SESSION_KEY, JSON.stringify(payload));
@@ -141,7 +175,6 @@ const L = {
       title: "Documents & Evidence",
       intro: "Upload the documents your dispute relies on. You can upload several files at once.",
       limits: `Accepted: PDF, JPG, PNG, HEIC, WEBP, DOC, DOCX, TXT, CSV, XLS, XLSX. Up to 15 MB per file and ${DISPUTE_MAX_FILES} files in total.`,
-      examples: "Examples: tenancy agreement, notices, applications and responses, email or message screenshots, payment records, invoices, inspection photos, strata documents, tribunal or court documents. For Supreme Court Litigation: the pleading (Notice of Civil Claim, Petition, or Notice of Application), affidavits, exhibits, court orders, expert reports and correspondence.",
       category: "Document category",
       documentDate: "Document date",
       senderIssuer: "Sender / issuer",
@@ -160,6 +193,10 @@ const L = {
       errSize: "{name}: this file is larger than the 15 MB limit.",
       errCount: `You can upload at most ${DISPUTE_MAX_FILES} files.`,
       setCategoryFirst: "Please choose a document category before selecting files.",
+    },
+    cta: {
+      button: "Upload Case Documents and Start AI Review",
+      helper: "Complete the case intake first. Document upload is available in the “Documents and Evidence” step. This service provides an AI-assisted preliminary review and is not legal advice.",
     },
     consentText: "I agree to be contacted about this preliminary review.",
     privacyText: "I agree that the information and documents I provide may be stored and used for this preliminary review.",
@@ -286,7 +323,6 @@ const L = {
       title: "文件与证据",
       intro: "请上传您争议所依据的文件。可以一次上传多个文件。",
       limits: `支持格式：PDF、JPG、PNG、HEIC、WEBP、DOC、DOCX、TXT、CSV、XLS、XLSX。每个文件不超过 15 MB，最多 ${DISPUTE_MAX_FILES} 个文件。`,
-      examples: "例如：租约、通知书、申请与答辩、邮件或信息截图、付款记录、发票、检查照片、分契物业文件、仲裁机构或法院文件。如为 BC省高等法院民事诉讼：诉讼文件（民事诉讼通知书、呈请状或申请通知）、宣誓陈述书、证物、法院命令、专家报告及往来信件。",
       category: "文件类别",
       documentDate: "文件日期",
       senderIssuer: "发出方 / 签发方",
@@ -305,6 +341,10 @@ const L = {
       errSize: "{name}：文件超过 15 MB 上限。",
       errCount: `最多只能上传 ${DISPUTE_MAX_FILES} 个文件。`,
       setCategoryFirst: "请先选择文件类别，再选择文件。",
+    },
+    cta: {
+      button: "上传案件材料并开始初评",
+      helper: "请先完成案件基本资料。文件上传位于“文件与证据”步骤。本服务提供 AI 辅助初评，不构成法律意见。",
     },
     consentText: "我同意就本次初步审阅与我联系。",
     privacyText: "我同意我所提供的信息和文件可被保存并用于本次初步审阅。",
@@ -379,6 +419,10 @@ export default function DisputeReview({ lang }) {
   const sessionReport = routeReviewId ? readDisputeReportSession() : null;
   const publicReport = sessionReport?.reviewId === routeReviewId ? sessionReport : null;
   const isLastStep = step === copy.steps.length - 1;
+
+  const scrollToIntake = () => {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Reserve the Review ID and its Drive folder as soon as the client reaches
   // the upload step, so every file is linked to the right record from the start.
@@ -744,7 +788,7 @@ export default function DisputeReview({ lang }) {
       return (
         <Section title={copy.upload.title}>
           <p>{copy.upload.intro}</p>
-          <p className="strategy-help">{copy.upload.examples}</p>
+          <p className="strategy-help">{getDisputeUploadExamples(form.disputeType, safeLang)}</p>
           <p className="strategy-help">{copy.upload.limits}</p>
 
           {!uploadAvailable ? (
@@ -934,6 +978,10 @@ export default function DisputeReview({ lang }) {
         <ul className="strategy-hero-bullets">
           {copy.bullets.map((item) => <li key={item}>{item}</li>)}
         </ul>
+        <button type="button" className="btn btn--sage" style={{ marginTop: 24 }} onClick={scrollToIntake}>
+          {copy.cta.button}
+        </button>
+        <p className="strategy-help">{copy.cta.helper}</p>
       </section>
 
       <section className="section">
@@ -954,6 +1002,13 @@ export default function DisputeReview({ lang }) {
             </ul>
             <p className="strategy-help">{copy.receive.footer}</p>
           </Section>
+
+          <div style={{ textAlign: "center", marginTop: 8, paddingTop: 24, borderTop: "1px solid #e5dfd6" }}>
+            <button type="button" className="btn btn--sage" onClick={scrollToIntake}>
+              {copy.cta.button}
+            </button>
+            <p className="strategy-help" style={{ maxWidth: 560, margin: "10px auto 0" }}>{copy.cta.helper}</p>
+          </div>
         </div>
       </section>
 
