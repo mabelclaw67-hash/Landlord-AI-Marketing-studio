@@ -321,6 +321,16 @@ function submitDisputeReview_(data) {
       var idx = headers.indexOf(name);
       if (idx >= 0 && disputeText_(current[idx])) record[name] = current[idx];
     });
+    // "AI Analysis JSON" also carries an admin-generated content analysis
+    // once one exists (see DisputeAiAnalysis.gs's versioned envelope). A
+    // resubmission of the plain intake must never silently erase that work.
+    // Until a content analysis has been generated, this column still behaves
+    // as a normal per-submission snapshot (same as Report EN/ZH JSON) and is
+    // free to refresh with the resubmitted data.
+    var aiAnalysisIdx = headers.indexOf("AI Analysis JSON");
+    if (aiAnalysisIdx >= 0 && readDisputeAiAnalysisEnvelope_(current[aiAnalysisIdx]).contentAnalysis) {
+      record["AI Analysis JSON"] = current[aiAnalysisIdx];
+    }
     writeDisputeRow_(sheet, headers, existingRow, record);
   } else {
     sheet.appendRow(headers.map(function (h) {
