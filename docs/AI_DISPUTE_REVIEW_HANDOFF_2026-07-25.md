@@ -13,7 +13,7 @@
 1. **Content Analysis** — a structured summary of the case (summary, missing evidence, timeline, key issues, preliminary assessment), grounded only in the client's intake answers, the existing deterministic rule-based analysis, and the actual uploaded documents.
 2. **Working Draft** — an internal drafting aid (facts to admit/deny, response points, evidence needed, next steps, risk notes, and draft response text) built ONLY from the already-generated Content Analysis — it never re-reads the uploaded files.
 
-**Current production status:** All backend code is committed to `main`, pushed to GitHub, and pushed to the Apps Script project's editable HEAD (`clasp push`). It has NOT yet been deployed as a new Web App version at the time this document is written — see §5 of the closeout report for that step, done separately after this document.
+**Current production status:** All backend code is committed to `main`, pushed to GitHub, pushed to the Apps Script project's editable HEAD (`clasp push`), and deployed live — the existing production Web App deployment (`AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`, unchanged URL) now serves version 92.
 
 **What is usable now:** An admin can open any Dispute Review in `/admin/dispute-reviews`, scroll to the new "AI Review: Content Analysis & Working Draft" panel, and Generate/Regenerate (preview, no write) or Save (real write) either output. All three actions (`generateDisputeAiAnalysis`, `getDisputeAiAnalysis`, `generateDisputeWorkingDraft`) are registered in the `doPost` dispatcher. Everything still also remains directly callable from the Apps Script editor for engineering use.
 
