@@ -164,6 +164,30 @@ export default function StrategyAssessments() {
         </div>
 
         <div className="strategy-report-detail-meta">{DETAIL_FIELDS.map((key) => selected.fields?.[key] ? <div key={key}><strong>{key}</strong><span>{selected.fields[key]}</span></div> : null)}</div>
+
+        <h3 className="dispute-admin-heading">
+          {isZh ? "支持文件" : "Supporting Files"} ({(selected.files || []).length})
+        </h3>
+        {(selected.files || []).length === 0 ? (
+          <p className="text-muted">{isZh ? "没有上传文件。" : "No files uploaded."}</p>
+        ) : (
+          <ul className="dispute-file-list">
+            {selected.files.map((file) => (
+              <li key={file["File ID"]}>
+                <div>
+                  <strong>{file["File Name"]}</strong>
+                  <span>{[file["Photo Category"], file["Room / Area"], file["File Type"], file["Uploaded At"]].filter(Boolean).join(" · ")}</span>
+                </div>
+                {file["Google Drive URL"] && (
+                  <a className="btn btn--ghost btn--sm" href={file["Google Drive URL"]} target="_blank" rel="noreferrer">
+                    {isZh ? "打开" : "Open"}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <h3 className="dispute-admin-heading">{isZh ? "评估报告" : "Assessment Report"}</h3>
         <div className="dispute-lang-switch">
           <button type="button" className={`btn btn--ghost btn--sm${detailLang === "en" ? " is-active" : ""}`} onClick={() => setDetailLang("en")}>English</button>

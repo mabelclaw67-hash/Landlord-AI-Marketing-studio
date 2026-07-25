@@ -1741,3 +1741,105 @@ export async function getRentalIntelligenceCommunities(city = "") {
     data: { city: city || "" },
   });
 }
+
+// ── Property Strategy — file upload (Assessment_Files) ──────────────────────
+// Mirrors the AI Dispute Review upload pipeline: reserve the Assessment ID
+// and its Drive subfolder before any file is selected, then upload/delete one
+// file at a time so a single failure never blocks the rest. Files are stored
+// in Assessment_Files, never in Dispute_Files, and under the "Property
+// Strategy Files" Drive folder, never under "Dispute Files".
+
+export const PROPERTY_STRATEGY_MAX_FILES = 25;
+export const PROPERTY_STRATEGY_MAX_FILE_BYTES = 15 * 1024 * 1024;
+export const PROPERTY_STRATEGY_ACCEPT_ATTRIBUTE = ".pdf,.jpg,.jpeg,.png,.doc,.docx,image/*,application/pdf";
+const PROPERTY_STRATEGY_ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
+
+export const PROPERTY_STRATEGY_FILE_CATEGORIES = [
+  "Photo",
+  "Floor Plan",
+  "Rental Advertisement",
+  "Strata Bylaws / Rental Restriction",
+  "Property Details",
+  "Utility Information",
+  "Inspection / Condition Record",
+  "Owner Instructions",
+  "Comparable Rental Information",
+  "Other",
+];
+
+const PROPERTY_STRATEGY_CATEGORY_LABELS_ZH = {
+  "Photo": "照片",
+  "Floor Plan": "平面图",
+  "Rental Advertisement": "出租广告（现有或拟稿）",
+  "Strata Bylaws / Rental Restriction": "分契章程 / 出租限制",
+  "Property Details": "物业资料",
+  "Utility Information": "水电信息",
+  "Inspection / Condition Record": "检查 / 状况记录",
+  "Owner Instructions": "业主说明",
+  "Comparable Rental Information": "同类出租参考资料",
+  "Other": "其他",
+};
+
+export function displayPropertyStrategyCategory(value, lang = "en") {
+  const text = String(value || "");
+  if (lang !== "zh") return text;
+  return PROPERTY_STRATEGY_CATEGORY_LABELS_ZH[text] || text;
+}
+
+export function validatePropertyStrategyFile(file) {
+  const name = String(file?.name || "").trim();
+  const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+  if (!PROPERTY_STRATEGY_ALLOWED_EXTENSIONS.includes(ext)) {
+    return { ok: false, code: "type", ext };
+  }
+  if (file.size > PROPERTY_STRATEGY_MAX_FILE_BYTES) {
+    return { ok: false, code: "size" };
+  }
+  return { ok: true };
+}
+
+function propertyStrategyFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(new Error("Could not read the selected file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Reserves the Assessment ID and its Drive subfolder up front so every
+// uploaded file is linked to the correct record before the intake is submitted.
+export async function startPropertyStrategyAssessment(assessmentId = "") {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "startPropertyStrategyAssessment", data: { assessmentId } });
+}
+
+export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  const data = await propertyStrategyFileToBase64(file);
+  return apiPost({
+    action: "uploadPropertyStrategyFile",
+    data: {
+      assessmentId,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+      category: meta.category || "Other",
+      roomArea: meta.roomArea || "",
+      data,
+    },
+  });
+}
+
+export async function deletePropertyStrategyFile(assessmentId, fileId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "deletePropertyStrategyFile", data: { assessmentId, fileId } });
+}
+
+export async function getPropertyStrategyFiles(assessmentId) {
+  if (!isApiConnected()) return { files: [] };
+  return apiPost({ action: "getPropertyStrategyFiles", data: { assessmentId } });
+}

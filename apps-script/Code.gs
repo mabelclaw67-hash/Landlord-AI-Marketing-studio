@@ -248,7 +248,7 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -266,6 +266,12 @@ function doPost(e) {
     if (action === "getPropertyStrategyReports") return ok(getPropertyStrategyReports_(auth));
     if (action === "getPropertyStrategyReport") return ok(getPropertyStrategyReport_(body.assessmentId, auth));
     if (action === "regeneratePropertyStrategyReport") return ok(regeneratePropertyStrategyReport_(body.assessmentId, auth));
+    // ── AI Property Strategy Assessment — file uploads (see PropertyStrategyFiles.gs) ──
+    if (action === "startPropertyStrategyAssessment")  return ok(startPropertyStrategyAssessment_(body.data || body));
+    if (action === "uploadPropertyStrategyFile")       return ok(uploadPropertyStrategyFile_(body.data || body));
+    if (action === "deletePropertyStrategyFile")       return ok(deletePropertyStrategyFile_(body.data || body));
+    if (action === "getPropertyStrategyFiles")         return ok(getPropertyStrategyFiles_(body.data || body));
+    if (action === "verifyPropertyStrategyFileStorage") { assertAdmin_(auth); return ok(verifyPropertyStrategyFileStorage()); }
     // ── AI Dispute Review (see DisputeReview.gs) ──
     if (action === "startDisputeReview")  return ok(startDisputeReview_(body.data || body));
     if (action === "uploadDisputeFile")   return ok(uploadDisputeFile_(body.data || body));
@@ -1390,6 +1396,14 @@ function getPropertyStrategyReport_(assessmentId, auth) {
   var analysisText = propertyStrategyAnalysisText_(record);
   var reportZhText = record["Report ZH JSON"];
   var reportEnText = record["Report EN JSON"];
+  var files = [];
+  try {
+    files = getPropertyStrategyFiles_({ assessmentId: assessmentId }).files;
+  } catch (filesEx) {
+    // Assessment_Files may not exist in every environment yet; the report
+    // itself must still be viewable even if the files lookup fails.
+    Logger.log("[getPropertyStrategyReport_] files lookup failed for " + assessmentId + ": " + filesEx);
+  }
   return {
     assessmentId: normalizeCellText_(assessmentId),
     createdAt: propertyStrategyCreatedAt_(record),
@@ -1397,6 +1411,7 @@ function getPropertyStrategyReport_(assessmentId, auth) {
     status: record.Status || "New", reportUrl: record["Report URL"],
     reportUrls: { zh: record["Report ZH URL"] || record["Report URL"], en: record["Report EN URL"] || record["Report URL"] },
     fields: record,
+    files: files,
     reports: { zh: parsePropertyStrategyAssessmentJson_(reportZhText), en: parsePropertyStrategyAssessmentJson_(reportEnText) },
     analysis: parsePropertyStrategyAssessmentJson_(analysisText),
     analysisText: analysisText

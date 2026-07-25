@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
+  deletePropertyStrategyFile,
+  displayPropertyStrategyCategory,
   displayStrategyValue,
   generatePreliminaryStrategySummary,
   getRentalIntelligenceCommunities,
@@ -9,7 +11,13 @@ import {
   getLegalRiskFlag,
   getStrategyFollowUpQuestions,
   hasOwnerOccupancyLegalWarning,
+  PROPERTY_STRATEGY_ACCEPT_ATTRIBUTE,
+  PROPERTY_STRATEGY_FILE_CATEGORIES,
+  PROPERTY_STRATEGY_MAX_FILES,
+  startPropertyStrategyAssessment,
   submitStrategyAssessment,
+  uploadPropertyStrategyFile,
+  validatePropertyStrategyFile,
 } from "../utils/strategyAssessment";
 import { normalizeLang } from "../utils/lang";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
@@ -220,8 +228,28 @@ const COPY = {
       nextStep: "Next Step",
     },
     strNotice: "Current BC and municipal STR rules must be verified before making a final decision.",
-    photoLabel: "Property Photos",
-    photoHelp: "V1 saves the selected photo file names with the assessment. Drive upload can be connected after the backend folder pattern is confirmed.",
+    photoLabel: "Property Photos & Documents",
+    photoHelp: "Upload the photos, floor plan, or documents this assessment relies on. You can upload several files at once.",
+    upload: {
+      category: "Document category",
+      roomArea: "Room / area (optional, for photos)",
+      choose: "Choose files",
+      limits: `Accepted: PDF, JPG, PNG, DOC, DOCX. Up to 15 MB per file and ${PROPERTY_STRATEGY_MAX_FILES} files in total.`,
+      uploading: "Uploading...",
+      uploaded: "Uploaded files",
+      remove: "Remove",
+      removing: "Removing...",
+      none: "No files uploaded yet.",
+      preparing: "Preparing your upload folder...",
+      unavailable: "The upload service could not be reached, so no file has been uploaded. Please retry.",
+      retry: "Retry",
+      progress: "Uploading {done} of {total}…",
+      errType: "{name}: this file type is not accepted.",
+      errSize: "{name}: this file is larger than the 15 MB limit.",
+      errCount: `You can upload at most ${PROPERTY_STRATEGY_MAX_FILES} files.`,
+      setCategoryFirst: "Please choose a document category before selecting files.",
+      privacyNote: "Only upload photos and documents for this property that you have the right to share. Do not upload unrelated third-party sensitive material.",
+    },
     submit: "Submit Assessment",
     submitting: "Submitting...",
     select: "Select",
@@ -320,8 +348,28 @@ const COPY = {
       nextStep: "下一步",
     },
     strNotice: "当前 BC 省及市政短租规则必须在做最终决定前再次核实。",
-    photoLabel: "物业照片",
-    photoHelp: "V1 先保存所选照片文件名。确认后端 Drive 文件夹规则后，可再接入真实上传。",
+    photoLabel: "物业照片与文件",
+    photoHelp: "请上传本次评估所依据的照片、平面图或文件，可一次上传多个文件。",
+    upload: {
+      category: "文件类别",
+      roomArea: "房间 / 区域（选填，用于照片）",
+      choose: "选择文件",
+      limits: `支持格式：PDF、JPG、PNG、DOC、DOCX。每个文件不超过 15 MB，最多 ${PROPERTY_STRATEGY_MAX_FILES} 个文件。`,
+      uploading: "上传中...",
+      uploaded: "已上传的文件",
+      remove: "删除",
+      removing: "删除中...",
+      none: "尚未上传任何文件。",
+      preparing: "正在准备您的上传文件夹...",
+      unavailable: "无法连接上传服务，文件尚未上传。请重试。",
+      retry: "重试",
+      progress: "正在上传第 {done} / {total} 个文件…",
+      errType: "{name}：不支持该文件类型。",
+      errSize: "{name}：文件超过 15 MB 上限。",
+      errCount: `最多只能上传 ${PROPERTY_STRATEGY_MAX_FILES} 个文件。`,
+      setCategoryFirst: "请先选择文件类别，再选择文件。",
+      privacyNote: "请仅上传您有权分享的本物业照片与文件，不要上传与本物业无关的第三方敏感资料。",
+    },
     submit: "提交初评",
     submitting: "正在提交...",
     select: "请选择",
@@ -546,11 +594,21 @@ export default function StrategyAssessment({ lang }) {
   const labels = FIELD_LABELS[safeLang] || FIELD_LABELS.en;
   const formRef = useRef(null);
   const [form, setForm] = useState(() => createEmptyStrategyAssessment());
-  const [photoNames, setPhotoNames] = useState([]);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(null);
+
+  const [files, setFiles] = useState([]);
+  const [uploadReady, setUploadReady] = useState(false);
+  const [uploadAvailable, setUploadAvailable] = useState(true);
+  const uploadStartedRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const [removingId, setRemovingId] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [pendingCategory, setPendingCategory] = useState("");
+  const [pendingRoomArea, setPendingRoomArea] = useState("");
   const [communityOptions, setCommunityOptions] = useState([]);
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communityIntelligence, setCommunityIntelligence] = useState(null);
@@ -596,6 +654,25 @@ export default function StrategyAssessment({ lang }) {
   ].includes(submitted.nextStep);
   const sessionReport = reportRouteAssessmentId ? readStrategyReportSession() : null;
   const publicReport = sessionReport?.assessmentId === reportRouteAssessmentId ? sessionReport : null;
+
+  // Reserve the Assessment ID and its Drive folder as soon as the client
+  // reaches the review/upload step, so every file is linked to the right
+  // record from the start (same pattern as AI Dispute Review Step 7).
+  useEffect(() => {
+    if (!isLastStep || uploadStartedRef.current) return;
+    uploadStartedRef.current = true;
+    let active = true;
+    startPropertyStrategyAssessment(form.assessmentId)
+      .then((result) => {
+        if (!active) return;
+        setForm((current) => ({ ...current, assessmentId: result.assessmentId }));
+        setUploadReady(true);
+      })
+      .catch(() => {
+        if (active) setUploadAvailable(false);
+      });
+    return () => { active = false; };
+  }, [isLastStep, form.assessmentId]);
 
   const update = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -650,10 +727,72 @@ export default function StrategyAssessment({ lang }) {
     }));
   };
 
-  const handlePhotoChange = (event) => {
-    const names = Array.from(event.target.files || []).map((file) => file.name);
-    setPhotoNames(names);
-    setForm((current) => ({ ...current, photoFileNames: names.join(", ") }));
+  const handleFileSelect = async (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!selected.length) return;
+    setUploadError("");
+
+    if (!pendingCategory) {
+      setUploadError(copy.upload.setCategoryFirst);
+      return;
+    }
+    if (files.length + selected.length > PROPERTY_STRATEGY_MAX_FILES) {
+      setUploadError(copy.upload.errCount);
+      return;
+    }
+
+    setUploading(true);
+    const failures = [];
+    try {
+      for (let i = 0; i < selected.length; i++) {
+        const file = selected[i];
+        setUploadProgress({ done: i, total: selected.length });
+        const check = validatePropertyStrategyFile(file);
+        if (!check.ok) {
+          failures.push((check.code === "size" ? copy.upload.errSize : copy.upload.errType).replace("{name}", file.name));
+          continue;
+        }
+        let result;
+        try {
+          result = await uploadPropertyStrategyFile(form.assessmentId, file, {
+            category: pendingCategory,
+            roomArea: pendingRoomArea,
+          });
+        } catch (err) {
+          // Never record a file as uploaded when the server rejected it.
+          failures.push(`${file.name}: ${err.message || "upload failed"}`);
+          continue;
+        }
+        setFiles((current) => [...current, {
+          fileId: result.fileId,
+          fileName: result.fileName,
+          category: result.category,
+          roomArea: result.roomArea,
+          driveUrl: result.driveUrl,
+          uploadedAt: result.uploadedAt,
+        }]);
+      }
+      if (failures.length) setUploadError(failures.join(" · "));
+    } catch (err) {
+      setUploadError(err.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const handleRemoveFile = async (fileId) => {
+    setRemovingId(fileId);
+    setUploadError("");
+    try {
+      await deletePropertyStrategyFile(form.assessmentId, fileId);
+      setFiles((current) => current.filter((item) => item.fileId !== fileId));
+    } catch (err) {
+      setUploadError(err.message || "Could not remove the file.");
+    } finally {
+      setRemovingId("");
+    }
   };
 
   const goNext = () => {
@@ -685,7 +824,7 @@ export default function StrategyAssessment({ lang }) {
       const finalPreliminary = safeLang === "zh" ? reportZh : reportEn;
       const result = await submitStrategyAssessment({
         ...form,
-        photoFileNames: photoNames.join(", "),
+        photoFileNames: files.map((item) => item.fileName).join(", "),
         preliminaryAssessment: finalPreliminary,
         reportZh,
         reportEn,
@@ -712,9 +851,14 @@ export default function StrategyAssessment({ lang }) {
   const startOver = () => {
     setSubmitted(null);
     setForm(createEmptyStrategyAssessment());
-    setPhotoNames([]);
+    setFiles([]);
     setStep(0);
     setError("");
+    setUploadReady(false);
+    setUploadAvailable(true);
+    uploadStartedRef.current = false;
+    setPendingCategory("");
+    setPendingRoomArea("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -881,16 +1025,104 @@ export default function StrategyAssessment({ lang }) {
           <ReviewSummary form={form} preliminary={preliminary} questions={followUpQuestions} labels={labels} copy={copy} lang={safeLang} />
           <div className="strategy-review-next">
             <SelectInput field="nextStep" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={NEXT_STEPS} required />
+
             <div className="form-group">
               <label>{copy.photoLabel}</label>
-              <input className="form-control" type="file" accept="image/*" multiple onChange={handlePhotoChange} />
               <p className="strategy-help">{copy.photoHelp}</p>
+              <p className="strategy-help">{copy.upload.limits}</p>
+
+              {!uploadAvailable ? (
+                <div className="notice notice--error strategy-inline-notice">
+                  <p>{copy.upload.unavailable}</p>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { uploadStartedRef.current = false; setUploadAvailable(true); }}
+                  >
+                    {copy.upload.retry}
+                  </button>
+                </div>
+              ) : !uploadReady ? (
+                <p className="strategy-help">{copy.upload.preparing}</p>
+              ) : (
+                <>
+                  <div className="strategy-toggle-grid">
+                    <div className="form-group">
+                      <label>{copy.upload.category} *</label>
+                      <select
+                        className="form-control"
+                        value={pendingCategory}
+                        onChange={(event) => setPendingCategory(event.target.value)}
+                      >
+                        <option value="">{copy.select}</option>
+                        {PROPERTY_STRATEGY_FILE_CATEGORIES.map((option) => (
+                          <option key={option} value={option}>{displayPropertyStrategyCategory(option, safeLang)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>{copy.upload.roomArea}</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={pendingRoomArea}
+                        onChange={(event) => setPendingRoomArea(event.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>{copy.upload.choose}</label>
+                    <input
+                      className="form-control"
+                      type="file"
+                      multiple
+                      accept={PROPERTY_STRATEGY_ACCEPT_ATTRIBUTE}
+                      disabled={uploading}
+                      onChange={handleFileSelect}
+                    />
+                    {uploading && (
+                      <p className="strategy-help">
+                        {uploadProgress
+                          ? copy.upload.progress.replace("{done}", String(uploadProgress.done + 1)).replace("{total}", String(uploadProgress.total))
+                          : copy.upload.uploading}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {uploadError && (
+                <div className="notice notice--error strategy-inline-notice"><p>{uploadError}</p></div>
+              )}
+
+              <h3 className="dispute-file-heading">{copy.upload.uploaded} ({files.length})</h3>
+              {files.length === 0 ? (
+                <p className="strategy-help">{copy.upload.none}</p>
+              ) : (
+                <ul className="dispute-file-list">
+                  {files.map((file) => (
+                    <li key={file.fileId}>
+                      <div>
+                        <strong>{file.fileName}</strong>
+                        <span>{[displayPropertyStrategyCategory(file.category, safeLang), file.roomArea].filter(Boolean).join(" · ")}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        disabled={removingId === file.fileId}
+                        onClick={() => handleRemoveFile(file.fileId)}
+                      >
+                        {removingId === file.fileId ? copy.upload.removing : copy.upload.remove}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <p className="strategy-help">{copy.upload.privacyNote}</p>
             </div>
-            {photoNames.length > 0 && (
-              <ul className="strategy-file-list">
-                {photoNames.map((name) => <li key={name}>{name}</li>)}
-              </ul>
-            )}
+
             <label className="strategy-check">
               <input type="checkbox" checked={form.consentToContact} onChange={update("consentToContact")} required />
               <span>{labels.consentToContact}: {copy.consentText}</span>
