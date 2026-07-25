@@ -12,8 +12,11 @@ import {
   formatDisputeDate,
   formatDisputeDateTime,
   formatDisputeFieldValue,
+  generateDisputeAiAnalysis,
   generateDisputeReport,
+  generateDisputeWorkingDraft,
   generateFormTwoDraftPdf,
+  getDisputeAiAnalysis,
   getDisputeReview,
   getDisputeReviews,
   rebuildReportsFromRecord,
@@ -112,6 +115,17 @@ export default function DisputeReviews() {
   const [formTwoReliefSought, setFormTwoReliefSought] = useState("");
   const [formTwoGenerating, setFormTwoGenerating] = useState(false);
 
+  // AI Review: Content Analysis + Working Draft. envelope is what's actually
+  // saved (from getDisputeAiAnalysis); the *Preview state holds an
+  // in-session, not-yet-saved dryRun result. Only one of "preview" or
+  // "saved" is shown at a time — a fresh preview always takes precedence
+  // until Save (or closing the review) clears it.
+  const [aiEnvelope, setAiEnvelope] = useState(null);
+  const [analysisPreview, setAnalysisPreview] = useState(null);
+  const [analysisBusy, setAnalysisBusy] = useState(""); // "generating" | "saving" | ""
+  const [draftPreview, setDraftPreview] = useState(null);
+  const [draftBusy, setDraftBusy] = useState("");
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -178,6 +192,8 @@ export default function DisputeReviews() {
   async function openReview(reviewId) {
     setError("");
     setMessage("");
+    setAnalysisPreview(null);
+    setDraftPreview(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -189,6 +205,59 @@ export default function DisputeReviews() {
       setNextStep(detail.review["Next Step"] || "");
     } catch (err) {
       setError(err.message || "Failed to load the dispute review.");
+    }
+    try {
+      setAiEnvelope(await getDisputeAiAnalysis(reviewId));
+    } catch {
+      setAiEnvelope(null); // non-fatal — the AI Review panel just shows "not generated yet"
+    }
+  }
+
+  // dryRun:true previews without saving; dryRun:false re-runs Gemini for
+  // real and persists. There is no server-side hold of a previewed result,
+  // so Save always issues a fresh generation rather than persisting the
+  // exact previewed text.
+  async function runContentAnalysis(dryRun) {
+    if (!selected) return;
+    setAnalysisBusy(dryRun ? "generating" : "saving");
+    setError("");
+    setMessage("");
+    try {
+      const reviewId = selected.review["Review ID"];
+      const result = await generateDisputeAiAnalysis(reviewId, { dryRun });
+      if (dryRun) {
+        setAnalysisPreview(result);
+      } else {
+        setAnalysisPreview(null);
+        setAiEnvelope(await getDisputeAiAnalysis(reviewId));
+        setMessage(isZh ? "内容分析已保存。" : "Content analysis saved.");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to generate the content analysis.");
+    } finally {
+      setAnalysisBusy("");
+    }
+  }
+
+  async function runWorkingDraft(dryRun) {
+    if (!selected) return;
+    setDraftBusy(dryRun ? "generating" : "saving");
+    setError("");
+    setMessage("");
+    try {
+      const reviewId = selected.review["Review ID"];
+      const result = await generateDisputeWorkingDraft(reviewId, { dryRun });
+      if (dryRun) {
+        setDraftPreview(result);
+      } else {
+        setDraftPreview(null);
+        setAiEnvelope(await getDisputeAiAnalysis(reviewId));
+        setMessage(isZh ? "工作稿已保存。" : "Working draft saved.");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to generate the working draft.");
+    } finally {
+      setDraftBusy("");
     }
   }
 
@@ -306,6 +375,20 @@ export default function DisputeReviews() {
       return "";
     }
   })();
+
+  // AI Review: a fresh in-session preview always takes precedence over the
+  // saved envelope in what's displayed, until Save (or opening a different
+  // review) clears it.
+  const savedContentAnalysis = aiEnvelope?.contentAnalysis || null;
+  const savedWorkingDraft = aiEnvelope?.workingDraft || null;
+  const activeAnalysis = analysisPreview?.envelope?.contentAnalysis || savedContentAnalysis;
+  const activeAnalysisMeta = analysisPreview || null; // providerMeta/fieldSummary/schemaValid only exist for an in-session run
+  const analysisStatus = analysisPreview ? "preview" : (savedContentAnalysis ? "saved" : "none");
+  const activeDraft = draftPreview?.envelope?.workingDraft || savedWorkingDraft;
+  const draftMeta = draftPreview || null;
+  const draftStatus = draftPreview ? "preview" : (savedWorkingDraft ? "saved" : "none");
+  const analysisStatusLabel = { none: isZh ? "尚未生成" : "Not generated", preview: isZh ? "预览中（未保存）" : "Preview available (not saved)", saved: isZh ? "已保存" : "Saved" }[analysisStatus];
+  const draftStatusLabel = { none: isZh ? "尚未生成" : "Not generated", preview: isZh ? "预览中（未保存）" : "Preview available (not saved)", saved: isZh ? "已保存" : "Saved" }[draftStatus];
 
   return (
     <div className="admin-page strategy-reports-page">
@@ -584,6 +667,134 @@ export default function DisputeReviews() {
               </div>
             ) : (
               <p className="text-muted">{isZh ? "无法重建报告内容。" : "Report content could not be rebuilt."}</p>
+            )}
+
+            <h3 className="dispute-admin-heading">{isZh ? "AI 内容分析与工作稿" : "AI Review: Content Analysis & Working Draft"}</h3>
+            <p className="strategy-help">
+              {isZh
+                ? "由管理员手动触发的真实 AI 生成，独立于上方基于规则的报告。请先预览确认，再点击保存；保存前的内容不会写入表格。"
+                : "Admin-triggered real AI generation, separate from the rule-based report above. Always preview first — nothing is written until you explicitly click Save."}
+            </p>
+
+            <h4 className="dispute-admin-subheading">{isZh ? "内容分析" : "Content Analysis"}</h4>
+            <p>
+              <strong>{isZh ? "状态：" : "Status: "}</strong>{analysisStatusLabel}
+              {(activeAnalysisMeta?.providerMeta?.model || aiEnvelope) && (
+                <>
+                  {" · "}{isZh ? "Schema 版本" : "Schema version"}: {aiEnvelope?.schemaVersion ?? "—"}
+                  {activeAnalysisMeta?.providerMeta?.model && <>{" · Model: "}{activeAnalysisMeta.providerMeta.model}</>}
+                  {activeAnalysis?.generatedAt && <>{" · "}{isZh ? "生成于 " : "Generated "}{formatDisputeDateTime(activeAnalysis.generatedAt, lang)}</>}
+                </>
+              )}
+            </p>
+            <div className="dispute-admin-actions">
+              <button className="btn btn--secondary btn--small" onClick={() => runContentAnalysis(true)} disabled={analysisBusy !== ""}>
+                {analysisBusy === "generating"
+                  ? (isZh ? "生成中…" : "Generating…")
+                  : (analysisStatus !== "none" ? (isZh ? "重新生成内容分析（预览）" : "Regenerate Content Analysis") : (isZh ? "生成内容分析（预览）" : "Generate Content Analysis"))}
+              </button>
+              <button className="btn btn--primary btn--small" onClick={() => runContentAnalysis(false)} disabled={analysisBusy !== ""}>
+                {analysisBusy === "saving" ? (isZh ? "保存中…" : "Saving…") : (isZh ? "保存" : "Save")}
+              </button>
+            </div>
+            {activeAnalysis ? (
+              <>
+                {activeAnalysis.unreadableFiles?.length > 0 && (
+                  <div className="notice notice--warm strategy-inline-notice">
+                    <p>
+                      {isZh ? "以下文件无法自动读取：" : "These files could not be read automatically: "}
+                      {activeAnalysis.unreadableFiles.map((f) => f.fileName).join(", ")}
+                    </p>
+                  </div>
+                )}
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "案件材料摘要" : "Case Materials Summary"}</strong>
+                  <p>{activeAnalysis.analysis?.caseMaterialsSummary}</p>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "缺失证据" : "Missing Evidence"}</strong>
+                  <ul>{(activeAnalysis.analysis?.missingEvidence || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "时间线" : "Timeline"}</strong>
+                  <ul>{(activeAnalysis.analysis?.timeline || []).map((item, i) => <li key={i}><strong>{item.date}</strong> — {item.description} ({item.source})</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "关键问题" : "Key Issues"}</strong>
+                  <ul>{(activeAnalysis.analysis?.keyIssues || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "初步评估" : "Preliminary Assessment"}</strong>
+                  <p>{activeAnalysis.analysis?.preliminaryAssessment}</p>
+                </div>
+              </>
+            ) : (
+              <p className="text-muted">{isZh ? "尚未生成内容分析。" : "No content analysis yet."}</p>
+            )}
+
+            <h4 className="dispute-admin-subheading">{isZh ? "工作稿" : "Working Draft"}</h4>
+            <p className="strategy-help">
+              {isZh
+                ? "内部工作稿 — 不是法律意见，也不是可直接提交的正式法院文件，须经律师审阅。需先保存内容分析才能生成。"
+                : "Internal working draft — not legal advice, not a document ready to file, must be reviewed by counsel. Requires a saved Content Analysis first."}
+            </p>
+            <p>
+              <strong>{isZh ? "状态：" : "Status: "}</strong>{draftStatusLabel}
+              {(draftMeta?.providerMeta?.model || aiEnvelope) && (
+                <>
+                  {" · "}{isZh ? "Schema 版本" : "Schema version"}: {aiEnvelope?.schemaVersion ?? "—"}
+                  {draftMeta?.providerMeta?.model && <>{" · Model: "}{draftMeta.providerMeta.model}</>}
+                </>
+              )}
+            </p>
+            <div className="dispute-admin-actions">
+              <button
+                className="btn btn--secondary btn--small"
+                onClick={() => runWorkingDraft(true)}
+                disabled={draftBusy !== "" || !(savedContentAnalysis || analysisPreview)}
+              >
+                {draftBusy === "generating"
+                  ? (isZh ? "生成中…" : "Generating…")
+                  : (draftStatus !== "none" ? (isZh ? "重新生成工作稿（预览）" : "Regenerate Working Draft") : (isZh ? "生成工作稿（预览）" : "Generate Working Draft"))}
+              </button>
+              <button className="btn btn--primary btn--small" onClick={() => runWorkingDraft(false)} disabled={draftBusy !== ""}>
+                {draftBusy === "saving" ? (isZh ? "保存中…" : "Saving…") : (isZh ? "保存" : "Save")}
+              </button>
+            </div>
+            {!savedContentAnalysis && !analysisPreview && (
+              <p className="text-muted">{isZh ? "请先生成并保存内容分析。" : "Generate and save a Content Analysis first."}</p>
+            )}
+            {activeDraft && (
+              <>
+                <div className="dispute-admin-long"><strong>{isZh ? "标题" : "Title"}</strong><p>{activeDraft.title}</p></div>
+                <div className="dispute-admin-long"><strong>{isZh ? "案件立场摘要" : "Case Position Summary"}</strong><p>{activeDraft.casePositionSummary}</p></div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "疑似可承认事实 / 待核实程序性事实" : "Facts Potentially Admitted / Procedural Facts to Verify"}</strong>
+                  <ul>{(activeDraft.factsToAdmit || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "不予承认 / 待核实事实" : "Facts to Deny / Not Admitted"}</strong>
+                  <ul>{(activeDraft.factsToDenyOrNotAdmit || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "答辩要点" : "Response Points"}</strong>
+                  <ul>{(activeDraft.responsePoints || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "所需证据" : "Evidence Needed"}</strong>
+                  <ul>{(activeDraft.evidenceNeeded || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "后续程序步骤" : "Procedural Next Steps"}</strong>
+                  <ul>{(activeDraft.proceduralNextSteps || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long">
+                  <strong>{isZh ? "风险提示" : "Risk Notes"}</strong>
+                  <ul>{(activeDraft.riskNotes || []).map((item, i) => <li key={i}>{item}</li>)}</ul>
+                </div>
+                <div className="dispute-admin-long"><strong>{isZh ? "工作稿正文" : "Draft Text"}</strong><p>{activeDraft.draftText}</p></div>
+                <div className="notice notice--warm strategy-inline-notice"><p>{activeDraft.disclaimer}</p></div>
+              </>
             )}
 
             {isSupremeCourt && formTwoEligibility && (

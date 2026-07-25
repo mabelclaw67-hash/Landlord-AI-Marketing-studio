@@ -1526,6 +1526,33 @@ export async function generateDisputeReport(reviewId, reports) {
   });
 }
 
+// Content Analysis / Working Draft (admin-only). options.dryRun defaults to
+// true on the backend — pass {dryRun:false} explicitly to persist. Every
+// call re-runs the real Gemini generation; there is no server-side "hold"
+// of a previewed result, so Save after Preview issues a fresh generation
+// rather than persisting the exact previewed text verbatim.
+export async function generateDisputeAiAnalysis(reviewId, options = {}) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "generateDisputeAiAnalysis", reviewId, dryRun: options.dryRun, ...getStudioRequestAuth("rental") });
+}
+
+export async function getDisputeAiAnalysis(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputeAiAnalysis", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function generateDisputeWorkingDraft(reviewId, options = {}) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({
+    action: "generateDisputeWorkingDraft",
+    reviewId,
+    dryRun: options.dryRun,
+    language: options.language,
+    draftType: options.draftType,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 // Rebuilds both language reports from a stored record so the Admin screen and
 // the server agree on exactly what the client will see.
 export function rebuildReportsFromRecord(record, files) {
