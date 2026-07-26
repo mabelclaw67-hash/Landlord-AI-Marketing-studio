@@ -42,13 +42,13 @@ var DISPUTE_AI_TEXT_PREVIEW_CHARS = 500;
 function readDisputeAiAnalysisEnvelope_(rawCellValue) {
   var text = disputeText_(rawCellValue);
   if (!text) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null };
   }
   var parsed;
   try {
     parsed = JSON.parse(text);
   } catch (parseEx) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null };
   }
   if (parsed && typeof parsed === "object" && parsed.schemaVersion === DISPUTE_AI_ANALYSIS_SCHEMA_VERSION) {
     return {
@@ -74,13 +74,16 @@ function readDisputeAiAnalysisEnvelope_(rawCellValue) {
       examinationDiscovery: parsed.hasOwnProperty("examinationDiscovery") ? parsed.examinationDiscovery : null,
       // Applications sibling namespace (see DisputeApplications.gs). Same
       // reason as the others.
-      applications: parsed.hasOwnProperty("applications") ? parsed.applications : null
+      applications: parsed.hasOwnProperty("applications") ? parsed.applications : null,
+      // Settlement sibling namespace (see DisputeSettlement.gs). Same
+      // reason as the others.
+      settlement: parsed.hasOwnProperty("settlement") ? parsed.settlement : null
     };
   }
   // Pre-existing flat shape (the report JSON snapshot submitDisputeReview_
   // has always written here) — preserve it as ruleAnalysis rather than
-  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix/documentDiscovery/examinationDiscovery/applications empty.
-  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null };
+  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix/documentDiscovery/examinationDiscovery/applications/settlement empty.
+  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null };
 }
 
 // Merges a freshly generated content analysis into whatever envelope already

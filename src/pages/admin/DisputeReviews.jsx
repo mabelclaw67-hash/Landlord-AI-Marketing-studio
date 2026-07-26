@@ -5,6 +5,7 @@ import EvidenceMatrix from "../../components/EvidenceMatrix";
 import DocumentDiscoveryWorkspace from "../../components/DocumentDiscoveryWorkspace";
 import ExaminationDiscoveryWorkspace from "../../components/ExaminationDiscoveryWorkspace";
 import ApplicationsWorkspace from "../../components/ApplicationsWorkspace";
+import SettlementWorkspace from "../../components/SettlementWorkspace";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -146,6 +147,9 @@ export default function DisputeReviews() {
   // Applications (Stage 7) — same lifting pattern.
   const [applicationsState, setApplicationsState] = useState(null);
 
+  // Settlement (Stage 8) — same lifting pattern.
+  const [settlementState, setSettlementState] = useState(null);
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -218,6 +222,7 @@ export default function DisputeReviews() {
     setDocumentDiscoveryState(null);
     setExaminationDiscoveryState(null);
     setApplicationsState(null);
+    setSettlementState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -936,6 +941,14 @@ export default function DisputeReviews() {
             )}
 
             {isSupremeCourt && (
+              <SettlementWorkspace
+                key={`settlement-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                onSettlementChange={setSettlementState}
+              />
+            )}
+
+            {isSupremeCourt && (
               <SupremeCourtCaseNavigator
                 review={review}
                 formTwoEligibility={formTwoEligibility}
@@ -943,6 +956,7 @@ export default function DisputeReviews() {
                 documentDiscovery={documentDiscoveryState}
                 examinationDiscovery={examinationDiscoveryState}
                 applications={applicationsState}
+                settlement={settlementState}
               />
             )}
           </div>

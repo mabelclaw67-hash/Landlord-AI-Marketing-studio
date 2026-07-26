@@ -1380,6 +1380,111 @@ export function getApplicationsReadiness(applications) {
   return "Organizational preparation complete";
 }
 
+export const SETTLEMENT_NOTICE =
+  "This workspace helps organize preparation for settlement discussions and track offers exchanged. It does " +
+  "not determine what terms to offer or accept, whether a settlement is advisable, or whether draft release " +
+  "or consent order language is legally sufficient. Those issues may require review by a qualified lawyer.";
+
+export const SETTLEMENT_CAUTIONS = [
+  "Settlement communications are often treated differently from other correspondence (e.g. 'without prejudice') — understand this before writing informally about settlement.",
+  "Do not treat a verbal or informal settlement as final — document and, where appropriate, formalize it with the court.",
+  "Get legal advice before signing a release, especially one that gives up future claims.",
+  "A formal offer to settle (Rule 9-1) has specific costs consequences — confirm the formal requirements before relying on it.",
+  "Confirm any settlement involving a minor, represented party, or third-party payer meets required approvals.",
+];
+
+export const SETTLEMENT_OFFER_DIRECTIONS = ["Made by Client", "Received from Other Party", "Joint / Mediated Proposal"];
+
+export const SETTLEMENT_OFFER_TYPES = ["Informal", "Formal Offer to Settle (Rule 9-1)", "Mediation Proposal", "Consent Terms Draft"];
+
+export const SETTLEMENT_STATUSES = [
+  "Draft",
+  "Sent / Delivered",
+  "Under Review",
+  "Countered",
+  "Accepted",
+  "Rejected",
+  "Expired",
+  "Withdrawn",
+];
+
+export const SETTLEMENT_TERMINAL_STATUSES = ["Accepted", "Rejected", "Expired", "Withdrawn"];
+
+export const SETTLEMENT_DOCUMENTATION_STATUSES = ["Not Started", "In Progress", "Ready for Review", "Finalized"];
+
+export function makeSettlementOffer(overrides = {}) {
+  return {
+    id: overrides.id || `stl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "",
+    offerDirection: "Made by Client",
+    offerType: "Informal",
+    status: "Draft",
+    monetaryAmount: "",
+    nonMonetaryTerms: "",
+    releaseRequired: false,
+    releaseScope: "",
+    costsTerms: "",
+    paymentTerms: "",
+    dateMade: "",
+    responseDeadline: "",
+    consentOrderNeeded: false,
+    consentOrderStatus: "Not Started",
+    discontinuanceNeeded: false,
+    discontinuanceStatus: "Not Started",
+    documentationStatus: "Not Started",
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+// Computed display-only timing indicator from the user-entered response
+// deadline — never a stored status value, and never a universally-invented
+// deadline. Only meaningful while the offer is still active.
+export function computeSettlementTiming(offer) {
+  if (SETTLEMENT_TERMINAL_STATUSES.includes(offer.status)) return null;
+  if (!offer.responseDeadline) return null;
+  const due = new Date(offer.responseDeadline + "T00:00:00");
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "Overdue";
+  if (diffDays <= 7) return "Due Soon";
+  return "On Track";
+}
+
+export function settlementSummary(offers) {
+  const list = offers || [];
+  return {
+    total: list.length,
+    active: list.filter((o) => !SETTLEMENT_TERMINAL_STATUSES.includes(o.status)).length,
+    awaitingResponse: list.filter((o) => ["Sent / Delivered", "Under Review"].includes(o.status)).length,
+    overdue: list.filter((o) => computeSettlementTiming(o) === "Overdue").length,
+    accepted: list.filter((o) => o.status === "Accepted").length,
+    formalOffers: list.filter((o) => o.offerType === "Formal Offer to Settle (Rule 9-1)").length,
+    formalizationOutstanding: list.filter(
+      (o) =>
+        o.status === "Accepted" &&
+        (o.documentationStatus !== "Finalized" ||
+          (o.consentOrderNeeded && !["Filed", "Not Applicable"].includes(o.consentOrderStatus)) ||
+          (o.discontinuanceNeeded && !["Filed", "Not Applicable"].includes(o.discontinuanceStatus)))
+    ).length,
+  };
+}
+
+// Organizational readiness only — never a legal-compliance conclusion.
+export function getSettlementReadiness(offers) {
+  const list = offers || [];
+  if (list.length === 0) return "No settlement discussions recorded";
+  if (list.some((o) => computeSettlementTiming(o) === "Overdue")) return "Response deadline appears overdue — verify immediately";
+  if (list.some((o) => computeSettlementTiming(o) === "Due Soon")) return "Response deadline approaching";
+  const summary = settlementSummary(list);
+  if (summary.formalizationOutstanding > 0) return "Accepted settlement needs to be documented or formalized";
+  if (summary.awaitingResponse > 0) return "Offer awaiting response";
+  return "No outstanding settlement action items";
+}
+
 const STAGE_ORDER = WORKFLOW_STAGES.map((stage) => stage.id);
 
 // Fields the "Next Step" value can map to, for nudging a later stage from its
@@ -1399,7 +1504,7 @@ const NEXT_STEP_STAGE_HINTS = {
 // (Dispute Type, Status, Next Step) plus the existing Form 2 eligibility
 // check — nothing is persisted. See docs/plan for why this is computed
 // client-side rather than stored on the sheet.
-export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications) {
+export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement) {
   const status = review?.["Status"] || "";
   const nextStep = review?.["Next Step"] || "";
   const isSupremeCourtDefendant =
@@ -1499,6 +1604,17 @@ export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, 
   } else {
     const allTerminal = applicationRecords.every((a) => APPLICATION_TERMINAL_STATUSES.includes(a.status));
     progress.applications = allTerminal ? "completed" : "in_progress";
+  }
+
+  // Settlement workspace, where it exists, is the source of truth for
+  // Stage 8 — overrides the "conditional" default above. Stays conditional
+  // unless the reviewer has actually recorded a real offer.
+  const settlementOffers = settlement?.offers;
+  if (!Array.isArray(settlementOffers) || settlementOffers.length === 0) {
+    progress.settlement = "conditional";
+  } else {
+    const allTerminal = settlementOffers.every((o) => SETTLEMENT_TERMINAL_STATUSES.includes(o.status));
+    progress.settlement = allTerminal ? "completed" : "in_progress";
   }
 
   // A conditional stage must not silently steal focus as "the current stage"
