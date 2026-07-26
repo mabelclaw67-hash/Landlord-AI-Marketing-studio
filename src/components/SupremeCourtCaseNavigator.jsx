@@ -14,7 +14,9 @@ function StatusBadge({ status }) {
   return <span className={`ccard__badge ${meta.badgeClass}`}>{meta.label}</span>;
 }
 
-function StageForms({ stageId }) {
+// Exported so LateStageGuidanceWorkspace can reuse the same official-forms
+// card rendering for Stages 9-11 instead of a third copy of this markup.
+export function StageForms({ stageId }) {
   const forms = getFormsForStage(stageId);
   if (!forms.length) return null;
 
@@ -54,6 +56,9 @@ const STAGE_WORKSPACE_LINKS = {
   examinationForDiscovery: { targetId: "scc-examination-discovery", label: "Open Examination for Discovery Workspace" },
   applications: { targetId: "scc-applications", label: "Open Applications Workspace" },
   settlement: { targetId: "scc-settlement", label: "Open Settlement Workspace" },
+  trialPreparation: { targetId: "scc-stage-workspace-trialPreparation", label: "Open Trial Preparation Guide" },
+  courtBinder: { targetId: "scc-stage-workspace-courtBinder", label: "Open Court Binder Guide" },
+  judgmentCostsEnforcement: { targetId: "scc-stage-workspace-judgmentCostsEnforcement", label: "Open Post-Judgment Guide" },
 };
 
 function StageBody({ stage, onOpenWorkspace }) {
@@ -98,10 +103,10 @@ function StageBody({ stage, onOpenWorkspace }) {
 // Court civil claim where the client is the defendant. Status per stage is
 // derived entirely from data already on the case record — see
 // getWorkflowProgress in the config file for why nothing is persisted here.
-export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement }) {
+export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement, lateStageGuidance }) {
   if (review?.["Dispute Type"] !== "Supreme Court Litigation") return null;
 
-  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement);
+  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement, lateStageGuidance);
 
   function scrollToWorkspace(targetId) {
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });

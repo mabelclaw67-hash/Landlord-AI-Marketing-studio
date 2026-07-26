@@ -1485,6 +1485,120 @@ export function getSettlementReadiness(offers) {
   return "No outstanding settlement action items";
 }
 
+// ── Late-stage guidance (Stages 9-11: Trial Preparation, Hearing / Court
+// Binder, Judgment/Costs/Enforcement) ───────────────────────────────────────
+// Deliberately lighter than Stages 4-8: these stages are highly
+// case-specific (courtroom strategy, evidentiary decisions, costs, appeals,
+// enforcement) so the system stays at guide + checklist + resources, never
+// courtroom advocacy. Persisted as one compact envelope sibling
+// (lateStageGuidance) — see apps-script/DisputeLateStageGuidance.gs.
+
+export const LATE_STAGE_GUIDANCE_NOTICE =
+  "Trial preparation, courtroom procedure, evidentiary decisions, costs, appeals and enforcement are highly " +
+  "case-specific. This system provides general organizational guidance only. It does not provide legal advice, " +
+  "courtroom representation or litigation strategy. Users should consider obtaining advice from a qualified " +
+  "lawyer, including limited-scope legal services, before proceeding.";
+
+export const LATE_STAGE_CHECKLIST_STATUSES = ["Not Started", "In Progress", "Completed", "Not Applicable"];
+
+export const LATE_STAGE_LAWYER_REVIEW_CHECKPOINTS = {
+  trialPreparation: "Trial procedure, evidence, and courtroom strategy are highly case-specific — consider a limited-scope lawyer review before trial.",
+  courtBinder: "The correct package for a specific hearing depends on the applicable rule and court direction — confirm with the registry or a lawyer if unsure.",
+  judgmentCostsEnforcement: "Appeal deadlines are typically short and enforcement has its own procedures — get legal advice before starting either.",
+};
+
+export const TRIAL_PREPARATION_CHECKLIST_ITEMS = [
+  { id: "trialDateConfirmed", label: "Trial date confirmed" },
+  { id: "trialLocationConfirmed", label: "Trial location or method confirmed" },
+  { id: "trialDurationConfirmed", label: "Trial duration confirmed" },
+  { id: "pleadingsReviewed", label: "Pleadings reviewed" },
+  { id: "courtOrdersReviewed", label: "Court orders reviewed" },
+  { id: "issuesListPrepared", label: "Issues list prepared" },
+  { id: "witnessListPrepared", label: "Witness list prepared" },
+  { id: "witnessAvailabilityChecked", label: "Witness availability checked" },
+  { id: "subpoenaReviewed", label: "Subpoena requirement reviewed" },
+  { id: "chronologyPrepared", label: "Chronology prepared" },
+  { id: "documentBookPlanned", label: "Document book planning reviewed" },
+  { id: "exhibitPlanPrepared", label: "Exhibit plan prepared" },
+  { id: "authoritiesPlanned", label: "Authorities planning reviewed" },
+  { id: "trialBriefChecked", label: "Trial Brief requirement checked" },
+  { id: "trialCertificateChecked", label: "Trial Certificate requirement checked" },
+  { id: "accessibilityAddressed", label: "Interpreter or accessibility needs addressed" },
+  { id: "logisticsReviewed", label: "Court logistics reviewed" },
+  { id: "lawyerReviewConsidered", label: "Limited-scope lawyer review considered" },
+];
+
+export const COURT_BINDER_CHECKLIST_ITEMS = [
+  { id: "packageTypeConfirmed", label: "Package type confirmed" },
+  { id: "courtInstructionsChecked", label: "Court instructions checked" },
+  { id: "coverPageComplete", label: "Cover page complete" },
+  { id: "fileNumberCorrect", label: "Court file number correct" },
+  { id: "partiesCorrect", label: "Parties correct" },
+  { id: "hearingDateCorrect", label: "Hearing date correct" },
+  { id: "tocComplete", label: "Table of contents complete" },
+  { id: "pleadingsIncluded", label: "Pleadings included" },
+  { id: "ordersIncluded", label: "Relevant orders included" },
+  { id: "affidavitsIncluded", label: "Affidavits included if applicable" },
+  { id: "exhibitsIncluded", label: "Exhibits included if applicable" },
+  { id: "documentsOrganized", label: "Documents organized" },
+  { id: "authoritiesOrganized", label: "Authorities organized" },
+  { id: "paginationChecked", label: "Continuous pagination checked" },
+  { id: "tabsChecked", label: "Tabs or sections checked" },
+  { id: "bookmarksChecked", label: "PDF bookmarks checked" },
+  { id: "legibilityChecked", label: "Legibility checked" },
+  { id: "printedCopiesChecked", label: "Printed copies checked" },
+  { id: "electronicCopyChecked", label: "Electronic copy checked" },
+  { id: "serviceRequirementsChecked", label: "Service or delivery requirements checked" },
+  { id: "lawyerReviewConsidered", label: "Lawyer review considered" },
+];
+
+export const JUDGMENT_COSTS_ENFORCEMENT_CHECKLIST_ITEMS = [
+  { id: "judgmentReceived", label: "Judgment or reasons received" },
+  { id: "formalOrderObtained", label: "Formal order obtained" },
+  { id: "enteredOrderConfirmed", label: "Entered order confirmed" },
+  { id: "orderTermsReviewed", label: "Order terms reviewed" },
+  { id: "costsOutcomeRecorded", label: "Costs outcome recorded" },
+  { id: "complianceDeadlineRecorded", label: "Payment or compliance deadline recorded" },
+  { id: "complianceStatusChecked", label: "Compliance status checked" },
+  { id: "enforcementQuestionIdentified", label: "Enforcement question identified" },
+  { id: "appealDeadlineChecked", label: "Appeal or review deadline checked" },
+  { id: "satisfactionRecorded", label: "Satisfaction or completion recorded" },
+  { id: "documentsPreserved", label: "Final documents preserved" },
+  { id: "closureStatusRecorded", label: "Case closure status recorded" },
+  { id: "lawyerReviewConsidered", label: "Lawyer review considered" },
+];
+
+export const LATE_STAGE_CHECKLIST_ITEMS = {
+  trialPreparation: TRIAL_PREPARATION_CHECKLIST_ITEMS,
+  courtBinder: COURT_BINDER_CHECKLIST_ITEMS,
+  judgmentCostsEnforcement: JUDGMENT_COSTS_ENFORCEMENT_CHECKLIST_ITEMS,
+};
+
+function makeLateStageSubState(overrides = {}) {
+  return { status: "not_started", checklist: {}, notes: "", updatedAt: "", ...overrides };
+}
+
+export function makeLateStageGuidance(overrides = {}) {
+  return {
+    version: 1,
+    trialPreparation: makeLateStageSubState(overrides.trialPreparation),
+    courtBinder: makeLateStageSubState(overrides.courtBinder),
+    judgmentCostsEnforcement: makeLateStageSubState(overrides.judgmentCostsEnforcement),
+  };
+}
+
+// Same rollup rule for all three stages: untouched -> not_started; every
+// applicable item Completed/Not Applicable -> completed; anything else
+// touched -> in_progress. Never infers completion from another stage.
+export function deriveLateStageStatus(stageId, checklist) {
+  const items = LATE_STAGE_CHECKLIST_ITEMS[stageId] || [];
+  const map = checklist || {};
+  const touched = items.some((item) => map[item.id] && map[item.id] !== "Not Started");
+  if (!touched) return "not_started";
+  const allResolved = items.every((item) => ["Completed", "Not Applicable"].includes(map[item.id]));
+  return allResolved ? "completed" : "in_progress";
+}
+
 const STAGE_ORDER = WORKFLOW_STAGES.map((stage) => stage.id);
 
 // Fields the "Next Step" value can map to, for nudging a later stage from its
@@ -1504,7 +1618,7 @@ const NEXT_STEP_STAGE_HINTS = {
 // (Dispute Type, Status, Next Step) plus the existing Form 2 eligibility
 // check — nothing is persisted. See docs/plan for why this is computed
 // client-side rather than stored on the sheet.
-export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement) {
+export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications, settlement, lateStageGuidance) {
   const status = review?.["Status"] || "";
   const nextStep = review?.["Next Step"] || "";
   const isSupremeCourtDefendant =
@@ -1615,6 +1729,17 @@ export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, 
   } else {
     const allTerminal = settlementOffers.every((o) => SETTLEMENT_TERMINAL_STATUSES.includes(o.status));
     progress.settlement = allTerminal ? "completed" : "in_progress";
+  }
+
+  // Late-stage guidance (Stages 9-11), where it exists, is the source of
+  // truth — overrides the Next-Step heuristic above. Each stage only moves
+  // off "not_started" from its OWN recorded checklist activity — never
+  // inferred from an earlier stage's completion.
+  for (const stageId of ["trialPreparation", "courtBinder", "judgmentCostsEnforcement"]) {
+    const stageData = lateStageGuidance?.[stageId];
+    if (stageData?.checklist && Object.keys(stageData.checklist).length > 0) {
+      progress[stageId] = deriveLateStageStatus(stageId, stageData.checklist);
+    }
   }
 
   // A conditional stage must not silently steal focus as "the current stage"

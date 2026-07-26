@@ -1,11 +1,11 @@
 # AI Dispute Review — Supreme Court Extension Technical Record
 
-**Version:** 1.1
-**Record date:** 2026-07-22
-**Status:** Deployed to production. Apps Script deployment `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0` redeployed at version `@90` (existing deployment ID reused, exec URL unchanged); frontend committed as `074e284`, pushed to `main`, and live on Netlify (deploy `6a614a7eab0d9900083c9c2f`, production context, `ready`, no secrets flagged).
+**Version:** 1.2
+**Record date:** 2026-07-26 (§11 addendum; original record below is unchanged, dated 2026-07-22)
+**Status:** **BC Supreme Court Civil Claim Defendant Workflow v1.0 — Feature Complete.** All 11 workflow stages implemented (§11). Apps Script deployment `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0` is at version `@98` (existing deployment ID reused, exec URL unchanged throughout every phase in §11).
 **Repository:** `mabelclaw67-hash/Landlord-AI-Marketing-Studio`, branch `main`
-**Baseline Git commit (before this work):** `18eb8f8` → **Final commit:** `074e284`
-**Implementer:** Claude Code, this session
+**Baseline Git commit (before this work):** `18eb8f8` → **Final commit (original V1.1 scope):** `074e284` → **Final commit (v1.0 Case Navigator, §11):** see §11.9
+**Implementer:** Claude Code, this session (original) and subsequent sessions (§11)
 
 This is a continuation of `AI Dispute Review - Technical Development Record V1.0.md`. It records the Supreme Court Litigation extension implemented against the spec in `docs/AI_Dispute_Review_Supreme_Court_Extension_Claude_Code_Spec.md`.
 
@@ -106,7 +106,110 @@ Test record `ADR-20260722-153929` is clearly marked `TEST — Supreme Court Liti
 - **Spreadsheet:** nothing was written by this session, so there is nothing to roll back there. If the reviewable additions in `docs/AI Dispute Review - Supreme Court Spreadsheet Additions.md` are later pasted in and need reverting, simply delete the added rows/values — nothing else references them at runtime.
 - **Test record:** `ADR-20260722-153929` can be deleted or marked `Closed` at any time; it holds no real client data.
 
+## 11. Case Navigator: Full 11-Stage Workflow (v1.0 — Feature Complete)
+
+Everything in §1-§10 above covers only the intake extension and the Form 2 gate (Stages 1-3 of what is now an 11-stage workflow). Across several follow-on phases (each a separate, user-approved engineering loop — none of it done in one pass), the **BC Supreme Court Case Navigator** was added: a guided 11-stage workflow, rendered in the same admin case-detail modal, that walks a self-represented defendant from intake through post-judgment. This section is the authoritative record of that work; §1-§10 remain unchanged as the historical record of the intake extension itself.
+
+### 11.1 The 11 stages
+
+| # | Stage | Model | Status |
+|---|---|---|---|
+| 1 | Case Intake | Existing intake form (no change) | Complete |
+| 2 | Litigation Assessment | Existing rule-based report + Gemini Content Analysis/Working Draft (§C-E) | Complete |
+| 3 | Response to Civil Claim / Form 2 | Existing Form 2 eligibility gate + working-draft generator (§ above) | Complete |
+| 4 | Evidence Preparation | Full operational workspace — Evidence Matrix | Complete |
+| 5 | Document Discovery | Full operational workspace | Complete |
+| 6 | Examination for Discovery | Full operational workspace (tabbed, 5 sections) | Complete |
+| 7 | Applications | Full operational workspace (flat list) | Complete |
+| 8 | Settlement | Full operational workspace (flat list of offers) | Complete |
+| 9 | Trial Preparation | Simplified guidance: guide + checklist + resources + lawyer-review checkpoint | Complete |
+| 10 | Hearing / Court Binder | Simplified guidance (same model as Stage 9) | Complete |
+| 11 | Judgment, Costs and Enforcement | Simplified guidance (same model as Stage 9) | Complete |
+
+**Stages 4-8** are full operational workspaces: structured records (rows/offers/applications), controlled vocabularies, computed timing indicators (Overdue/Due Soon/On Track from user-entered dates only), and summary dashboards. **Stages 9-11** are deliberately lighter — courtroom strategy, evidentiary decisions, costs, and enforcement are too case-specific for a structured data model, so they're guide + checklist + official resources + a lawyer-review checkpoint, with only per-item checklist status persisted (no case content).
+
+### 11.2 Architecture (applies to all of Stages 4-11)
+
+- **Single envelope, additive siblings.** Every stage reuses the same `AI Analysis JSON` column via the versioned envelope introduced in §B, adding one new sibling key per stage's workspace — never a new column, never a new sheet:
+  ```json
+  {
+    "schemaVersion": 2,
+    "ruleAnalysis": {}, "contentAnalysis": {}, "workingDraft": {},
+    "evidenceMatrix": {}, "documentDiscovery": {}, "examinationDiscovery": {},
+    "applications": {}, "settlement": {}, "lateStageGuidance": {}
+  }
+  ```
+  `readDisputeAiAnalysisEnvelope_` (`apps-script/DisputeAiAnalysis.gs`) is still the one authoritative reader — every new sibling was added there with an explicit `.hasOwnProperty()` passthrough so any envelope writer (old or new) carries every other sibling forward untouched. This was re-verified after every single phase: save each workspace in turn, reload, confirm every other sibling survived byte-for-byte.
+- **Status is always computed, never hand-set.** `getWorkflowProgress` (`src/config/supremeCourtCivilClaimDefendantWorkflow.js`) derives every stage's badge from the underlying workspace data (row/offer/application arrays for Stages 4-8; per-item checklist status for Stages 9-11) — nothing is a manually-set dropdown. A stage only leaves `not_started`/`conditional` because of its OWN recorded data, never because an earlier or later stage has data.
+- **Late-stage checklist model (Stages 9-11 only).** One compact `lateStageGuidance` object with three sub-keys (`trialPreparation`/`courtBinder`/`judgmentCostsEnforcement`), each `{status, checklist, notes, updatedAt}` — `checklist` maps a fixed set of item IDs to `Not Started`/`In Progress`/`Completed`/`Not Applicable`. Stage status is a pure rollup: untouched → `not_started`; every applicable item Completed/N-A → `completed`; anything else touched → `in_progress`. This is deliberately the ONLY thing persisted for Stages 9-11 — no case content, no dates beyond what a free-text notes field records.
+- **One shared component for Stages 9-11.** `LateStageGuidanceWorkspace.jsx` renders all three stages as `CollapsibleCard`s (progressive disclosure) rather than three separate heavy workspace components — reusing `WORKFLOW_STAGES`' existing guidance content (what it means / when it applies / what to organize / cautions, all written in Phase 1) and `StageForms` (exported from `SupremeCourtCaseNavigator.jsx` for reuse) for official form cards, so no guidance text or form-card markup was duplicated a third time.
+
+### 11.3 Files (cumulative across all Stage 4-11 phases)
+
+Apps Script (each stage's workspace gets one dedicated `.gs` file mirroring the same read/merge/get/save shape):
+- `DisputeEvidenceMatrix.gs`, `DisputeDocumentDiscovery.gs`, `DisputeExaminationDiscovery.gs`, `DisputeApplications.gs`, `DisputeSettlement.gs`, `DisputeLateStageGuidance.gs`
+- `DisputeAiAnalysis.gs` — `readDisputeAiAnalysisEnvelope_` extended once per phase to add the new sibling's passthrough (6 additions total across Stages 4-11)
+- `Code.gs` — two dispatcher lines added per stage (`getDispute*`/`saveDispute*`)
+
+Frontend:
+- `src/components/EvidenceMatrix.jsx`, `DocumentDiscoveryWorkspace.jsx`, `ExaminationDiscoveryWorkspace.jsx`, `ApplicationsWorkspace.jsx`, `SettlementWorkspace.jsx`, `LateStageGuidanceWorkspace.jsx`
+- `src/components/SupremeCourtCaseNavigator.jsx` — one workspace-link entry per stage; `StageForms` exported for reuse by the Stage 9-11 workspace
+- `src/components/CollapsibleCard.jsx` — reused unchanged throughout, including for Stages 9-11's progressive disclosure
+- `src/config/supremeCourtCivilClaimDefendantWorkflow.js` — grew from the original 11-stage guidance-only config (§ above) to also hold every workspace's data model, controlled vocabularies, and progress-derivation logic; `getWorkflowProgress` now takes 8 positional arguments (review, formTwoEligibility, then one per Stage 4-11 workspace)
+- `src/pages/admin/DisputeReviews.jsx` — mounts all six workspace components plus the Navigator, one `useState` per workspace, all reset in `openReview`
+- `src/utils/disputeReview.js` — one `getDispute*`/`saveDispute*` pair per stage
+- `src/styles/global.css` — additive only; reused `.scc-em-*` classes across every workspace, with one small new block (`.scc-late-checklist*`) for the Stage 9-11 checklist rows
+
+### 11.4 Apps Script deployment history for this work
+
+Same deployment ID throughout (`AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`, exec URL never changed), redeployed once per stage after the established clean-staging `clasp` procedure (fresh `clasp pull` → diff against local → clean staging directory with only files confirmed to belong to this project → `clasp push` → `clasp version` → `clasp deploy` to the same deployment ID):
+
+| Version | Stage |
+|---|---|
+| `@93` | Evidence Matrix (Stage 4) |
+| `@94` | Document Discovery (Stage 5) |
+| `@95` | Examination for Discovery (Stage 6) |
+| `@96` | Applications (Stage 7) |
+| `@97` | Settlement (Stage 8) |
+| `@98` | Late-stage guidance, Stages 9-11 |
+
+### 11.5 Legal-information boundary (unchanged principle, applied consistently)
+
+Every stage — operational workspace or simplified guidance — carries the same posture as the rest of this app: general legal information and document-organization guidance, never legal advice, never a litigation-strategy or courtroom-advocacy tool. Stages 9-11 make this explicit with a shared notice ("Trial preparation, courtroom procedure, evidentiary decisions, costs, appeals and enforcement are highly case-specific...") plus a one-line lawyer-review checkpoint per stage. No stage generates a court-ready document; every "official forms" card links to the live BC Government/BC Laws source, never a hosted copy.
+
+### 11.6 Known limitations
+
+- English only throughout (Chinese translation explicitly deferred at every phase, consistent with §H).
+- No document generation anywhere in Stages 4-11 (no Form 22/23/32/33/34/36/40/41/42/48/62, no draft orders, no affidavits, no trial briefs, no bills of costs) — every workspace tracks whether a document is needed and its status, never generates it.
+- Stages 9-11 persist only checklist status and free-text notes — no structured judgment/costs/deadline fields (a deliberate scope decision; see the Stage 11 architecture note in that phase's completion report).
+- No OCR or automated document-content parsing anywhere in the Navigator (distinct from the separate Gemini Content Analysis pipeline in §D, which reads file bytes but only for the Litigation Assessment stage).
+- Progress is entirely computed client-side from workspace data; there is no independent audit trail of status changes beyond each workspace's own `updatedAt` timestamps.
+
+### 11.7 Future routes (not started)
+
+- **Petition / Judicial Review Respondent Workflow** — a parallel guided workflow for a different BC Supreme Court proceeding type, using this completed Civil Claim Defendant workflow as the reference model. Not started.
+- **RTB (Residential Tenancy Branch) guided workflow** — the RTB dispute branch currently has only the original rule-based assessment (no stage-by-stage navigator equivalent to what Civil Claim Defendant now has). Not started.
+
+### 11.8 Verification methodology (applied identically in every phase)
+
+Each phase (one workspace) went through the same loop: inspect existing architecture → implement → `npm run build` + `npm run lint` (lint held at the same pre-existing baseline problem count throughout — 62 problems, 0 new, in every phase) → browser-verify end-to-end against the labeled test case `ADR-20260722-153929` (create a real record, save, reload, confirm every OTHER envelope sibling survived byte-for-byte, confirm the Navigator badge derivation) → deploy backend → re-verify against production → remove the verification-only test data → confirm the removal itself persisted after another reload → commit.
+
+### 11.9 Commits
+
+`8f43a93` (Case Navigator + Evidence Matrix), `4f285ba` (Document Discovery), `f2867a0` (Examination for Discovery), `1c778a6` (Applications), `5d0016a` (Settlement), and the commit recorded in the completion report for this final phase (late-stage guidance, Stages 9-11 — see that report for the exact hash).
+
+---
+
 ## 10. Change Log
+
+### V1.2 — 2026-07-26
+
+- Added the full BC Supreme Court Case Navigator: 11 guided stages covering the entire Civil Claim Defendant workflow (see §11 for the complete record).
+- Stages 4-8 (Evidence Preparation, Document Discovery, Examination for Discovery, Applications, Settlement) implemented as full operational workspaces across five separate phases, each its own complete engineering loop.
+- Stages 9-11 (Trial Preparation, Hearing/Court Binder, Judgment/Costs/Enforcement) implemented as one shared, deliberately lighter guidance + checklist workspace in a final closeout phase.
+- Nine new envelope sibling keys added across all phases (`evidenceMatrix`, `documentDiscovery`, `examinationDiscovery`, `applications`, `settlement`, `lateStageGuidance`) — no new Sheet columns at any point.
+- Apps Script redeployed once per phase to the same production deployment ID, ending at version `@98`.
+- **Marked BC Supreme Court Civil Claim Defendant Workflow v1.0 — Feature Complete.**
 
 ### V1.1 — 2026-07-22
 

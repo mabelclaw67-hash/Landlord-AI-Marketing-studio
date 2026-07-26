@@ -295,6 +295,8 @@ function doPost(e) {
     if (action === "saveDisputeApplications") return ok(saveDisputeApplications_(body.reviewId, body.data, auth));
     if (action === "getDisputeSettlement") return ok(getDisputeSettlement_(body.reviewId, auth));
     if (action === "saveDisputeSettlement") return ok(saveDisputeSettlement_(body.reviewId, body.data, auth));
+    if (action === "getDisputeLateStageGuidance") return ok(getDisputeLateStageGuidance_(body.reviewId, auth));
+    if (action === "saveDisputeLateStageGuidance") return ok(saveDisputeLateStageGuidance_(body.reviewId, body.data, auth));
     if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
     if (action === "generateFormTwoDraft") return ok(generateFormTwoDraft_(body.data || body, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));

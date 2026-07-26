@@ -7631,6 +7631,28 @@ a.review-center__card:hover {
 .scc-em-save-status--ok { color: #166534; }
 .scc-em-save-status--error { color: var(--color-error); }
 
+.scc-late-checklist {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.scc-late-checklist__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.scc-late-checklist__label {
+  font-size: 0.88rem;
+}
+
+.scc-late-checklist__row select {
+  max-width: 180px;
+}
+
 /* Sticky report actions inside the Dispute Review admin modal */
 .dispute-admin-bar {
   position: sticky;

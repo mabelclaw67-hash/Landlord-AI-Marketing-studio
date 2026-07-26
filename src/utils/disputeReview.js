@@ -1618,6 +1618,19 @@ export async function saveDisputeSettlement(reviewId, settlement) {
   return apiPost({ action: "saveDisputeSettlement", reviewId, data: { settlement }, ...getStudioRequestAuth("rental") });
 }
 
+// ── Supreme Court: Late-stage guidance (Stages 9-11) ─────────────────────────
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputeLateStageGuidance.gs) — no new sheet column.
+export async function getDisputeLateStageGuidance(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputeLateStageGuidance", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputeLateStageGuidance(reviewId, lateStageGuidance) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputeLateStageGuidance", reviewId, data: { lateStageGuidance }, ...getStudioRequestAuth("rental") });
+}
+
 // Rebuilds both language reports from a stored record so the Admin screen and
 // the server agree on exactly what the client will see.
 export function rebuildReportsFromRecord(record, files) {

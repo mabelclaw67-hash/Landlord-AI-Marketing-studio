@@ -6,6 +6,7 @@ import DocumentDiscoveryWorkspace from "../../components/DocumentDiscoveryWorksp
 import ExaminationDiscoveryWorkspace from "../../components/ExaminationDiscoveryWorkspace";
 import ApplicationsWorkspace from "../../components/ApplicationsWorkspace";
 import SettlementWorkspace from "../../components/SettlementWorkspace";
+import LateStageGuidanceWorkspace from "../../components/LateStageGuidanceWorkspace";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -150,6 +151,9 @@ export default function DisputeReviews() {
   // Settlement (Stage 8) — same lifting pattern.
   const [settlementState, setSettlementState] = useState(null);
 
+  // Late-stage guidance (Stages 9-11) — same lifting pattern.
+  const [lateStageGuidanceState, setLateStageGuidanceState] = useState(null);
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -223,6 +227,7 @@ export default function DisputeReviews() {
     setExaminationDiscoveryState(null);
     setApplicationsState(null);
     setSettlementState(null);
+    setLateStageGuidanceState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -949,6 +954,14 @@ export default function DisputeReviews() {
             )}
 
             {isSupremeCourt && (
+              <LateStageGuidanceWorkspace
+                key={`late-stage-guidance-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                onLateStageGuidanceChange={setLateStageGuidanceState}
+              />
+            )}
+
+            {isSupremeCourt && (
               <SupremeCourtCaseNavigator
                 review={review}
                 formTwoEligibility={formTwoEligibility}
@@ -957,6 +970,7 @@ export default function DisputeReviews() {
                 examinationDiscovery={examinationDiscoveryState}
                 applications={applicationsState}
                 settlement={settlementState}
+                lateStageGuidance={lateStageGuidanceState}
               />
             )}
           </div>
