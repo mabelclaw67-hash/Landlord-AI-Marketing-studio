@@ -1242,6 +1242,144 @@ export function getExaminationReadiness(examinationDiscovery) {
   return "Organizational preparation complete";
 }
 
+// ── Applications (Stage 7) ───────────────────────────────────────────────────
+// Single source of truth for the application-record model, shared by
+// src/components/ApplicationsWorkspace.jsx. Persisted verbatim inside the
+// existing "AI Analysis JSON" envelope's applications key — see
+// apps-script/DisputeApplications.gs. A case may face or bring multiple,
+// distinct applications over its life, so this is modeled as a flat list
+// rather than a single readiness object (unlike Examination for Discovery).
+
+export const APPLICATIONS_NOTICE =
+  "This workspace helps organize preparation for court applications the case may bring or respond to. It does " +
+  "not determine whether an application should be brought, what relief to request, what evidence to rely on, " +
+  "or whether materials are legally sufficient. Those issues may require review by a qualified lawyer.";
+
+export const APPLICATIONS_CAUTIONS = [
+  "Application filing and service deadlines are strict and can be short — confirm them as soon as an application is contemplated or received.",
+  "Urgent applications may require an immediate response — do not wait to seek legal advice if served with one.",
+  "An affidavit is sworn evidence — it must be accurate and within the deponent's own knowledge.",
+  "A draft order should reflect only relief actually sought and should be reviewed by counsel before submission.",
+  "Preserve original documents and evidence referenced in application materials.",
+];
+
+export const APPLICATION_ROLES = ["Not Yet Determined", "Bringing", "Responding", "Both"];
+
+export const APPLICATION_TYPES = [
+  "Procedural",
+  "Production / Discovery",
+  "Injunction",
+  "Dismissal / Strike",
+  "Case Management",
+  "Costs",
+  "Other",
+];
+
+export const APPLICATION_STATUSES = [
+  "Not Yet Started",
+  "Anticipated",
+  "Materials in Preparation",
+  "Filed",
+  "Served",
+  "Response Received",
+  "Scheduled",
+  "Heard",
+  "Decided",
+  "Withdrawn",
+  "Not Applicable",
+];
+
+export const APPLICATION_TERMINAL_STATUSES = ["Decided", "Withdrawn", "Not Applicable"];
+
+export const APPLICATION_MATERIALS_STATUSES = ["Not Started", "In Progress", "Ready for Review", "Filed", "Not Applicable"];
+
+export const APPLICATION_PREPARATION_STATUSES = [
+  "Not Reviewed",
+  "In Preparation",
+  "Ready for Review",
+  "Organizationally Prepared",
+  "Not Applicable",
+];
+
+export function makeApplication(overrides = {}) {
+  return {
+    id: overrides.id || `app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "",
+    applicationRole: "Not Yet Determined",
+    applicationType: "Other",
+    status: "Not Yet Started",
+    reliefSought: "",
+    groundsSummary: "",
+    hearingDate: "",
+    hearingTime: "",
+    locationOrMethod: "Not Yet Confirmed",
+    filingDeadline: "",
+    serviceDeadline: "",
+    noticeOfApplicationFiled: false,
+    applicationResponseFiled: false,
+    affidavitsNeeded: false,
+    affidavitsStatus: "Not Started",
+    draftOrderNeeded: false,
+    draftOrderStatus: "Not Started",
+    urgent: false,
+    linkedEvidenceMatrixRowIds: [],
+    linkedDocumentDiscoveryIds: [],
+    preparationStatus: "Not Reviewed",
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+// Computed display-only timing indicator from the user-entered filing
+// deadline — never a stored status value, and never a universally-invented
+// deadline. Only meaningful while the application is still active.
+export function computeApplicationTiming(application) {
+  if (APPLICATION_TERMINAL_STATUSES.includes(application.status)) return null;
+  if (!application.filingDeadline) return null;
+  const due = new Date(application.filingDeadline + "T00:00:00");
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "Overdue";
+  if (diffDays <= 7) return "Due Soon";
+  return "On Track";
+}
+
+export function applicationsSummary(applications) {
+  const list = applications || [];
+  return {
+    total: list.length,
+    urgent: list.filter((a) => a.urgent && !APPLICATION_TERMINAL_STATUSES.includes(a.status)).length,
+    scheduled: list.filter((a) => a.status === "Scheduled" || (a.hearingDate && !APPLICATION_TERMINAL_STATUSES.includes(a.status))).length,
+    materialsOutstanding: list.filter(
+      (a) =>
+        !APPLICATION_TERMINAL_STATUSES.includes(a.status) &&
+        ((a.affidavitsNeeded && !["Filed", "Not Applicable"].includes(a.affidavitsStatus)) ||
+          (a.draftOrderNeeded && !["Filed", "Not Applicable"].includes(a.draftOrderStatus)))
+    ).length,
+    overdue: list.filter((a) => computeApplicationTiming(a) === "Overdue").length,
+    filed: list.filter((a) => ["Filed", "Served", "Response Received", "Scheduled", "Heard"].includes(a.status)).length,
+    decided: list.filter((a) => a.status === "Decided").length,
+  };
+}
+
+// Organizational readiness only — never a legal-compliance conclusion.
+export function getApplicationsReadiness(applications) {
+  const list = applications || [];
+  if (list.length === 0) return "No applications recorded";
+  if (list.some((a) => a.urgent && !APPLICATION_TERMINAL_STATUSES.includes(a.status))) return "Urgent application requires immediate attention";
+  if (list.some((a) => computeApplicationTiming(a) === "Overdue")) return "Filing deadline appears overdue — verify immediately";
+  if (list.some((a) => computeApplicationTiming(a) === "Due Soon")) return "Filing deadline approaching";
+  const summary = applicationsSummary(list);
+  if (summary.materialsOutstanding > 0) return "Materials in preparation";
+  if (list.some((a) => !APPLICATION_TERMINAL_STATUSES.includes(a.status) && a.preparationStatus !== "Organizationally Prepared")) {
+    return "Preparation remains incomplete";
+  }
+  return "Organizational preparation complete";
+}
+
 const STAGE_ORDER = WORKFLOW_STAGES.map((stage) => stage.id);
 
 // Fields the "Next Step" value can map to, for nudging a later stage from its
@@ -1261,7 +1399,7 @@ const NEXT_STEP_STAGE_HINTS = {
 // (Dispute Type, Status, Next Step) plus the existing Form 2 eligibility
 // check — nothing is persisted. See docs/plan for why this is computed
 // client-side rather than stored on the sheet.
-export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery) {
+export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery, applications) {
   const status = review?.["Status"] || "";
   const nextStep = review?.["Next Step"] || "";
   const isSupremeCourtDefendant =
@@ -1350,6 +1488,17 @@ export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, 
       const openUndertakings = undertakings.some((u) => !["Completed", "Not Applicable", "Withdrawn"].includes(u.responseStatus));
       progress.examinationForDiscovery = orgPrepComplete && !unresolvedIssues && !openUndertakings ? "completed" : "in_progress";
     }
+  }
+
+  // Applications workspace, where it exists, is the source of truth for
+  // Stage 7 — overrides the "conditional" default above. Stays conditional
+  // unless the reviewer has actually recorded a real application.
+  const applicationRecords = applications?.applications;
+  if (!Array.isArray(applicationRecords) || applicationRecords.length === 0) {
+    progress.applications = "conditional";
+  } else {
+    const allTerminal = applicationRecords.every((a) => APPLICATION_TERMINAL_STATUSES.includes(a.status));
+    progress.applications = allTerminal ? "completed" : "in_progress";
   }
 
   // A conditional stage must not silently steal focus as "the current stage"

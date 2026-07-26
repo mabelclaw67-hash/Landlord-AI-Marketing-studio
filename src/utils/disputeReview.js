@@ -1592,6 +1592,19 @@ export async function saveDisputeExaminationDiscovery(reviewId, examinationDisco
   return apiPost({ action: "saveDisputeExaminationDiscovery", reviewId, data: { examinationDiscovery }, ...getStudioRequestAuth("rental") });
 }
 
+// ── Supreme Court: Applications workspace (Stage 7) ──────────────────────────
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputeApplications.gs) — no new sheet column.
+export async function getDisputeApplications(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputeApplications", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputeApplications(reviewId, applications) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputeApplications", reviewId, data: { applications }, ...getStudioRequestAuth("rental") });
+}
+
 // Rebuilds both language reports from a stored record so the Admin screen and
 // the server agree on exactly what the client will see.
 export function rebuildReportsFromRecord(record, files) {
