@@ -3,6 +3,7 @@ import { useLang } from "../../contexts/LangContext";
 import SupremeCourtCaseNavigator from "../../components/SupremeCourtCaseNavigator";
 import EvidenceMatrix from "../../components/EvidenceMatrix";
 import DocumentDiscoveryWorkspace from "../../components/DocumentDiscoveryWorkspace";
+import ExaminationDiscoveryWorkspace from "../../components/ExaminationDiscoveryWorkspace";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -138,6 +139,9 @@ export default function DisputeReviews() {
   // only so the Case Navigator's Stage 5 badge can reflect real state.
   const [documentDiscoveryState, setDocumentDiscoveryState] = useState(null);
 
+  // Examination for Discovery (Stage 6) — same lifting pattern.
+  const [examinationDiscoveryState, setExaminationDiscoveryState] = useState(null);
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -208,6 +212,7 @@ export default function DisputeReviews() {
     setDraftPreview(null);
     setEvidenceMatrixState(null);
     setDocumentDiscoveryState(null);
+    setExaminationDiscoveryState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -908,11 +913,22 @@ export default function DisputeReviews() {
             )}
 
             {isSupremeCourt && (
+              <ExaminationDiscoveryWorkspace
+                key={`examination-discovery-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                evidenceMatrix={evidenceMatrixState}
+                documentDiscovery={documentDiscoveryState}
+                onExaminationChange={setExaminationDiscoveryState}
+              />
+            )}
+
+            {isSupremeCourt && (
               <SupremeCourtCaseNavigator
                 review={review}
                 formTwoEligibility={formTwoEligibility}
                 evidenceMatrix={evidenceMatrixState}
                 documentDiscovery={documentDiscoveryState}
+                examinationDiscovery={examinationDiscoveryState}
               />
             )}
           </div>

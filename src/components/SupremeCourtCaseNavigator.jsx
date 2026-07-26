@@ -51,6 +51,7 @@ function StageForms({ stageId }) {
 const STAGE_WORKSPACE_LINKS = {
   evidencePreparation: { targetId: "scc-evidence-matrix", label: "Open Evidence Matrix" },
   documentDiscovery: { targetId: "scc-document-discovery", label: "Open Document Discovery Workspace" },
+  examinationForDiscovery: { targetId: "scc-examination-discovery", label: "Open Examination for Discovery Workspace" },
 };
 
 function StageBody({ stage, onOpenWorkspace }) {
@@ -95,10 +96,10 @@ function StageBody({ stage, onOpenWorkspace }) {
 // Court civil claim where the client is the defendant. Status per stage is
 // derived entirely from data already on the case record — see
 // getWorkflowProgress in the config file for why nothing is persisted here.
-export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix, documentDiscovery }) {
+export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery }) {
   if (review?.["Dispute Type"] !== "Supreme Court Litigation") return null;
 
-  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery);
+  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery);
 
   function scrollToWorkspace(targetId) {
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });

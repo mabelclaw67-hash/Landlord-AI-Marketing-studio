@@ -289,6 +289,8 @@ function doPost(e) {
     if (action === "saveDisputeEvidenceMatrix") return ok(saveDisputeEvidenceMatrix_(body.reviewId, body.data, auth));
     if (action === "getDisputeDocumentDiscovery") return ok(getDisputeDocumentDiscovery_(body.reviewId, auth));
     if (action === "saveDisputeDocumentDiscovery") return ok(saveDisputeDocumentDiscovery_(body.reviewId, body.data, auth));
+    if (action === "getDisputeExaminationDiscovery") return ok(getDisputeExaminationDiscovery_(body.reviewId, auth));
+    if (action === "saveDisputeExaminationDiscovery") return ok(saveDisputeExaminationDiscovery_(body.reviewId, body.data, auth));
     if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
     if (action === "generateFormTwoDraft") return ok(generateFormTwoDraft_(body.data || body, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));

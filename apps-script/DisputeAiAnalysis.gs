@@ -42,13 +42,13 @@ var DISPUTE_AI_TEXT_PREVIEW_CHARS = 500;
 function readDisputeAiAnalysisEnvelope_(rawCellValue) {
   var text = disputeText_(rawCellValue);
   if (!text) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null };
   }
   var parsed;
   try {
     parsed = JSON.parse(text);
   } catch (parseEx) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null };
   }
   if (parsed && typeof parsed === "object" && parsed.schemaVersion === DISPUTE_AI_ANALYSIS_SCHEMA_VERSION) {
     return {
@@ -68,13 +68,16 @@ function readDisputeAiAnalysisEnvelope_(rawCellValue) {
       // Document Discovery sibling namespace (see DisputeDocumentDiscovery.gs).
       // Same reason as evidenceMatrix: every OTHER envelope writer must carry
       // it forward untouched.
-      documentDiscovery: parsed.hasOwnProperty("documentDiscovery") ? parsed.documentDiscovery : null
+      documentDiscovery: parsed.hasOwnProperty("documentDiscovery") ? parsed.documentDiscovery : null,
+      // Examination for Discovery sibling namespace (see
+      // DisputeExaminationDiscovery.gs). Same reason as the others.
+      examinationDiscovery: parsed.hasOwnProperty("examinationDiscovery") ? parsed.examinationDiscovery : null
     };
   }
   // Pre-existing flat shape (the report JSON snapshot submitDisputeReview_
   // has always written here) — preserve it as ruleAnalysis rather than
-  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix/documentDiscovery empty.
-  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null };
+  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix/documentDiscovery/examinationDiscovery empty.
+  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null };
 }
 
 // Merges a freshly generated content analysis into whatever envelope already

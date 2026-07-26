@@ -7446,6 +7446,33 @@ a.review-center__card:hover {
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
 }
 
+/* Simple progressive-disclosure tab bar (Examination for Discovery workspace) */
+.scc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 10px;
+}
+
+.scc-tab {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface, #f9fafb);
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.scc-tab--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
 .scc-em-stat {
   border: 1px solid var(--color-border);
   border-radius: 10px;

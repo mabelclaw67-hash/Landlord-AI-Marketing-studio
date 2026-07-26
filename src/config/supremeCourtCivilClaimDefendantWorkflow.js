@@ -967,6 +967,281 @@ export function getDiscoveryReadiness(documents) {
   return { label, flags };
 }
 
+// ── Examination for Discovery (Stage 6) ─────────────────────────────────────
+// Single source of truth for the readiness/examinee/preparation-issue/
+// undertaking/transcript-reference models, shared by
+// src/components/ExaminationDiscoveryWorkspace.jsx. Persisted verbatim
+// inside the existing "AI Analysis JSON" envelope's examinationDiscovery
+// key — see apps-script/DisputeExaminationDiscovery.gs. Preparation issues
+// REFERENCE Form 2 paragraphs, Evidence Matrix rows, and Document Discovery
+// records by id — never copy them.
+
+export const EXAMINATION_DISCOVERY_NOTICE =
+  "This workspace helps organize preparation for a possible Examination for Discovery. It does not determine " +
+  "whether an examination is required, who should be examined, what questions should be asked, whether an " +
+  "answer is sufficient, or whether an undertaking has been satisfied. Those issues may require review by a " +
+  "qualified lawyer.";
+
+export const EXAMINATION_DISCOVERY_CAUTIONS = [
+  "Answers given at an examination must be truthful.",
+  "Review pleadings and relevant documents before the examination.",
+  "Privileged material should not be disclosed without appropriate review.",
+  "Preserve original documents and transcripts.",
+  "Track undertakings carefully.",
+  "Court rules and scheduling directions may change.",
+];
+
+export const APPLICABILITY_STATUSES = [
+  "Not Yet Assessed",
+  "Not Currently Expected",
+  "Possible",
+  "Expected",
+  "Scheduled",
+  "Completed",
+  "Not Applicable",
+];
+
+export const LOCATION_METHODS = ["In Person", "Video Conference", "Telephone", "Not Yet Confirmed", "Other"];
+
+export const READINESS_PREPARATION_STATUSES = [
+  "Not Started",
+  "In Progress",
+  "Ready for Review",
+  "Organizational Preparation Complete",
+  "Completed",
+  "Not Applicable",
+];
+
+export const EXAMINEE_SIDES = ["Defendant", "Plaintiff", "Third Party", "Other"];
+
+export const EXAMINATION_STATUSES = [
+  "Not Assessed",
+  "Possible Examinee",
+  "Expected Examinee",
+  "Scheduled",
+  "Completed",
+  "Not Applicable",
+];
+
+export const ISSUE_SOURCE_TYPES = ["Form 2", "Evidence Matrix", "Document Discovery", "Manual Issue", "Multiple Sources"];
+
+export const ISSUE_PREPARATION_STATUSES = [
+  "Not Reviewed",
+  "Review Needed",
+  "In Preparation",
+  "Ready for Review",
+  "Organizationally Prepared",
+  "Not Applicable",
+];
+
+export const UNDERTAKING_RESPONSE_STATUSES = [
+  "Open",
+  "In Progress",
+  "Response Prepared",
+  "Response Delivered",
+  "Disputed",
+  "Withdrawn",
+  "Completed",
+  "Not Applicable",
+];
+
+export function makeExaminationReadiness(overrides = {}) {
+  return {
+    applicabilityStatus: "Not Yet Assessed",
+    scheduledDate: "",
+    scheduledTime: "",
+    locationOrMethod: "Not Yet Confirmed",
+    noticeReceived: false,
+    noticeDate: "",
+    appointmentFormReference: "",
+    estimatedDuration: "",
+    interpreterNeeded: false,
+    accessibilityNeeds: "",
+    counselOrAdvisorReviewRecommended: false,
+    preparationStatus: "Not Started",
+    generalNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export function makeExaminee(overrides = {}) {
+  return {
+    id: overrides.id || `exm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: "",
+    partyOrRole: "",
+    organization: "",
+    side: "Defendant",
+    examinationStatus: "Not Assessed",
+    scheduledDate: "",
+    estimatedDuration: "",
+    interpreterNeeded: false,
+    preparationNotes: "",
+    linkedIssueIds: [],
+    linkedDocumentIds: [],
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export function makePreparationIssue(overrides = {}) {
+  return {
+    id: overrides.id || `pi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "",
+    sourceType: "Manual Issue",
+    linkedFormTwoParagraphIds: [],
+    linkedEvidenceMatrixRowIds: [],
+    linkedDocumentDiscoveryIds: [],
+    factualSummary: "",
+    clarificationNeeded: "",
+    knownAnswer: "",
+    uncertaintyOrGap: "",
+    supportingDocumentIds: [],
+    relatedExamineeIds: [],
+    preparationStatus: "Not Reviewed",
+    reviewerNotes: "",
+    sourceSnapshotText: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export function makeUndertaking(overrides = {}) {
+  return {
+    id: overrides.id || `ut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    undertakingNumber: "",
+    description: "",
+    givenBy: "",
+    relatedExamineeId: "",
+    dateGiven: "",
+    dueDate: "",
+    responseStatus: "Open",
+    responseSummary: "",
+    responseDocumentIds: [],
+    servedDate: "",
+    followUpRequired: false,
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export function makeTranscriptReference(overrides = {}) {
+  return {
+    id: overrides.id || `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    examineeId: "",
+    transcriptAvailable: false,
+    transcriptDate: "",
+    transcriptReference: "",
+    pageReference: "",
+    issueSummary: "",
+    followUpNeeded: false,
+    linkedUndertakingIds: [],
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+// Computed display-only timing indicator from a user-entered due date — never
+// a stored status value, and never a universally-invented deadline.
+export function computeUndertakingTiming(undertaking) {
+  if (["Completed", "Not Applicable", "Withdrawn"].includes(undertaking.responseStatus)) return null;
+  if (!undertaking.dueDate) return null;
+  const due = new Date(undertaking.dueDate + "T00:00:00");
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "Overdue";
+  if (diffDays <= 7) return "Due Soon";
+  return "On Track";
+}
+
+// Import preparation issues from Evidence Matrix rows not already linked.
+export function importIssuesFromEvidenceMatrix(evidenceMatrix, existingIssues) {
+  const existing = existingIssues || [];
+  const linkedRowIds = new Set(existing.flatMap((i) => i.linkedEvidenceMatrixRowIds || []));
+  const created = [];
+  for (const row of evidenceMatrix?.rows || []) {
+    if (linkedRowIds.has(row.id)) continue;
+    created.push(
+      makePreparationIssue({
+        title: row.allegationOrIssue || "(untitled issue)",
+        sourceType: "Evidence Matrix",
+        linkedEvidenceMatrixRowIds: [row.id],
+        factualSummary: row.defendantPosition || "",
+        sourceSnapshotText: row.allegationOrIssue || "",
+      })
+    );
+    linkedRowIds.add(row.id);
+  }
+  return { issues: [...existing, ...created], added: created.length, alreadyLinked: (evidenceMatrix?.rows?.length || 0) - created.length };
+}
+
+// Import preparation issues from Document Discovery records not already linked.
+export function importIssuesFromDocumentDiscovery(documentDiscovery, existingIssues) {
+  const existing = existingIssues || [];
+  const linkedDocIds = new Set(existing.flatMap((i) => i.linkedDocumentDiscoveryIds || []));
+  const created = [];
+  for (const doc of documentDiscovery?.documents || []) {
+    if (linkedDocIds.has(doc.id)) continue;
+    created.push(
+      makePreparationIssue({
+        title: doc.title || "(untitled document)",
+        sourceType: "Document Discovery",
+        linkedDocumentDiscoveryIds: [doc.id],
+        factualSummary: doc.description || "",
+        sourceSnapshotText: doc.title || "",
+      })
+    );
+    linkedDocIds.add(doc.id);
+  }
+  return { issues: [...existing, ...created], added: created.length, alreadyLinked: (documentDiscovery?.documents?.length || 0) - created.length };
+}
+
+export function examinationDiscoverySummary(examinationDiscovery) {
+  const examinees = examinationDiscovery?.examinees || [];
+  const issues = examinationDiscovery?.preparationIssues || [];
+  const undertakings = examinationDiscovery?.undertakings || [];
+  const transcripts = examinationDiscovery?.transcriptReferences || [];
+  return {
+    applicabilityStatus: examinationDiscovery?.readiness?.applicabilityStatus || "Not Yet Assessed",
+    examinees: examinees.length,
+    preparationIssues: issues.length,
+    issuesReadyForReview: issues.filter((i) => ["Ready for Review", "Organizationally Prepared"].includes(i.preparationStatus)).length,
+    openUndertakings: undertakings.filter((u) => !["Completed", "Not Applicable", "Withdrawn"].includes(u.responseStatus)).length,
+    overdueUndertakings: undertakings.filter((u) => computeUndertakingTiming(u) === "Overdue").length,
+    transcriptFollowUps: transcripts.filter((t) => t.followUpNeeded).length,
+  };
+}
+
+// Organizational readiness only — never a legal-compliance conclusion.
+export function getExaminationReadiness(examinationDiscovery) {
+  const readiness = examinationDiscovery?.readiness || makeExaminationReadiness();
+  const examinees = examinationDiscovery?.examinees || [];
+  const issues = examinationDiscovery?.preparationIssues || [];
+  const undertakings = examinationDiscovery?.undertakings || [];
+  const transcripts = examinationDiscovery?.transcriptReferences || [];
+
+  if (readiness.applicabilityStatus === "Not Yet Assessed") return "Applicability not yet assessed";
+  if (readiness.applicabilityStatus === "Scheduled" && (!readiness.scheduledDate || readiness.locationOrMethod === "Not Yet Confirmed")) {
+    return "Scheduling details incomplete";
+  }
+  if (["Possible", "Expected", "Scheduled"].includes(readiness.applicabilityStatus)) {
+    if (examinees.some((e) => !e.preparationNotes.trim())) return "Examinee preparation incomplete";
+    if (issues.some((i) => !["Ready for Review", "Organizationally Prepared", "Not Applicable"].includes(i.preparationStatus))) {
+      return "Preparation issues remain unresolved";
+    }
+    if (undertakings.some((u) => !["Completed", "Not Applicable", "Withdrawn"].includes(u.responseStatus))) {
+      return "Open undertakings remain";
+    }
+    if (transcripts.some((t) => t.followUpNeeded)) return "Transcript follow-up remains";
+  }
+  return "Organizational preparation complete";
+}
+
 const STAGE_ORDER = WORKFLOW_STAGES.map((stage) => stage.id);
 
 // Fields the "Next Step" value can map to, for nudging a later stage from its
@@ -986,7 +1261,7 @@ const NEXT_STEP_STAGE_HINTS = {
 // (Dispute Type, Status, Next Step) plus the existing Form 2 eligibility
 // check — nothing is persisted. See docs/plan for why this is computed
 // client-side rather than stored on the sheet.
-export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery) {
+export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery, examinationDiscovery) {
   const status = review?.["Status"] || "";
   const nextStep = review?.["Next Step"] || "";
   const isSupremeCourtDefendant =
@@ -1050,8 +1325,38 @@ export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, 
     progress.documentDiscovery = "not_started";
   }
 
+  // Examination for Discovery workspace, where it exists, is the source of
+  // truth for Stage 6 — overrides the "conditional" default above. Stays
+  // conditional unless the reviewer has actually recorded an applicability
+  // status indicating an examination is possible/expected/scheduled/done.
+  const applicability = examinationDiscovery?.readiness?.applicabilityStatus;
+  if (!applicability || ["Not Yet Assessed", "Not Currently Expected"].includes(applicability)) {
+    progress.examinationForDiscovery = "conditional";
+  } else if (applicability === "Not Applicable" || applicability === "Completed") {
+    progress.examinationForDiscovery = "completed";
+  } else {
+    // Possible / Expected / Scheduled
+    const examinees = examinationDiscovery?.examinees || [];
+    const issues = examinationDiscovery?.preparationIssues || [];
+    const undertakings = examinationDiscovery?.undertakings || [];
+    const hasRecords = examinees.length > 0 || issues.length > 0 || undertakings.length > 0;
+    if (!hasRecords) {
+      progress.examinationForDiscovery = "not_started";
+    } else {
+      const orgPrepComplete = ["Organizational Preparation Complete", "Completed"].includes(
+        examinationDiscovery?.readiness?.preparationStatus
+      );
+      const unresolvedIssues = issues.some((i) => !["Organizationally Prepared", "Not Applicable"].includes(i.preparationStatus));
+      const openUndertakings = undertakings.some((u) => !["Completed", "Not Applicable", "Withdrawn"].includes(u.responseStatus));
+      progress.examinationForDiscovery = orgPrepComplete && !unresolvedIssues && !openUndertakings ? "completed" : "in_progress";
+    }
+  }
+
+  // A conditional stage must not silently steal focus as "the current stage"
+  // just because it hasn't been resolved — only stages with real, actionable
+  // status (not_started/in_progress) should auto-expand.
   const currentStage =
-    STAGE_ORDER.find((id) => progress[id] !== "completed" && progress[id] !== "not_applicable") ||
+    STAGE_ORDER.find((id) => !["completed", "not_applicable", "conditional"].includes(progress[id])) ||
     STAGE_ORDER[STAGE_ORDER.length - 1];
 
   return { ...progress, currentStage };
