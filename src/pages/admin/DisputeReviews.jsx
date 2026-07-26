@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLang } from "../../contexts/LangContext";
+import SupremeCourtCaseNavigator from "../../components/SupremeCourtCaseNavigator";
+import EvidenceMatrix from "../../components/EvidenceMatrix";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -126,6 +128,11 @@ export default function DisputeReviews() {
   const [draftPreview, setDraftPreview] = useState(null);
   const [draftBusy, setDraftBusy] = useState("");
 
+  // Evidence Matrix (Supreme Court Litigation only) — the loaded matrix is
+  // lifted here only so the Case Navigator's Stage 4 badge can reflect real
+  // state; EvidenceMatrix itself owns all editing/save state.
+  const [evidenceMatrixState, setEvidenceMatrixState] = useState(null);
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -194,6 +201,7 @@ export default function DisputeReviews() {
     setMessage("");
     setAnalysisPreview(null);
     setDraftPreview(null);
+    setEvidenceMatrixState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -871,6 +879,24 @@ export default function DisputeReviews() {
                   </>
                 )}
               </>
+            )}
+
+            {isSupremeCourt && (
+              <EvidenceMatrix
+                key={review["Review ID"]}
+                reviewId={review["Review ID"]}
+                files={selected?.files || []}
+                formTwoParagraphs={formTwoParagraphs}
+                onMatrixChange={setEvidenceMatrixState}
+              />
+            )}
+
+            {isSupremeCourt && (
+              <SupremeCourtCaseNavigator
+                review={review}
+                formTwoEligibility={formTwoEligibility}
+                evidenceMatrix={evidenceMatrixState}
+              />
             )}
           </div>
         </div>

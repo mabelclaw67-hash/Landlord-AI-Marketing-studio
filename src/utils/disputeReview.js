@@ -1553,6 +1553,19 @@ export async function generateDisputeWorkingDraft(reviewId, options = {}) {
   });
 }
 
+// ── Supreme Court: Evidence Matrix (Stage 4, Evidence Preparation) ──────────
+// Reuses the same "AI Analysis JSON" envelope as Content Analysis / Working
+// Draft (see apps-script/DisputeEvidenceMatrix.gs) — no new sheet column.
+export async function getDisputeEvidenceMatrix(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputeEvidenceMatrix", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputeEvidenceMatrix(reviewId, evidenceMatrix) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputeEvidenceMatrix", reviewId, data: { evidenceMatrix }, ...getStudioRequestAuth("rental") });
+}
+
 // Rebuilds both language reports from a stored record so the Admin screen and
 // the server agree on exactly what the client will see.
 export function rebuildReportsFromRecord(record, files) {

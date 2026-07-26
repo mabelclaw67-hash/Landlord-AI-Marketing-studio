@@ -6514,6 +6514,12 @@ tr:hover td { background: #F9F6F0; }
   font-weight: 600;
 }
 
+.ccard__badge--completed { background: #F0FDF4; color: #166534; }
+.ccard__badge--in-progress { background: #E6F5EE; color: #1f3d2a; }
+.ccard__badge--not-started { background: #f3f4f6; color: var(--color-text-muted); }
+.ccard__badge--conditional { background: #FFFBEB; color: #92400e; }
+.ccard__badge--not-applicable { background: #f3f4f6; color: var(--color-text-muted); }
+
 .ccard__body {
   /* Inner .card handles its own padding/border — no extra wrapper needed */
 }
@@ -7321,6 +7327,276 @@ a.review-center__card:hover {
   white-space: pre-wrap;
   margin: 0;
 }
+
+/* BC Supreme Court Case Navigator */
+.scc-navigator {
+  margin-top: 8px;
+}
+
+.scc-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scc-stage-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.scc-stage-summary {
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  margin: 0 0 14px;
+}
+
+.scc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.scc-form-card {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--color-surface, #f9fafb);
+}
+
+.scc-form-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.scc-form-card__number {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #213128;
+}
+
+.scc-form-pill {
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.scc-form-pill--commonly_used { background: #F0FDF4; color: #166534; }
+.scc-form-pill--conditional { background: #FFFBEB; color: #92400e; }
+.scc-form-pill--only_if_applicable { background: #f3f4f6; color: var(--color-text-muted); }
+
+.scc-form-card__name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #213128;
+  margin: 0 0 4px;
+}
+
+.scc-form-card__purpose {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.scc-form-card__links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+}
+
+.scc-form-verified {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 8px 0 0;
+  font-style: italic;
+}
+
+/* Evidence Matrix */
+.scc-evidence-matrix {
+  margin-top: 8px;
+  scroll-margin-top: 16px;
+}
+
+.scc-em-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.scc-em-stat {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  background: var(--color-surface, #f9fafb);
+}
+
+.scc-em-stat strong {
+  display: block;
+  font-size: 1.3rem;
+  color: #213128;
+}
+
+.scc-em-stat span {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.scc-em-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.scc-em-toolbar .form-control {
+  width: auto;
+  min-width: 160px;
+}
+
+.scc-em-toolbar__spacer {
+  flex: 1;
+}
+
+.scc-em-row {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.scc-em-row__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: var(--color-surface, #f9fafb);
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.scc-em-row--open .scc-em-row__header {
+  background: #f3f4f6;
+}
+
+.scc-em-row__number {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.scc-em-row__summary {
+  flex: 1;
+  font-size: 0.88rem;
+  color: #213128;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scc-em-row__position,
+.scc-em-row__evidence-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.scc-em-row__body {
+  padding: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.scc-em-drift-notice {
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-top: 1px solid var(--color-warning);
+}
+
+.scc-em-evidence-item {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.scc-em-file-link {
+  font-size: 0.78rem;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.scc-em-hint {
+  font-size: 0.75rem;
+  color: #92400e;
+  margin: 4px 0 0;
+}
+
+.scc-em-witnesses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.scc-em-witness-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f0ea;
+  color: var(--color-primary);
+  border-radius: 999px;
+  padding: 3px 6px 3px 10px;
+  font-size: 0.78rem;
+}
+
+.scc-em-witness-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.scc-em-save-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.scc-em-save-status {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.scc-em-save-status--ok { color: #166534; }
+.scc-em-save-status--error { color: var(--color-error); }
 
 /* Sticky report actions inside the Dispute Review admin modal */
 .dispute-admin-bar {

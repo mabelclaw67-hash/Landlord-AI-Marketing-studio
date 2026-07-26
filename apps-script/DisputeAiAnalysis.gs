@@ -42,13 +42,13 @@ var DISPUTE_AI_TEXT_PREVIEW_CHARS = 500;
 function readDisputeAiAnalysisEnvelope_(rawCellValue) {
   var text = disputeText_(rawCellValue);
   if (!text) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null };
   }
   var parsed;
   try {
     parsed = JSON.parse(text);
   } catch (parseEx) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null };
   }
   if (parsed && typeof parsed === "object" && parsed.schemaVersion === DISPUTE_AI_ANALYSIS_SCHEMA_VERSION) {
     return {
@@ -59,13 +59,18 @@ function readDisputeAiAnalysisEnvelope_(rawCellValue) {
       // (not just there) so mergeDisputeAiAnalysisEnvelope_ — used every time
       // Increment B's contentAnalysis is (re)generated — never has to know
       // about workingDraft to still carry it forward untouched.
-      workingDraft: parsed.hasOwnProperty("workingDraft") ? parsed.workingDraft : null
+      workingDraft: parsed.hasOwnProperty("workingDraft") ? parsed.workingDraft : null,
+      // Evidence Matrix sibling namespace (see DisputeEvidenceMatrix.gs). Read
+      // here for the same reason workingDraft is: so every OTHER envelope
+      // writer (content analysis, working draft) carries it forward untouched
+      // instead of silently dropping it on their next write.
+      evidenceMatrix: parsed.hasOwnProperty("evidenceMatrix") ? parsed.evidenceMatrix : null
     };
   }
   // Pre-existing flat shape (the report JSON snapshot submitDisputeReview_
   // has always written here) — preserve it as ruleAnalysis rather than
-  // discarding it, and start contentAnalysis/workingDraft empty.
-  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null };
+  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix empty.
+  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null };
 }
 
 // Merges a freshly generated content analysis into whatever envelope already
