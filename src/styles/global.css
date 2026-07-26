@@ -7440,6 +7440,12 @@ a.review-center__card:hover {
   margin: 12px 0 16px;
 }
 
+/* Document Discovery has more summary tiles than Evidence Matrix — allow a
+   narrower minimum so all 8 fit without excessive wrapping. */
+.scc-dd-summary {
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+}
+
 .scc-em-stat {
   border: 1px solid var(--color-border);
   border-radius: 10px;

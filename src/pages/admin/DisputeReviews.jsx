@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLang } from "../../contexts/LangContext";
 import SupremeCourtCaseNavigator from "../../components/SupremeCourtCaseNavigator";
 import EvidenceMatrix from "../../components/EvidenceMatrix";
+import DocumentDiscoveryWorkspace from "../../components/DocumentDiscoveryWorkspace";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -133,6 +134,10 @@ export default function DisputeReviews() {
   // state; EvidenceMatrix itself owns all editing/save state.
   const [evidenceMatrixState, setEvidenceMatrixState] = useState(null);
 
+  // Document Discovery (Stage 5) — same lifting pattern as Evidence Matrix,
+  // only so the Case Navigator's Stage 5 badge can reflect real state.
+  const [documentDiscoveryState, setDocumentDiscoveryState] = useState(null);
+
   async function loadRows() {
     setLoading(true);
     setError("");
@@ -202,6 +207,7 @@ export default function DisputeReviews() {
     setAnalysisPreview(null);
     setDraftPreview(null);
     setEvidenceMatrixState(null);
+    setDocumentDiscoveryState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -883,7 +889,7 @@ export default function DisputeReviews() {
 
             {isSupremeCourt && (
               <EvidenceMatrix
-                key={review["Review ID"]}
+                key={`evidence-matrix-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
                 files={selected?.files || []}
                 formTwoParagraphs={formTwoParagraphs}
@@ -892,10 +898,21 @@ export default function DisputeReviews() {
             )}
 
             {isSupremeCourt && (
+              <DocumentDiscoveryWorkspace
+                key={`document-discovery-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                evidenceMatrix={evidenceMatrixState}
+                files={selected?.files || []}
+                onDiscoveryChange={setDocumentDiscoveryState}
+              />
+            )}
+
+            {isSupremeCourt && (
               <SupremeCourtCaseNavigator
                 review={review}
                 formTwoEligibility={formTwoEligibility}
                 evidenceMatrix={evidenceMatrixState}
+                documentDiscovery={documentDiscoveryState}
               />
             )}
           </div>

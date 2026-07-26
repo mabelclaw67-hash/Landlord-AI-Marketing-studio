@@ -46,7 +46,15 @@ function StageForms({ stageId }) {
   );
 }
 
-function StageBody({ stage, onOpenEvidenceMatrix }) {
+// Maps a workflow stage to the DOM id of its dedicated workspace section
+// (elsewhere in the same case-detail modal) and the button label to show.
+const STAGE_WORKSPACE_LINKS = {
+  evidencePreparation: { targetId: "scc-evidence-matrix", label: "Open Evidence Matrix" },
+  documentDiscovery: { targetId: "scc-document-discovery", label: "Open Document Discovery Workspace" },
+};
+
+function StageBody({ stage, onOpenWorkspace }) {
+  const workspaceLink = STAGE_WORKSPACE_LINKS[stage.id];
   return (
     <>
       <div className="dispute-admin-long">
@@ -57,10 +65,10 @@ function StageBody({ stage, onOpenEvidenceMatrix }) {
         <strong>When this stage may happen</strong>
         <p>{stage.whenItHappens}</p>
       </div>
-      {stage.id === "evidencePreparation" && (
+      {workspaceLink && (
         <div className="dispute-admin-actions">
-          <button type="button" className="btn btn--secondary btn--small" onClick={onOpenEvidenceMatrix}>
-            Open Evidence Matrix
+          <button type="button" className="btn btn--secondary btn--small" onClick={() => onOpenWorkspace(workspaceLink.targetId)}>
+            {workspaceLink.label}
           </button>
         </div>
       )}
@@ -87,13 +95,13 @@ function StageBody({ stage, onOpenEvidenceMatrix }) {
 // Court civil claim where the client is the defendant. Status per stage is
 // derived entirely from data already on the case record — see
 // getWorkflowProgress in the config file for why nothing is persisted here.
-export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix }) {
+export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, evidenceMatrix, documentDiscovery }) {
   if (review?.["Dispute Type"] !== "Supreme Court Litigation") return null;
 
-  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix);
+  const progress = getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery);
 
-  function scrollToEvidenceMatrix() {
-    document.getElementById("scc-evidence-matrix")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function scrollToWorkspace(targetId) {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -120,7 +128,7 @@ export default function SupremeCourtCaseNavigator({ review, formTwoEligibility, 
             badge={<StatusBadge status={status} />}
           >
             <p className="scc-stage-summary">{stage.summary}</p>
-            <StageBody stage={stage} onOpenEvidenceMatrix={scrollToEvidenceMatrix} />
+            <StageBody stage={stage} onOpenWorkspace={scrollToWorkspace} />
           </CollapsibleCard>
         );
       })}

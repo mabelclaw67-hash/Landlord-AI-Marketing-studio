@@ -734,6 +734,239 @@ export function evidenceMatrixSummary(rows) {
   };
 }
 
+// ── Document Discovery (Stage 5) ─────────────────────────────────────────
+// Single source of truth for the discovery-document row model, shared by
+// src/components/DocumentDiscoveryWorkspace.jsx. Persisted verbatim inside
+// the existing "AI Analysis JSON" envelope's documentDiscovery key — see
+// apps-script/DisputeDocumentDiscovery.gs. Documents REFERENCE Evidence
+// Matrix evidence items and Dispute_Files by id — never copy/duplicate them.
+
+export const DOCUMENT_DISCOVERY_NOTICE =
+  "This workspace helps organize documents for discovery preparation. It does not determine legal relevance, " +
+  "privilege, possession or control, or whether a document must be disclosed or produced. Those issues may " +
+  "require review by a qualified lawyer.";
+
+export const DOCUMENT_DISCOVERY_CAUTIONS = [
+  "Preserve original files — do not alter, annotate, or discard them.",
+  "Do not alter file metadata (dates, names) when referencing documents here.",
+  "Potentially privileged documents should not be produced without appropriate review.",
+  "Removing a workspace reference never deletes the underlying Drive file.",
+  "Discovery obligations may continue if new relevant documents are found later.",
+];
+
+export const DOCUMENT_TYPES = [
+  "Agreement or Contract",
+  "Email",
+  "Message or Chat",
+  "Letter",
+  "Photograph",
+  "Video or Audio",
+  "Financial Record",
+  "Invoice or Receipt",
+  "Court or Tribunal Record",
+  "Government Record",
+  "Corporate Record",
+  "Property Record",
+  "Expert or Technical Record",
+  "Witness-Related Document",
+  "Other",
+];
+
+export const SOURCE_TYPES = [
+  "Uploaded Case File",
+  "Evidence Matrix",
+  "Manual Reference",
+  "Received from Other Party",
+  "Third-Party Source",
+];
+
+export const POSSESSION_STATUSES = [
+  "Available",
+  "Missing",
+  "Requested",
+  "Expected from Other Party",
+  "Not in Defendant's Possession or Control",
+  "Needs Confirmation",
+];
+
+export const DISCOVERY_REVIEW_STATUSES = [
+  "Not Reviewed",
+  "In Review",
+  "Reviewed",
+  "Needs Legal Review",
+  "Not Relevant",
+  "Duplicate",
+];
+
+export const PRIVILEGE_FLAGS = [
+  "Not Flagged",
+  "Potentially Privileged",
+  "Privilege Confirmed Externally",
+  "Privilege Waived or Not Claimed",
+  "Needs Legal Review",
+];
+
+export const PRODUCTION_STATUSES = [
+  "Not Assessed",
+  "Potentially Producible",
+  "Not Producible — Review Required",
+  "Ready for Production",
+  "Produced",
+  "Received from Other Party",
+  "Withheld Pending Review",
+  "Not Applicable",
+];
+
+// Evidence Matrix evidenceType -> closest Document Discovery documentType.
+const EVIDENCE_TYPE_TO_DOCUMENT_TYPE = {
+  Contract: "Agreement or Contract",
+  Email: "Email",
+  Message: "Message or Chat",
+  Photograph: "Photograph",
+  Video: "Video or Audio",
+  "Financial Record": "Financial Record",
+  "Invoice or Receipt": "Invoice or Receipt",
+  "Court or Tribunal Document": "Court or Tribunal Record",
+  "Government Record": "Government Record",
+  "Witness Evidence": "Witness-Related Document",
+  Other: "Other",
+};
+
+// Evidence Matrix disclosureStatus -> a reasonable Document Discovery
+// productionStatus starting point. The reviewer can always change it.
+const DISCLOSURE_STATUS_TO_PRODUCTION_STATUS = {
+  "Not Reviewed": "Not Assessed",
+  "Relevant and Producible": "Potentially Producible",
+  "Potentially Privileged": "Withheld Pending Review",
+  Duplicate: "Not Applicable",
+  "Not Relevant": "Not Applicable",
+  Missing: "Not Assessed",
+  Produced: "Produced",
+  "Received from Other Party": "Received from Other Party",
+};
+
+export function makeDiscoveryDocument(overrides = {}) {
+  return {
+    id: overrides.id || `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "",
+    documentDate: "",
+    documentType: "Other",
+    sourceType: "Manual Reference",
+    linkedFileId: "",
+    linkedEvidenceItemIds: [],
+    linkedIssueIds: [],
+    description: "",
+    relevanceNote: "",
+    possessionStatus: "Needs Confirmation",
+    reviewStatus: "Not Reviewed",
+    privilegeFlag: "Not Flagged",
+    productionStatus: "Not Assessed",
+    productionDate: "",
+    receivedFrom: "",
+    receivedDate: "",
+    duplicateOf: "",
+    reviewerNotes: "",
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+// Import from Evidence Matrix: one discovery record per evidence item, only
+// for items not already linked. Never touches an existing linked record.
+export function importDocumentsFromEvidenceMatrix(evidenceMatrix, existingDocuments) {
+  const existing = existingDocuments || [];
+  const alreadyLinkedItemIds = new Set(existing.flatMap((doc) => doc.linkedEvidenceItemIds || []));
+  const created = [];
+  let alreadyLinked = 0;
+
+  for (const row of evidenceMatrix?.rows || []) {
+    for (const item of row.evidenceItems || []) {
+      if (alreadyLinkedItemIds.has(item.id)) {
+        alreadyLinked += 1;
+        continue;
+      }
+      created.push(
+        makeDiscoveryDocument({
+          title: item.title || row.allegationOrIssue || "(untitled evidence item)",
+          documentDate: item.date || "",
+          documentType: EVIDENCE_TYPE_TO_DOCUMENT_TYPE[item.evidenceType] || "Other",
+          sourceType: "Evidence Matrix",
+          linkedFileId: /^DF-/.test(item.fileReference || "") ? item.fileReference : "",
+          linkedEvidenceItemIds: [item.id],
+          linkedIssueIds: [row.id],
+          description: item.description || "",
+          relevanceNote: row.relevance || "",
+          possessionStatus: item.disclosureStatus === "Missing" ? "Missing" : item.fileReference ? "Available" : "Needs Confirmation",
+          privilegeFlag: item.disclosureStatus === "Potentially Privileged" ? "Potentially Privileged" : "Not Flagged",
+          productionStatus: DISCLOSURE_STATUS_TO_PRODUCTION_STATUS[item.disclosureStatus] || "Not Assessed",
+        })
+      );
+      alreadyLinkedItemIds.add(item.id);
+    }
+  }
+
+  return { documents: [...existing, ...created], added: created.length, alreadyLinked };
+}
+
+// Import from an uploaded Dispute_Files record — links by File ID, never
+// duplicates/moves/renames the underlying Drive file.
+export function importDocumentFromFile(file, existingDocuments) {
+  const existing = existingDocuments || [];
+  if (existing.some((doc) => doc.linkedFileId === file.fileId)) {
+    return { documents: existing, added: false };
+  }
+  const created = makeDiscoveryDocument({
+    title: file.fileName || "(untitled file)",
+    documentDate: file.documentDate || "",
+    sourceType: "Uploaded Case File",
+    linkedFileId: file.fileId,
+    description: file.description || "",
+    possessionStatus: "Available",
+  });
+  return { documents: [...existing, created], added: true };
+}
+
+export function documentDiscoverySummary(documents) {
+  const list = documents || [];
+  return {
+    total: list.length,
+    available: list.filter((d) => d.possessionStatus === "Available").length,
+    missingOrRequested: list.filter((d) => ["Missing", "Requested", "Expected from Other Party"].includes(d.possessionStatus)).length,
+    needsReview: list.filter((d) => ["Not Reviewed", "In Review", "Needs Legal Review"].includes(d.reviewStatus)).length,
+    potentiallyPrivileged: list.filter((d) => ["Potentially Privileged", "Needs Legal Review"].includes(d.privilegeFlag)).length,
+    readyForProduction: list.filter((d) => d.productionStatus === "Ready for Production").length,
+    produced: list.filter((d) => d.productionStatus === "Produced").length,
+    receivedFromOtherParty: list.filter((d) => d.sourceType === "Received from Other Party" || d.productionStatus === "Received from Other Party").length,
+  };
+}
+
+// Organizational readiness only — never a legal-compliance or "ready to
+// file" conclusion. See DOCUMENT_DISCOVERY_NOTICE for the boundary.
+export function getDiscoveryReadiness(documents) {
+  const list = documents || [];
+  if (list.length === 0) return { label: "Document collection incomplete", flags: [] };
+
+  const flags = [];
+  if (list.some((d) => !d.title.trim())) flags.push("One or more records have no title.");
+  if (list.some((d) => !d.possessionStatus)) flags.push("One or more records are missing a possession status.");
+  if (list.some((d) => (d.linkedIssueIds || []).length === 0)) flags.push("One or more records are not linked to an Evidence Matrix issue.");
+  if (list.some((d) => d.productionStatus === "Ready for Production" && !d.linkedFileId && !d.description.trim())) {
+    flags.push("One or more records are marked Ready for Production without a linked file or reference.");
+  }
+
+  const hasOutstandingPossession = list.some((d) => ["Missing", "Requested", "Expected from Other Party"].includes(d.possessionStatus));
+  const hasOutstandingPrivilege = list.some((d) => ["Potentially Privileged", "Needs Legal Review"].includes(d.privilegeFlag));
+  const allReviewed = list.every((d) => ["Reviewed", "Not Relevant", "Duplicate"].includes(d.reviewStatus));
+
+  let label;
+  if (hasOutstandingPossession) label = "Missing documents remain outstanding";
+  else if (hasOutstandingPrivilege) label = "Potentially privileged documents require review";
+  else if (!allReviewed) label = "Review in progress";
+  else label = "Organizational preparation complete";
+
+  return { label, flags };
+}
+
 const STAGE_ORDER = WORKFLOW_STAGES.map((stage) => stage.id);
 
 // Fields the "Next Step" value can map to, for nudging a later stage from its
@@ -753,7 +986,7 @@ const NEXT_STEP_STAGE_HINTS = {
 // (Dispute Type, Status, Next Step) plus the existing Form 2 eligibility
 // check — nothing is persisted. See docs/plan for why this is computed
 // client-side rather than stored on the sheet.
-export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix) {
+export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix, documentDiscovery) {
   const status = review?.["Status"] || "";
   const nextStep = review?.["Next Step"] || "";
   const isSupremeCourtDefendant =
@@ -803,6 +1036,18 @@ export function getWorkflowProgress(review, formTwoEligibility, evidenceMatrix) 
     progress.evidencePreparation = allDone ? "completed" : "in_progress";
   } else {
     progress.evidencePreparation = "not_started";
+  }
+
+  // Document Discovery workspace, where it exists, is the source of truth
+  // for Stage 5 — overrides the Next-Step heuristic above.
+  const discoveryDocs = documentDiscovery?.documents;
+  if (Array.isArray(discoveryDocs) && discoveryDocs.length > 0) {
+    const hasOutstandingPossession = discoveryDocs.some((d) => ["Missing", "Requested", "Expected from Other Party"].includes(d.possessionStatus));
+    const hasOutstandingPrivilege = discoveryDocs.some((d) => ["Potentially Privileged", "Needs Legal Review"].includes(d.privilegeFlag));
+    const allReviewed = discoveryDocs.every((d) => ["Reviewed", "Not Relevant", "Duplicate"].includes(d.reviewStatus));
+    progress.documentDiscovery = allReviewed && !hasOutstandingPossession && !hasOutstandingPrivilege ? "completed" : "in_progress";
+  } else {
+    progress.documentDiscovery = "not_started";
   }
 
   const currentStage =
