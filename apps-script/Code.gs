@@ -299,6 +299,22 @@ function doPost(e) {
     if (action === "saveDisputeLateStageGuidance") return ok(saveDisputeLateStageGuidance_(body.reviewId, body.data, auth));
     if (action === "verifyDisputeSchema") { assertAdmin_(auth); return ok(verifyDisputeSchema()); }
     if (action === "generateFormTwoDraft") return ok(generateFormTwoDraft_(body.data || body, auth));
+    // Petition / Judicial Review — Respondent workflow (SC_PETITION_JR_RESPONDENT_V1).
+    // Entirely separate action set and envelope siblings from the Civil
+    // Claim Defendant actions above — see DisputePetitionRelief.gs /
+    // DisputePetitionEvidence.gs / DisputePetitionApplications.gs /
+    // DisputePetitionGuidance.gs / DisputePetitionDrafts.gs.
+    if (action === "getDisputePetitionRelief") return ok(getDisputePetitionRelief_(body.reviewId, auth));
+    if (action === "saveDisputePetitionRelief") return ok(saveDisputePetitionRelief_(body.reviewId, body.data, auth));
+    if (action === "getDisputePetitionEvidence") return ok(getDisputePetitionEvidence_(body.reviewId, auth));
+    if (action === "saveDisputePetitionEvidence") return ok(saveDisputePetitionEvidence_(body.reviewId, body.data, auth));
+    if (action === "getDisputePetitionApplications") return ok(getDisputePetitionApplications_(body.reviewId, auth));
+    if (action === "saveDisputePetitionApplications") return ok(saveDisputePetitionApplications_(body.reviewId, body.data, auth));
+    if (action === "getDisputePetitionGuidance") return ok(getDisputePetitionGuidance_(body.reviewId, auth));
+    if (action === "saveDisputePetitionGuidance") return ok(saveDisputePetitionGuidance_(body.reviewId, body.data, auth));
+    if (action === "generateForm67Draft") return ok(generateForm67Draft_(body.data || body, auth));
+    if (action === "generatePetitionAffidavitDraft") return ok(generatePetitionAffidavitDraft_(body.data || body, auth));
+    if (action === "generatePetitionHearingBinderIndex") return ok(generatePetitionHearingBinderIndex_(body.data || body, auth));
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
     if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));

@@ -185,9 +185,9 @@ Every stage — operational workspace or simplified guidance — carries the sam
 - No OCR or automated document-content parsing anywhere in the Navigator (distinct from the separate Gemini Content Analysis pipeline in §D, which reads file bytes but only for the Litigation Assessment stage).
 - Progress is entirely computed client-side from workspace data; there is no independent audit trail of status changes beyond each workspace's own `updatedAt` timestamps.
 
-### 11.7 Future routes (not started)
+### 11.7 Future routes
 
-- **Petition / Judicial Review Respondent Workflow** — a parallel guided workflow for a different BC Supreme Court proceeding type, using this completed Civil Claim Defendant workflow as the reference model. Not started.
+- **Petition / Judicial Review Respondent Workflow** — **built, see §12.** A parallel guided workflow for a different BC Supreme Court proceeding type, using this Civil Claim Defendant workflow as the structural reference model (not a copy — see §12.9).
 - **RTB (Residential Tenancy Branch) guided workflow** — the RTB dispute branch currently has only the original rule-based assessment (no stage-by-stage navigator equivalent to what Civil Claim Defendant now has). Not started.
 
 ### 11.8 Verification methodology (applied identically in every phase)
@@ -200,7 +200,89 @@ Each phase (one workspace) went through the same loop: inspect existing architec
 
 ---
 
+## 12. Petition / Judicial Review — Respondent Workflow v1.0
+
+Built 2026-07-26 as a second, entirely separate Case Navigator (`SC_PETITION_JR_RESPONDENT_V1`), structurally parallel to the Civil Claim Defendant workflow (§11) but not copied from it — a Petition is not a pleading-and-discovery action (see §12.9). Covers a BC Supreme Court respondent to a Petition, including a Petition for Judicial Review.
+
+### 12.1 Architecture reviewed before implementation
+
+Inspected and reused without modification: the intake wizard (`src/pages/DisputeReview.jsx`), the Admin AI Review Center (`src/pages/admin/DisputeReviews.jsx`), the API envelope (`src/utils/api.js`), the Civil Claim Case Navigator and its 11-stage config (`src/components/SupremeCourtCaseNavigator.jsx`, `src/config/supremeCourtCivilClaimDefendantWorkflow.js`), the Applications and Late-Stage Guidance workspace components as the CRUD/checklist UI patterns to mirror, the Apps Script dispatch pattern and `readDisputeAiAnalysisEnvelope_` sibling-namespace envelope (`apps-script/Code.gs`, `apps-script/DisputeAiAnalysis.gs`), the Drive folder helpers (`getDisputeReviewFolder_`/`getDisputeReportFolder_`), and the `generateFormTwoDraft_` temp-Doc-to-PDF pattern. No committed automated test harness existed for either the frontend logic or the Apps Script backend prior to this build (see §11.8's methodology note — verification there was always live/manual against a labeled test record, never an automated suite).
+
+### 12.2 Real-case process reference (anonymized)
+
+The user's own real 2025 BC Supreme Court petition matter (a tenant's Petition for judicial review of an RTB possession order, landlord as respondent) was reviewed as a process map only — no personal names, addresses, or the real court file number appear anywhere in code, config, or the test record. Procedural sequence observed: RTB decision → Petition filed → interim stay/requisition activity → respondent's Notice of Application (Form 32) and first affidavit (Form 109) → Response to Petition (Form 67) and Affidavit of Ordinary Service (Form 16) → second affidavit → hearing binder assembled → tenant's Application Response and Reply exchanged → hearing (oral submissions, bilingual) → final court order → notice of mandatory vacate / writ of possession. This sequence directly shaped the 11-stage list in §12.4 and the anonymized test scenario in §12.8.
+
+### 12.3 Files changed
+
+**New frontend files:**
+- `src/config/supremeCourtPetitionJudicialReviewRespondentWorkflow.js` — single source of truth: 11 stage definitions, `FORMS` (Forms 66/67/32/33/34/35/109/16, each with `sourceRule`/`confirmNote`), relief-matrix model, JR-screening model, evidence/affidavit-plan model, interlocutory-application model (reuses `computeApplicationTiming` from the Civil Claim config by import, not duplication), hearing-binder model, guidance-checklist model for Stages 9-11, all eligibility gates, `getWorkflowProgress`, and the three working-draft builders.
+- `src/components/SupremeCourtPetitionCaseNavigator.jsx` — top-level 11-stage renderer, gated by `isPetitionJrRespondentCase`.
+- `src/components/PetitionReliefWorkspace.jsx` — Stages 3-5 (Relief & Position Matrix, conditional JR Screening, Form 67 gate + working-draft trigger).
+- `src/components/PetitionEvidenceAffidavitWorkspace.jsx` — Stages 6-7 (evidence inventory, affidavit witness matrix, per-witness affidavit-draft gate + trigger).
+- `src/components/PetitionApplicationsWorkspace.jsx` — Stage 8 (interlocutory application / stay / injunction, 9 subroutes).
+- `src/components/PetitionGuidanceWorkspace.jsx` — Stages 9-11 shared checklist workspace (Hearing Readiness, Hearing Binder + index trigger, Final Order).
+
+**Modified frontend files:**
+- `src/utils/disputeReview.js` — added `pjr_*` follow-up questions (gated on Respondent/Application Respondent role + Petition/Judicial Review proceeding type, reusing `sc_registry`/`sc_court_file_number`/`sc_service_*`/`sc_response_deadline*`/`sc_injunction_requested`/`sc_lawyer_retained`/Opposing Party Name rather than duplicating them), `PJR_*` option constants + Chinese labels, `isPetitionJrRespondentCase`, four get/save API wrapper pairs, three working-draft-PDF wrappers sharing one `generatePetitionDraftPdf_` client helper.
+- `src/pages/admin/DisputeReviews.jsx` — added `isPetitionJrRespondent`/`isCivilClaimDefendant` branch (single source of truth via `isPetitionJrRespondentCase`), mounted the four new workspaces + new Navigator only for Petition/JR cases, re-gated all seven Civil-Claim-only mounts (Evidence Matrix, Document Discovery, Examination for Discovery, Applications, Settlement, Late-Stage Guidance, Form 2 builder) to `isCivilClaimDefendant` so the two workflows can never both render, added a "Petition / JR Respondent" quick-filter chip.
+
+**New Apps Script files:**
+- `apps-script/DisputePetitionRelief.gs`, `DisputePetitionEvidence.gs`, `DisputePetitionApplications.gs`, `DisputePetitionGuidance.gs` — one get/save action pair each, identical pattern to `DisputeApplications.gs`/`DisputeLateStageGuidance.gs`.
+- `apps-script/DisputePetitionDrafts.gs` — one shared `buildPetitionSectionedDraftPdf_` helper (mirrors `generateFormTwoDraft_`'s temp-Doc-to-PDF logic) plus three thin action wrappers (Form 67, Affidavit, Hearing Binder Index).
+
+**Modified Apps Script files:**
+- `apps-script/DisputeAiAnalysis.gs` — `readDisputeAiAnalysisEnvelope_` extended with four new sibling keys (`petitionRelief`, `petitionEvidence`, `petitionApplications`, `petitionGuidance`) in all four return branches, so every existing writer (content analysis, working draft, and every Civil Claim workspace) continues to carry these forward untouched.
+- `apps-script/Code.gs` — nine new dispatch lines (four get/save pairs + three draft-PDF actions), inserted immediately after the existing `generateFormTwoDraft` line; zero existing dispatch lines changed.
+
+`src/config/supremeCourtCivilClaimDefendantWorkflow.js` and every Civil Claim workspace component/`.gs` file are **byte-for-byte unchanged** (confirmed via `git diff --stat`, zero output).
+
+### 12.4 The 11 stages
+
+1. Proceeding Identification — 2. Service and Response Deadline Review — 3. Petition and Relief Analysis — 4. Judicial Review Screening (conditional) — 5. Response to Petition Planning (Form 67 gate) — 6. Evidence and Affidavit Plan — 7. Affidavit Working Draft Route (conditional, per-witness gate) — 8. Interlocutory Application / Stay / Injunction (conditional) — 9. Hearing Readiness — 10. Hearing Binder and Submission Plan — 11. Final Order and Post-Decision.
+
+### 12.5 Routing rules
+
+One-way, single authoritative stage state: `getWorkflowProgress` in the config file derives every stage's status purely from live workspace data (relief-matrix rows, JR-screening fields, evidence/witness records, interlocutory-application records, guidance checklists) — nothing is separately stored as a "current stage" field, so frontend state, the spreadsheet, and generated reports can never disagree. A case routes to this Navigator instead of the Civil Claim one, or to neither, based on a single boolean (`isPetitionJrRespondentCase`): Dispute Type = Supreme Court Litigation AND Client Role in {Respondent, Application Respondent} AND `sc_proceeding_type` in {Petition, Judicial Review}.
+
+### 12.6 Official Rules/Forms source map
+
+Every form entry (`FORMS` in the config file) carries `formNumber`/`name`/`purpose`/`sourceRule`/`stageIds`/`usage`/`sourceUrl` (BC Government forms index)/`ruleUrl` (Supreme Court Civil Rules)/`confirmNote` (explicit facts-still-needed + registry/lawyer-confirmation warning) — Forms 66, 67, 32, 33, 34, 35 (dual-purpose, flagged), an unnumbered "Applicable Order Form" (deliberately not asserting a specific number — see its `confirmNote`), 109, and 16. Rules referenced in guidance text: 2-1, 4-3, 8-1, 8-2, 13-1, 14-1, 16-1, 22-2, 22-3; Judicial Review Procedure Act linked via `JUDICIAL_REVIEW_PROCEDURE_ACT_URL`. No filing deadline is ever asserted as conclusive — every deadline-bearing stage/gate carries a registry-confirmation warning, matching the Civil Claim workflow's existing posture.
+
+### 12.7 Document-generation gates (never silently generated)
+
+- **Form 67 working draft** (`checkForm67Eligibility`) — requires Petition uploaded, registry, file number, at least one relief-matrix row, at least one assigned position, and factual basis for every *opposed* row (No Position/Consent rows do not require one — fixed during testing, see §12.8).
+- **Affidavit working draft** (`checkAffidavitDraftGate`) — requires affiant role, factual purpose, ≥1 linked evidence item, ≥1 exhibit, and the affiant's own verification acknowledgement.
+- **Hearing binder index** (`checkHearingBinderGate`) — requires filed-document list confirmed, affidavits identified, applications/orders identified, duplicate check completed, and the missing-document warning explicitly accepted.
+
+Every generated draft is labelled `Working Draft`/`Unsigned Working Draft — Facts Must Be Verified by the Affiant`/`Preliminary Binder` — never "final," "filed," or "court-ready." No stage auto-generates Form 32/33/34/35/an order form.
+
+### 12.8 Testing
+
+Two layers, both passing, neither touching the live production spreadsheet/Drive/deployment (see §12.10 for why):
+1. **Pure-logic harness** (Node, no network calls) exercising an anonymized synthetic case modeled on the real matter's procedural shape (RTB decision, Judicial Review petition, stay requested, multiple relief orders with mixed positions, respondent affidavit, interlocutory stay application, hearing binder) against every export in the config file — classification routing (including confirming Civil Claim and Petitioner-role cases are correctly excluded), the 11-stage list, all three eligibility gates, all three working-draft builders, and `getWorkflowProgress`. Caught and fixed one real bug: `checkForm67Eligibility` originally required a factual basis for "No Position" rows, which don't need one (only "Oppose" does).
+2. **Live browser check** of the public intake wizard (frontend-only, no submission) confirming the new Step 7 follow-up sections ("Petition Classification," "Decision Under Review," "Relief and Risk Flags," "Filing Status") render correctly for Client Role = Respondent + Proceeding Type = Judicial Review, in both English and Chinese — caught and fixed two missing Chinese option labels (`Available`, `Not Applicable`).
+
+Confirmed via `git diff --stat`: zero effect on any Civil Claim Defendant file. Confirmed via a direct function call: Civil Claim Defendant intake renders zero `pjr_*` questions.
+
+### 12.9 Why Petition / Judicial Review Is Not Civil Claim
+
+Petition proceedings are not based on Notice of Civil Claim/Response to Civil Claim pleadings — the response is Form 67, not Form 2, and there is no admit/deny paragraph structure to import (the relief-matrix positions are Consent/Oppose/No Position/Unclear, not Admitted/Denied/Outside Knowledge). Evidence is affidavit-centred rather than pleading-and-discovery-centred — there is no document-discovery or examination-for-discovery stage, because petitions do not automatically carry action-style discovery. Judicial Review specifically reviews a statutory decision-maker's record (reasons, tribunal record, enabling statute) rather than trying facts at trial, hence the dedicated conditional JR Screening stage with its own issue-category taxonomy. Interim stay/injunction applications can create a genuinely urgent, separate route (Stage 8's 9 subroutes) rather than being folded into a general "Applications" stage. The hearing and binder structure differs from a conventional civil trial (no trial brief/trial certificate/notice of trial — instead a hearing-readiness checklist and a binder built from confirmed-filed documents only). Not every Petition is a Judicial Review, and not every Civil Claim tool (Form 2, document discovery, examination for discovery, settlement-offer tracking under Rule 9-1) applies — which is why this is a second, independently-gated Navigator rather than a branch inside the existing one.
+
+### 12.10 What was deliberately NOT done in this cycle
+
+Per the agreed scope boundary: no Petitioner-side workflow, no Court of Appeal workflow, no automatic filing/service, no legal-merits prediction, no case-law engine, no automatic filed-ready hearing binder, no automatic appeal documents. Additionally, **the Apps Script changes were not deployed to the production Web App, and no test record was written to the live `AI Dispute Review - Data Tables` spreadsheet or Drive** — both are genuine production-system, hard-to-reverse actions (a `clasp push`/`clasp deploy` to the site's single shared deployment ID, and a real row in the user's live case-management sheet) that were held for explicit user go-ahead rather than performed silently. All logic was instead verified locally (§12.8). The Applications workspace's per-application "generate response PDF" action was also left as an eligibility indicator only (no dedicated PDF generator wired), consistent with the spec listing it as one of several *possible* Stage 8 outputs rather than a mandatory one.
+
+---
+
 ## 10. Change Log
+
+### V1.3 — 2026-07-26
+
+- Built the Petition / Judicial Review — Respondent Workflow v1.0 as a second, independent Case Navigator (`SC_PETITION_JR_RESPONDENT_V1`) — see §12 for the full record.
+- Four new envelope sibling keys added (`petitionRelief`, `petitionEvidence`, `petitionApplications`, `petitionGuidance`) — no new Sheet columns, no changes to any existing Civil Claim envelope key.
+- Added 18 new `pjr_*` follow-up intake fields, gated on Respondent/Application Respondent role + Petition/Judicial Review proceeding type; zero new top-level `Dispute_Reviews` columns.
+- Backend changes (5 new `.gs` files, `Code.gs` dispatch additions, `DisputeAiAnalysis.gs` envelope extension) written and syntax-verified but **not deployed to production** — pending user go-ahead (see §12.10).
+- Verified via a pure-logic test harness against an anonymized synthetic case and a live (frontend-only) browser check of the public intake wizard, in both English and Chinese; zero regression to the Civil Claim Defendant workflow confirmed via `git diff --stat` and direct function calls.
 
 ### V1.2 — 2026-07-26
 

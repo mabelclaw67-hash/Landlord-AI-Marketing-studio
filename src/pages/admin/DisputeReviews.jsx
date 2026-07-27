@@ -7,6 +7,11 @@ import ExaminationDiscoveryWorkspace from "../../components/ExaminationDiscovery
 import ApplicationsWorkspace from "../../components/ApplicationsWorkspace";
 import SettlementWorkspace from "../../components/SettlementWorkspace";
 import LateStageGuidanceWorkspace from "../../components/LateStageGuidanceWorkspace";
+import SupremeCourtPetitionCaseNavigator from "../../components/SupremeCourtPetitionCaseNavigator";
+import PetitionReliefWorkspace from "../../components/PetitionReliefWorkspace";
+import PetitionEvidenceAffidavitWorkspace from "../../components/PetitionEvidenceAffidavitWorkspace";
+import PetitionApplicationsWorkspace from "../../components/PetitionApplicationsWorkspace";
+import PetitionGuidanceWorkspace from "../../components/PetitionGuidanceWorkspace";
 import {
   DISPUTE_STATUSES,
   NEXT_STEPS,
@@ -26,6 +31,7 @@ import {
   getDisputeAiAnalysis,
   getDisputeReview,
   getDisputeReviews,
+  isPetitionJrRespondentCase,
   rebuildReportsFromRecord,
   recordToForm,
   splitFollowUpAnswersStored,
@@ -83,6 +89,12 @@ const QUICK_FILTERS = [
       && item["Client Role"] === "Defendant"
       && /Court Registry/.test(String(item["Follow-up Answers"] || ""))
       && /Court File Number/.test(String(item["Follow-up Answers"] || "")),
+  },
+  {
+    key: "petitionJrRespondent",
+    en: "Petition / JR Respondent",
+    zh: "呈请状/司法复核答辩方",
+    test: (item) => isPetitionJrRespondentCase(item),
   },
 ];
 
@@ -153,6 +165,14 @@ export default function DisputeReviews() {
 
   // Late-stage guidance (Stages 9-11) — same lifting pattern.
   const [lateStageGuidanceState, setLateStageGuidanceState] = useState(null);
+
+  // Petition / Judicial Review — Respondent workflow (SC_PETITION_JR_RESPONDENT_V1)
+  // — same lifting pattern as the Civil Claim workspaces above, so
+  // SupremeCourtPetitionCaseNavigator's stage badges reflect real state.
+  const [petitionReliefState, setPetitionReliefState] = useState(null);
+  const [petitionEvidenceState, setPetitionEvidenceState] = useState(null);
+  const [petitionApplicationsState, setPetitionApplicationsState] = useState(null);
+  const [petitionGuidanceState, setPetitionGuidanceState] = useState(null);
 
   async function loadRows() {
     setLoading(true);
@@ -228,6 +248,10 @@ export default function DisputeReviews() {
     setApplicationsState(null);
     setSettlementState(null);
     setLateStageGuidanceState(null);
+    setPetitionReliefState(null);
+    setPetitionEvidenceState(null);
+    setPetitionApplicationsState(null);
+    setPetitionGuidanceState(null);
     try {
       const detail = await getDisputeReview(reviewId);
       setSelected(detail);
@@ -397,6 +421,13 @@ export default function DisputeReviews() {
 
   const review = selected?.review;
   const isSupremeCourt = review?.["Dispute Type"] === "Supreme Court Litigation";
+  // Petition / Judicial Review — Respondent cases route to their own Case
+  // Navigator and workspaces instead of the Civil Claim Defendant ones
+  // (Form 2, Document/Examination Discovery, Settlement do not apply to a
+  // petition) — see isPetitionJrRespondentCase for the single source of
+  // truth this and SupremeCourtPetitionCaseNavigator both use.
+  const isPetitionJrRespondent = isSupremeCourt && isPetitionJrRespondentCase(review || {});
+  const isCivilClaimDefendant = isSupremeCourt && !isPetitionJrRespondent;
   const activeReport = rebuilt?.[detailLang];
   const reportEnUrl = review?.["Report EN URL"] || "";
   const reportZhUrl = review?.["Report ZH URL"] || "";
@@ -831,7 +862,7 @@ export default function DisputeReviews() {
               </>
             )}
 
-            {isSupremeCourt && formTwoEligibility && (
+            {isCivilClaimDefendant && formTwoEligibility && (
               <>
                 <h3 className="dispute-admin-heading">{isZh ? "Form 2 工作稿" : "Form 2 Working Draft"}</h3>
                 <p className="strategy-help">
@@ -907,7 +938,7 @@ export default function DisputeReviews() {
               </>
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <EvidenceMatrix
                 key={`evidence-matrix-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -917,7 +948,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <DocumentDiscoveryWorkspace
                 key={`document-discovery-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -927,7 +958,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <ExaminationDiscoveryWorkspace
                 key={`examination-discovery-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -937,7 +968,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <ApplicationsWorkspace
                 key={`applications-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -945,7 +976,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <SettlementWorkspace
                 key={`settlement-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -953,7 +984,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <LateStageGuidanceWorkspace
                 key={`late-stage-guidance-${review["Review ID"]}`}
                 reviewId={review["Review ID"]}
@@ -961,7 +992,7 @@ export default function DisputeReviews() {
               />
             )}
 
-            {isSupremeCourt && (
+            {isCivilClaimDefendant && (
               <SupremeCourtCaseNavigator
                 review={review}
                 formTwoEligibility={formTwoEligibility}
@@ -971,6 +1002,51 @@ export default function DisputeReviews() {
                 applications={applicationsState}
                 settlement={settlementState}
                 lateStageGuidance={lateStageGuidanceState}
+              />
+            )}
+
+            {isPetitionJrRespondent && (
+              <PetitionReliefWorkspace
+                key={`petition-relief-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                review={review}
+                onPetitionReliefChange={setPetitionReliefState}
+              />
+            )}
+
+            {isPetitionJrRespondent && (
+              <PetitionEvidenceAffidavitWorkspace
+                key={`petition-evidence-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                review={review}
+                onPetitionEvidenceChange={setPetitionEvidenceState}
+              />
+            )}
+
+            {isPetitionJrRespondent && (
+              <PetitionApplicationsWorkspace
+                key={`petition-applications-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                onPetitionApplicationsChange={setPetitionApplicationsState}
+              />
+            )}
+
+            {isPetitionJrRespondent && (
+              <PetitionGuidanceWorkspace
+                key={`petition-guidance-${review["Review ID"]}`}
+                reviewId={review["Review ID"]}
+                review={review}
+                onPetitionGuidanceChange={setPetitionGuidanceState}
+              />
+            )}
+
+            {isPetitionJrRespondent && (
+              <SupremeCourtPetitionCaseNavigator
+                review={review}
+                petitionRelief={petitionReliefState}
+                petitionEvidence={petitionEvidenceState}
+                petitionApplications={petitionApplicationsState}
+                petitionGuidance={petitionGuidanceState}
               />
             )}
           </div>

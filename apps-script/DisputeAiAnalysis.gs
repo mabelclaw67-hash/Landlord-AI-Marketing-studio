@@ -42,13 +42,13 @@ var DISPUTE_AI_TEXT_PREVIEW_CHARS = 500;
 function readDisputeAiAnalysisEnvelope_(rawCellValue) {
   var text = disputeText_(rawCellValue);
   if (!text) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null, petitionRelief: null, petitionEvidence: null, petitionApplications: null, petitionGuidance: null };
   }
   var parsed;
   try {
     parsed = JSON.parse(text);
   } catch (parseEx) {
-    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null };
+    return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: null, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null, petitionRelief: null, petitionEvidence: null, petitionApplications: null, petitionGuidance: null };
   }
   if (parsed && typeof parsed === "object" && parsed.schemaVersion === DISPUTE_AI_ANALYSIS_SCHEMA_VERSION) {
     return {
@@ -80,13 +80,24 @@ function readDisputeAiAnalysisEnvelope_(rawCellValue) {
       settlement: parsed.hasOwnProperty("settlement") ? parsed.settlement : null,
       // Late-stage guidance sibling namespace (Stages 9-11, see
       // DisputeLateStageGuidance.gs). Same reason as the others.
-      lateStageGuidance: parsed.hasOwnProperty("lateStageGuidance") ? parsed.lateStageGuidance : null
+      lateStageGuidance: parsed.hasOwnProperty("lateStageGuidance") ? parsed.lateStageGuidance : null,
+      // Petition / Judicial Review — Respondent workflow sibling namespaces
+      // (SC_PETITION_JR_RESPONDENT_V1, see DisputePetitionRelief.gs /
+      // DisputePetitionEvidence.gs / DisputePetitionApplications.gs /
+      // DisputePetitionGuidance.gs). Same reason as the others — every OTHER
+      // envelope writer must carry these forward untouched. Entirely
+      // separate from the Civil Claim Defendant namespaces above; a case
+      // uses one set or the other, never both.
+      petitionRelief: parsed.hasOwnProperty("petitionRelief") ? parsed.petitionRelief : null,
+      petitionEvidence: parsed.hasOwnProperty("petitionEvidence") ? parsed.petitionEvidence : null,
+      petitionApplications: parsed.hasOwnProperty("petitionApplications") ? parsed.petitionApplications : null,
+      petitionGuidance: parsed.hasOwnProperty("petitionGuidance") ? parsed.petitionGuidance : null
     };
   }
   // Pre-existing flat shape (the report JSON snapshot submitDisputeReview_
   // has always written here) — preserve it as ruleAnalysis rather than
-  // discarding it, and start contentAnalysis/workingDraft/evidenceMatrix/documentDiscovery/examinationDiscovery/applications/settlement/lateStageGuidance empty.
-  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null };
+  // discarding it, and start every sibling namespace empty.
+  return { schemaVersion: DISPUTE_AI_ANALYSIS_SCHEMA_VERSION, ruleAnalysis: parsed, contentAnalysis: null, workingDraft: null, evidenceMatrix: null, documentDiscovery: null, examinationDiscovery: null, applications: null, settlement: null, lateStageGuidance: null, petitionRelief: null, petitionEvidence: null, petitionApplications: null, petitionGuidance: null };
 }
 
 // Merges a freshly generated content analysis into whatever envelope already

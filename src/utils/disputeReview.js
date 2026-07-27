@@ -224,6 +224,24 @@ export const SC_HOLD_STATUS = ["Yes", "No", "Partly", "Not sure"];
 export const SC_INSURER_STATUS = ["Yes", "No", "Not applicable", "Not sure"];
 export const SC_EXPERT_TYPES = ["Engineering", "Survey", "Appraisal", "Accounting", "Medical", "Construction", "Other", "Not sure"];
 
+// ── Petition / Judicial Review — Respondent-only option sets. See
+// SC_PETITION_JR_RESPONDENT_V1 in src/config/supremeCourtPetitionJudicialReviewRespondentWorkflow.js
+// for the Case Navigator these feed. ──
+export const PJR_PROCEEDING_SUBTYPES = [
+  "Ordinary Petition — Respondent",
+  "Judicial Review — Respondent",
+  "Petition Involving an Administrative Tribunal",
+  "Petition Involving an RTB Decision",
+  "Petition Involving a Strata or Statutory Body",
+  "Petition With Interim Injunction or Stay Request",
+  "Petition With Separate Interlocutory Application",
+  "Petition Converted or Directed Into Another Procedure",
+  "Uncertain — Manual Review Required",
+];
+export const PJR_URGENCY_LEVELS = ["Not Urgent", "Urgent", "Time-Critical"];
+export const PJR_TRIBUNAL_RECORD_STATUSES = ["Available", "Requested", "Not Yet Requested", "Not Applicable", "Not sure"];
+export const PJR_AG_NOTICE_STATUSES = ["Required", "Given", "Not Required", "Not sure"];
+
 export const CLIENT_SERVICE_INTERESTS = [
   "Professional preliminary review only",
   "Help preparing my application / response",
@@ -380,6 +398,25 @@ const OPTION_LABELS_ZH = {
   Completed: "已完成",
   Closed: "已关闭",
   New: "新建",
+  // Petition / Judicial Review — Respondent
+  "Ordinary Petition — Respondent": "普通呈请状 — 答辩方",
+  "Judicial Review — Respondent": "司法复核 — 答辩方",
+  "Petition Involving an Administrative Tribunal": "涉及行政仲裁机构的呈请状",
+  "Petition Involving an RTB Decision": "涉及住宅租赁办公室(RTB)裁决的呈请状",
+  "Petition Involving a Strata or Statutory Body": "涉及分契物业或法定机构的呈请状",
+  "Petition With Interim Injunction or Stay Request": "附带临时禁令或中止执行请求的呈请状",
+  "Petition With Separate Interlocutory Application": "附带独立中间申请的呈请状",
+  "Petition Converted or Directed Into Another Procedure": "被转换或导向其他程序的呈请状",
+  "Uncertain — Manual Review Required": "类型不确定 — 需人工复核",
+  "Not Urgent": "不紧急",
+  "Time-Critical": "时间紧迫",
+  Available: "可查阅",
+  Requested: "已申请调取",
+  "Not Yet Requested": "尚未申请调取",
+  "Not Applicable": "不适用",
+  Required: "需要",
+  Given: "已发出",
+  "Not Required": "无需",
 };
 
 export function displayDisputeOption(value, lang = "en") {
@@ -522,6 +559,40 @@ export function getDisputeFollowUpQuestions(form) {
     add("Risk & Evidence", "sc_expert_evidence", "Expert Evidence Required?", "是否需要专家证据", "multichoice", SC_EXPERT_TYPES);
     add("Risk & Evidence", "sc_urgent_preservation_issue", "Immediate Safety or Preservation Issue?", "是否存在紧急安全或证据保全问题");
     add("Risk & Evidence", "sc_litigation_hold", "Documents Preserved?", "是否已保全文件和电子记录", "choice", SC_HOLD_STATUS);
+  }
+
+  // Petition / Judicial Review — Respondent only. Reuses sc_proceeding_type,
+  // sc_registry, sc_court_file_number, sc_service_*, sc_response_deadline*,
+  // sc_application_hearing_date, sc_injunction_requested, sc_lawyer_retained
+  // and Opposing Party Name (petitioner identity) from the block above rather
+  // than duplicating them — see docs classification-field reuse notes. Only
+  // fields with no existing equivalent get a pjr_ prefix.
+  if (
+    form.disputeType === "Supreme Court Litigation" &&
+    ["Petition", "Judicial Review"].includes(form.followUpAnswers?.sc_proceeding_type) &&
+    ["Respondent", "Application Respondent"].includes(form.clientRole)
+  ) {
+    add("Petition Classification", "pjr_proceeding_subtype", "Petition Subtype", "呈请状子类型", "choice", PJR_PROCEEDING_SUBTYPES);
+    add("Petition Classification", "pjr_is_judicial_review", "Is This a Judicial Review?", "这是否属于司法复核", "choice", YES_NO_NOT_SURE);
+    add("Petition Classification", "pjr_urgency", "Urgency", "紧急程度", "choice", PJR_URGENCY_LEVELS);
+
+    add("Decision Under Review", "pjr_decision_maker", "Decision-Maker or Tribunal", "作出决定的机构", "text");
+    add("Decision Under Review", "pjr_decision_under_review", "Decision Under Review (brief description)", "被复核决定的简述", "textarea");
+    add("Decision Under Review", "pjr_decision_date", "Date of Decision", "决定作出日期", "date");
+    add("Decision Under Review", "pjr_reasons_received_date", "Date Reasons Were Received", "收到理由书日期", "date");
+    add("Decision Under Review", "pjr_tribunal_record_status", "Tribunal Record Status", "仲裁记录状态", "choice", PJR_TRIBUNAL_RECORD_STATUSES);
+
+    add("Relief and Risk Flags", "pjr_relief_requested_summary", "Relief Requested by Petitioner (summary)", "呈请人请求的济助（摘要）", "textarea");
+    add("Relief and Risk Flags", "pjr_interim_relief_requested", "Interim Relief Requested?", "是否申请临时济助");
+    add("Relief and Risk Flags", "pjr_stay_requested", "Stay Requested?", "是否申请中止执行");
+    add("Relief and Risk Flags", "pjr_constitutional_issue", "Constitutional Issue Indicated?", "是否涉及宪法问题");
+    add("Relief and Risk Flags", "pjr_ag_notice_status", "Attorney General Notice Status", "检察总长通知状态", "choice", PJR_AG_NOTICE_STATUSES);
+    add("Relief and Risk Flags", "pjr_parallel_proceedings", "Parallel Proceedings Exist?", "是否存在并行程序");
+    add("Relief and Risk Flags", "pjr_existing_court_orders", "Existing Court Orders?", "是否已有法院命令");
+
+    add("Filing Status", "pjr_other_respondents", "Other Respondents", "其他答辩方", "textarea");
+    add("Filing Status", "pjr_response_already_filed", "Response to Petition Already Filed?", "是否已提交呈请状答辩");
+    add("Filing Status", "pjr_affidavits_already_filed", "Affidavits Already Filed?", "是否已提交宣誓陈述书");
   }
 
   return questions;
@@ -1629,6 +1700,120 @@ export async function getDisputeLateStageGuidance(reviewId) {
 export async function saveDisputeLateStageGuidance(reviewId, lateStageGuidance) {
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   return apiPost({ action: "saveDisputeLateStageGuidance", reviewId, data: { lateStageGuidance }, ...getStudioRequestAuth("rental") });
+}
+
+// ── Petition / Judicial Review — Respondent Workflow (SC_PETITION_JR_RESPONDENT_V1) ──
+// A case is routed to this workflow, instead of the Civil Claim Defendant
+// workflow, when it is Supreme Court Litigation, the client's proceeding
+// type is Petition or Judicial Review, and the client's role is Respondent
+// or Application Respondent. Single source of truth for that test so the
+// admin page and both Case Navigators can never disagree.
+export function isPetitionJrRespondentCase(record = {}) {
+  const disputeType = String(record["Dispute Type"] || "");
+  const clientRole = String(record["Client Role"] || "");
+  if (disputeType !== "Supreme Court Litigation") return false;
+  if (!["Respondent", "Application Respondent"].includes(clientRole)) return false;
+  const answers = splitFollowUpAnswersStored(record["Follow-up Answers"]).answers || {};
+  return ["Petition", "Judicial Review"].includes(answers.sc_proceeding_type);
+}
+
+// ── Petition/JR: Relief & Position Matrix + Judicial Review Screening (Stages 3-5) ──
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputePetitionRelief.gs) — no new sheet column. One envelope
+// sibling holds both the relief matrix and the JR screening object since
+// both are lightweight and both feed the same Stage 5 Form 67 gate.
+export async function getDisputePetitionRelief(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputePetitionRelief", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputePetitionRelief(reviewId, petitionRelief) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputePetitionRelief", reviewId, data: { petitionRelief }, ...getStudioRequestAuth("rental") });
+}
+
+// ── Petition/JR: Evidence & Affidavit Plan (Stages 6-7) ──────────────────────
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputePetitionEvidence.gs) — no new sheet column.
+export async function getDisputePetitionEvidence(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputePetitionEvidence", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputePetitionEvidence(reviewId, petitionEvidence) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputePetitionEvidence", reviewId, data: { petitionEvidence }, ...getStudioRequestAuth("rental") });
+}
+
+// ── Petition/JR: Interlocutory Application / Stay / Injunction (Stage 8) ────
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputePetitionApplications.gs) — no new sheet column.
+export async function getDisputePetitionApplications(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputePetitionApplications", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputePetitionApplications(reviewId, petitionApplications) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputePetitionApplications", reviewId, data: { petitionApplications }, ...getStudioRequestAuth("rental") });
+}
+
+// ── Petition/JR: Hearing Readiness / Hearing Binder / Final Order (Stages 9-11) ──
+// Reuses the same "AI Analysis JSON" envelope (see
+// apps-script/DisputePetitionGuidance.gs) — no new sheet column.
+export async function getDisputePetitionGuidance(reviewId) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "getDisputePetitionGuidance", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+export async function saveDisputePetitionGuidance(reviewId, petitionGuidance) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "saveDisputePetitionGuidance", reviewId, data: { petitionGuidance }, ...getStudioRequestAuth("rental") });
+}
+
+// Shared by the three Petition/JR working-draft PDF generators below —
+// mirrors generateFormTwoDraftPdf's request shape (data: {reviewId,
+// draft: JSON-stringified}) and its base64 -> Blob -> browser-download
+// handling, so all four "generate a working draft PDF" actions in this app
+// behave identically. Nothing is written back to the sheet — admin-only.
+async function generatePetitionDraftPdf_(action, reviewId, draft) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  const result = await apiPost({
+    action,
+    data: { reviewId, draft: JSON.stringify(draft) },
+    ...getStudioRequestAuth("rental"),
+  });
+
+  const binary = atob(result.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = result.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  return result;
+}
+
+// ── Petition/JR: Form 67 Working Draft PDF (Stage 5, gated) ─────────────────
+export async function generateForm67DraftPdf(reviewId, draft) {
+  return generatePetitionDraftPdf_("generateForm67Draft", reviewId, draft);
+}
+
+// ── Petition/JR: Affidavit (Form 109) Working Draft PDF (Stage 7, gated) ────
+export async function generateAffidavitDraftPdf(reviewId, draft) {
+  return generatePetitionDraftPdf_("generatePetitionAffidavitDraft", reviewId, draft);
+}
+
+// ── Petition/JR: Hearing Binder Index PDF (Stage 10, gated) ─────────────────
+export async function generatePetitionHearingBinderIndexPdf(reviewId, draft) {
+  return generatePetitionDraftPdf_("generatePetitionHearingBinderIndex", reviewId, draft);
 }
 
 // Rebuilds both language reports from a stored record so the Admin screen and
