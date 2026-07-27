@@ -320,6 +320,21 @@ export async function updateApplicationNotes(applicationId, notes) {
   console.info("[localStorage mode] updateApplicationNotes (not persisted):", applicationId);
 }
 
+// Canonical recipient resolver. Always call this immediately before showing
+// a send-confirmation dialog so the dialog reflects the backend's fresh,
+// verified applicant email for this exact Record ID — never the locally
+// cached row/list data, which may be stale.
+export async function resolveApplicantEmailByRecordId(recordId) {
+  if (!isApiConnected() || !recordId) {
+    return { recordId, applicantName: "", email: "", verified: false };
+  }
+  return apiPost({
+    action: "resolveApplicantEmailByRecordId",
+    recordId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 export async function requestSupportingDocuments(recordId) {
   if (!isApiConnected()) {
     throw new Error("Supporting document requests require Google Apps Script integration.");

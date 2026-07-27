@@ -90,6 +90,7 @@ const COPY = {
       default_income: "Initial screening uses conservative monthly income; final review requires supporting documents.",
     },
     noApplications: "No applications found for this listing.",
+    notProvided: "Not provided",
     initialNotice: "This initial screening summary is for landlord review only. It uses neutral, tenancy-related information from submitted applications. Final decisions remain with the landlord and must follow applicable tenancy and human rights laws.",
     auditNotice: "This audit report is a structured review aid. It does not make a final applicant decision. Final decisions remain with the landlord and must follow applicable tenancy and human rights laws.",
     applicant: "Applicant",
@@ -149,7 +150,10 @@ const COPY = {
       occupants: "Total occupants",
       adultsMinors: "Adults / minors count only",
       pets: "Pets details",
+      smoking: "Smoking / vaping / cannabis use",
       parking: "Vehicles / parking needs",
+      reasonForMoving: "Reason for moving",
+      references: "Landlord / reference details",
       credit: "Credit history stated",
       eviction: "Eviction / tenancy breach stated",
       insurance: "Tenant insurance status",
@@ -250,6 +254,7 @@ const COPY = {
       default_income: "按保守月收入进行初筛；最终需以支持文件核实。",
     },
     noApplications: "该房源暂无申请记录。",
+    notProvided: "未提供",
     initialNotice: "本初步筛选汇总仅供房东审核参考。内容仅基于申请表中与租赁相关的中性信息整理。最终决定仍由房东作出，并须符合适用的租赁法规和人权法规。",
     auditNotice: "本完整审核报告为结构化审核辅助文件，不作出最终申请决定。最终决定仍由房东作出，并须符合适用的租赁法规和人权法规。",
     applicant: "申请人",
@@ -309,7 +314,10 @@ const COPY = {
       occupants: "总入住人数",
       adultsMinors: "成人 / 未成年人数量",
       pets: "宠物信息",
+      smoking: "吸烟 / 电子烟 / 大麻使用情况",
       parking: "车辆 / 停车需求",
+      reasonForMoving: "搬迁原因",
+      references: "房东 / 推荐人信息",
       credit: "自述信用情况",
       eviction: "自述驱逐 / 违约记录",
       insurance: "租客保险状态",
@@ -876,9 +884,14 @@ async function saveReportToDrive({ listingId, fileName, html, reportType }) {
   }
 }
 
+function withPlaceholder(value, lang) {
+  const text = String(value ?? "").trim();
+  return text && text !== "-" ? text : reportText(lang, "notProvided");
+}
+
 function applicantSummaryRows(app, lang = "en") {
   const c = getCopy(lang);
-  return [
+  const rows = [
     [c.fields.applicantName, clean(app.applicantName)],
     [c.fields.jointName, clean(app.jointName)],
     [c.fields.phone, clean(app.phone)],
@@ -895,13 +908,17 @@ function applicantSummaryRows(app, lang = "en") {
     [c.fields.occupants, numberText(app.occupants)],
     [c.fields.adultsMinors, reportText(lang, "documentStatus.adults_minors", { adults: numberText(app.adults), minors: numberText(app.minors) })],
     [c.fields.pets, isYes(app.hasPets) ? cleanDisplayValue(app.petDetails, lang) : cleanDisplayValue(app.hasPets || reportText(lang, "documentStatus.no_pets"), lang)],
+    [c.fields.smoking, cleanDisplayValue(app.smokesVapesCannabis, lang)],
     [c.fields.parking, cleanDisplayValue(app.parkingRequest, lang)],
+    [c.fields.reasonForMoving, clean(app.reasonForMoving)],
+    [c.fields.references, clean(app.landlordReference)],
     [c.fields.credit, cleanDisplayValue(app.creditHistory, lang)],
     [c.fields.eviction, cleanDisplayValue(app.evictionHistory, lang)],
     [c.fields.insurance, cleanDisplayValue(app.hasTenantInsurance, lang)],
     [c.fields.deposit, cleanDisplayValue(app.depositFundsAvailable, lang)],
     [c.fields.supportStatus, documentStatusText(app, lang)],
   ];
+  return rows.map(([label, value]) => ({ label, value: withPlaceholder(value, lang) }));
 }
 
 function safeFilePart(value, fallback = "report") {

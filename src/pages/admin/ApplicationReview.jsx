@@ -10,6 +10,7 @@ import {
   deleteExpiredApplicantSensitiveFiles,
   requestSupportingDocuments,
   resendSupportingDocumentsEmail,
+  resolveApplicantEmailByRecordId,
   updateApplicationStatus,
   updateApplicationNotes,
 } from "../../utils/storage";
@@ -457,10 +458,31 @@ export default function ApplicationReview() {
 
   async function handleRequestDocuments() {
     if (!app?.recordId) return;
-    const ok = window.confirm(`Send supporting document upload link to ${app.email}?`);
-    if (!ok) return;
     setRequestingDocs(true);
     setMessage("");
+    // Re-resolve the verified applicant email for this exact Record ID from
+    // the backend right before confirming — never trust the possibly-stale
+    // `app` state already held in this page.
+    let resolved;
+    try {
+      resolved = await resolveApplicantEmailByRecordId(app.recordId);
+    } catch (e) {
+      setRequestingDocs(false);
+      setMessage("Failed to verify applicant email: " + (e.message || "unknown error"));
+      return;
+    }
+    if (!resolved?.verified || !resolved?.email || resolved.recordId !== app.recordId) {
+      setRequestingDocs(false);
+      setMessage("Applicant email is missing or could not be verified.");
+      return;
+    }
+    const ok = window.confirm(
+      `Applicant: ${resolved.applicantName || "Applicant"}\nRecord ID: ${resolved.recordId}\nRecipient: ${resolved.email}\n\nSend the supporting document upload link to this address?`
+    );
+    if (!ok) {
+      setRequestingDocs(false);
+      return;
+    }
     try {
       const result = await requestSupportingDocuments(app.recordId);
       setApp((prev) => ({
@@ -484,10 +506,28 @@ export default function ApplicationReview() {
 
   async function handleResendDocumentsEmail() {
     if (!app?.recordId) return;
-    const ok = window.confirm(`Resend supporting document upload link to ${app.email}?`);
-    if (!ok) return;
     setRequestingDocs(true);
     setMessage("");
+    let resolved;
+    try {
+      resolved = await resolveApplicantEmailByRecordId(app.recordId);
+    } catch (e) {
+      setRequestingDocs(false);
+      setMessage("Failed to verify applicant email: " + (e.message || "unknown error"));
+      return;
+    }
+    if (!resolved?.verified || !resolved?.email || resolved.recordId !== app.recordId) {
+      setRequestingDocs(false);
+      setMessage("Applicant email is missing or could not be verified.");
+      return;
+    }
+    const ok = window.confirm(
+      `Applicant: ${resolved.applicantName || "Applicant"}\nRecord ID: ${resolved.recordId}\nRecipient: ${resolved.email}\n\nResend the supporting document upload link to this address?`
+    );
+    if (!ok) {
+      setRequestingDocs(false);
+      return;
+    }
     try {
       const result = await resendSupportingDocumentsEmail(app.recordId);
       setApp((prev) => ({
@@ -495,7 +535,7 @@ export default function ApplicationReview() {
         documentRequestSent: result?.documentRequestSent || "Yes",
         documentRequestSentAt: result?.documentRequestSentAt || prev?.documentRequestSentAt,
       }));
-      setMessage(`Supporting document email resent to ${result?.emailTo || app.email}.`);
+      setMessage(`Supporting document email resent to ${result?.emailTo || resolved.email}.`);
     } catch (e) {
       setMessage("Resend failed: " + (e.message || "unknown error"));
     } finally {

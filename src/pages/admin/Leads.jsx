@@ -6,6 +6,7 @@ import {
   getListing,
   getListings,
   requestSupportingDocuments,
+  resolveApplicantEmailByRecordId,
 } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
 import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
@@ -126,10 +127,33 @@ export default function Leads() {
 
   async function handleRequestDocuments(app) {
     if (!app.recordId) return;
-    const ok = window.confirm(`Send supporting document upload link to ${app.email}?`);
-    if (!ok) return;
     setBusyId(app.recordId);
     setError("");
+    // Never trust the row's locally cached email — re-resolve the verified
+    // applicant email for this exact Record ID from the backend immediately
+    // before showing the confirmation, so the dialog always reflects the
+    // authoritative record (not stale list state, another row, or a
+    // reference/employer field).
+    let resolved;
+    try {
+      resolved = await resolveApplicantEmailByRecordId(app.recordId);
+    } catch (e) {
+      setBusyId("");
+      setError(e.message || "Failed to verify applicant email.");
+      return;
+    }
+    if (!resolved?.verified || !resolved?.email || resolved.recordId !== app.recordId) {
+      setBusyId("");
+      setError("Applicant email is missing or could not be verified.");
+      return;
+    }
+    const ok = window.confirm(
+      `Applicant: ${resolved.applicantName || "Applicant"}\nRecord ID: ${resolved.recordId}\nRecipient: ${resolved.email}\n\nSend the supporting document upload link to this address?`
+    );
+    if (!ok) {
+      setBusyId("");
+      return;
+    }
     try {
       await requestSupportingDocuments(app.recordId);
       await refreshApplications();

@@ -329,6 +329,7 @@ function doPost(e) {
     if (action === "getApplicationPdfDownloadData") return ok(getApplicationPdfDownloadData_(body.recordId, body.token));
     if (action === "updateApplicationStatus") return ok(updateApplicationStatus_(body.applicationId, body.reviewStatus, auth));
     if (action === "updateApplicationNotes")  return ok(updateApplicationNotes_(body.applicationId, body.notes, auth));
+    if (action === "resolveApplicantEmailByRecordId") return ok(resolveApplicantEmailByRecordIdForAuth_(body.recordId, auth));
     if (action === "requestSupportingDocuments") return ok(requestSupportingDocuments_(body.recordId, body.origin || "", auth));
     if (action === "resendSupportingDocumentsEmail") return ok(resendSupportingDocumentsEmail_(body.recordId, auth));
     if (action === "generateDraftScreeningReport") return ok(generateDraftScreeningReport_(body.recordId, auth));
@@ -3985,13 +3986,60 @@ function sendSupportDocumentReceiptEmails_(app, listing, uploadInfo, origin) {
   return { applicantWarning: applicantWarning, adminWarning: adminWarning };
 }
 
-function requestSupportingDocuments_(recordId, origin, auth) {
+// Canonical resolver for any outbound applicant email. Always re-reads
+// "07 Intake Records" fresh by immutable Record ID (never trusts a
+// client-supplied email, a table row index, or a previously loaded applicant
+// object). Returns verified:false — never a fallback address — when the
+// record's own "Email" column is blank, or when the resolved value collides
+// verbatim with a non-applicant contact field on the same row (employer,
+// landlord/personal reference, or joint-applicant contact info), which would
+// indicate the row was populated from the wrong source.
+function resolveApplicantEmailByRecordId_(recordId) {
+  if (!recordId) throw new Error("Record ID is required.");
   var found = findApplicationRowByRecordId_(recordId);
   var app = found.app;
+  var email = String(app.email || "").trim();
+  var applicantName = app.applicantName || "Applicant";
+
+  if (!email) {
+    return { found: found, app: app, recordId: recordId, applicantName: applicantName, email: "", verified: false };
+  }
+
+  var nonApplicantFields = [app.employer, app.landlordReference, app.jointEmail, app.jointLandlordReference, app.jointEmployerContact];
+  for (var i = 0; i < nonApplicantFields.length; i++) {
+    var otherValue = String(nonApplicantFields[i] || "").trim();
+    if (otherValue && otherValue === email) {
+      return { found: found, app: app, recordId: recordId, applicantName: applicantName, email: "", verified: false };
+    }
+  }
+
+  return { found: found, app: app, recordId: recordId, applicantName: applicantName, email: email, verified: true };
+}
+
+// Auth-checked wrapper exposed to the frontend so a confirmation dialog can
+// display the backend-verified recipient before the user confirms sending.
+// Returns only the minimal safe fields — no other applicant PII.
+function resolveApplicantEmailByRecordIdForAuth_(recordId, auth) {
+  var resolved = resolveApplicantEmailByRecordId_(recordId);
+  if (auth && auth.mode === "trial" && !findListingByIdForEmail_(resolved.app.listingId, auth.email)) {
+    throw new Error("Access denied for this listing.");
+  }
+  return {
+    recordId: resolved.recordId,
+    applicantName: resolved.applicantName,
+    email: resolved.email,
+    verified: resolved.verified,
+  };
+}
+
+function requestSupportingDocuments_(recordId, origin, auth) {
+  var resolved = resolveApplicantEmailByRecordId_(recordId);
+  var found = resolved.found;
+  var app = resolved.app;
   if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
     throw new Error("Access denied for this listing.");
   }
-  if (!app.email) throw new Error("Applicant email is missing.");
+  if (!resolved.verified) throw new Error("Applicant email is missing or could not be verified.");
   if (!app.listingId) throw new Error("Listing ID is missing.");
 
   var listing = findListingById_(app.listingId);
@@ -4002,7 +4050,7 @@ function requestSupportingDocuments_(recordId, origin, auth) {
 
   var listingFolder = DriveApp.getFolderById(listingFolderId);
   var supportFolder = getOrCreateChildFolder_(listingFolder, "Supporting Documents");
-  var applicantFolder = getOrCreateChildFolder_(supportFolder, recordId + " - " + (app.applicantName || "Applicant"));
+  var applicantFolder = getOrCreateChildFolder_(supportFolder, recordId + " - " + resolved.applicantName);
   trySetDriveViewSharing_(applicantFolder, "supporting document folder");
 
   var token = generateUploadToken_();
@@ -4012,7 +4060,7 @@ function requestSupportingDocuments_(recordId, origin, auth) {
   var uploadLink = cleanOrigin ? cleanOrigin + path : path;
   var now = new Date().toISOString();
 
-  sendSupportingDocumentsEmail_(app.email, app.applicantName || "Applicant", listing.address || app.listingId, uploadLink);
+  sendSupportingDocumentsEmail_(resolved.email, resolved.applicantName, listing.address || app.listingId, uploadLink);
 
   setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
     "Shortlist Status": "Shortlisted",
@@ -4030,6 +4078,8 @@ function requestSupportingDocuments_(recordId, origin, auth) {
   return {
     success: true,
     recordId: recordId,
+    applicantName: resolved.applicantName,
+    email: resolved.email,
     uploadLink: uploadLink,
     supportDocumentFolderUrl: applicantFolder.getUrl(),
     documentUploadStatus: "Pending",
@@ -4041,12 +4091,13 @@ function requestSupportingDocuments_(recordId, origin, auth) {
 }
 
 function resendSupportingDocumentsEmail_(recordId, auth) {
-  var found = findApplicationRowByRecordId_(recordId);
-  var app = found.app;
+  var resolved = resolveApplicantEmailByRecordId_(recordId);
+  var found = resolved.found;
+  var app = resolved.app;
   if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
     throw new Error("Access denied for this listing.");
   }
-  if (!app.email) throw new Error("Applicant email is missing.");
+  if (!resolved.verified) throw new Error("Applicant email is missing or could not be verified.");
   if (!app.listingId) throw new Error("Listing ID is missing.");
   if (!app.uploadLink) throw new Error("Upload Link is missing. Please request supporting documents first.");
   if (!app.uploadToken || isExpiredIso_(app.uploadTokenExpiresAt)) expiredLinkError_();
@@ -4055,7 +4106,7 @@ function resendSupportingDocumentsEmail_(recordId, auth) {
   if (!listing) throw new Error("Listing not found: " + app.listingId);
 
   var now = new Date().toISOString();
-  sendSupportingDocumentsEmail_(app.email, app.applicantName || "Applicant", listing.address || app.listingId, app.uploadLink);
+  sendSupportingDocumentsEmail_(resolved.email, resolved.applicantName, listing.address || app.listingId, app.uploadLink);
   setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
     "Document Request Sent": "Yes",
     "Document Request Sent At": now,
@@ -4066,7 +4117,8 @@ function resendSupportingDocumentsEmail_(recordId, auth) {
   return {
     success: true,
     recordId: recordId,
-    emailTo: app.email,
+    applicantName: resolved.applicantName,
+    emailTo: resolved.email,
     uploadLink: app.uploadLink,
     documentRequestSent: "Yes",
     documentRequestSentAt: now,
