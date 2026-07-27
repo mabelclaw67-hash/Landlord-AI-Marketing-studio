@@ -46,6 +46,19 @@ function summaryCards(items = []) {
   `).join("");
 }
 
+// Compact label/value tile grid — used for the Initial Screening Summary's
+// candidate detail rows instead of a tall single-column key/value table, so
+// Chinese labels get a reasonable width instead of wrapping one character
+// per line, and the section stays a fixed, predictable height.
+function factGrid(rows = []) {
+  return `<div class="fact-grid">${rows.map((row) => `
+    <div class="fact-tile">
+      <span>${escapeHtml(row.label)}</span>
+      <strong>${escapeHtml(row.value)}</strong>
+    </div>
+  `).join("")}</div>`;
+}
+
 function rankingList(items = []) {
   return items.map((item) => `
     <div class="ranking-row">
@@ -118,18 +131,17 @@ function sectionHtml(section) {
   `;
 }
 
-function aiRecommendationBox(candidate, copy) {
-  return `
-    <aside class="ai-recommendation-box">
-      <h3>${escapeHtml(copy.aiRecommendation)}</h3>
-      <table>${keyValueRows(candidate.aiRecommendationRows)}</table>
-    </aside>
-  `;
-}
-
+// Candidate detail card for the Initial Screening Summary. Kept compact and
+// single-column-flow (fact tiles instead of a tall key/value table, one
+// recommendation surface instead of three) so each applicant normally fits
+// on one printed page. The `candidate-detail-card` class (in addition to the
+// shared `candidate-card` visual styling) scopes the per-applicant
+// page-break rules below to this report only — the Full Applicant Audit
+// Report reuses `candidate-card` for its own, differently-shaped sections
+// and must keep its existing pagination behavior unchanged.
 function candidateCard(candidate, copy) {
   return `
-    <section class="candidate-card">
+    <section class="candidate-card candidate-detail-card">
       <div class="candidate-card__header">
         <div>
           <span class="eyebrow">${escapeHtml(copy.candidateDetail)}</span>
@@ -140,16 +152,17 @@ function candidateCard(candidate, copy) {
       <div class="candidate-card__metrics">
         ${summaryCards(candidate.metrics)}
       </div>
-      ${recommendationBox(copy.aiRecommendation, candidate.recommendation, candidate.recommendationTone)}
-      <div class="detail-grid">
-        <div class="detail-panel">
-          <h3>${escapeHtml(copy.applicationOverview)}</h3>
-          <table>${keyValueRows(candidate.applicationRows)}</table>
-        </div>
-        <div class="detail-panel">
-          <h3>${escapeHtml(copy.incomeOverview)}</h3>
-          <table>${keyValueRows(candidate.incomeRows)}</table>
-        </div>
+      <div class="fact-section">
+        <h3>${escapeHtml(copy.coreFacts)}</h3>
+        ${factGrid(candidate.coreFacts)}
+      </div>
+      <div class="fact-section">
+        <h3>${escapeHtml(copy.employmentIncomeSummary)}</h3>
+        ${factGrid(candidate.employmentIncome)}
+      </div>
+      <div class="fact-section">
+        <h3>${escapeHtml(copy.rentalReferenceSummary)}</h3>
+        ${factGrid(candidate.rentalReference)}
       </div>
       <div class="insight-grid">
         <div class="insight insight--strength">
@@ -165,7 +178,7 @@ function candidateCard(candidate, copy) {
           ${listHtml(candidate.recommendations)}
         </div>
       </div>
-      ${aiRecommendationBox(candidate, copy)}
+      <p class="final-assessment"><strong>${escapeHtml(copy.finalAssessment)}:</strong> ${escapeHtml(candidate.finalAssessment)}</p>
     </section>
   `;
 }
@@ -320,27 +333,23 @@ function reportStyles() {
     .recommendation--success { border-left-color: ${c.greenMid}; background: ${c.riskLow}; }
     .recommendation--warning { border-left-color: ${c.gold}; background: ${c.riskMedium}; }
     .recommendation--danger { border-left-color: #B04A3F; background: ${c.riskHigh}; }
-    .ai-recommendation-box {
-      margin-top: 14px;
-      padding: 14px;
-      border-radius: 12px;
-      border: 1px solid #D7C187;
-      background: linear-gradient(180deg, #FFF9EA 0, #FFFFFF 100%);
-    }
-    .ai-recommendation-box h3 {
-      margin-bottom: 8px;
-      color: ${c.green};
-      font-size: 13px;
-    }
     table { width: 100%; border-collapse: collapse; margin: 10px 0 0; }
     th, td { border: 1px solid ${c.line}; padding: 7px 8px; vertical-align: top; text-align: left; font-size: 10px; }
     th { background: #F7F3EA; color: ${c.green}; font-weight: 800; }
+    /* Key/value tables (checklist-style sections) get a fixed layout with a
+       reasonable minimum label-column width so a long value never squeezes
+       the label column down to one-character-per-line CJK wrapping. The
+       comparison table has its own column widths via <col>/content and is
+       excluded. */
+    table:not(.comparison-table) { table-layout: fixed; }
+    table:not(.comparison-table) th { width: 34%; min-width: 120px; overflow-wrap: break-word; }
+    table:not(.comparison-table) td { overflow-wrap: break-word; word-break: normal; }
     .comparison-table th { white-space: nowrap; }
     .comparison-table td { font-size: 9.5px; }
     .candidate-card {
       break-inside: avoid;
       margin: 0 0 18px;
-      padding: 18px;
+      padding: 16px;
       border: 1px solid ${c.line};
       border-top: 4px solid ${c.gold};
       border-radius: 12px;
@@ -352,27 +361,83 @@ function reportStyles() {
       gap: 16px;
       align-items: flex-start;
     }
-    .candidate-card h2 { margin-top: 3px; font-size: 19px; }
-    .candidate-card__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 14px 0; }
-    .detail-grid, .insight-grid {
+    .candidate-card h2 { margin-top: 3px; font-size: 18px; }
+    .candidate-card__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 8px 0; }
+    .candidate-card__metrics .summary-card { min-height: 50px; padding: 8px; }
+    .candidate-card__metrics .summary-card strong { font-size: 14px; }
+    /* Initial Screening Summary candidate cards: allow the card to flow
+       across a page boundary if content genuinely exceeds one page, instead
+       of the "avoid" above forcing the whole multi-page card onto a fresh
+       page (which leaves the preceding page mostly blank). Each applicant
+       still starts on its own page via the sibling rule below. Scoped to
+       candidate-detail-card only — the Full Applicant Audit Report's
+       differently-shaped candidate-card sections keep the default "avoid".
+       Sizes and spacing in this block are deliberately tight (but still a
+       readable ~9-10px) — Chinese (CJK) text runs taller per line than
+       Latin text at the same font-size, so headroom here is what keeps
+       Chinese candidate cards to one page too, not just English ones. */
+    .candidate-detail-card { break-inside: auto; page-break-inside: auto; }
+    .candidate-detail-card + .candidate-detail-card { break-before: page; page-break-before: always; }
+    .fact-section { margin-top: 8px; }
+    .fact-section h3 { font-size: 11px; margin-bottom: 5px; }
+    .fact-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
     }
-    .insight-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .detail-panel, .insight {
+    .fact-tile {
+      border: 1px solid ${c.line};
+      border-radius: 7px;
+      padding: 4px 7px;
+      background: #fff;
+      break-inside: avoid;
+    }
+    .fact-tile span {
+      display: block;
+      color: ${c.muted};
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .fact-tile strong {
+      display: block;
+      margin-top: 2px;
+      color: ${c.text};
+      font-size: 9.5px;
+      font-weight: 600;
+      line-height: 1.3;
+      overflow-wrap: break-word;
+    }
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .insight {
       border: 1px solid ${c.line};
       border-radius: 10px;
-      padding: 12px;
+      padding: 8px 9px;
       background: #fff;
+      break-inside: avoid;
     }
-    .detail-panel h3, .insight h3 { font-size: 12px; margin-bottom: 8px; }
-    .insight ul { margin: 8px 0 0 16px; padding: 0; }
-    .insight li { margin-bottom: 5px; font-size: 10.5px; }
+    .insight h3 { font-size: 11px; margin-bottom: 5px; }
+    .insight ul { margin: 5px 0 0 13px; padding: 0; }
+    .insight li { margin-bottom: 2px; font-size: 9px; line-height: 1.3; }
     .insight--strength { background: #F7FAF7; }
     .insight--concern { background: #FFF9EA; }
     .insight--recommendation { background: #FAF8F4; }
+    .final-assessment {
+      margin: 8px 0 0;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: ${c.goldSoft};
+      font-size: 9.5px;
+      color: ${c.text};
+      break-inside: avoid;
+    }
+    .final-assessment strong { color: ${c.green}; }
     .notice {
       margin-top: 18px;
       padding: 11px 13px;
@@ -393,6 +458,12 @@ function reportStyles() {
       padding-top: 8px;
       color: ${c.muted};
       font-size: 9px;
+    }
+    /* Keep section headings attached to the content that follows them
+       instead of being orphaned alone at the bottom of a page. */
+    .section-title, h1, h2, h3 {
+      break-after: avoid;
+      page-break-after: avoid;
     }
     @media print {
       @page { size: letter; margin: 0; }
@@ -431,7 +502,7 @@ export function renderProfessionalReportHtml(report) {
       </div>
     </header>
     <h1>${escapeHtml(title)}</h1>
-    <p class="subtitle">${escapeHtml(report.subtitle)}</p>
+    ${report.subtitle ? `<p class="subtitle">${escapeHtml(report.subtitle)}</p>` : ""}
     <div class="notice">${escapeHtml(report.notice)}</div>
     <div class="section-title">
       <div>

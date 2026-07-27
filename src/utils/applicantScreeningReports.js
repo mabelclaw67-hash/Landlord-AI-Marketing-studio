@@ -24,6 +24,9 @@ const COPY = {
     candidateDetails: "Candidate Details",
     applicationOverview: "Application Overview",
     incomeOverview: "Income Overview",
+    coreFacts: "Core Facts",
+    employmentIncomeSummary: "Employment & Income",
+    rentalReferenceSummary: "Rental & Reference Summary",
     strengths: "Strengths",
     concerns: "Concerns",
     recommendations: "Recommendations",
@@ -153,13 +156,16 @@ const COPY = {
       smoking: "Smoking / vaping / cannabis use",
       parking: "Vehicles / parking needs",
       reasonForMoving: "Reason for moving",
-      references: "Landlord / reference details",
+      references: "Landlord / reference status",
       credit: "Credit history stated",
       eviction: "Eviction / tenancy breach stated",
       insurance: "Tenant insurance status",
       deposit: "Deposit availability",
       supportStatus: "Supporting document status",
+      employmentLength: "Employment length",
     },
+    otherIncomeDeclared: "Other income declared; verification required.",
+    finalAssessment: "Final assessment",
     rankings: {
       strong: "Strong candidate",
       backup: "Good Backup",
@@ -188,6 +194,9 @@ const COPY = {
     candidateDetails: "候选人详情",
     applicationOverview: "申请资料总览",
     incomeOverview: "收入总览",
+    coreFacts: "基本情况",
+    employmentIncomeSummary: "工作与收入",
+    rentalReferenceSummary: "租赁与推荐人摘要",
     strengths: "优势",
     concerns: "关注事项",
     recommendations: "建议",
@@ -317,13 +326,16 @@ const COPY = {
       smoking: "吸烟 / 电子烟 / 大麻使用情况",
       parking: "车辆 / 停车需求",
       reasonForMoving: "搬迁原因",
-      references: "房东 / 推荐人信息",
+      references: "房东 / 推荐人核实状态",
       credit: "自述信用情况",
       eviction: "自述驱逐 / 违约记录",
       insurance: "租客保险状态",
       deposit: "押金准备情况",
       supportStatus: "支持文件状态",
+      employmentLength: "工作年限",
     },
+    otherIncomeDeclared: "已申报其他收入，需核实。",
+    finalAssessment: "最终评估",
     rankings: {
       strong: "强候选人",
       backup: "良好备选",
@@ -813,6 +825,12 @@ function buildApplicantEvaluation(app, rentValue, lang = "en", listing = {}) {
       ? "keep_as_backup"
       : "request_missing";
 
+  const incomeNotes = [incomeVerificationNote(applicantIncome, lang)];
+  if (jointIncome.display !== "-") {
+    const jointNote = incomeVerificationNote(jointIncome, lang);
+    if (jointNote && !incomeNotes.includes(jointNote)) incomeNotes.push(jointNote);
+  }
+
   return {
     score,
     ranking: c.rankings[rankingKey],
@@ -821,7 +839,7 @@ function buildApplicantEvaluation(app, rentValue, lang = "en", listing = {}) {
     incomeRatio: ratio,
     declaredIncomeDisplay: [applicantIncome.display, jointIncome.display !== "-" ? jointIncome.display : ""].filter(Boolean).join(" + ") || "-",
     scoringIncome: income,
-    incomeVerificationNote: [incomeVerificationNote(applicantIncome, lang), jointIncome.display !== "-" ? incomeVerificationNote(jointIncome, lang) : ""].filter(Boolean).join(" "),
+    incomeVerificationNote: incomeNotes.join(" "),
     strengths: strengths.length ? strengths : [lang === "zh" ? "申请表包含基础审核信息。" : "Application contains basic intake information for review."],
     verificationNeeded: verification.length ? verification : [lang === "zh" ? "仍需完成身份、收入、推荐人和文件标准核实。" : "Standard identity, income, reference, and document verification still required."],
     neutralRiskNotes: notes,
@@ -889,29 +907,89 @@ function withPlaceholder(value, lang) {
   return text && text !== "-" ? text : reportText(lang, "notProvided");
 }
 
-function applicantSummaryRows(app, lang = "en") {
+// Parses a composite "Label: value" block (as built by the intake form's
+// formatSection/joinSections helpers, one "Label: value" pair per line) into
+// a { Label: value } map. Used to pull a couple of specific sub-fields out of
+// a long free-text blob for the compact Initial Screening Summary without
+// reproducing the whole paragraph. Never invents a value — a line that
+// doesn't match "Label: value" is simply not added to the map.
+function parseLabeledLines(text) {
+  const map = {};
+  String(text || "").split(/\n+/).forEach((line) => {
+    const match = line.match(/^([^:]{1,60}):\s*(.+)$/);
+    if (match && !(match[1].trim() in map)) map[match[1].trim()] = match[2].trim();
+  });
+  return map;
+}
+
+// Compresses the employer/income-source free-text blob into a short
+// structured summary (employer, employment length, whether other income was
+// declared) for the Initial Screening Summary. Falls back to the raw value
+// (truncated, never fabricated) when it isn't in the expected labeled format
+// — e.g. legacy records that stored a plain employer name.
+function summarizeEmployerBlob(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return { employer: "", employmentLength: "", otherIncomeNoted: false };
+  const map = parseLabeledLines(text);
+  const employer = map["Employer / Income Source"] || "";
+  const employmentLength = map["Length of Employment"] || "";
+  const otherIncomeNoted = Boolean(map["Other Income"]);
+  if (!employer && !employmentLength && !otherIncomeNoted) {
+    return { employer: text.length > 140 ? `${text.slice(0, 140)}…` : text, employmentLength: "", otherIncomeNoted: false };
+  }
+  return { employer, employmentLength, otherIncomeNoted };
+}
+
+// Row 2 — Core Facts: contact, move-in timing, household, and lifestyle
+// details in a compact grid rather than a tall single-column table.
+function candidateCoreFacts(app, lang) {
   const c = getCopy(lang);
   const rows = [
-    [c.fields.applicantName, clean(app.applicantName)],
-    [c.fields.jointName, clean(app.jointName)],
     [c.fields.phone, clean(app.phone)],
     [c.fields.email, clean(app.email)],
     [c.fields.currentAddress, cleanDisplayValue(app.currentAddress, lang)],
     [c.fields.moveInDate, dateText(app.moveInDate, lang)],
     [c.fields.leaseTerm, cleanDisplayValue(app.leaseTerm, lang)],
-    [c.fields.currentRent, money(app.currentMonthlyRent || app.currentRent)],
-    [c.fields.residencePeriod, cleanDisplayValue(app.currentResidencePeriod || app.residencePeriod, lang)],
-    [c.fields.employmentStatus, cleanDisplayValue(app.employmentStatus, lang)],
-    [c.fields.employer, cleanDisplayValue(app.employer || app.incomeSource, lang)],
-    [c.fields.monthlyIncome, money(app.monthlyIncome)],
-    [c.fields.jointIncome, money(app.jointIncome)],
-    [c.fields.occupants, numberText(app.occupants)],
-    [c.fields.adultsMinors, reportText(lang, "documentStatus.adults_minors", { adults: numberText(app.adults), minors: numberText(app.minors) })],
+    [c.fields.occupants, `${numberText(app.occupants)} (${reportText(lang, "documentStatus.adults_minors", { adults: numberText(app.adults), minors: numberText(app.minors) })})`],
     [c.fields.pets, isYes(app.hasPets) ? cleanDisplayValue(app.petDetails, lang) : cleanDisplayValue(app.hasPets || reportText(lang, "documentStatus.no_pets"), lang)],
     [c.fields.smoking, cleanDisplayValue(app.smokesVapesCannabis, lang)],
     [c.fields.parking, cleanDisplayValue(app.parkingRequest, lang)],
     [c.fields.reasonForMoving, clean(app.reasonForMoving)],
-    [c.fields.references, clean(app.landlordReference)],
+  ];
+  return rows.map(([label, value]) => ({ label, value: withPlaceholder(value, lang) }));
+}
+
+// Row 3 — Employment and Income: summarized employer info plus the income
+// figures already computed by buildApplicantEvaluation (no recalculation).
+function candidateEmploymentIncome(app, evaluation, lang) {
+  const c = getCopy(lang);
+  const employerInfo = summarizeEmployerBlob(app.employer || app.incomeSource);
+  const rows = [
+    [c.fields.employmentStatus, cleanDisplayValue(app.employmentStatus, lang)],
+    [c.fields.employer, employerInfo.employer],
+    [c.fields.employmentLength, employerInfo.employmentLength],
+    [c.fields.monthlyIncome, money(app.monthlyIncome)],
+    [c.fields.jointIncome, money(app.jointIncome)],
+    [c.scoringIncome, formatCurrency(evaluation.scoringIncome) || "-"],
+    [c.rentToIncome, evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-"],
+    [c.incomeVerificationNote, evaluation.incomeVerificationNote],
+  ];
+  if (employerInfo.otherIncomeNoted) rows.push([reportText(lang, "otherIncomeDeclared"), reportText(lang, "otherIncomeDeclared")]);
+  return rows
+    .filter(([, value]) => value !== undefined)
+    .map(([label, value]) => ({ label, value: withPlaceholder(value, lang) }));
+}
+
+// Row 4 — Rental and Reference Summary. Landlord/reference is a status flag
+// only here (never the full contact blob with names/phones/emails) — the
+// complete text remains available in the original application record and
+// the Full Applicant Audit Report.
+function candidateRentalReference(app, lang) {
+  const c = getCopy(lang);
+  const rows = [
+    [c.fields.currentRent, money(app.currentMonthlyRent || app.currentRent)],
+    [c.fields.residencePeriod, cleanDisplayValue(app.currentResidencePeriod || app.residencePeriod, lang)],
+    [c.fields.references, app.landlordReference ? reportText(lang, "documentStatus.to_confirm") : reportText(lang, "documentStatus.not_confirmed")],
     [c.fields.credit, cleanDisplayValue(app.creditHistory, lang)],
     [c.fields.eviction, cleanDisplayValue(app.evictionHistory, lang)],
     [c.fields.insurance, cleanDisplayValue(app.hasTenantInsurance, lang)],
@@ -1014,33 +1092,22 @@ function buildInitialScreeningReportData({ listing, applications, evaluated, lan
     recommendation: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
     recommendationTone: recommendationTone(evaluation.rankingKey),
     metrics: [
-      { label: c.initialCategory, value: c.rankings[evaluation.rankingKey] || evaluation.ranking },
       { label: c.rentToIncome, value: evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-" },
       { label: c.documents, value: documentStatusText(app, lang, "short") },
     ],
-    applicationRows: applicantSummaryRows(app, lang),
-    incomeRows: [
-      { label: c.declaredIncome, value: evaluation.declaredIncomeDisplay },
-      { label: c.scoringIncome, value: formatCurrency(evaluation.scoringIncome) || "-" },
-      { label: c.rentToIncome, value: evaluation.incomeRatio ? `${evaluation.incomeRatio.toFixed(1)}x` : "-" },
-      { label: c.incomeVerificationNote, value: evaluation.incomeVerificationNote },
-    ],
+    coreFacts: candidateCoreFacts(app, lang),
+    employmentIncome: candidateEmploymentIncome(app, evaluation, lang),
+    rentalReference: candidateRentalReference(app, lang),
     strengths: evaluation.strengths,
     concerns: evaluation.neutralRiskNotes,
     recommendations: [reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`), ...evaluation.verificationNeeded],
-    aiRecommendationRows: [
-      { label: c.recommendation, value: c.rankings[evaluation.rankingKey] || evaluation.ranking },
-      { label: c.priority, value: reportText(lang, "priorityRank", { rank: index + 1, total: evaluated.length }) },
-      { label: c.nextAction, value: c.nextActionCompleteChecks },
-      { label: c.overallAssessment, value: reportText(lang, `assessments.${evaluation.rankingKey}`) },
-    ],
+    finalAssessment: reportText(lang, `assessments.${evaluation.rankingKey}`),
   }));
 
   return {
     reportType: "Initial Screening Summary",
     language: lang,
     title: c.initialTitle,
-    subtitle: c.initialNotice,
     fileName,
     copy: c,
     meta: [
