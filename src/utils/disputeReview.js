@@ -1504,6 +1504,7 @@ export async function uploadDisputeFile(reviewId, file, meta = {}, turnstileToke
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const data = await fileToBase64(file);
   return publicUpload("uploadDisputeFile", {
+    data: {
       reviewId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
@@ -1513,6 +1514,7 @@ export async function uploadDisputeFile(reviewId, file, meta = {}, turnstileToke
       senderIssuer: meta.senderIssuer || "",
       description: meta.description || "",
       data,
+    },
   }, turnstileToken);
 }
 

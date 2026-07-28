@@ -1822,6 +1822,7 @@ export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}, 
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const data = await propertyStrategyFileToBase64(file);
   return publicUpload("uploadPropertyStrategyFile", {
+    data: {
       assessmentId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
@@ -1829,6 +1830,7 @@ export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}, 
       category: meta.category || "Other",
       roomArea: meta.roomArea || "",
       data,
+    },
   }, turnstileToken);
 }
 
