@@ -69,6 +69,21 @@ export async function bridge(action, payload) {
   return response.json();
 }
 
+export async function bridgePublicUpload(action, payload) {
+  const url = process.env.PUBLIC_UPLOAD_APPS_SCRIPT_URL;
+  const bridgeToken = process.env.PUBLIC_UPLOAD_BRIDGE_TOKEN;
+  if (!url || !bridgeToken) throw new Error("SERVER_NOT_CONFIGURED");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ ...payload, action, publicUploadBridgeToken: bridgeToken }),
+    redirect: "follow",
+  });
+  if (!response.ok) throw new Error("BRIDGE_FAILED");
+  const result = await response.json();
+  return result.data || result;
+}
+
 export function safeError(error) {
   if (error?.message === "PAYLOAD_TOO_LARGE") return [413, "Upload is too large."];
   return [500, "The request could not be completed. Please try again."];

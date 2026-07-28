@@ -27,6 +27,7 @@ import {
   validateDisputeFile,
 } from "../utils/disputeReview";
 import { normalizeLang } from "../utils/lang";
+import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
 const DISPUTE_REPORT_SESSION_KEY = "vipm_dispute_review_report_v1";
@@ -402,6 +403,7 @@ export default function DisputeReview({ lang }) {
   const [uploadProgress, setUploadProgress] = useState(null);
   const [removingId, setRemovingId] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const uploadTurnstile = usePublicUploadTurnstile();
   const [pendingMeta, setPendingMeta] = useState({
     documentCategory: "",
     documentDate: "",
@@ -505,7 +507,7 @@ export default function DisputeReview({ lang }) {
         }
         let result;
         try {
-          result = await uploadDisputeFile(form.reviewId, file, pendingMeta);
+          result = await uploadDisputeFile(form.reviewId, file, pendingMeta, await uploadTurnstile.consumeToken());
         } catch (err) {
           // Never record a file as uploaded when the server rejected it.
           failures.push(`${file.name}: ${err.message || "upload failed"}`);
@@ -790,6 +792,7 @@ export default function DisputeReview({ lang }) {
           <p>{copy.upload.intro}</p>
           <p className="strategy-help">{getDisputeUploadExamples(form.disputeType, safeLang)}</p>
           <p className="strategy-help">{copy.upload.limits}</p>
+          <div className="strategy-help">{uploadTurnstile.widget}{uploadTurnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</div>
 
           {!uploadAvailable ? (
             <div className="notice notice--error strategy-inline-notice">

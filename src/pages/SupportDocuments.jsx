@@ -8,6 +8,7 @@ import {
 } from "../utils/storage";
 import { COMPANY_FOOTER } from "../components/Footer";
 import { isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
+import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
 
 const CATEGORIES = [
   "Proof of income / employment",
@@ -82,6 +83,7 @@ function titleForListing(listing, listingId) {
 }
 
 function TokenUploadPage({ listingId, recordId, token }) {
+  const uploadTurnstile = usePublicUploadTurnstile();
   const hasMissingParams = !listingId || !recordId || !token;
   const [loading, setLoading] = useState(!hasMissingParams);
   const [error, setError] = useState("");
@@ -122,7 +124,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
     try {
       let latest = null;
       for (const file of files) {
-        latest = await uploadSupportingDocument(listingId, recordId, token, category, file);
+        latest = await uploadSupportingDocument(listingId, recordId, token, category, file, await uploadTurnstile.consumeToken());
       }
       setDetails((prev) => ({
         ...prev,
@@ -191,6 +193,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
         busyCategory={busyCategory}
         onUpload={handleUpload}
         message={message}
+        turnstile={uploadTurnstile}
       />
     </main>
   );
@@ -205,13 +208,14 @@ function InfoBlock({ label, value, code = false }) {
   );
 }
 
-function UploadPanel({ selected, setSelected, busyCategory, onUpload, message }) {
+function UploadPanel({ selected, setSelected, busyCategory, onUpload, message, turnstile }) {
   return (
     <section className="card">
       <h2 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 12 }}>Upload files</h2>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
         Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 10 MB per file.
       </p>
+      {turnstile && <div style={{ marginBottom: 16 }}>{turnstile.widget}<p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem" }}>{turnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</p></div>}
       <div style={{ display: "grid", gap: 14 }}>
         {CATEGORIES.map((category) => (
           <div
@@ -252,6 +256,7 @@ function UploadPanel({ selected, setSelected, busyCategory, onUpload, message })
 }
 
 export default function SupportDocuments() {
+  const uploadTurnstile = usePublicUploadTurnstile();
   const { listingId: tokenListingId, recordId } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -330,6 +335,7 @@ export default function SupportDocuments() {
           notes: clean(form.notes),
           category,
           file,
+          turnstileToken: await uploadTurnstile.consumeToken(),
         });
       }
       setSelected((prev) => ({ ...prev, [category]: [] }));
@@ -424,6 +430,7 @@ export default function SupportDocuments() {
             busyCategory={busyCategory}
             onUpload={handlePublicUpload}
             message={message}
+            turnstile={uploadTurnstile}
           />
         </>
       )}

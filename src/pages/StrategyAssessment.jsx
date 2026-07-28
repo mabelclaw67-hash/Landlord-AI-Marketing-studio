@@ -20,6 +20,7 @@ import {
   validatePropertyStrategyFile,
 } from "../utils/strategyAssessment";
 import { normalizeLang } from "../utils/lang";
+import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
 const YES_NO = ["Yes", "No", "Unsure"];
@@ -607,6 +608,7 @@ export default function StrategyAssessment({ lang }) {
   const [uploadProgress, setUploadProgress] = useState(null);
   const [removingId, setRemovingId] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const uploadTurnstile = usePublicUploadTurnstile();
   const [pendingCategory, setPendingCategory] = useState("");
   const [pendingRoomArea, setPendingRoomArea] = useState("");
   const [communityOptions, setCommunityOptions] = useState([]);
@@ -758,7 +760,7 @@ export default function StrategyAssessment({ lang }) {
           result = await uploadPropertyStrategyFile(form.assessmentId, file, {
             category: pendingCategory,
             roomArea: pendingRoomArea,
-          });
+          }, await uploadTurnstile.consumeToken());
         } catch (err) {
           // Never record a file as uploaded when the server rejected it.
           failures.push(`${file.name}: ${err.message || "upload failed"}`);
@@ -1029,6 +1031,7 @@ export default function StrategyAssessment({ lang }) {
             <div className="form-group">
               <label>{copy.photoLabel}</label>
               <p className="strategy-help">{copy.photoHelp}</p>
+              <div className="strategy-help">{uploadTurnstile.widget}{uploadTurnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</div>
               <p className="strategy-help">{copy.upload.limits}</p>
 
               {!uploadAvailable ? (

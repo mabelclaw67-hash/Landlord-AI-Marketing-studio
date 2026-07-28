@@ -1,5 +1,6 @@
 import { apiPost, isApiConnected } from "./api";
 import { computeLocalRentJudgment, getRegionNarrative } from "./nanaimoRentalPricing";
+import { publicUpload } from "./publicUpload";
 
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 
@@ -1817,12 +1818,10 @@ export async function startPropertyStrategyAssessment(assessmentId = "") {
   return apiPost({ action: "startPropertyStrategyAssessment", data: { assessmentId } });
 }
 
-export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}) {
+export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}, turnstileToken) {
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const data = await propertyStrategyFileToBase64(file);
-  return apiPost({
-    action: "uploadPropertyStrategyFile",
-    data: {
+  return publicUpload("uploadPropertyStrategyFile", {
       assessmentId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
@@ -1830,8 +1829,7 @@ export async function uploadPropertyStrategyFile(assessmentId, file, meta = {}) 
       category: meta.category || "Other",
       roomArea: meta.roomArea || "",
       data,
-    },
-  });
+  }, turnstileToken);
 }
 
 export async function deletePropertyStrategyFile(assessmentId, fileId) {

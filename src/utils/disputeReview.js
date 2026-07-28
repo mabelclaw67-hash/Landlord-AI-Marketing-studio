@@ -12,6 +12,7 @@
 
 import { apiPost, isApiConnected } from "./api";
 import { getStudioRequestAuth } from "./trialAccess";
+import { publicUpload } from "./publicUpload";
 
 export const DISPUTE_REVIEW_SPREADSHEET_ID = "1Vf19MSfp73g3h-nJg8cCDRwPuoFHMLRMkWMCj7gTZ90";
 export const DISPUTE_REVIEW_FOLDER_URL = "https://drive.google.com/drive/folders/1iIMToPAg8EBjiWs-fprXBZW_tpycJ000";
@@ -1499,12 +1500,10 @@ export async function startDisputeReview(reviewId = "") {
   return apiPost({ action: "startDisputeReview", data: { reviewId } });
 }
 
-export async function uploadDisputeFile(reviewId, file, meta = {}) {
+export async function uploadDisputeFile(reviewId, file, meta = {}, turnstileToken) {
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const data = await fileToBase64(file);
-  return apiPost({
-    action: "uploadDisputeFile",
-    data: {
+  return publicUpload("uploadDisputeFile", {
       reviewId,
       fileName: file.name,
       mimeType: file.type || "application/octet-stream",
@@ -1514,8 +1513,7 @@ export async function uploadDisputeFile(reviewId, file, meta = {}) {
       senderIssuer: meta.senderIssuer || "",
       description: meta.description || "",
       data,
-    },
-  });
+  }, turnstileToken);
 }
 
 export async function deleteDisputeFile(reviewId, fileId) {

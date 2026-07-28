@@ -138,3 +138,28 @@ src/pages/StrategyAssessment.jsx
    GET `?action=ping`. Full UI click-through verification requires the real
    admin access code, which this environment does not hold — note that
    limitation explicitly rather than skipping it silently.
+
+## Public upload Turnstile bridge (2026-07-28)
+
+All public file-upload actions must use `/.netlify/functions/public-upload`:
+
+- `uploadSupportingDocument`
+- `uploadPublicSupportingDocument`
+- `uploadDisputeFile`
+- `uploadPropertyStrategyFile`
+
+The frontend sends a fresh Cloudflare Turnstile token with each file request.
+`netlify/functions/public-upload.js` verifies it through the shared
+`verifyTurnstile` helper before forwarding the request. Apps Script then
+requires the matching server-only bridge token before any Drive or Sheets write.
+
+Server-only configuration (never prefix these with `VITE_`, and never commit
+their values):
+
+- Netlify: `TURNSTILE_SECRET`, `PUBLIC_UPLOAD_APPS_SCRIPT_URL`, `PUBLIC_UPLOAD_BRIDGE_TOKEN`
+- Apps Script Script Properties: `PUBLIC_UPLOAD_BRIDGE_TOKEN`
+
+The Apps Script production deployment is version 102. Roll back by redeploying
+the prior production version 101 to the same deployment ID, then revert the
+matching Git commit and redeploy Netlify. Never delete uploaded records as part
+of a rollback.

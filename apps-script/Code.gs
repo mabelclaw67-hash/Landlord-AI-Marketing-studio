@@ -267,6 +267,9 @@ function doPost(e) {
   try {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
+    if (["uploadSupportingDocument", "uploadPublicSupportingDocument", "uploadDisputeFile", "uploadPropertyStrategyFile"].indexOf(action) >= 0) {
+      assertPublicUploadBridge_(body);
+    }
     // Actions that do not require any session (login/public endpoints)
     var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
@@ -371,6 +374,21 @@ function doPost(e) {
   } catch (ex) {
     return err(ex.message);
   }
+}
+
+function assertPublicUploadBridge_(body) {
+  var expected = PropertiesService.getScriptProperties().getProperty("PUBLIC_UPLOAD_BRIDGE_TOKEN");
+  var supplied = String(body && body.publicUploadBridgeToken || "");
+  if (!expected || !supplied || supplied !== expected) throw new Error("Upload authorization failed.");
+}
+
+// Run only through the authenticated Apps Script execution API during deployment.
+// This is intentionally not a doPost action and never returns the secret.
+function configurePublicUploadBridgeToken_(token) {
+  token = String(token || "").trim();
+  if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) throw new Error("Invalid bridge token.");
+  PropertiesService.getScriptProperties().setProperty("PUBLIC_UPLOAD_BRIDGE_TOKEN", token);
+  return { configured: true };
 }
 
 // ── Response helpers ──────────────────────────────────────────────────────────
@@ -4195,6 +4213,7 @@ function uploadSupportingDocument_(body) {
   validateUploadToken_(body.listingId, body.recordId, body.token);
   if (!body.category) throw new Error("Document category is required.");
   if (!body.data) throw new Error("File data is required.");
+  validateSupportingDocumentFile_(body.fileName, body.mimeType, body.fileSize);
   var found = findApplicationRowByRecordId_(body.recordId);
   var folderUrl = found.app.supportDocumentFolderUrl;
   var folderId = extractDriveFolderId_(folderUrl);

@@ -7,6 +7,7 @@
 
 import { isApiConnected, apiGet, apiPost } from "./api.js";
 import { getStudioRequestAuth } from "./trialAccess.js";
+import { publicUpload } from "./publicUpload.js";
 
 const LISTINGS_KEY = "vanisland_listings_v1";
 
@@ -422,31 +423,30 @@ export async function validateUploadToken(listingId, recordId, token) {
   return apiGet({ action: "validateUploadToken", listingId, recordId, token });
 }
 
-export async function uploadSupportingDocument(listingId, recordId, token, category, file) {
+export async function uploadSupportingDocument(listingId, recordId, token, category, file, turnstileToken) {
   if (!isApiConnected()) {
     throw new Error("Supporting document upload requires Google Apps Script integration.");
   }
   const base64 = await fileToBase64(file);
-  return apiPost({
-    action: "uploadSupportingDocument",
+  return publicUpload("uploadSupportingDocument", {
     listingId,
     recordId,
     token,
     category,
     fileName: file.name,
     mimeType: file.type || "application/octet-stream",
+    fileSize: file.size || 0,
     data: base64,
     origin: window.location.origin,
-  });
+  }, turnstileToken);
 }
 
-export async function uploadPublicSupportingDocument({ listingId, applicantName, email, phone, notes, category, file }) {
+export async function uploadPublicSupportingDocument({ listingId, applicantName, email, phone, notes, category, file, turnstileToken }) {
   if (!isApiConnected()) {
     throw new Error("Supporting document upload requires Google Apps Script integration.");
   }
   const base64 = await fileToBase64(file);
-  return apiPost({
-    action: "uploadPublicSupportingDocument",
+  return publicUpload("uploadPublicSupportingDocument", {
     listingId,
     applicantName,
     email,
@@ -458,7 +458,7 @@ export async function uploadPublicSupportingDocument({ listingId, applicantName,
     fileSize: file.size || 0,
     data: base64,
     origin: window.location.origin,
-  });
+  }, turnstileToken);
 }
 
 // v0.3+ swap surface — replace these with API calls without touching components.
