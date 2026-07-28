@@ -163,3 +163,18 @@ The Apps Script production deployment is version 102. Roll back by redeploying
 the prior production version 101 to the same deployment ID, then revert the
 matching Git commit and redeploy Netlify. Never delete uploaded records as part
 of a rollback.
+
+Production checks completed on 2026-07-28:
+
+- Missing and invalid Turnstile tokens are rejected by the Netlify function
+  before the Apps Script bridge is called.
+- A direct Apps Script upload without the bridge token is rejected before any
+  Drive or Sheets write.
+- With a valid server bridge token, invalid file extensions and files above the
+  existing 15 MB dispute/property-strategy limit are rejected before writing.
+- `npm run build`, function syntax checks, new-file lint, and secret diff scan
+  passed. Existing lint debt in `StrategyAssessment.js` remains outside this
+  change.
+- A browser-created valid Turnstile token plus harmless test-file upload is a
+  required manual final smoke test, because the current automated browser
+  surface cannot safely operate the local file picker.
