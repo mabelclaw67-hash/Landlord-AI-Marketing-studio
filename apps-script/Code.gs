@@ -29,6 +29,26 @@ var PROPERTY_FIT_MATRIX_SHEET = "Property_Fit_Matrix";
 var AI_DECISION_HINTS_SHEET = "AI_Decision_Hints";
 var DAILY_MARKET_BRIEF_SYNC_HANDLER = "syncDailyMarketBriefFromLatestReport";
 var ADMIN_NOTIFICATION_EMAIL = "support@vanislandproperty.ca";
+var OUTGOING_EMAIL_ADDRESS = "support@vanislandproperty.ca";
+var OUTGOING_EMAIL_NAME = "Vanisland Property Management";
+
+// All automated mail must use the approved Gmail "Send mail as" alias. This
+// deliberately fails instead of falling back to the script owner's personal
+// mailbox, so applicant communications never leave with the wrong sender.
+function sendCompanyEmail_(to, subject, body) {
+  var aliases = GmailApp.getAliases();
+  if (aliases.indexOf(OUTGOING_EMAIL_ADDRESS) === -1) {
+    throw new Error(
+      "Outgoing email is not configured. Add " + OUTGOING_EMAIL_ADDRESS +
+      " as a verified Gmail 'Send mail as' alias for the Apps Script execution account."
+    );
+  }
+  GmailApp.sendEmail(to, subject, body, {
+    from: OUTGOING_EMAIL_ADDRESS,
+    replyTo: OUTGOING_EMAIL_ADDRESS,
+    name: OUTGOING_EMAIL_NAME
+  });
+}
 
 var INTAKE_HEADERS = [
   // System
@@ -3154,11 +3174,11 @@ function saveContact_(data) {
       "Message:\n" + (data.message || "—") + "\n\n" +
       "Submitted At: " + submittedAt + "\n\n" +
       "Please review this request in the Admin backend.";
-    MailApp.sendEmail({
-      to:      "mabelclaw67@gmail.com",
-      subject: "New Trial Request - Vanisland AI Marketing Studio",
-      body:    body,
-    });
+    sendCompanyEmail_(
+      "mabelclaw67@gmail.com",
+      "New Trial Request - Vanisland AI Marketing Studio",
+      body
+    );
   } catch (emailErr) {
     emailWarning = emailErr.message;
   }
@@ -3303,11 +3323,11 @@ function sendTrialApprovalEmail_(request) {
     "Mabel\n" +
     "Vanisland AI Marketing Studio";
 
-  MailApp.sendEmail({
-    to: recipient,
-    subject: "Your Vanisland AI Studio Trial Access Has Been Approved",
-    body: body,
-  });
+  sendCompanyEmail_(
+    recipient,
+    "Your Vanisland AI Studio Trial Access Has Been Approved",
+    body
+  );
 }
 
 function updateContactRequestNotes_(rowNumber, notes, auth) {
@@ -3867,11 +3887,11 @@ function buildSupportingDocumentsEmailBody_(applicantName, propertyAddress, uplo
 function sendSupportingDocumentsEmail_(toEmail, applicantName, propertyAddress, uploadLink) {
   if (!toEmail) throw new Error("Applicant email is missing.");
   if (!uploadLink) throw new Error("Upload Link is missing.");
-  MailApp.sendEmail({
-    to: toEmail,
-    subject: "Supporting Documents Required for Your Rental Application",
-    body: buildSupportingDocumentsEmailBody_(applicantName || "Applicant", propertyAddress || "", uploadLink),
-  });
+  sendCompanyEmail_(
+    toEmail,
+    "Supporting Documents Required for Your Rental Application",
+    buildSupportingDocumentsEmailBody_(applicantName || "Applicant", propertyAddress || "", uploadLink)
+  );
 }
 
 function buildAdminApplicationLink_(origin, recordId) {
@@ -3883,7 +3903,7 @@ function buildAdminApplicationLink_(origin, recordId) {
 function sendApplicantWorkflowEmail_(toEmail, subject, body, logPrefix) {
   if (!toEmail) return "Applicant email is missing.";
   try {
-    MailApp.sendEmail({ to: toEmail, subject: subject, body: body });
+    sendCompanyEmail_(toEmail, subject, body);
     return "";
   } catch (emailErr) {
     var message = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown email error");
@@ -3895,7 +3915,7 @@ function sendApplicantWorkflowEmail_(toEmail, subject, body, logPrefix) {
 
 function sendAdminWorkflowEmail_(subject, body, logPrefix) {
   try {
-    MailApp.sendEmail({ to: ADMIN_NOTIFICATION_EMAIL, subject: subject, body: body });
+    sendCompanyEmail_(ADMIN_NOTIFICATION_EMAIL, subject, body);
     return "";
   } catch (emailErr) {
     var message = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown email error");

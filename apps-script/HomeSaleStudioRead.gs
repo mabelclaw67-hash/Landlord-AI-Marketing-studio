@@ -1367,13 +1367,7 @@ function homeSaleSendBuyerNotification_(record, body) {
   }
 
   try {
-    MailApp.sendEmail({
-      to: buyerEmail,
-      subject: subject,
-      body: bodyText,
-      replyTo: "mabelclaw67@gmail.com",
-      name: "Vanisland Property Management"
-    });
+    sendCompanyEmail_(buyerEmail, subject, bodyText);
     return { sent: true };
   } catch (err) {
     return { sent: false, reason: err.message };
