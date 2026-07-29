@@ -295,6 +295,7 @@ function doPost(e) {
     if (action === "deletePropertyStrategyFile")       return ok(deletePropertyStrategyFile_(body.data || body));
     if (action === "getPropertyStrategyFiles")         return ok(getPropertyStrategyFiles_(body.data || body));
     if (action === "verifyPropertyStrategyFileStorage") { assertAdmin_(auth); return ok(verifyPropertyStrategyFileStorage()); }
+    if (action === "setupPropertyStrategyFileStorage") { assertAdmin_(auth); return ok(setupPropertyStrategyFileStorage()); }
     // ── AI Dispute Review (see DisputeReview.gs) ──
     if (action === "startDisputeReview")  return ok(startDisputeReview_(body.data || body));
     if (action === "uploadDisputeFile")   return ok(uploadDisputeFile_(body.data || body));

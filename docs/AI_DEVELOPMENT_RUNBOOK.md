@@ -36,7 +36,7 @@ netlify api listSiteDeploys --data '{"site_id":"678aa8d4-81e4-4c19-b4a1-2021c906
 ```
 Script ID:               1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp
 Production deployment ID: AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0
-Current production version: 100
+Current production version: 103
 ```
 
 The exec URL for this deployment (`.env` / `.env.local` as `VITE_STUDIO_EXEC_URL`)
@@ -178,3 +178,30 @@ Production checks completed on 2026-07-28:
 - A browser-created valid Turnstile token plus harmless test-file upload is a
   required manual final smoke test, because the current automated browser
   surface cannot safely operate the local file picker.
+
+## Property Strategy Assessment: one-time Drive folder init (2026-07-29)
+
+`startPropertyStrategyAssessment` / `uploadPropertyStrategyFile` depend on a
+"Property Strategy Files" Drive folder that `apps-script/PropertyStrategyFiles.gs`'s
+`setupPropertyStrategyFileStorage()` creates. That function was intentionally
+never wired to any action (meant to be run manually, once, from the Apps
+Script editor) and had never actually been run in production — so both
+actions failed with "Drive folder does not exist yet" until this was found and
+fixed. It looked like a missing deployment at first (`startPropertyStrategyAssessment`
+failing while `startDisputeReview` succeeded) but `clasp pull --versionNumber <n>`
+diffed clean against the repo — always diff the actual deployed version before
+assuming a deployment gap.
+
+Fix deployed as version 103: one line added to `Code.gs`'s dispatcher wiring
+`setupPropertyStrategyFileStorage` as a permanent admin action (same pattern as
+the existing `verifyPropertyStrategyFileStorage`), then called once via an
+authenticated POST to actually create the folder. `folderCreated: true` in the
+response confirmed the folder was missing before that call. Full record:
+`docs/DOCUMENT_FIRST_UPLOAD_HANDOFF_2026-07-29.md` §H.
+
+If a future session finds a public action failing in production while its
+sibling actions work, and the deployed source matches the repo exactly,
+suspect a one-time/manual initializer that was never run — search the
+relevant `.gs` file for a function whose comment says something like "not
+wired to any action" or "run once from the editor" before assuming a
+deployment or code problem.
