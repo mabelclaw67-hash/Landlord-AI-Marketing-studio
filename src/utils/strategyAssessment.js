@@ -1698,6 +1698,7 @@ export async function submitStrategyAssessment(form, lang = "en") {
   const result = await apiPost({
     action: "savePropertyStrategyAssessment",
     data: payload,
+    origin: typeof window !== "undefined" ? window.location.origin : "",
   });
 
   return {
@@ -1842,4 +1843,46 @@ export async function deletePropertyStrategyFile(assessmentId, fileId) {
 export async function getPropertyStrategyFiles(assessmentId) {
   if (!isApiConnected()) return { files: [] };
   return apiPost({ action: "getPropertyStrategyFiles", data: { assessmentId } });
+}
+
+// ── Report download and recovery ─────────────────────────────────────────────
+
+// Pulls the real PDF bytes through the authorized backend and saves them as a
+// genuine .pdf file (mirrors downloadDisputeReportPdf in disputeReview.js) —
+// the Reports folder is not publicly shared, so the file is streamed through
+// an endpoint that checks admin rights or a per-assessment token instead of
+// ever handing out the raw Drive URL.
+export async function downloadPropertyStrategyReportPdf(assessmentId, language, token = "") {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  const result = await apiPost({
+    action: "downloadPropertyStrategyReportPdf",
+    data: { assessmentId, language: language === "zh" ? "ZH" : "EN", token },
+  });
+
+  const binary = atob(result.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = result.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  return { fileName: result.fileName, sizeBytes: result.sizeBytes, mimeType: result.mimeType };
+}
+
+// Recovers an already-submitted report using the Assessment ID plus the email
+// address submitted with it — the backend verifies both before returning
+// anything, so an Assessment ID alone is never enough.
+export async function recoverPropertyStrategyReport(assessmentId, email) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({
+    action: "recoverPropertyStrategyReport",
+    data: { assessmentId, email },
+  });
 }

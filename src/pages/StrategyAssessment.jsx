@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
   deletePropertyStrategyFile,
   displayStrategyValue,
+  downloadPropertyStrategyReportPdf,
   generatePreliminaryStrategySummary,
   getPropertyStrategyFiles,
   getRentalIntelligenceCommunities,
@@ -12,6 +13,7 @@ import {
   getStrategyFollowUpQuestions,
   hasOwnerOccupancyLegalWarning,
   PROPERTY_STRATEGY_MAX_FILES,
+  recoverPropertyStrategyReport,
   startPropertyStrategyAssessment,
   submitStrategyAssessment,
   uploadPropertyStrategyFile,
@@ -19,6 +21,7 @@ import {
 } from "../utils/strategyAssessment";
 import { normalizeLang } from "../utils/lang";
 import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
+import CollapsibleCard from "../components/CollapsibleCard";
 import PropertyDocumentsPanel from "../components/PropertyDocumentsPanel";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
@@ -237,6 +240,20 @@ const COPY = {
     generate: "Generate My AI Assessment",
     downloadPdf: "Download PDF",
     pdfHelp: "Opens a printable report. Use Save as PDF with the suggested file name.",
+    recovery: {
+      title: "Already submitted? Recover your report",
+      help: "Enter the Assessment ID and the email address you used when you submitted, and we'll bring your report back up.",
+      assessmentIdLabel: "Assessment ID",
+      emailLabel: "Email",
+      button: "Recover my report",
+      recovering: "Looking up your report...",
+      missingFields: "Please enter both your Assessment ID and email.",
+      notFound: "We could not find a report matching that Assessment ID and email.",
+      downloadEnPdf: "Download English PDF",
+      downloadZhPdf: "Download Chinese PDF",
+      downloading: "Downloading...",
+      downloadPending: "The PDF is not ready yet. Please try again shortly.",
+    },
     reviewTitle: "Review & Generate",
     reviewDesc: "Check the summary before generating your AI preliminary assessment.",
     legalTitle: "Legal & Compliance Check",
@@ -359,6 +376,20 @@ const COPY = {
     generate: "生成我的 AI 初评",
     downloadPdf: "下载 PDF",
     pdfHelp: "打开可打印报告页面，请选择保存为 PDF，文件名使用页面提示。",
+    recovery: {
+      title: "已经提交过？找回您的报告",
+      help: "请输入评估编号，以及您提交时使用的邮箱，我们会为您重新调出报告。",
+      assessmentIdLabel: "评估编号",
+      emailLabel: "邮箱",
+      button: "找回我的报告",
+      recovering: "正在查找您的报告...",
+      missingFields: "请输入评估编号和邮箱。",
+      notFound: "未找到与该评估编号及邮箱匹配的报告。",
+      downloadEnPdf: "下载英文 PDF",
+      downloadZhPdf: "下载中文 PDF",
+      downloading: "下载中...",
+      downloadPending: "PDF 尚未生成，请稍后重试。",
+    },
     reviewTitle: "确认并生成",
     reviewDesc: "请先确认摘要，再生成并提交 AI 初步评估。",
     legalTitle: "法规风险检查",
@@ -627,6 +658,7 @@ const FOLLOW_UP_QUESTIONS_ZH = {
 export default function StrategyAssessment({ lang }) {
   const safeLang = normalizeLang(lang);
   const { assessmentId: reportRouteAssessmentId } = useParams();
+  const [searchParams] = useSearchParams();
   const copy = COPY[safeLang] || COPY.en;
   const labels = FIELD_LABELS[safeLang] || FIELD_LABELS.en;
   const formRef = useRef(null);
@@ -635,6 +667,12 @@ export default function StrategyAssessment({ lang }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(null);
+
+  const [recoveryAssessmentId, setRecoveryAssessmentId] = useState(() => searchParams.get("recover") || "");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recovered, setRecovered] = useState(null);
 
   const [files, setFiles] = useState([]);
   const [uploadReady, setUploadReady] = useState(false);
@@ -929,11 +967,13 @@ export default function StrategyAssessment({ lang }) {
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
         reports: { zh: reportZh, en: reportEn },
+        downloadToken: result.downloadToken || "",
       });
       saveStrategyReportSession({
         assessmentId: result.assessmentId,
         nextStep: form.nextStep,
         reports: { zh: reportZh, en: reportEn },
+        downloadToken: result.downloadToken || "",
         savedAt: new Date().toISOString(),
       });
       clearStoredAssessmentId();
@@ -942,6 +982,31 @@ export default function StrategyAssessment({ lang }) {
       setError(err.message || "Submission failed.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleRecover = async () => {
+    setRecoveryError("");
+    const assessmentId = recoveryAssessmentId.trim();
+    const email = recoveryEmail.trim();
+    if (!assessmentId || !email) {
+      setRecoveryError(copy.recovery.missingFields);
+      return;
+    }
+    setRecovering(true);
+    try {
+      const result = await recoverPropertyStrategyReport(assessmentId, email);
+      setRecovered({
+        assessmentId: result.assessmentId,
+        nextStep: result.nextStep || "",
+        reports: result.reports || {},
+        downloadToken: result.downloadToken || "",
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setRecoveryError(err.message || copy.recovery.notFound);
+    } finally {
+      setRecovering(false);
     }
   };
 
@@ -1174,6 +1239,7 @@ export default function StrategyAssessment({ lang }) {
                 assessment={publicReport.reports?.[safeLang] || publicReport.assessment}
                 assessmentId={publicReport.assessmentId}
                 nextStep={publicReport.nextStep}
+                downloadToken={publicReport.downloadToken}
                 copy={copy}
                 lang={safeLang}
                 publicView
@@ -1204,6 +1270,7 @@ export default function StrategyAssessment({ lang }) {
               assessment={submitted.reports?.[safeLang] || submitted.assessment}
               assessmentId={submitted.assessmentId}
               nextStep={submitted.nextStep}
+              downloadToken={submitted.downloadToken}
               copy={copy}
               lang={safeLang}
               onStartOver={startOver}
@@ -1219,6 +1286,32 @@ export default function StrategyAssessment({ lang }) {
     );
   }
 
+  if (recovered) {
+    return (
+      <div className="pub-page strategy-page">
+        <section className="pub-hero">
+          <h1 className="pub-hero__title">{copy.resultTitle}</h1>
+          <p className="pub-hero__sub">{copy.title}</p>
+          <p className="pub-hero__desc">{copy.reportGenerated}</p>
+        </section>
+
+        <section className="section">
+          <div className="container strategy-container">
+            <StrategyReportResult
+              assessment={recovered.reports?.[safeLang] || recovered.reports?.en}
+              assessmentId={recovered.assessmentId}
+              nextStep={recovered.nextStep}
+              downloadToken={recovered.downloadToken}
+              copy={copy}
+              lang={safeLang}
+              onStartOver={() => setRecovered(null)}
+            />
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="pub-page strategy-page">
       <section className="pub-hero">
@@ -1228,6 +1321,40 @@ export default function StrategyAssessment({ lang }) {
         <ul className="strategy-hero-bullets">
           {copy.bullets.map((item) => <li key={item}>{item}</li>)}
         </ul>
+      </section>
+
+      <section className="section">
+        <div className="container strategy-container">
+          <CollapsibleCard title={copy.recovery.title} defaultOpen={false} className="strategy-recovery-card">
+            <p className="strategy-help">{copy.recovery.help}</p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>{copy.recovery.assessmentIdLabel}</label>
+                <input
+                  className="form-control"
+                  type="text"
+                  value={recoveryAssessmentId}
+                  onChange={(event) => setRecoveryAssessmentId(event.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>{copy.recovery.emailLabel}</label>
+                <input
+                  className="form-control"
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(event) => setRecoveryEmail(event.target.value)}
+                />
+              </div>
+            </div>
+            {recoveryError && (
+              <div className="notice notice--error strategy-inline-notice"><p>{recoveryError}</p></div>
+            )}
+            <button type="button" className="btn btn--sage" onClick={handleRecover} disabled={recovering}>
+              {recovering ? copy.recovery.recovering : copy.recovery.button}
+            </button>
+          </CollapsibleCard>
+        </div>
       </section>
 
       <section className="section">
@@ -1301,8 +1428,22 @@ function AssessmentSection({ title, children }) {
   );
 }
 
-function StrategyReportResult({ assessment, assessmentId, nextStep, copy, lang, onStartOver, publicView = false }) {
+function StrategyReportResult({ assessment, assessmentId, nextStep, downloadToken, copy, lang, onStartOver, publicView = false }) {
   const rows = buildStrategyResultRows(assessment, copy);
+  const [downloading, setDownloading] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+
+  const handleDownload = async (language) => {
+    setDownloading(language);
+    setDownloadError("");
+    try {
+      await downloadPropertyStrategyReportPdf(assessmentId, language, downloadToken || "");
+    } catch (err) {
+      setDownloadError(err.message || copy.recovery.downloadPending);
+    } finally {
+      setDownloading("");
+    }
+  };
 
   return (
     <div className="card strategy-success strategy-result-card">
@@ -1324,9 +1465,18 @@ function StrategyReportResult({ assessment, assessmentId, nextStep, copy, lang, 
           <button
             type="button"
             className="btn btn--ghost"
-            onClick={() => openStrategyAssessmentPdf(assessment, copy, assessmentId, lang, true)}
+            onClick={() => handleDownload("en")}
+            disabled={downloading === "en"}
           >
-            {copy.printSavePdf}
+            {downloading === "en" ? copy.recovery.downloading : copy.recovery.downloadEnPdf}
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => handleDownload("zh")}
+            disabled={downloading === "zh"}
+          >
+            {downloading === "zh" ? copy.recovery.downloading : copy.recovery.downloadZhPdf}
           </button>
           {!publicView && (
             <button type="button" className="btn btn--ghost" onClick={onStartOver}>
@@ -1335,6 +1485,10 @@ function StrategyReportResult({ assessment, assessmentId, nextStep, copy, lang, 
           )}
         </div>
       </div>
+
+      {downloadError && (
+        <div className="notice notice--warm strategy-inline-notice"><p>{downloadError}</p></div>
+      )}
 
       <div className="strategy-result-grid">
         {rows.map(([label, value]) => (

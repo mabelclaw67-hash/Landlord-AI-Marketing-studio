@@ -271,7 +271,7 @@ function doPost(e) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -283,7 +283,7 @@ function doPost(e) {
     if (action === "generateListingId") return ok({ listingId: generateListingId_() });
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
-    if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data));
+    if (action === "savePropertyStrategyAssessment") return ok(savePropertyStrategyAssessment_(body.data, body.origin));
     if (action === "getRentalIntelligenceCommunities") return ok(getRentalIntelligenceCommunities_(body.data || body));
     if (action === "getRentalIntelligenceKnowledge") return ok(getRentalIntelligenceKnowledge_(body.data || body));
     if (action === "getPropertyStrategyReports") return ok(getPropertyStrategyReports_(auth));
@@ -294,6 +294,8 @@ function doPost(e) {
     if (action === "uploadPropertyStrategyFile")       return ok(uploadPropertyStrategyFile_(body.data || body));
     if (action === "deletePropertyStrategyFile")       return ok(deletePropertyStrategyFile_(body.data || body));
     if (action === "getPropertyStrategyFiles")         return ok(getPropertyStrategyFiles_(body.data || body));
+    if (action === "downloadPropertyStrategyReportPdf") return ok(downloadPropertyStrategyReportPdf_(body.data || body, auth));
+    if (action === "recoverPropertyStrategyReport")    return ok(recoverPropertyStrategyReport_(body.data || body));
     if (action === "verifyPropertyStrategyFileStorage") { assertAdmin_(auth); return ok(verifyPropertyStrategyFileStorage()); }
     if (action === "setupPropertyStrategyFileStorage") { assertAdmin_(auth); return ok(setupPropertyStrategyFileStorage()); }
     // ── AI Dispute Review (see DisputeReview.gs) ──
@@ -1036,7 +1038,7 @@ function logBriefSync_(source, action, status, notes, updatedBy) {
 
 // ── AI Property Strategy Assessment ──────────────────────────────────────────
 
-function savePropertyStrategyAssessment_(data) {
+function savePropertyStrategyAssessment_(data, origin) {
   data = data || {};
   var sheet = getSheetBySpreadsheetId_(PROPERTY_STRATEGY_SPREADSHEET_ID, PROPERTY_STRATEGY_ASSESSMENTS_SHEET);
   if (sheet.getLastRow() < 1 || sheet.getLastColumn() < 1) {
@@ -1079,6 +1081,16 @@ function savePropertyStrategyAssessment_(data) {
     Logger.log("[savePropertyStrategyAssessment_] Report PDF save failed for " + assessmentId + ": " + reportError);
   }
 
+  var emailWarning = "";
+  if (reportResult) {
+    emailWarning = sendApplicantWorkflowEmail_(
+      record["Email"],
+      "Your Property Strategy Assessment Report is Ready",
+      buildPropertyStrategyReportEmailBody_(record["Owner Name"], assessmentId, origin),
+      "savePropertyStrategyAssessment_"
+    );
+  }
+
   return {
     success: true,
     assessmentId: assessmentId,
@@ -1086,7 +1098,39 @@ function savePropertyStrategyAssessment_(data) {
     reportUrl: reportResult ? reportResult.reportUrl : "",
     reportUrls: reportResult ? reportResult.reportUrls : {},
     reportWarning: reportError,
+    downloadToken: propertyStrategyAccessToken_(assessmentId),
+    emailWarning: emailWarning,
   };
+}
+
+function buildPropertyStrategyReportEmailBody_(ownerName, assessmentId, origin) {
+  var cleanOrigin = String(origin || "").replace(/\/+$/, "");
+  var recoveryLink = cleanOrigin
+    ? cleanOrigin + "/landlord-ai/strategy-assessment?recover=" + encodeURIComponent(assessmentId)
+    : "";
+  var lines = [
+    "Dear " + (ownerName || "Property Owner") + ",",
+    "",
+    "Your AI Property Strategy Assessment report is ready.",
+    "",
+    "Assessment ID: " + assessmentId,
+    "",
+  ];
+  if (recoveryLink) {
+    lines.push(
+      "You can view your report again anytime here:",
+      "",
+      recoveryLink,
+      "",
+      "If the link does not pre-fill your Assessment ID, go to the Property Strategy Assessment page, open \"Already submitted? Recover your report\", and enter the Assessment ID above together with the email address you used to submit."
+    );
+  } else {
+    lines.push(
+      "To view it again anytime, go to the Property Strategy Assessment page, open \"Already submitted? Recover your report\", and enter the Assessment ID above together with the email address you used to submit."
+    );
+  }
+  lines.push("", "Thank you,", "Vanisland Property Management");
+  return lines.join("\n");
 }
 
 function buildPropertyStrategyRecord_(data, assessmentId, submittedAt, assessmentText, reportZhText, reportEnText) {
@@ -1503,6 +1547,100 @@ function parsePropertyStrategyAssessmentJson_(text) {
   } catch (_) {
     return null;
   }
+}
+
+// ── Customer-facing report delivery (mirrors disputeAccessToken_ / downloadDisputeReportPdf_ in DisputeReview.gs) ──
+
+function propertyStrategyTokenSecret_() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty("PROPERTY_STRATEGY_REPORT_TOKEN_SECRET");
+  if (!secret) {
+    secret = Utilities.getUuid() + "-" + Utilities.getUuid();
+    props.setProperty("PROPERTY_STRATEGY_REPORT_TOKEN_SECRET", secret);
+  }
+  return secret;
+}
+
+function propertyStrategyAccessToken_(assessmentId) {
+  var raw = String(assessmentId || "") + "|" + propertyStrategyTokenSecret_();
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
+  return digest.map(function (b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+}
+
+// Returns the actual PDF bytes as base64, same reasoning as downloadDisputeReportPdf_:
+// the Reports folder is not publicly shared, so the file is streamed through this
+// authorized endpoint instead of ever handing out the raw Drive URL.
+function downloadPropertyStrategyReportPdf_(body, auth) {
+  body = body || {};
+  var assessmentId = normalizeCellText_(body.assessmentId);
+  var language = normalizeCellText_(body.language).toUpperCase() === "ZH" ? "zh" : "en";
+  if (!assessmentId) throw new Error("Assessment ID is required.");
+
+  var isAdmin = auth && auth.mode === "admin";
+  if (!isAdmin) {
+    var token = normalizeCellText_(body.token);
+    if (!token || token !== propertyStrategyAccessToken_(assessmentId)) {
+      throw new Error("This report link is invalid or has expired.");
+    }
+  }
+
+  var found = findPropertyStrategyAssessmentRow_(assessmentId);
+  var headers = found.sheet.getRange(1, 1, 1, found.sheet.getLastColumn()).getDisplayValues()[0].map(normalizeCellText_);
+  var record = propertyStrategyRowObject_(found.displayRow, headers);
+  var url = (language === "zh" ? record["Report ZH URL"] : record["Report EN URL"]) || record["Report URL"];
+  if (!url) throw new Error("The " + language.toUpperCase() + " report has not been generated for " + assessmentId + " yet.");
+
+  var idMatch = String(url).match(/[-\w]{25,}/);
+  if (!idMatch) throw new Error("Stored report link could not be read.");
+  var file = DriveApp.getFileById(idMatch[0]);
+  var blob = file.getBlob();
+  var fileName = assessmentId + "_Property_Strategy_Assessment_" + language.toUpperCase() + ".pdf";
+  return {
+    assessmentId: assessmentId,
+    language: language.toUpperCase(),
+    fileName: fileName,
+    mimeType: "application/pdf",
+    sizeBytes: blob.getBytes().length,
+    base64: Utilities.base64Encode(blob.getBytes())
+  };
+}
+
+// Public report recovery: assessment ID + the email address submitted with that
+// assessment, both checked against the stored row before anything is returned.
+// One generic error for both "not found" and "wrong email" so a guess can't be
+// used to enumerate valid Assessment IDs. Never returns a raw Drive URL — only
+// a token the client uses with downloadPropertyStrategyReportPdf_ above.
+function recoverPropertyStrategyReport_(body) {
+  body = body || {};
+  var assessmentId = normalizeCellText_(body.assessmentId);
+  var email = normalizeEmail_(body.email);
+  var notFoundError = "We could not find a report matching that Assessment ID and email.";
+  if (!assessmentId || !email) throw new Error(notFoundError);
+
+  var found;
+  try {
+    found = findPropertyStrategyAssessmentRow_(assessmentId);
+  } catch (ex) {
+    throw new Error(notFoundError);
+  }
+
+  var headers = found.sheet.getRange(1, 1, 1, found.sheet.getLastColumn()).getDisplayValues()[0].map(normalizeCellText_);
+  var record = propertyStrategyRowObject_(found.displayRow, headers);
+  var storedEmail = normalizeEmail_(record.Email);
+  if (!storedEmail || storedEmail !== email) throw new Error(notFoundError);
+
+  return {
+    assessmentId: assessmentId,
+    nextStep: record["Next Step"] || "",
+    reports: {
+      zh: parsePropertyStrategyAssessmentJson_(record["Report ZH JSON"]),
+      en: parsePropertyStrategyAssessmentJson_(record["Report EN JSON"]),
+    },
+    downloadToken: propertyStrategyAccessToken_(assessmentId),
+  };
 }
 
 function appendPropertyStrategyValue_(body, label, value) {
