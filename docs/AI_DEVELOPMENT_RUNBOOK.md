@@ -36,7 +36,7 @@ netlify api listSiteDeploys --data '{"site_id":"678aa8d4-81e4-4c19-b4a1-2021c906
 ```
 Script ID:               1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp
 Production deployment ID: AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0
-Current production version: 103
+Current production version: 106
 ```
 
 The exec URL for this deployment (`.env` / `.env.local` as `VITE_STUDIO_EXEC_URL`)
@@ -205,3 +205,18 @@ suspect a one-time/manual initializer that was never run — search the
 relevant `.gs` file for a function whose comment says something like "not
 wired to any action" or "run once from the editor" before assuming a
 deployment or code problem.
+
+## Property Strategy Assessment: report download + recovery (2026-07-29)
+
+Versions 104-106 (current: 106). 104 added `downloadPropertyStrategyReportPdf`
+(token-gated real PDF download, mirrors `downloadDisputeReportPdf_`) and
+`recoverPropertyStrategyReport` (Assessment ID + email recovery, no public
+lookup by ID alone) plus a best-effort confirmation email. 105 was a temporary
+admin action used once to delete two UAT test records, built and pushed from
+an isolated `/private/tmp` staging copy — never committed to git. 106 reverted
+105, confirmed byte-identical to the committed `Code.gs`. Full record:
+`docs/DOCUMENT_FIRST_UPLOAD_HANDOFF_2026-07-29.md` §I.
+
+Frontend for both this and the earlier document-first upload work
+(`70dd2f9`) shipped in the same push — check Netlify's `commit_ref` against
+`git log` if you need to know exactly what's live.

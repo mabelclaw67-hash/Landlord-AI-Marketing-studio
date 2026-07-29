@@ -132,3 +132,69 @@ This only removes the one dispatcher line — it does **not** undo the "Property
 
 - `apps-script/Code.gs` — one line added, committed to `main` (see commit below). Not yet pushed to `origin` — pushing was out of scope for this backend-only closeout and wasn't requested; flag if a push is wanted.
 - No frontend files changed in this closeout (per scope: "do not modify the document-first UX again") — build/lint were not re-run, per the instruction to only do so if frontend code changes.
+
+---
+
+## I. Customer report-delivery closeout (2026-07-29, third session)
+
+### Root cause
+
+The anonymous production UAT in §H's follow-up work found the customer-facing half of Strategy Assessment was incomplete even though the backend was healthy:
+
+- `savePropertyStrategyAssessment_` (`apps-script/Code.gs:1041`) already generated real PDFs via `savePropertyStrategyReportForRow_`/`createPropertyStrategyPdf_` and wrote `Report ZH URL`/`Report EN URL` into `Strategy_Assessments` — but `StrategyAssessment.jsx`'s `handleSubmit` discarded `result.reportUrl`/`result.reportUrls` entirely.
+- The "Print / Save PDF" button called `openStrategyAssessmentPdf(..., autoPrint=true)`, which opens a new window and immediately calls `window.print()` — a native, modal browser dialog, not a file download. Live testing confirmed this: the button hung the browser-automation session for 45+ seconds.
+- `/strategy-assessment/report/:assessmentId` only ever read from `sessionStorage` (`readStrategyReportSession`) — confirmed live: a fresh tab visiting the exact correct URL for a real assessment ID returned "no report found on this device."
+- No confirmation email existed anywhere in the submit path.
+
+### Files changed
+
+- `apps-script/Code.gs` — added `propertyStrategyTokenSecret_()`/`propertyStrategyAccessToken_()` (mirrors `disputeAccessToken_`), `downloadPropertyStrategyReportPdf_()` (mirrors `downloadDisputeReportPdf_`), `recoverPropertyStrategyReport_()` (built from the existing `getPropertyStrategyReport_`/`findPropertyStrategyAssessmentRow_` internals, minus the admin gate, plus an email check), `buildPropertyStrategyReportEmailBody_()`, one added field (`downloadToken`) and one email-send call in `savePropertyStrategyAssessment_`, and two new dispatcher/`noAuthActions` entries.
+- `src/utils/strategyAssessment.js` — `downloadPropertyStrategyReportPdf()` (mirrors `downloadDisputeReportPdf` in `disputeReview.js` verbatim), `recoverPropertyStrategyReport()`, and `origin: window.location.origin` added to the existing `submitStrategyAssessment` payload so the confirmation email can build a working link.
+- `src/pages/StrategyAssessment.jsx` — `handleSubmit` now captures `downloadToken`; new `recoveryAssessmentId`/`recoveryEmail`/`recovering`/`recoveryError`/`recovered` state and a `handleRecover()` handler; a `?recover=` query param pre-fills the Assessment ID; a new `<CollapsibleCard>` recovery form (reusing the existing component) sits right after the hero, before the wizard; a new `recovered` early-return render branch reuses `StrategyReportResult` as-is; `StrategyReportResult` now takes a `downloadToken` prop and its two `openStrategyAssessmentPdf(...)` buttons were replaced with "Download English PDF"/"Download Chinese PDF" buttons with proper loading/error state. The pre-submission preview's own PDF button (no `assessmentId`/token exists yet at that point) was left untouched. Dispute Review was not touched.
+
+### Recovery security model
+
+- **Download** (`downloadPropertyStrategyReportPdf_`): gated on a token = `SHA-256(assessmentId + "|" + secret)`, secret stored only in Apps Script Script Properties (`PROPERTY_STRATEGY_REPORT_TOKEN_SECRET`), admin bypass via `auth.mode === "admin"`. Never exposes the raw Drive URL — only base64 PDF bytes streamed through this endpoint, same posture as Dispute Review's proven pattern.
+- **Recovery** (`recoverPropertyStrategyReport_`): requires Assessment ID **and** the email address stored on that row; a mismatch on either (including "row doesn't exist") returns the identical generic message, so a guess can't be used to enumerate valid IDs. On success it returns report content and a fresh download token — never the raw Drive URL. No new auth system: this is a plain stored-value comparison against data already collected at submission time, and the download gate reuses the same token construction already proven for Dispute Review.
+- **Email**: best-effort only, via the existing `sendApplicantWorkflowEmail_`/`sendCompanyEmail_` (verified-alias sender). A send failure is logged and returned as `emailWarning` but never blocks the save and never surfaces to the customer. No attachments, no PDF content, no source documents in the email body — just the Assessment ID and a link to the recovery form.
+
+### Apps Script versions
+
+- Before this work: **104** was not yet deployed; production was at **103** (from §H).
+- **104** — "Add report download token, PDF streaming, and email+ID recovery for Property Strategy Assessment" — the real, permanent change.
+- **105** — TEMPORARY: added a one-off `cleanupTestPropertyStrategyAssessment_` admin action to remove UAT test records. Never committed to git — built and pushed directly from an isolated `/private/tmp` clasp staging copy, diffed against the committed repo state both before adding it and after removing it.
+- **106** — reverted 105's addition; diffed byte-identical to the committed `apps-script/Code.gs` (same as 104's content). **This is the current production state.**
+- Deployment ID unchanged throughout: `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`.
+- **Rollback**: redeploy version **103** to this same deployment ID to remove all of this closeout's backend changes (`clasp deploy --deploymentId AKfycbw01LTH... --versionNumber 103 --description "Rollback"`).
+
+### Netlify (frontend) deployment
+
+- Committed as `70dd2f9` ("Give Property Strategy Assessment customers a real report download and recovery path"), pushed to `origin/main` with the user's explicit confirmation.
+- Netlify deploy `6a6a825d70efea0007a3d139` — `state: ready`, `commit_ref: 70dd2f9b8fb7ea3273dd670ba253109ea37b3768` (matches the push), live at `https://www.vanislandproperty.ca`.
+- **Rollback**: revert commit `70dd2f9` on `main` and push — Netlify auto-deploys the revert.
+
+### Production verification (live, anonymous, no admin)
+
+Full 8-step check from the user's checklist, run against `https://www.vanislandproperty.ca/landlord-ai/strategy-assessment` with a new, clearly-marked throwaway submission (`E2E CLEANUP TEST` / `e2e-cleanup-test@example.com` / `789 E2E Test Blvd (DELETE ME)`):
+
+1. Submitted → Assessment ID `PSA-20260729-154555` assigned.
+2. Report displayed immediately on the same screen (no separate load/fetch needed).
+3. Clicked "下载英文 PDF" (Download English PDF): the actual backend call succeeded (confirmed via network inspection — the `script.googleusercontent.com` redirect responses that Apps Script POSTs resolve through both returned `200`), and no `downloadError` notice appeared. **Caveat, stated plainly:** I could not independently confirm the file landed in `~/Downloads` in this automated browser session (no error either) — Chrome's file-save step for a programmatically-clicked download can behave differently under CDP-driven automation than a genuine mouse click; this is a test-harness limitation, not a code-path I could fully observe, and is the same caveat the 2026-07-28 Turnstile handoff already noted for file *uploads* in this environment.
+4. Closed the tab (full navigation away, which also discards all in-memory/session state — equivalent to a real tab close for this purpose).
+5. Opened a fresh anonymous load of the same URL.
+6. Used the recovery form with the correct Assessment ID + `e2e-cleanup-test@example.com` → the full report reappeared via the `recovered` render branch, including working Download PDF buttons.
+7. Retried recovery with the same Assessment ID + `wrong-email@example.com` → rejected with "We could not find a report matching that Assessment ID and email." (the one generic message, confirming no enumeration signal).
+8. Deleted all test data (see below).
+
+Also confirmed: AI Dispute Review still loads and reserves successfully on production (unaffected — no dispute code path was touched, and the frontend document-first rework from §A-G is now also live for the first time, since this session's `git push` was the first push since that work was completed).
+
+### Test-data cleanup
+
+- **`PSA-20260729-154555`** (created during this verification): deleted via the temporary v105 cleanup action — row removed from `Strategy_Assessments`, both generated PDF files (`1J8osFTjN9GhlxGhIaRPB5pYsn4LVdcsG`, `1-UyzI7aMYP9B-2JI_wfb08YwXlZVEoak`) trashed in Drive. Confirmed via the action's own response (`rowDeleted: true`).
+- **`PSA-20260729-151853`** (from the prior session's customer-journey UAT): queried directly against production (`getPropertyStrategyReports_` admin listing) — **this ID does not exist in `Strategy_Assessments`**. The sheet currently contains exactly one row, an unrelated pre-existing record ("Production Verification", 2026-07-10, `production-test@vanislandproperty.ca`) that predates this work and was not touched. Whatever that prior test displayed on-screen as a success state, it was not actually persisted as a sheet row (or was already gone before this session) — there was nothing to delete for it. Not touching the one unrelated legitimate-looking record was a deliberate choice, not an oversight.
+- The temporary cleanup action itself (v105) was fully reverted (v106) immediately after use, confirmed byte-identical to the committed repo file. The admin access code was used only for these two POST calls and the two calls made during this closeout; it was never written to any file, commit, or persisted doc.
+
+### Git
+
+- Code: `70dd2f9` — "Give Property Strategy Assessment customers a real report download and recovery path" (`apps-script/Code.gs`, `src/pages/StrategyAssessment.jsx`, `src/utils/strategyAssessment.js`). Pushed to `origin/main`.
+- Docs: this update, plus `docs/AI_DEVELOPMENT_RUNBOOK.md`'s production version bump — committed separately (see repo history for the exact SHA following this one).
