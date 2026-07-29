@@ -4,10 +4,8 @@ import {
   CLIENT_ROLES,
   CLIENT_SERVICE_INTERESTS,
   CONTACT_OPTIONS,
-  DISPUTE_ACCEPT_ATTRIBUTE,
   DISPUTE_MAX_FILES,
   DISPUTE_TYPES,
-  DOCUMENT_CATEGORIES,
   PROCEEDING_STATUS,
   RELATIONSHIPS,
   SERVICE_METHODS,
@@ -19,6 +17,7 @@ import {
   deleteDisputeFile,
   displayDisputeOption,
   getDisputeFollowUpQuestions,
+  guessDocumentCategory,
   startDisputeReview,
   submitDisputeReview,
   downloadDisputeReportPdf,
@@ -28,6 +27,7 @@ import {
 } from "../utils/disputeReview";
 import { normalizeLang } from "../utils/lang";
 import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
+import DisputeDocumentsPanel from "../components/DisputeDocumentsPanel";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
 const DISPUTE_REPORT_SESSION_KEY = "vipm_dispute_review_report_v1";
@@ -97,14 +97,12 @@ const L = {
       "Risks and next step",
     ],
     steps: [
-      "Contact Information",
-      "Dispute Type",
+      "Start Your Case",
       "Parties",
       "Dispute Background",
       "Client's Position",
       "Opposing Party's Position",
       "Important Dates and Deadlines",
-      "Documents and Evidence",
       "Desired Outcome",
       "Consent and Submission",
     ],
@@ -193,11 +191,14 @@ const L = {
       errType: "{name}: this file type is not accepted.",
       errSize: "{name}: this file is larger than the 15 MB limit.",
       errCount: `You can upload at most ${DISPUTE_MAX_FILES} files.`,
-      setCategoryFirst: "Please choose a document category before selecting files.",
+      dropHint: "Drag and drop files here, or click to choose.",
+      stillNeeded: "Documents commonly needed for this dispute type:",
+      securityDone: "Security check complete.",
+      securityPending: "Complete the security check before uploading.",
     },
     cta: {
       button: "Upload Case Documents and Start AI Review",
-      helper: "Complete the case intake first. Document upload is available in the “Documents and Evidence” step. This service provides an AI-assisted preliminary review and is not legal advice.",
+      helper: "Upload your case documents to get started — you do not need to finish the questions first. This service provides an AI-assisted preliminary review and is not legal advice.",
     },
     consentText: "I agree to be contacted about this preliminary review.",
     privacyText: "I agree that the information and documents I provide may be stored and used for this preliminary review.",
@@ -245,14 +246,12 @@ const L = {
       "风险与下一步",
     ],
     steps: [
-      "联系方式",
-      "争议类型",
+      "开始您的案件",
       "当事人",
       "争议背景",
       "客户立场",
       "对方立场",
       "重要日期与期限",
-      "文件与证据",
       "期望结果",
       "同意与提交",
     ],
@@ -341,11 +340,14 @@ const L = {
       errType: "{name}：不支持该文件类型。",
       errSize: "{name}：文件超过 15 MB 上限。",
       errCount: `最多只能上传 ${DISPUTE_MAX_FILES} 个文件。`,
-      setCategoryFirst: "请先选择文件类别，再选择文件。",
+      dropHint: "将文件拖放到此处，或点击选择文件。",
+      stillNeeded: "此类争议通常需要的文件：",
+      securityDone: "安全验证已完成。",
+      securityPending: "请先完成安全验证再上传。",
     },
     cta: {
       button: "上传案件材料并开始初评",
-      helper: "请先完成案件基本资料。文件上传位于“文件与证据”步骤。本服务提供 AI 辅助初评，不构成法律意见。",
+      helper: "上传您的案件文件即可开始——无需先填完所有问题。本服务提供 AI 辅助初评，不构成法律意见。",
     },
     consentText: "我同意就本次初步审阅与我联系。",
     privacyText: "我同意我所提供的信息和文件可被保存并用于本次初步审阅。",
@@ -398,7 +400,6 @@ export default function DisputeReview({ lang }) {
 
   const [uploadReady, setUploadReady] = useState(false);
   const [uploadAvailable, setUploadAvailable] = useState(true);
-  const uploadStartedRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [removingId, setRemovingId] = useState("");
@@ -426,23 +427,24 @@ export default function DisputeReview({ lang }) {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // Reserve the Review ID and its Drive folder as soon as the client reaches
-  // the upload step, so every file is linked to the right record from the start.
-  useEffect(() => {
-    if (step !== 7 || uploadStartedRef.current) return;
-    uploadStartedRef.current = true;
-    let active = true;
-    startDisputeReview(form.reviewId)
+  // Reserve the Review ID and its Drive folder immediately on mount, so upload
+  // is available from the very first screen instead of waiting for a later step.
+  const requestUploadSession = (reviewIdOverride) => {
+    startDisputeReview(reviewIdOverride ?? form.reviewId)
       .then((result) => {
-        if (!active) return;
         setForm((current) => ({ ...current, reviewId: result.reviewId }));
         setUploadReady(true);
       })
       .catch(() => {
-        if (active) setUploadAvailable(false);
+        setUploadAvailable(false);
       });
-    return () => { active = false; };
-  }, [step, form.reviewId]);
+  };
+
+  useEffect(() => {
+    requestUploadSession("");
+    // Runs once on mount only — retries and "start over" call beginUploadSession directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -479,16 +481,13 @@ export default function DisputeReview({ lang }) {
     });
   };
 
-  const handleFileSelect = async (event) => {
-    const selected = Array.from(event.target.files || []);
-    event.target.value = "";
+  // No category gate here — the backend defaults an omitted category to
+  // "Other", so a drop with zero fields filled in still succeeds; the
+  // filename heuristic below just gives it a better guess than "Other".
+  const handleFiles = async (selected) => {
     if (!selected.length) return;
     setUploadError("");
 
-    if (!pendingMeta.documentCategory) {
-      setUploadError(copy.upload.setCategoryFirst);
-      return;
-    }
     if (files.length + selected.length > DISPUTE_MAX_FILES) {
       setUploadError(copy.upload.errCount);
       return;
@@ -505,9 +504,13 @@ export default function DisputeReview({ lang }) {
           failures.push((check.code === "size" ? copy.upload.errSize : copy.upload.errType).replace("{name}", file.name));
           continue;
         }
+        const meta = {
+          ...pendingMeta,
+          documentCategory: pendingMeta.documentCategory || guessDocumentCategory(file.name),
+        };
         let result;
         try {
-          result = await uploadDisputeFile(form.reviewId, file, pendingMeta, await uploadTurnstile.consumeToken());
+          result = await uploadDisputeFile(form.reviewId, file, meta, await uploadTurnstile.consumeToken());
         } catch (err) {
           // Never record a file as uploaded when the server rejected it.
           failures.push(`${file.name}: ${err.message || "upload failed"}`);
@@ -517,9 +520,9 @@ export default function DisputeReview({ lang }) {
           fileId: result.fileId,
           fileName: result.fileName,
           documentCategory: result.documentCategory,
-          documentDate: pendingMeta.documentDate,
-          senderIssuer: pendingMeta.senderIssuer,
-          description: pendingMeta.description,
+          documentDate: meta.documentDate,
+          senderIssuer: meta.senderIssuer,
+          description: meta.description,
           driveUrl: result.driveUrl,
           uploadedAt: result.uploadedAt,
         }]);
@@ -532,6 +535,21 @@ export default function DisputeReview({ lang }) {
       setUploading(false);
       setUploadProgress(null);
     }
+  };
+
+  const handleFileSelect = (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+    handleFiles(selected);
+  };
+
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    handleFiles(Array.from(event.dataTransfer?.files || []));
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
   };
 
   const handleRemoveFile = async (fileId) => {
@@ -549,11 +567,11 @@ export default function DisputeReview({ lang }) {
 
   const goNext = () => {
     if (!formRef.current?.reportValidity()) return;
-    if (step === 1 && (!form.clientRole || !form.disputeType)) {
+    if (step === 0 && (!form.clientRole || !form.disputeType)) {
       setError(copy.errRequiredRole);
       return;
     }
-    if (step === 3 && String(form.disputeSummary || "").trim().length < 40) {
+    if (step === 2 && String(form.disputeSummary || "").trim().length < 40) {
       setError(copy.errSummary);
       return;
     }
@@ -595,10 +613,11 @@ export default function DisputeReview({ lang }) {
     setFiles([]);
     setStep(0);
     setError("");
+    setPendingMeta({ documentCategory: "", documentDate: "", senderIssuer: "", description: "" });
     setUploadReady(false);
     setUploadAvailable(true);
-    uploadStartedRef.current = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
+    requestUploadSession("");
   };
 
   // ── Public report route ────────────────────────────────────────────────────
@@ -641,13 +660,6 @@ export default function DisputeReview({ lang }) {
             <Text field="phone" form={form} update={update} copy={copy} required />
             <Select field="preferredContact" form={form} update={update} copy={copy} lang={safeLang} options={CONTACT_OPTIONS} required />
           </div>
-        </Section>
-      );
-    }
-
-    if (step === 1) {
-      return (
-        <Section title={copy.steps[1]}>
           <div className="form-row">
             <Select field="clientRole" form={form} update={update} copy={copy} lang={safeLang} options={CLIENT_ROLES} required />
             <Select field="disputeType" form={form} update={update} copy={copy} lang={safeLang} options={DISPUTE_TYPES} required />
@@ -658,9 +670,9 @@ export default function DisputeReview({ lang }) {
       );
     }
 
-    if (step === 2) {
+    if (step === 1) {
       return (
-        <Section title={copy.steps[2]}>
+        <Section title={copy.steps[1]}>
           <Text field="propertyAddress" form={form} update={update} copy={copy} />
           <div className="form-row">
             <Text field="city" form={form} update={update} copy={copy} />
@@ -674,9 +686,9 @@ export default function DisputeReview({ lang }) {
       );
     }
 
-    if (step === 3) {
+    if (step === 2) {
       return (
-        <Section title={copy.steps[3]}>
+        <Section title={copy.steps[2]}>
           <Area field="disputeSummary" form={form} update={update} copy={copy} rows={6} required />
           <p className="strategy-help">{copy.help.disputeSummary}</p>
           <Text field="monetaryAmount" form={form} update={update} copy={copy} placeholder={safeLang === "zh" ? "例如：$4,200" : "e.g. $4,200"} />
@@ -684,28 +696,28 @@ export default function DisputeReview({ lang }) {
       );
     }
 
-    if (step === 4) {
+    if (step === 3) {
       return (
-        <Section title={copy.steps[4]}>
+        <Section title={copy.steps[3]}>
           <Area field="clientPosition" form={form} update={update} copy={copy} rows={6} required />
           <p className="strategy-help">{copy.help.clientPosition}</p>
         </Section>
       );
     }
 
-    if (step === 5) {
+    if (step === 4) {
       return (
-        <Section title={copy.steps[5]}>
+        <Section title={copy.steps[4]}>
           <Area field="opposingPosition" form={form} update={update} copy={copy} rows={6} />
           <p className="strategy-help">{copy.help.opposingPosition}</p>
         </Section>
       );
     }
 
-    if (step === 6) {
+    if (step === 5) {
       return (
         <>
-          <Section title={copy.steps[6]}>
+          <Section title={copy.steps[5]}>
             <p className="strategy-help">{copy.help.dates}</p>
             <div className="strategy-toggle-grid">
               <Text field="noticeDate" form={form} update={update} copy={copy} type="date" />
@@ -786,131 +798,9 @@ export default function DisputeReview({ lang }) {
       );
     }
 
-    if (step === 7) {
+    if (step === 6) {
       return (
-        <Section title={copy.upload.title}>
-          <p>{copy.upload.intro}</p>
-          <p className="strategy-help">{getDisputeUploadExamples(form.disputeType, safeLang)}</p>
-          <p className="strategy-help">{copy.upload.limits}</p>
-          <div className="strategy-help">{uploadTurnstile.widget}{uploadTurnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</div>
-
-          {!uploadAvailable ? (
-            <div className="notice notice--error strategy-inline-notice">
-              <p>{copy.upload.unavailable}</p>
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => { uploadStartedRef.current = false; setUploadAvailable(true); }}
-              >
-                {copy.upload.retry}
-              </button>
-            </div>
-          ) : !uploadReady ? (
-            <p className="strategy-help">{copy.upload.preparing}</p>
-          ) : (
-            <>
-              <div className="strategy-toggle-grid">
-                <div className="form-group">
-                  <label>{copy.upload.category} *</label>
-                  <select
-                    className="form-control"
-                    value={pendingMeta.documentCategory}
-                    onChange={(event) => setPendingMeta((current) => ({ ...current, documentCategory: event.target.value }))}
-                  >
-                    <option value="">{copy.select}</option>
-                    {DOCUMENT_CATEGORIES.map((option) => (
-                      <option key={option} value={option}>{displayDisputeOption(option, safeLang)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>{copy.upload.documentDate}</label>
-                  <input
-                    className="form-control"
-                    type="date"
-                    value={pendingMeta.documentDate}
-                    onChange={(event) => setPendingMeta((current) => ({ ...current, documentDate: event.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{copy.upload.senderIssuer}</label>
-                  <input
-                    className="form-control"
-                    type="text"
-                    value={pendingMeta.senderIssuer}
-                    onChange={(event) => setPendingMeta((current) => ({ ...current, senderIssuer: event.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{copy.upload.description}</label>
-                  <input
-                    className="form-control"
-                    type="text"
-                    value={pendingMeta.description}
-                    onChange={(event) => setPendingMeta((current) => ({ ...current, description: event.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>{copy.upload.choose}</label>
-                <input
-                  className="form-control"
-                  type="file"
-                  multiple
-                  accept={DISPUTE_ACCEPT_ATTRIBUTE}
-                  disabled={uploading}
-                  onChange={handleFileSelect}
-                />
-                {uploading && (
-                  <p className="strategy-help">
-                    {uploadProgress
-                      ? copy.upload.progress.replace("{done}", String(uploadProgress.done + 1)).replace("{total}", String(uploadProgress.total))
-                      : copy.upload.uploading}
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-
-          {uploadError && (
-            <div className="notice notice--error strategy-inline-notice"><p>{uploadError}</p></div>
-          )}
-
-          <h3 className="dispute-file-heading">{copy.upload.uploaded} ({files.length})</h3>
-          {files.length === 0 ? (
-            <p className="strategy-help">{copy.upload.none}</p>
-          ) : (
-            <ul className="dispute-file-list">
-              {files.map((file) => (
-                <li key={file.fileId}>
-                  <div>
-                    <strong>{file.fileName}</strong>
-                    <span>{[displayDisputeOption(file.documentCategory, safeLang), file.documentDate, file.senderIssuer, file.description].filter(Boolean).join(" · ")}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    disabled={removingId === file.fileId}
-                    onClick={() => handleRemoveFile(file.fileId)}
-                  >
-                    {removingId === file.fileId ? copy.upload.removing : copy.upload.remove}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <Area field="keyEvidenceSummary" form={form} update={update} copy={copy} rows={4} />
-          <Area field="missingEvidence" form={form} update={update} copy={copy} rows={3} />
-          <p className="strategy-help">{copy.help.missingEvidence}</p>
-        </Section>
-      );
-    }
-
-    if (step === 8) {
-      return (
-        <Section title={copy.steps[8]}>
+        <Section title={copy.steps[6]}>
           <Area field="desiredOutcome" form={form} update={update} copy={copy} rows={4} required />
           <p className="strategy-help">{copy.help.desiredOutcome}</p>
           <Select field="clientServiceInterest" form={form} update={update} copy={copy} lang={safeLang} options={CLIENT_SERVICE_INTERESTS} />
@@ -1029,6 +919,32 @@ export default function DisputeReview({ lang }) {
                 <div style={{ width: `${((step + 1) / copy.steps.length) * 100}%` }} />
               </div>
             </div>
+
+            <DisputeDocumentsPanel
+              lang={safeLang}
+              copy={copy}
+              uploadExamplesText={getDisputeUploadExamples(form.disputeType, safeLang)}
+              uploadReady={uploadReady}
+              uploadAvailable={uploadAvailable}
+              onRetryUpload={() => { setUploadAvailable(true); setUploadReady(false); requestUploadSession(); }}
+              turnstileWidget={uploadTurnstile.widget}
+              turnstileReady={uploadTurnstile.ready}
+              pendingMeta={pendingMeta}
+              setPendingMeta={setPendingMeta}
+              files={files}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              uploadError={uploadError}
+              onFileInputChange={handleFileSelect}
+              onDrop={handleFileDrop}
+              onDragOver={handleDragOver}
+              onRemoveFile={handleRemoveFile}
+              removingId={removingId}
+              missingDocuments={analysis.documentsAbsent}
+              form={form}
+              update={update}
+              defaultExpanded={step === 0}
+            />
 
             {renderStep()}
 

@@ -1469,6 +1469,43 @@ function buildServiceItems(form, a, lang) {
 
 // ── Client helpers ────────────────────────────────────────────────────────────
 
+// Lightweight filename heuristic so a dropped file gets a sensible category
+// guess without forcing the user to classify it before upload is allowed.
+// This is intentionally simple string matching, not a document classifier —
+// the category stays editable per upload batch either way.
+const CATEGORY_GUESS_RULES = [
+  [/tenan|lease/i, "Tenancy Agreement / Contract"],
+  [/notice/i, "Notice"],
+  [/application/i, "Application"],
+  [/response|counterclaim|reply/i, "Response / Counterclaim"],
+  [/affidavit/i, "Affidavit"],
+  [/exhibit/i, "Exhibit"],
+  [/pleading|claim/i, "Pleading"],
+  [/court.?order/i, "Court Order"],
+  [/court/i, "Court Document"],
+  [/tribunal|\bcrt\b/i, "Tribunal Document"],
+  [/strata|bylaw/i, "Strata Document"],
+  [/inspection/i, "Inspection Report"],
+  [/invoice|receipt/i, "Invoice / Receipt"],
+  [/payment|e-?transfer|bank/i, "Payment Record"],
+  [/expert/i, "Expert Report"],
+  [/engineer/i, "Engineering Report"],
+  [/survey/i, "Survey"],
+  [/permit/i, "Permit / Municipal Record"],
+  [/insurance/i, "Insurance Document"],
+  [/title|deed/i, "Title / Property Record"],
+  [/contract|agreement/i, "Contract"],
+  [/email|message|correspond/i, "Email / Message"],
+  [/photo|\.jpe?g$|\.png$|\.heic$/i, "Photo"],
+  [/video|\.mov$|\.mp4$/i, "Video"],
+];
+
+export function guessDocumentCategory(fileName) {
+  const name = String(fileName || "");
+  const hit = CATEGORY_GUESS_RULES.find(([pattern]) => pattern.test(name));
+  return hit ? hit[1] : "";
+}
+
 export function validateDisputeFile(file) {
   const name = String(file?.name || "").trim();
   const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";

@@ -3,16 +3,14 @@ import { useParams } from "react-router-dom";
 import {
   createEmptyStrategyAssessment,
   deletePropertyStrategyFile,
-  displayPropertyStrategyCategory,
   displayStrategyValue,
   generatePreliminaryStrategySummary,
+  getPropertyStrategyFiles,
   getRentalIntelligenceCommunities,
   getRentalIntelligenceKnowledge,
   getLegalRiskFlag,
   getStrategyFollowUpQuestions,
   hasOwnerOccupancyLegalWarning,
-  PROPERTY_STRATEGY_ACCEPT_ATTRIBUTE,
-  PROPERTY_STRATEGY_FILE_CATEGORIES,
   PROPERTY_STRATEGY_MAX_FILES,
   startPropertyStrategyAssessment,
   submitStrategyAssessment,
@@ -21,6 +19,7 @@ import {
 } from "../utils/strategyAssessment";
 import { normalizeLang } from "../utils/lang";
 import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
+import PropertyDocumentsPanel from "../components/PropertyDocumentsPanel";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
 const YES_NO = ["Yes", "No", "Unsure"];
@@ -41,6 +40,39 @@ function readStrategyReportSession() {
     return JSON.parse(sessionStorage.getItem(STRATEGY_REPORT_SESSION_KEY) || "null");
   } catch {
     return null;
+  }
+}
+
+// Survives a page refresh mid-intake so an uploaded-but-not-yet-submitted
+// Assessment ID and its files aren't orphaned. Only the ID is stored — the
+// file list itself is always re-fetched from the backend, never cached here.
+const PROPERTY_STRATEGY_INTAKE_SESSION_KEY = "vipm_strategy_assessment_intake_v1";
+const PSA_ID_PATTERN = /^PSA-\d{8}-\d{6}$/;
+
+function readStoredAssessmentId() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(PROPERTY_STRATEGY_INTAKE_SESSION_KEY) || "null");
+    const id = String(parsed?.assessmentId || "");
+    return PSA_ID_PATTERN.test(id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+
+function saveStoredAssessmentId(assessmentId) {
+  try {
+    sessionStorage.setItem(PROPERTY_STRATEGY_INTAKE_SESSION_KEY, JSON.stringify({ assessmentId }));
+  } catch {
+    // Session storage is a convenience only — losing it just means the next
+    // refresh starts a fresh Assessment ID instead of resuming this one.
+  }
+}
+
+function clearStoredAssessmentId() {
+  try {
+    sessionStorage.removeItem(PROPERTY_STRATEGY_INTAKE_SESSION_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -248,8 +280,10 @@ const COPY = {
       errType: "{name}: this file type is not accepted.",
       errSize: "{name}: this file is larger than the 15 MB limit.",
       errCount: `You can upload at most ${PROPERTY_STRATEGY_MAX_FILES} files.`,
-      setCategoryFirst: "Please choose a document category before selecting files.",
+      dropHint: "Drag and drop files here, or click to choose.",
       privacyNote: "Only upload photos and documents for this property that you have the right to share. Do not upload unrelated third-party sensitive material.",
+      restoring: "Restoring your previously uploaded files...",
+      restoreFailed: "Your previous files could not be restored. You can start uploading again below.",
     },
     submit: "Submit Assessment",
     submitting: "Submitting...",
@@ -368,8 +402,10 @@ const COPY = {
       errType: "{name}：不支持该文件类型。",
       errSize: "{name}：文件超过 15 MB 上限。",
       errCount: `最多只能上传 ${PROPERTY_STRATEGY_MAX_FILES} 个文件。`,
-      setCategoryFirst: "请先选择文件类别，再选择文件。",
+      dropHint: "将文件拖放到此处，或点击选择文件。",
       privacyNote: "请仅上传您有权分享的本物业照片与文件，不要上传与本物业无关的第三方敏感资料。",
+      restoring: "正在恢复您之前上传的文件...",
+      restoreFailed: "无法恢复之前的文件记录，您可以在下方重新开始上传。",
     },
     submit: "提交初评",
     submitting: "正在提交...",
@@ -594,7 +630,7 @@ export default function StrategyAssessment({ lang }) {
   const copy = COPY[safeLang] || COPY.en;
   const labels = FIELD_LABELS[safeLang] || FIELD_LABELS.en;
   const formRef = useRef(null);
-  const [form, setForm] = useState(() => createEmptyStrategyAssessment());
+  const [form, setForm] = useState(() => createEmptyStrategyAssessment({ assessmentId: readStoredAssessmentId() }));
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -603,7 +639,6 @@ export default function StrategyAssessment({ lang }) {
   const [files, setFiles] = useState([]);
   const [uploadReady, setUploadReady] = useState(false);
   const [uploadAvailable, setUploadAvailable] = useState(true);
-  const uploadStartedRef = useRef(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [removingId, setRemovingId] = useState("");
@@ -611,6 +646,8 @@ export default function StrategyAssessment({ lang }) {
   const uploadTurnstile = usePublicUploadTurnstile();
   const [pendingCategory, setPendingCategory] = useState("");
   const [pendingRoomArea, setPendingRoomArea] = useState("");
+  const [restoringFiles, setRestoringFiles] = useState(() => !!readStoredAssessmentId());
+  const [restoreNotice, setRestoreNotice] = useState("");
   const [communityOptions, setCommunityOptions] = useState([]);
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communityIntelligence, setCommunityIntelligence] = useState(null);
@@ -657,24 +694,70 @@ export default function StrategyAssessment({ lang }) {
   const sessionReport = reportRouteAssessmentId ? readStrategyReportSession() : null;
   const publicReport = sessionReport?.assessmentId === reportRouteAssessmentId ? sessionReport : null;
 
-  // Reserve the Assessment ID and its Drive folder as soon as the client
-  // reaches the review/upload step, so every file is linked to the right
-  // record from the start (same pattern as AI Dispute Review Step 7).
+  // On mount only: if a not-yet-submitted Assessment ID survived a page
+  // refresh, re-fetch its file list from the backend (never trust a cached
+  // file list) so the upload step can pick up where it left off. This never
+  // reserves a new Assessment or folder — that still only happens once the
+  // client actually reaches the upload step below. An empty or failed lookup
+  // means there is nothing worth resuming, so the stale ID is discarded and
+  // the intake simply starts fresh.
   useEffect(() => {
-    if (!isLastStep || uploadStartedRef.current) return;
-    uploadStartedRef.current = true;
+    const storedId = readStoredAssessmentId();
+    if (!storedId) return;
     let active = true;
-    startPropertyStrategyAssessment(form.assessmentId)
+    getPropertyStrategyFiles(storedId)
       .then((result) => {
         if (!active) return;
-        setForm((current) => ({ ...current, assessmentId: result.assessmentId }));
+        const restored = Array.isArray(result?.files) ? result.files : [];
+        if (!restored.length) {
+          clearStoredAssessmentId();
+          setForm((current) => ({ ...current, assessmentId: "" }));
+          return;
+        }
+        setFiles(restored.map((item) => ({
+          fileId: item["File ID"],
+          fileName: item["File Name"],
+          category: item["Photo Category"],
+          roomArea: item["Room / Area"],
+          driveUrl: item["Google Drive URL"],
+          uploadedAt: item["Uploaded At"],
+        })));
         setUploadReady(true);
       })
       .catch(() => {
-        if (active) setUploadAvailable(false);
+        if (!active) return;
+        clearStoredAssessmentId();
+        setForm((current) => ({ ...current, assessmentId: "" }));
+        setRestoreNotice(copy.upload.restoreFailed);
+      })
+      .finally(() => {
+        if (active) setRestoringFiles(false);
       });
     return () => { active = false; };
-  }, [isLastStep, form.assessmentId]);
+    // Runs once on mount only — deliberately not re-run on language switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reserve the Assessment ID and its Drive folder immediately on mount, so
+  // upload is available from the very first screen instead of waiting for
+  // the review step (same document-first pattern as AI Dispute Review).
+  const requestUploadSession = (assessmentIdOverride) => {
+    startPropertyStrategyAssessment(assessmentIdOverride ?? form.assessmentId)
+      .then((result) => {
+        setForm((current) => ({ ...current, assessmentId: result.assessmentId }));
+        saveStoredAssessmentId(result.assessmentId);
+        setUploadReady(true);
+      })
+      .catch(() => {
+        setUploadAvailable(false);
+      });
+  };
+
+  useEffect(() => {
+    requestUploadSession();
+    // Runs once on mount only — retries and "start over" call requestUploadSession directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (field) => (event) => {
     const value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
@@ -729,16 +812,12 @@ export default function StrategyAssessment({ lang }) {
     }));
   };
 
-  const handleFileSelect = async (event) => {
-    const selected = Array.from(event.target.files || []);
-    event.target.value = "";
+  // No category gate here — the backend defaults an omitted category to
+  // "Other", so a drop with zero fields filled in still succeeds.
+  const handleFiles = async (selected) => {
     if (!selected.length) return;
     setUploadError("");
 
-    if (!pendingCategory) {
-      setUploadError(copy.upload.setCategoryFirst);
-      return;
-    }
     if (files.length + selected.length > PROPERTY_STRATEGY_MAX_FILES) {
       setUploadError(copy.upload.errCount);
       return;
@@ -782,6 +861,21 @@ export default function StrategyAssessment({ lang }) {
       setUploading(false);
       setUploadProgress(null);
     }
+  };
+
+  const handleFileSelect = (event) => {
+    const selected = Array.from(event.target.files || []);
+    event.target.value = "";
+    handleFiles(selected);
+  };
+
+  const handleFileDrop = (event) => {
+    event.preventDefault();
+    handleFiles(Array.from(event.dataTransfer?.files || []));
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
   };
 
   const handleRemoveFile = async (fileId) => {
@@ -842,6 +936,7 @@ export default function StrategyAssessment({ lang }) {
         reports: { zh: reportZh, en: reportEn },
         savedAt: new Date().toISOString(),
       });
+      clearStoredAssessmentId();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err.message || "Submission failed.");
@@ -858,10 +953,12 @@ export default function StrategyAssessment({ lang }) {
     setError("");
     setUploadReady(false);
     setUploadAvailable(true);
-    uploadStartedRef.current = false;
     setPendingCategory("");
     setPendingRoomArea("");
+    setRestoreNotice("");
+    clearStoredAssessmentId();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    requestUploadSession("");
   };
 
   const renderStep = () => {
@@ -1028,104 +1125,6 @@ export default function StrategyAssessment({ lang }) {
           <div className="strategy-review-next">
             <SelectInput field="nextStep" form={form} update={update} labels={labels} copy={copy} lang={safeLang} options={NEXT_STEPS} required />
 
-            <div className="form-group">
-              <label>{copy.photoLabel}</label>
-              <p className="strategy-help">{copy.photoHelp}</p>
-              <div className="strategy-help">{uploadTurnstile.widget}{uploadTurnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</div>
-              <p className="strategy-help">{copy.upload.limits}</p>
-
-              {!uploadAvailable ? (
-                <div className="notice notice--error strategy-inline-notice">
-                  <p>{copy.upload.unavailable}</p>
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => { uploadStartedRef.current = false; setUploadAvailable(true); }}
-                  >
-                    {copy.upload.retry}
-                  </button>
-                </div>
-              ) : !uploadReady ? (
-                <p className="strategy-help">{copy.upload.preparing}</p>
-              ) : (
-                <>
-                  <div className="strategy-toggle-grid">
-                    <div className="form-group">
-                      <label>{copy.upload.category} *</label>
-                      <select
-                        className="form-control"
-                        value={pendingCategory}
-                        onChange={(event) => setPendingCategory(event.target.value)}
-                      >
-                        <option value="">{copy.select}</option>
-                        {PROPERTY_STRATEGY_FILE_CATEGORIES.map((option) => (
-                          <option key={option} value={option}>{displayPropertyStrategyCategory(option, safeLang)}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>{copy.upload.roomArea}</label>
-                      <input
-                        className="form-control"
-                        type="text"
-                        value={pendingRoomArea}
-                        onChange={(event) => setPendingRoomArea(event.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>{copy.upload.choose}</label>
-                    <input
-                      className="form-control"
-                      type="file"
-                      multiple
-                      accept={PROPERTY_STRATEGY_ACCEPT_ATTRIBUTE}
-                      disabled={uploading}
-                      onChange={handleFileSelect}
-                    />
-                    {uploading && (
-                      <p className="strategy-help">
-                        {uploadProgress
-                          ? copy.upload.progress.replace("{done}", String(uploadProgress.done + 1)).replace("{total}", String(uploadProgress.total))
-                          : copy.upload.uploading}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {uploadError && (
-                <div className="notice notice--error strategy-inline-notice"><p>{uploadError}</p></div>
-              )}
-
-              <h3 className="dispute-file-heading">{copy.upload.uploaded} ({files.length})</h3>
-              {files.length === 0 ? (
-                <p className="strategy-help">{copy.upload.none}</p>
-              ) : (
-                <ul className="dispute-file-list">
-                  {files.map((file) => (
-                    <li key={file.fileId}>
-                      <div>
-                        <strong>{file.fileName}</strong>
-                        <span>{[displayPropertyStrategyCategory(file.category, safeLang), file.roomArea].filter(Boolean).join(" · ")}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--sm"
-                        disabled={removingId === file.fileId}
-                        onClick={() => handleRemoveFile(file.fileId)}
-                      >
-                        {removingId === file.fileId ? copy.upload.removing : copy.upload.remove}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <p className="strategy-help">{copy.upload.privacyNote}</p>
-            </div>
-
             <label className="strategy-check">
               <input type="checkbox" checked={form.consentToContact} onChange={update("consentToContact")} required />
               <span>{labels.consentToContact}: {copy.consentText}</span>
@@ -1241,6 +1240,33 @@ export default function StrategyAssessment({ lang }) {
 
           <form ref={formRef} onSubmit={(event) => event.preventDefault()} className="strategy-form">
             <WizardProgress step={step} steps={steps} copy={copy} />
+
+            <PropertyDocumentsPanel
+              lang={safeLang}
+              copy={copy}
+              restoringFiles={restoringFiles}
+              restoreNotice={restoreNotice}
+              uploadReady={uploadReady}
+              uploadAvailable={uploadAvailable}
+              onRetryUpload={() => { setUploadAvailable(true); setUploadReady(false); requestUploadSession(); }}
+              turnstileWidget={uploadTurnstile.widget}
+              turnstileReady={uploadTurnstile.ready}
+              pendingCategory={pendingCategory}
+              setPendingCategory={setPendingCategory}
+              pendingRoomArea={pendingRoomArea}
+              setPendingRoomArea={setPendingRoomArea}
+              files={files}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              uploadError={uploadError}
+              onFileInputChange={handleFileSelect}
+              onDrop={handleFileDrop}
+              onDragOver={handleDragOver}
+              onRemoveFile={handleRemoveFile}
+              removingId={removingId}
+              defaultExpanded={step === 0}
+            />
+
             {renderStep()}
 
             <div className="strategy-wizard-actions">
