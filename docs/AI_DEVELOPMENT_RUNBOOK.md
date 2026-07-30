@@ -12,6 +12,26 @@ mabelclaw67-hash/Landlord-AI-Marketing-Studio
 
 Production branch: `main`
 
+## Cross-System Boundary: 01 Internal vs 04 Public
+
+This runbook governs **04**, the public Netlify application at
+`https://www.vanislandproperty.ca`. It provides public AI Marketing, Rentals,
+Listings, Applications, Open House, Tenant Service Request entry, Public Upload,
+and other public client-intake flows.
+
+**01 Internal Property Management** is a separate Mac mini service: `launchd`
+keeps it running at `http://localhost:8081`, with private Tailscale access such
+as `http://100.x.x.x:8081`. It is not a Netlify project; GitHub is version
+control and backup only. Do not create or bind a Netlify Site for 01 unless
+Mabel explicitly changes this architecture.
+
+When a feature crosses the systems, first identify its one source of truth and
+then use the smallest one-way bridge (stable IDs, minimum API response,
+summary, or deep link). Do not create Shadow Databases, duplicate business
+records, full scheduled syncs, or bidirectional synchronization. The complete
+cross-system diagram and current bridge inventory are in
+`docs/01_SYSTEM_ARCHITECTURE.md`.
+
 ## Frontend
 
 Netlify auto-deploys from `main` (Git integration — no manual deploy step).

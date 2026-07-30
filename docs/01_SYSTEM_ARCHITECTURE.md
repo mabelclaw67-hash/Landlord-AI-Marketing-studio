@@ -6,6 +6,132 @@ Landlord AI Marketing Studio is a React and Vite web platform backed by Google A
 
 The system is intentionally lightweight: Netlify hosts the frontend, Apps Script provides backend endpoints, Google Sheets stores structured records, and Google Drive stores internal files. The application master database is the existing `07 Intake Records` sheet. Applicant data must not be duplicated into another applicant database.
 
+## Vanisland Company System Boundary
+
+Vanisland operates two deliberately separate applications. **01 Internal Property
+Management** was developed first as the company operating system. **04 Landlord
+AI Marketing Studio** was developed later as the public AI Marketing, Rentals,
+and client-intake system. The long-term plan is not to merge them into one large
+application. They form one operating loop through a small number of explicit,
+one-way bridges.
+
+```text
+Vanisland Company System
+
+┌──────────────────────────────────────────────────────────┐
+│ 04 Public AI Marketing / Rentals                          │
+│ Netlify + https://www.vanislandproperty.ca                │
+│                                                          │
+│ Listings / Rentals / Applications / Open House            │
+│ Tenant Service Request entry / Public Uploads             │
+│ AI marketing content and public client interaction        │
+└──────────────────────────┬───────────────────────────────┘
+                           │ Minimal one-way bridges
+                           │ IDs / minimum APIs / summaries / deep links
+                           ▼
+┌──────────────────────────────────────────────────────────┐
+│ 01 Internal Property Management                           │
+│ Mac mini + launchd + Tailscale                            │
+│ http://localhost:8081 / private 100.x.x.x:8081 access     │
+│                                                          │
+│ Properties / Tenants / Owners / Rent / Utilities          │
+│ Service Requests / Tenant Log / Landlord Log              │
+│ Property Events / Statements / Finance / Tax / Audit      │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **04 is public:** it is the public operating entry point and marketing center.
+- **01 is internal:** it is the internal management center and the final
+  operating-record center for Property Management work.
+- 01 runs on Mabel's Mac mini at port `8081`, started and kept running by
+  `launchd`. Staff use `http://localhost:8081` locally or the private Tailscale
+  address such as `http://100.x.x.x:8081` remotely. GitHub is its version
+  control and backup record; 01 is **not** a Netlify-hosted project. Unless
+  Mabel explicitly changes the architecture, do not create or bind a Netlify
+  Site for 01.
+- 04 is the Netlify-hosted public application at
+  `https://www.vanislandproperty.ca`.
+
+### Responsibility Allocation
+
+**01 Internal Property Management** owns Property master data, Tenant and
+Owner management, Rent Collection, Tenant Log, Landlord Log, Service Request
+processing, Property Events, Utility Bills, Owner Statements, Finance, Tax,
+Audit, internal reports, and the company's final internal management records.
+
+**04 Public AI Marketing** owns public listing presentation and rental
+advertising, Rentals, applicant submissions, supporting documents, Open House,
+Tenant Service Request public entry, Public Upload, AI marketing content, and
+public/client interaction. It does not replace 01's internal Property
+Management records.
+
+### Bridge Rules
+
+1. The applications remain separate; do not merge them for a small feature.
+2. Every business dataset has one unique source of truth. One system writes;
+   the other only reads, receives, or links to the minimum necessary data.
+3. Bridges use stable IDs, minimum APIs, summaries, and deep links. They are
+   one-way, small, and low-maintenance.
+4. Do not create a Shadow Database, duplicate complete business records,
+   perform bidirectional synchronization, or add scheduled full-data syncs.
+5. Before new work, decide whether the function belongs to 01 or 04, identify
+   the unique data source, and add a bridge only when cross-system access is
+   genuinely required. A small feature does not justify changing deployment
+   architecture.
+
+### Existing Bridges
+
+#### Tenant Service Request: public submission into internal operations
+
+```text
+Tenant Browser
+→ 04 Public Website
+→ Netlify Function
+→ 01 Apps Script Web App
+→ Main Database / V1_ServiceRequests
+→ Private Google Drive
+→ Property Events
+→ Tenant Log virtual aggregation
+→ 01 Internal Service Request Management
+```
+
+04 is only the public submission entry. The full request is written directly
+to 01's internal main database; Tenant Log shows a virtual summary rather than
+a copied service-request entity.
+
+#### Rental Portfolio Summary: public listing source into internal overview
+
+```text
+04 Listings / getListings
+→ read-only bridge
+→ 01 Listing Services / Rental Portfolio Summary
+→ listing summary and public listing links
+```
+
+04 `01 Listings` remains the only listing source. 01 displays a minimum
+operational summary and links to the public listing; it must not write listing
+status back or replicate listings, media, or applicant data.
+
+### End-to-End Operating Loop
+
+```text
+Marketing / Listing
+→ Application
+→ Screening
+→ Lease / Move-in
+→ Tenant Management
+→ Rent Collection
+→ Service Request / Maintenance
+→ Owner Management
+→ Monthly Statement / Finance
+→ Move-out
+→ Relisting
+```
+
+Each step is completed in the application best suited to it. IDs, bridges, and
+logs connect the steps into one operating loop without duplicating their
+underlying records.
+
 ## Business Purpose
 
 The platform supports Vanisland Property Management workflows for rental marketing, applicant intake, document collection, internal screening preparation, and staff review. It also includes a home sale marketing workspace for property sale listings, media, marketing copy, videos, buyer inquiries, and sharing tools.
