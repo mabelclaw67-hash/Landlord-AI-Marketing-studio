@@ -108,9 +108,11 @@ a copied service-request entity.
 → listing summary and public listing links
 ```
 
-04 `01 Listings` remains the only listing source. 01 displays a minimum
-operational summary and links to the public listing; it must not write listing
-status back or replicate listings, media, or applicant data.
+04 `01 Listings` remains the only listing source. 01's existing Mac mini Vite
+service exposes the same-origin read-only `/__rental_portfolio__` bridge,
+which fetches `getListings`, server-side whitelists the summary fields, and
+returns links to the public listing. 01 must not write listing status back or
+replicate listings, media, or applicant data.
 
 ### End-to-End Operating Loop
 
