@@ -271,7 +271,7 @@ function doPost(e) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "uploadPublicSupportingDocument", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -302,12 +302,13 @@ function doPost(e) {
     if (action === "startDisputeReview")  return ok(startDisputeReview_(body.data || body));
     if (action === "uploadDisputeFile")   return ok(uploadDisputeFile_(body.data || body));
     if (action === "deleteDisputeFile")   return ok(deleteDisputeFile_(body.data || body));
-    if (action === "submitDisputeReview") return ok(submitDisputeReview_(body.data));
+    if (action === "submitDisputeReview") return ok(submitDisputeReview_(body.data, body.origin));
     if (action === "getDisputeReviews")   return ok(getDisputeReviews_(auth));
     if (action === "getDisputeReview")    return ok(getDisputeReview_(body.reviewId, auth));
     if (action === "updateDisputeProfessionalReview") return ok(updateDisputeProfessionalReview_(body.data, auth));
     if (action === "generateDisputeReport") return ok(generateDisputeReport_(body.reviewId, body.data, auth));
     if (action === "downloadDisputeReportPdf") return ok(downloadDisputeReportPdf_(body.data || body, auth));
+    if (action === "recoverDisputeReport") return ok(recoverDisputeReport_(body.data || body));
     if (action === "generateDisputeAiAnalysis") return ok(generateDisputeAiAnalysis_(body.reviewId, auth, { dryRun: body.dryRun }));
     if (action === "getDisputeAiAnalysis") return ok(getDisputeAiAnalysis_(body.reviewId, auth));
     if (action === "generateDisputeWorkingDraft") return ok(generateDisputeWorkingDraft_(body.reviewId, auth, { dryRun: body.dryRun, language: body.language, draftType: body.draftType }));

@@ -497,6 +497,22 @@ export function createDisputeReviewId(date = new Date()) {
 // V1 deliberately keeps this short: a few decisive questions per forum rather
 // than a full legal questionnaire.
 
+// Display-only labels for the follow-up question group headings below. The
+// raw English group name (e.g. "Proceeding & Registry") remains the grouping
+// key used for filtering questions; only the rendered heading is translated.
+const DISPUTE_FOLLOWUP_GROUP_LABELS = {
+  "Proceeding & Registry": { en: "Proceeding & Registry", zh: "程序与登记处" },
+  "Service & Deadlines": { en: "Service & Deadlines", zh: "送达与期限" },
+  "Parties & Representation": { en: "Parties & Representation", zh: "当事人与代理" },
+  "Risk & Evidence": { en: "Risk & Evidence", zh: "风险与证据" },
+};
+
+export function translateFollowUpGroup(group, lang) {
+  const entry = DISPUTE_FOLLOWUP_GROUP_LABELS[group];
+  if (!entry) return group;
+  return lang === "zh" ? entry.zh : entry.en;
+}
+
 // The `id` of each question is the exact Field Key from the Form_Fields sheet,
 // so the stored Follow-up Answers text stays traceable back to that spec.
 export function getDisputeFollowUpQuestions(form) {
@@ -1594,7 +1610,11 @@ export async function submitDisputeReview(form, files, lang = "en") {
     reportZh: JSON.stringify(reportZh),
   };
 
-  const result = await apiPost({ action: "submitDisputeReview", data: payload });
+  const result = await apiPost({
+    action: "submitDisputeReview",
+    data: payload,
+    origin: typeof window !== "undefined" ? window.location.origin : "",
+  });
   return {
     reviewId,
     analysis,
@@ -1614,6 +1634,13 @@ export async function getDisputeReviews() {
 export async function getDisputeReview(reviewId) {
   if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   return apiPost({ action: "getDisputeReview", reviewId, ...getStudioRequestAuth("rental") });
+}
+
+// Public report recovery: Review ID + the email address submitted with that
+// review. Mirrors recoverPropertyStrategyReport exactly.
+export async function recoverDisputeReport(reviewId, email) {
+  if (!isApiConnected()) throw new Error("VITE_STUDIO_EXEC_URL not configured");
+  return apiPost({ action: "recoverDisputeReport", data: { reviewId, email } });
 }
 
 export async function updateDisputeProfessionalReview(payload) {

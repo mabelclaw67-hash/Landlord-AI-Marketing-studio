@@ -302,7 +302,7 @@ function getDisputeFilesForReview_(reviewId) {
   return out;
 }
 
-function submitDisputeReview_(data) {
+function submitDisputeReview_(data, origin) {
   data = data || {};
   var sheet = getDisputeSheet_(DISPUTE_REVIEWS_SHEET);
   var headers = disputeHeaders_(sheet);
@@ -331,6 +331,40 @@ function submitDisputeReview_(data) {
     if (aiAnalysisIdx >= 0 && readDisputeAiAnalysisEnvelope_(current[aiAnalysisIdx]).contentAnalysis) {
       record["AI Analysis JSON"] = current[aiAnalysisIdx];
     }
+  }
+
+  // Auto-generate the customer-facing PDFs at intake time so a real report is
+  // downloadable immediately, without waiting for a professional reviewer to
+  // run the admin-only regenerate action. If a report was already generated
+  // (preserved above from an earlier admin action), it is never regenerated
+  // or overwritten here. A PDF failure must never block the intake from
+  // being saved — it is caught and reported back, not thrown.
+  var reportStatus = "unavailable";
+  var reportError = "";
+  if (record["Report EN URL"] && record["Report ZH URL"]) {
+    reportStatus = "ready";
+  } else {
+    try {
+      var reportEn = parseDisputeReportJson_(record["Report EN JSON"]);
+      var reportZh = parseDisputeReportJson_(record["Report ZH JSON"]);
+      if (reportEn && reportZh) {
+        var pdfs = buildDisputeReportPdfs_(reviewId, reportEn, reportZh, "", "", now);
+        record["Report EN URL"] = pdfs.enUrl;
+        record["Report ZH URL"] = pdfs.zhUrl;
+        record["Report EN JSON"] = JSON.stringify(reportEn);
+        record["Report ZH JSON"] = JSON.stringify(reportZh);
+        reportStatus = "ready";
+      } else {
+        reportError = "No report content was available to generate a PDF from.";
+      }
+    } catch (reportEx) {
+      reportStatus = "failed";
+      reportError = (reportEx && reportEx.message) ? reportEx.message : String(reportEx);
+      Logger.log("[submitDisputeReview_] PDF generation failed for " + reviewId + ": " + reportError);
+    }
+  }
+
+  if (existingRow > 0) {
     writeDisputeRow_(sheet, headers, existingRow, record);
   } else {
     sheet.appendRow(headers.map(function (h) {
@@ -338,6 +372,17 @@ function submitDisputeReview_(data) {
     }));
   }
   SpreadsheetApp.flush();
+
+  var emailWarning = "";
+  var email = disputeText_(record["Email"]);
+  if (reportStatus === "ready" && email) {
+    emailWarning = sendApplicantWorkflowEmail_(
+      email,
+      "Your AI Dispute Review Report is Ready",
+      buildDisputeReviewEmailBody_(record["Client Name"], reviewId, origin),
+      "submitDisputeReview_"
+    );
+  }
 
   return {
     success: true,
@@ -347,8 +392,41 @@ function submitDisputeReview_(data) {
     status: record["Status"],
     // Lets this client download their own report later without exposing any
     // other case or the Drive folder itself.
-    downloadToken: disputeAccessToken_(reviewId)
+    downloadToken: disputeAccessToken_(reviewId),
+    reportStatus: reportStatus,
+    reportError: reportError,
+    emailWarning: emailWarning
   };
+}
+
+function buildDisputeReviewEmailBody_(clientName, reviewId, origin) {
+  var cleanOrigin = String(origin || "").replace(/\/+$/, "");
+  var recoveryLink = cleanOrigin
+    ? cleanOrigin + "/landlord-ai/dispute-review?recover=" + encodeURIComponent(reviewId)
+    : "";
+  var lines = [
+    "Dear " + (clientName || "Client") + ",",
+    "",
+    "Your AI Dispute Review report is ready.",
+    "",
+    "Review ID: " + reviewId,
+    "",
+  ];
+  if (recoveryLink) {
+    lines.push(
+      "You can view your report again anytime here:",
+      "",
+      recoveryLink,
+      "",
+      "If the link does not pre-fill your Review ID, go to the AI Dispute Review page, open \"Already submitted? Recover your report\", and enter the Review ID above together with the email address you used to submit."
+    );
+  } else {
+    lines.push(
+      "To view it again anytime, go to the AI Dispute Review page, open \"Already submitted? Recover your report\", and enter the Review ID above together with the email address you used to submit."
+    );
+  }
+  lines.push("", "Thank you,", "Vanisland Property Management");
+  return lines.join("\n");
 }
 
 function buildDisputeReviewRecord_(data, reviewId, now, folderUrl) {
@@ -499,12 +577,10 @@ function generateDisputeReport_(reviewId, data, auth) {
   var professionalNotes = current["Professional Notes"];
   var generatedAt = new Date().toISOString();
 
-  applyProfessionalRecommendation_(reportEn, professionalText, professionalNotes, "en", generatedAt);
-  applyProfessionalRecommendation_(reportZh, professionalText, professionalNotes, "zh", generatedAt);
-
-  var folder = getDisputeReportFolder_(id);
-  var enUrl = createDisputeReportPdf_(reportEn, id, "EN", folder);
-  var zhUrl = createDisputeReportPdf_(reportZh, id, "ZH", folder);
+  var pdfs = buildDisputeReportPdfs_(id, reportEn, reportZh, professionalText, professionalNotes, generatedAt);
+  var enUrl = pdfs.enUrl;
+  var zhUrl = pdfs.zhUrl;
+  var folder = pdfs.folder;
 
   writeDisputeRow_(sheet, headers, rowNumber, {
     "Report EN JSON": JSON.stringify(reportEn),
@@ -527,6 +603,20 @@ function generateDisputeReport_(reviewId, data, auth) {
     reportFolderUrl: folder.getUrl(),
     downloadToken: disputeAccessToken_(id),
     professionalReviewIncluded: !!professionalText
+  };
+}
+
+// Shared by the admin regenerate path (generateDisputeReport_) and the
+// submit-time auto-generate path (submitDisputeReview_), so both PDFs are
+// always built the exact same way from the exact same report objects.
+function buildDisputeReportPdfs_(reviewId, reportEn, reportZh, professionalText, professionalNotes, generatedAt) {
+  applyProfessionalRecommendation_(reportEn, professionalText, professionalNotes, "en", generatedAt);
+  applyProfessionalRecommendation_(reportZh, professionalText, professionalNotes, "zh", generatedAt);
+  var folder = getDisputeReportFolder_(reviewId);
+  return {
+    enUrl: createDisputeReportPdf_(reportEn, reviewId, "EN", folder),
+    zhUrl: createDisputeReportPdf_(reportZh, reviewId, "ZH", folder),
+    folder: folder
   };
 }
 
@@ -633,6 +723,42 @@ function downloadDisputeReportPdf_(body, auth) {
     mimeType: "application/pdf",
     sizeBytes: blob.getBytes().length,
     base64: Utilities.base64Encode(blob.getBytes())
+  };
+}
+
+// Public report recovery: review ID + the email address submitted with that
+// review, both checked against the stored row before anything is returned.
+// One generic error for both "not found" and "wrong email" so a guess can't
+// be used to enumerate valid Review IDs. Never returns a raw Drive URL — only
+// the parsed report content plus a token the client uses with
+// downloadDisputeReportPdf_ above, mirrors recoverPropertyStrategyReport_
+// exactly (apps-script/Code.gs).
+function recoverDisputeReport_(body) {
+  body = body || {};
+  var reviewId = disputeText_(body.reviewId);
+  var email = normalizeEmail_(body.email);
+  var notFoundError = "We could not find a report matching that Review ID and email.";
+  if (!reviewId || !email) throw new Error(notFoundError);
+
+  var sheet = getDisputeSheet_(DISPUTE_REVIEWS_SHEET);
+  var headers = disputeHeaders_(sheet);
+  var rowNumber = findDisputeReviewRow_(sheet, headers, reviewId);
+  if (!rowNumber) throw new Error(notFoundError);
+
+  var row = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
+  var current = {};
+  for (var c = 0; c < headers.length; c++) current[headers[c]] = disputeText_(row[c]);
+
+  var storedEmail = normalizeEmail_(current["Email"]);
+  if (!storedEmail || storedEmail !== email) throw new Error(notFoundError);
+
+  return {
+    reviewId: reviewId,
+    reports: {
+      en: parseDisputeReportJson_(current["Report EN JSON"]),
+      zh: parseDisputeReportJson_(current["Report ZH JSON"])
+    },
+    downloadToken: disputeAccessToken_(reviewId)
   };
 }
 

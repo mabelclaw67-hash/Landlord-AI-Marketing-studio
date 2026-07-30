@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   CLIENT_ROLES,
   CLIENT_SERVICE_INTERESTS,
@@ -18,15 +18,18 @@ import {
   displayDisputeOption,
   getDisputeFollowUpQuestions,
   guessDocumentCategory,
+  recoverDisputeReport,
   startDisputeReview,
   submitDisputeReview,
   downloadDisputeReportPdf,
   suggestedTribunal,
+  translateFollowUpGroup,
   uploadDisputeFile,
   validateDisputeFile,
 } from "../utils/disputeReview";
 import { normalizeLang } from "../utils/lang";
 import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
+import CollapsibleCard from "../components/CollapsibleCard";
 import DisputeDocumentsPanel from "../components/DisputeDocumentsPanel";
 import { renderStructuredProfessionalReportHtml } from "../components/reports/professionalReportHtml";
 
@@ -126,6 +129,20 @@ const L = {
     downloadZh: "Download Chinese PDF",
     downloading: "Downloading…",
     downloadPending: "The professional PDF is not ready yet. You can still print this page.",
+    reportStatusGenerating: "Your report is still being generated. Please check back shortly, or use the recovery form below to reopen it later.",
+    reportStatusFailed: "Your submission was saved successfully, but the PDF report could not be generated automatically. Our team will follow up with you directly.",
+    publicReportRecoverPrompt: "Already submitted?",
+    publicReportRecoverLink: "Recover your report",
+    recovery: {
+      title: "Already submitted? Recover your report",
+      help: "Enter the Review ID and the email address you used when you submitted, and we'll bring your report back up.",
+      reviewIdLabel: "Review ID",
+      emailLabel: "Email",
+      button: "Recover my report",
+      recovering: "Looking up your report...",
+      missingFields: "Please enter both your Review ID and email.",
+      notFound: "We could not find a report matching that Review ID and email.",
+    },
     fields: {
       clientName: "Full Name",
       email: "Email",
@@ -135,6 +152,7 @@ const L = {
       disputeType: "Dispute Type",
       tribunal: "Tribunal / Authority",
       propertyAddress: "Property Address",
+      litigationLocationLabel: "Property or Location Involved (if applicable)",
       city: "City",
       province: "Province",
       opposingPartyName: "Opposing Party Name",
@@ -275,6 +293,20 @@ const L = {
     downloadZh: "下载中文 PDF",
     downloading: "下载中…",
     downloadPending: "专业版 PDF 尚未生成，您仍可打印本页。",
+    reportStatusGenerating: "您的报告仍在生成中，请稍后再查看，或使用下方的找回表单稍后重新打开。",
+    reportStatusFailed: "您的提交已成功保存，但 PDF 报告未能自动生成。我们的团队将直接与您联系跟进。",
+    publicReportRecoverPrompt: "已经提交过？",
+    publicReportRecoverLink: "找回您的报告",
+    recovery: {
+      title: "已经提交过？找回您的报告",
+      help: "请输入案件编号以及您提交时使用的邮箱，我们会为您重新调出报告。",
+      reviewIdLabel: "案件编号",
+      emailLabel: "邮箱",
+      button: "找回我的报告",
+      recovering: "正在查找您的报告...",
+      missingFields: "请填写案件编号和邮箱。",
+      notFound: "未能找到与该案件编号及邮箱匹配的报告。",
+    },
     fields: {
       clientName: "姓名",
       email: "邮箱",
@@ -284,6 +316,7 @@ const L = {
       disputeType: "争议类型",
       tribunal: "机构 / 主管",
       propertyAddress: "物业地址",
+      litigationLocationLabel: "涉案地点/物业（如适用）",
       city: "城市",
       province: "省份",
       opposingPartyName: "对方当事人姓名 / 名称",
@@ -388,6 +421,7 @@ const L = {
 export default function DisputeReview({ lang }) {
   const safeLang = normalizeLang(lang);
   const { reviewId: routeReviewId } = useParams();
+  const [searchParams] = useSearchParams();
   const copy = L[safeLang] || L.en;
   const formRef = useRef(null);
 
@@ -397,6 +431,12 @@ export default function DisputeReview({ lang }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(null);
+
+  const [recoveryReviewId, setRecoveryReviewId] = useState(() => searchParams.get("recover") || "");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recovered, setRecovered] = useState(null);
 
   const [uploadReady, setUploadReady] = useState(false);
   const [uploadAvailable, setUploadAvailable] = useState(true);
@@ -595,6 +635,8 @@ export default function DisputeReview({ lang }) {
         reports: result.reports,
         // Scoped to this case only; it never exposes another review.
         downloadToken: result.downloadToken || "",
+        reportStatus: result.reportStatus || "unavailable",
+        reportError: result.reportError || "",
         savedAt: new Date().toISOString(),
       };
       setSubmitted(payload);
@@ -620,6 +662,30 @@ export default function DisputeReview({ lang }) {
     requestUploadSession("");
   };
 
+  const handleRecover = async () => {
+    setRecoveryError("");
+    const reviewIdInput = recoveryReviewId.trim();
+    const email = recoveryEmail.trim();
+    if (!reviewIdInput || !email) {
+      setRecoveryError(copy.recovery.missingFields);
+      return;
+    }
+    setRecovering(true);
+    try {
+      const result = await recoverDisputeReport(reviewIdInput, email);
+      setRecovered({
+        reviewId: result.reviewId,
+        reports: result.reports || {},
+        downloadToken: result.downloadToken || "",
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setRecoveryError(err.message || copy.recovery.notFound);
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   // ── Public report route ────────────────────────────────────────────────────
   if (routeReviewId) {
     return (
@@ -634,6 +700,20 @@ export default function DisputeReview({ lang }) {
     );
   }
 
+  if (recovered) {
+    return (
+      <ReportPage
+        key={safeLang}
+        copy={copy}
+        lang={safeLang}
+        reviewId={recovered.reviewId}
+        reports={recovered.reports}
+        downloadToken={recovered.downloadToken}
+        onStartOver={() => setRecovered(null)}
+      />
+    );
+  }
+
   if (submitted) {
     return (
       <ReportPage
@@ -643,6 +723,7 @@ export default function DisputeReview({ lang }) {
         reviewId={submitted.reviewId}
         reports={submitted.reports}
         downloadToken={submitted.downloadToken}
+        reportStatus={submitted.reportStatus}
         onStartOver={startOver}
       />
     );
@@ -673,7 +754,13 @@ export default function DisputeReview({ lang }) {
     if (step === 1) {
       return (
         <Section title={copy.steps[1]}>
-          <Text field="propertyAddress" form={form} update={update} copy={copy} />
+          <Text
+            field="propertyAddress"
+            form={form}
+            update={update}
+            copy={copy}
+            label={form.disputeType === "Supreme Court Litigation" ? copy.fields.litigationLocationLabel : undefined}
+          />
           <div className="form-row">
             <Text field="city" form={form} update={update} copy={copy} />
             <Text field="province" form={form} update={update} copy={copy} />
@@ -745,7 +832,7 @@ export default function DisputeReview({ lang }) {
               <Section title={`${displayDisputeOption(form.disputeType, safeLang)} — ${safeLang === "zh" ? "补充问题" : "Follow-up Questions"}`}>
                 {groups.map((group) => (
                   <div className="strategy-follow-up__group" key={group}>
-                    {showGroupHeadings && <h3>{group}</h3>}
+                    {showGroupHeadings && <h3>{translateFollowUpGroup(group, safeLang)}</h3>}
                     <div className="strategy-follow-up__grid">
                       {followUps.filter((item) => item.group === group).map((item) => {
                         const value = (form.followUpAnswers || {})[item.id] || "";
@@ -907,6 +994,36 @@ export default function DisputeReview({ lang }) {
 
       <section className="section">
         <div className="container strategy-container">
+          <CollapsibleCard title={copy.recovery.title} defaultOpen={false} className="strategy-recovery-card">
+            <p className="strategy-help">{copy.recovery.help}</p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>{copy.recovery.reviewIdLabel}</label>
+                <input
+                  className="form-control"
+                  type="text"
+                  value={recoveryReviewId}
+                  onChange={(event) => setRecoveryReviewId(event.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>{copy.recovery.emailLabel}</label>
+                <input
+                  className="form-control"
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(event) => setRecoveryEmail(event.target.value)}
+                />
+              </div>
+            </div>
+            {recoveryError && (
+              <div className="notice notice--error strategy-inline-notice"><p>{recoveryError}</p></div>
+            )}
+            <button type="button" className="btn btn--sage" onClick={handleRecover} disabled={recovering}>
+              {recovering ? copy.recovery.recovering : copy.recovery.button}
+            </button>
+          </CollapsibleCard>
+
           {error && <div className="notice notice--error"><p>{error}</p></div>}
 
           <form ref={formRef} onSubmit={(event) => event.preventDefault()} className="strategy-form">
@@ -976,7 +1093,7 @@ export default function DisputeReview({ lang }) {
 
 // The report page always opens in the interface language, and offers an
 // explicit switch. Both versions belong to the same Review ID.
-function ReportPage({ copy, lang, reviewId, reports, downloadToken, onStartOver }) {
+function ReportPage({ copy, lang, reviewId, reports, downloadToken, reportStatus, onStartOver }) {
   const [downloading, setDownloading] = useState("");
   const [downloadError, setDownloadError] = useState("");
 
@@ -1006,7 +1123,13 @@ function ReportPage({ copy, lang, reviewId, reports, downloadToken, onStartOver 
         </section>
         <section className="section">
           <div className="container strategy-container">
-            <div className="card strategy-success"><p>{copy.publicReportMissing}</p></div>
+            <div className="card strategy-success">
+              <p>{copy.publicReportMissing}</p>
+              <p className="strategy-help">
+                {copy.publicReportRecoverPrompt}{" "}
+                <Link to="/landlord-ai/dispute-review">{copy.publicReportRecoverLink}</Link>
+              </p>
+            </div>
           </div>
         </section>
       </div>
@@ -1048,6 +1171,13 @@ function ReportPage({ copy, lang, reviewId, reports, downloadToken, onStartOver 
             </div>
 
             <DisputeReportBody report={report} />
+
+            {reportStatus === "failed" && (
+              <div className="notice notice--warm strategy-inline-notice"><p>{copy.reportStatusFailed}</p></div>
+            )}
+            {reportStatus === "unavailable" && (
+              <div className="notice notice--warm strategy-inline-notice"><p>{copy.reportStatusGenerating}</p></div>
+            )}
 
             {downloadError && (
               <div className="notice notice--warm strategy-inline-notice"><p>{downloadError}</p></div>
@@ -1152,10 +1282,10 @@ function Section({ title, children }) {
   );
 }
 
-function Text({ field, form, update, copy, type = "text", required = false, ...rest }) {
+function Text({ field, form, update, copy, type = "text", required = false, label, ...rest }) {
   return (
     <div className="form-group">
-      <label>{copy.fields[field]}{required ? " *" : ""}</label>
+      <label>{label || copy.fields[field]}{required ? " *" : ""}</label>
       <input className="form-control" type={type} value={form[field]} onChange={update(field)} required={required} {...rest} />
     </div>
   );
