@@ -4084,25 +4084,8 @@ function sendAdminWorkflowEmail_(subject, body, logPrefix) {
 }
 
 function sendRentalApplicationReceiptEmails_(app, listing, origin) {
-  var applicantName = app.applicantName || "Applicant";
   var propertyAddress = (listing && listing.address) || app.listingAddress || app.listingId || "the rental listing";
   var adminLink = buildAdminApplicationLink_(origin, app.recordId);
-  var applicantWarning = sendApplicantWorkflowEmail_(
-    app.email,
-    "Rental Application Received - Vanisland Property Management",
-    [
-      "Dear " + applicantName + ",",
-      "",
-      "Thank you. We have received your rental application for " + propertyAddress + ".",
-      "",
-      "Our admin team will review your application as soon as possible.",
-      "If we need any additional information or supporting documents, we will contact you.",
-      "",
-      "Thank you,",
-      "Vanisland Property Management"
-    ].join("\n"),
-    "saveRentalApplication"
-  );
   var adminWarning = sendAdminWorkflowEmail_(
     "New Rental Application Received - " + (app.recordId || app.listingId || ""),
     [
@@ -4119,31 +4102,14 @@ function sendRentalApplicationReceiptEmails_(app, listing, origin) {
     ].join("\n"),
     "saveRentalApplication"
   );
-  return { applicantWarning: applicantWarning, adminWarning: adminWarning };
+  return { applicantWarning: "", adminWarning: adminWarning };
 }
 
 function sendSupportDocumentReceiptEmails_(app, listing, uploadInfo, origin) {
-  var applicantName = app.applicantName || uploadInfo.applicantName || "Applicant";
   var propertyAddress = (listing && listing.address) || app.listingId || uploadInfo.listingId || "the rental listing";
   var adminLink = buildAdminApplicationLink_(origin, app.recordId || uploadInfo.recordId);
   var uploadedAt = uploadInfo.uploadedAt || new Date().toISOString();
   var documentList = uploadInfo.documentList || uploadInfo.fileName || "-";
-  var applicantWarning = sendApplicantWorkflowEmail_(
-    app.email || uploadInfo.email,
-    "Supporting Documents Received - Vanisland Property Management",
-    [
-      "Dear " + applicantName + ",",
-      "",
-      "Thank you. We have received your supporting documents for " + propertyAddress + ".",
-      "",
-      "Our admin team will review your documents as soon as possible.",
-      "If we need any additional information or documents, we will contact you.",
-      "",
-      "Thank you,",
-      "Vanisland Property Management"
-    ].join("\n"),
-    "uploadSupportingDocument"
-  );
   var adminWarning = sendAdminWorkflowEmail_(
     "Supporting Documents Uploaded - " + ((app.recordId || uploadInfo.recordId) || (app.listingId || uploadInfo.listingId || "")),
     [
@@ -4161,7 +4127,7 @@ function sendSupportDocumentReceiptEmails_(app, listing, uploadInfo, origin) {
     ].join("\n"),
     "uploadSupportingDocument"
   );
-  return { applicantWarning: applicantWarning, adminWarning: adminWarning };
+  return { applicantWarning: "", adminWarning: adminWarning };
 }
 
 // Canonical resolver for any outbound applicant email. Always re-reads
