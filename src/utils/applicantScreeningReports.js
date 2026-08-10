@@ -1422,6 +1422,7 @@ export async function downloadFullApplicantAuditReport({ applicant, listing, lan
     aiRecommendation: reportText(lang, `recommendationKeys.${evaluation.recommendedNextStepKey}`),
     recommendationTone: recommendationTone(evaluation.rankingKey),
     notice: c.auditNotice,
+    continuousFlow: true,
     sections,
   });
   if (autoOpen) openApplicantReportWindow(html);

@@ -203,6 +203,16 @@ function reportStyles() {
       position: relative;
     }
     .page:last-child { page-break-after: auto; }
+    /* Opt-in for renderStructuredProfessionalReportHtml's continuousFlow mode
+       (Full Applicant Audit Report only — see that function). Without this,
+       the cover .page block always forces a hard page break after itself
+       (above) *in addition to* whatever natural page break already occurred
+       from its own content overflowing one physical page — stacking two
+       breaks and leaving a near-empty page between the cover's overflow
+       remainder and the next block's content. page-break-after: auto lets
+       the next block's content continue filling the same physical page
+       instead, so pages only break where content genuinely runs out of room. */
+    .page--flow { page-break-after: auto; }
     .report-header {
       display: flex;
       justify-content: space-between;
@@ -554,6 +564,10 @@ export function renderStructuredProfessionalReportHtml(report) {
   const title = report.title;
   const language = report.language === "zh" ? "zh-CN" : "en";
   const sections = (report.sections || []).map(sectionHtml).join("");
+  // continuousFlow: opt-in only (Full Applicant Audit Report — see
+  // downloadFullApplicantAuditReport). Strategy Assessment and Dispute
+  // Review reports don't pass this and keep their exact current pagination.
+  const coverPageClass = report.continuousFlow ? "page page--flow" : "page";
   return `<!doctype html>
 <html lang="${language}">
 <head>
@@ -562,7 +576,7 @@ export function renderStructuredProfessionalReportHtml(report) {
   <style>${reportStyles()}</style>
 </head>
 <body>
-  <section class="page">
+  <section class="${coverPageClass}">
     <header class="report-header">
       <div class="brand">
         <div class="mark">${escapeHtml(REPORT_BRAND.mark)}</div>

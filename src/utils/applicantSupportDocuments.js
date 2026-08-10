@@ -37,16 +37,29 @@ export function classifySupportDocument(fileName = "") {
   return "Other";
 }
 
+// normalizeForMatch keeps ASCII letters/digits only, so a CJK-only name (e.g.
+// "申请人 A") collapses to whatever stray Latin fragment it happened to
+// contain — here a single "a" — instead of disappearing to "". A 1-2
+// character token then substring-matches almost any English file name,
+// producing false-positive document matches. Real first/last name tokens
+// and full-name strings are essentially never this short, so tokens below
+// this length are treated as "no usable name to match on" rather than a
+// match key, keeping English and CJK applicant names equally strict.
+const MIN_NAME_TOKEN_LENGTH = 3;
+
 export function matchSupportDocumentsForApplicant(app, files = []) {
   const recordId = compactMatch(app?.recordId);
   const { first, last, full } = applicantNameTokens(app);
+  const safeFull = full.length >= MIN_NAME_TOKEN_LENGTH ? full : "";
+  const safeFirst = first.length >= 2 ? first : "";
+  const safeLast = last.length >= 2 ? last : "";
   const matched = (files || []).filter((file) => {
     const fileName = compactMatch(file?.name || file?.fileName);
     const spacedFileName = normalizeForMatch(file?.name || file?.fileName);
     if (!fileName) return false;
     if (recordId && fileName.includes(recordId)) return true;
-    if (full && fileName.includes(full)) return true;
-    return Boolean(first && last && spacedFileName.includes(first) && spacedFileName.includes(last));
+    if (safeFull && fileName.includes(safeFull)) return true;
+    return Boolean(safeFirst && safeLast && spacedFileName.includes(safeFirst) && spacedFileName.includes(safeLast));
   }).map((file) => ({
     name: file.name || file.fileName || "Document",
     type: classifySupportDocument(file.name || file.fileName),
