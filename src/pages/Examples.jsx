@@ -66,15 +66,15 @@ const RENTAL_PUBLIC_TEXT = {
     copied: "✓ Link copied",
     perMonth: "/mo",
 
-    // Hero
+    // Hero (compact)
     heroBrand: "Vanisland Rentals",
-    heroSub: "Your single home for browsing rental listings, applying online, and tenant services on Vancouver Island.",
-    heroBrowse: "Browse Rental Listings",
+    heroSub: "Professional rentals and property management on Vancouver Island. Browse available homes, apply online, or access tenant services.",
+    heroBrowse: "View Rentals",
     heroApply: "Apply Now",
-    heroService: "Start Service Request",
+    heroService: "Tenant Service",
     heroContact: "Contact Us",
 
-    // Share portal
+    // Share portal (moved below listings/services)
     shareTitle: "Share This Rental Portal",
     shareDesc: "Send tenants and applicants straight to this page — copy the link or let them scan the QR code.",
     copyBtn: "Copy Portal Link",
@@ -83,30 +83,10 @@ const RENTAL_PUBLIC_TEXT = {
     qrHideBtn: "Hide QR Code",
     qrCaption: "Scan to open the rental portal",
 
-    // Core services
-    coreTitle: "How can we help you today?",
-    coreSub: "Three simple paths — find a home, apply online, or get service as a current tenant.",
-    findTitle: "Find a Home",
-    findDesc: [
-      "Browse current available rentals",
-      "View photos, rent, and full details",
-      "Open each listing page directly",
-    ],
-    findCta: "View Listings",
-    applyTitle: "Apply for a Rental",
-    applyDesc: [
-      "Submit your application online",
-      "Complete identity and income details",
-      "Move into review and lease signing",
-    ],
-    applyCta: "Apply Now",
-    serviceTitle: "Tenant Service Request",
-    serviceDesc: [
-      "Current tenants submit repair & service requests",
-      "Upload photos and get a Request ID",
-      "Track the handling process",
-    ],
-    serviceCta: "Start Service Request",
+    // Tenant services (compact, below listings)
+    tenantServicesTitle: "Tenant Services",
+    applyForRentalCta: "Apply for a Rental",
+    serviceRequestCta: "Tenant Service Request",
 
     // Featured listings
     featuredTitle: "Available Rentals",
@@ -175,15 +155,15 @@ const RENTAL_PUBLIC_TEXT = {
     copied: "✓ 已复制链接",
     perMonth: "每月",
 
-    // Hero
+    // Hero (compact)
     heroBrand: "Vanisland 出租",
-    heroSub: "浏览出租房源、在线申请租房及租客服务的统一入口，服务温哥华岛地区。",
-    heroBrowse: "浏览出租房源",
+    heroSub: "温哥华岛专业租赁与物业管理，浏览房源、在线申请或获取租客服务。",
+    heroBrowse: "查看房源",
     heroApply: "立即申请",
-    heroService: "提交服务申请",
+    heroService: "租客服务",
     heroContact: "联系我们",
 
-    // Share portal
+    // Share portal (moved below listings/services)
     shareTitle: "分享租赁门户",
     shareDesc: "让租客和申请人直达本页——复制链接，或让他们扫描二维码。",
     copyBtn: "复制门户链接",
@@ -192,30 +172,10 @@ const RENTAL_PUBLIC_TEXT = {
     qrHideBtn: "隐藏二维码",
     qrCaption: "扫码进入租赁门户",
 
-    // Core services
-    coreTitle: "今天需要什么帮助？",
-    coreSub: "三条简单路径——找房、在线申请，或作为在住租客获取服务。",
-    findTitle: "寻找住房",
-    findDesc: [
-      "浏览当前可租房源",
-      "查看照片、租金和详细信息",
-      "直接进入每个房源页面",
-    ],
-    findCta: "查看房源",
-    applyTitle: "在线申请租房",
-    applyDesc: [
-      "在线提交租房申请",
-      "完成身份和收入资料",
-      "进入审核与签约流程",
-    ],
-    applyCta: "立即申请",
-    serviceTitle: "租客服务申请",
-    serviceDesc: [
-      "在住租客提交维修与服务申请",
-      "上传照片并获取申请编号",
-      "查看处理流程进度",
-    ],
-    serviceCta: "提交服务申请",
+    // Tenant services (compact, below listings)
+    tenantServicesTitle: "租客服务",
+    applyForRentalCta: "在线申请租房",
+    serviceRequestCta: "提交租客服务申请",
 
     // Featured listings
     featuredTitle: "可租房源",
@@ -399,80 +359,13 @@ export default function Examples({ lang = "en" }) {
             <Link to="/rentals" className="rp-btn rp-btn--primary">{labels.heroBrowse}</Link>
             <Link to="/apply" className="rp-btn rp-btn--gold">{labels.heroApply}</Link>
             <Link to="/tenant-service-request" className="rp-btn rp-btn--outline">{labels.heroService}</Link>
-            <Link to="/tenant-contact" className="rp-btn rp-btn--ghost">{labels.heroContact}</Link>
           </div>
         </div>
       </section>
 
       <div className="rp-body">
 
-        {/* ── Share this portal (copy link + QR) ───────────── */}
-        <section className="rp-share" aria-labelledby="rp-share-title">
-          <div className="rp-share__main">
-            <div className="rp-share__text">
-              <h2 id="rp-share-title" className="rp-share__title">{labels.shareTitle}</h2>
-              <p className="rp-share__desc">{labels.shareDesc}</p>
-            </div>
-            <div className="rp-share__actions">
-              <button type="button" className="rp-share__btn rp-share__btn--primary" onClick={copyPortalLink}>
-                {portalCopied ? labels.copiedBtn : labels.copyBtn}
-              </button>
-              <button
-                type="button"
-                className="rp-share__btn rp-share__btn--outline"
-                onClick={() => setShowQr((v) => !v)}
-                aria-expanded={showQr}
-              >
-                {showQr ? labels.qrHideBtn : labels.qrBtn}
-              </button>
-            </div>
-          </div>
-          {showQr && (
-            <div className="rp-share__qr">
-              <div className="rp-share__qr-code">
-                <QRCodeSVG value={portalUrl} size={168} fgColor="#2f4338" bgColor="#ffffff" />
-              </div>
-              <p className="rp-share__qr-caption">{labels.qrCaption}</p>
-              <span className="rp-share__qr-url">{portalUrl}</span>
-            </div>
-          )}
-        </section>
-
-        {/* ── Three core service entries ───────────────────── */}
-        <section className="rp-section" aria-labelledby="rp-core-title">
-          <div className="rp-section__head">
-            <h2 id="rp-core-title" className="rp-section__title">{labels.coreTitle}</h2>
-            <p className="rp-section__sub">{labels.coreSub}</p>
-          </div>
-          <div className="rp-core-grid">
-            <div className="rp-core-card">
-              <span className="rp-core-card__icon">🔍</span>
-              <h3 className="rp-core-card__title">{labels.findTitle}</h3>
-              <ul className="rp-core-card__list">
-                {labels.findDesc.map((d) => <li key={d}>{d}</li>)}
-              </ul>
-              <Link to="/rentals" className="rp-core-card__cta">{labels.findCta}</Link>
-            </div>
-            <div className="rp-core-card">
-              <span className="rp-core-card__icon">📝</span>
-              <h3 className="rp-core-card__title">{labels.applyTitle}</h3>
-              <ul className="rp-core-card__list">
-                {labels.applyDesc.map((d) => <li key={d}>{d}</li>)}
-              </ul>
-              <Link to="/apply" className="rp-core-card__cta">{labels.applyCta}</Link>
-            </div>
-            <div className="rp-core-card">
-              <span className="rp-core-card__icon">🛠️</span>
-              <h3 className="rp-core-card__title">{labels.serviceTitle}</h3>
-              <ul className="rp-core-card__list">
-                {labels.serviceDesc.map((d) => <li key={d}>{d}</li>)}
-              </ul>
-              <Link to="/tenant-service-request" className="rp-core-card__cta">{labels.serviceCta}</Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Featured / Available listings ────────────────── */}
+        {/* ── Featured / Available listings — directly below hero ── */}
         <section className="rp-section" aria-labelledby="rp-featured-title">
           <div className="rp-section__head rp-section__head--row">
             <div>
@@ -597,6 +490,50 @@ export default function Examples({ lang = "en" }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Tenant Services (compact, secondary) ─────────── */}
+        <section className="rp-section rp-tenant-services" aria-labelledby="rp-tenant-services-title">
+          <div className="rp-section__head">
+            <h2 id="rp-tenant-services-title" className="rp-section__title">{labels.tenantServicesTitle}</h2>
+          </div>
+          <div className="rp-tenant-services__actions">
+            <Link to="/apply" className="rp-btn rp-btn--gold">{labels.applyForRentalCta}</Link>
+            <Link to="/tenant-service-request" className="rp-btn rp-btn--outline">{labels.serviceRequestCta}</Link>
+            <Link to="/tenant-contact" className="rp-btn rp-btn--ghost">{labels.heroContact}</Link>
+          </div>
+        </section>
+
+        {/* ── Share this portal (copy link + QR) — secondary, below listings/services ── */}
+        <section className="rp-share" aria-labelledby="rp-share-title">
+          <div className="rp-share__main">
+            <div className="rp-share__text">
+              <h2 id="rp-share-title" className="rp-share__title">{labels.shareTitle}</h2>
+              <p className="rp-share__desc">{labels.shareDesc}</p>
+            </div>
+            <div className="rp-share__actions">
+              <button type="button" className="rp-share__btn rp-share__btn--primary" onClick={copyPortalLink}>
+                {portalCopied ? labels.copiedBtn : labels.copyBtn}
+              </button>
+              <button
+                type="button"
+                className="rp-share__btn rp-share__btn--outline"
+                onClick={() => setShowQr((v) => !v)}
+                aria-expanded={showQr}
+              >
+                {showQr ? labels.qrHideBtn : labels.qrBtn}
+              </button>
+            </div>
+          </div>
+          {showQr && (
+            <div className="rp-share__qr">
+              <div className="rp-share__qr-code">
+                <QRCodeSVG value={portalUrl} size={168} fgColor="#2f4338" bgColor="#ffffff" />
+              </div>
+              <p className="rp-share__qr-caption">{labels.qrCaption}</p>
+              <span className="rp-share__qr-url">{portalUrl}</span>
             </div>
           )}
         </section>

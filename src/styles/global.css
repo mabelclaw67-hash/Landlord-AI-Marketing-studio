@@ -6672,40 +6672,40 @@ tr:hover td { background: #F9F6F0; }
 
 .rental-portal { background: var(--color-bg); }
 
-/* ── Hero ───────────────────────────────────────────────────────────────── */
+/* ── Hero (compact — listings are the primary content) ───────────────────── */
 .rp-hero {
   background:
     radial-gradient(circle at 82% 18%, rgba(201, 169, 97, 0.16), transparent 45%),
     radial-gradient(circle at 12% 88%, rgba(45, 90, 61, 0.14), transparent 42%),
     linear-gradient(135deg, #eef4ee 0%, #FAF7F2 55%, #f4efe6 100%);
   border-bottom: 1px solid #e5dfd6;
-  padding: 68px 20px 60px;
+  padding: 30px 20px 24px;
 }
 .rp-hero__inner { max-width: 860px; margin: 0 auto; text-align: center; }
 .rp-hero__eyebrow {
   display: inline-block;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-primary);
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid #dbe6dd;
-  padding: 5px 14px;
+  padding: 4px 12px;
   border-radius: 999px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 .rp-hero__title {
-  font-size: clamp(2rem, 6vw, 3rem);
+  font-size: clamp(1.5rem, 5vw, 2.15rem);
   font-weight: 800;
   color: var(--color-primary);
-  line-height: 1.1;
-  margin: 0 0 14px;
+  line-height: 1.15;
+  margin: 0 0 8px;
 }
 .rp-hero__sub {
-  font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+  font-size: clamp(0.85rem, 2vw, 1rem);
   color: #55625a;
-  line-height: 1.6;
-  max-width: 640px;
-  margin: 0 auto 28px;
+  line-height: 1.5;
+  max-width: 600px;
+  margin: 0 auto 18px;
 }
 .rp-hero__actions {
   display: flex;
@@ -6857,78 +6857,14 @@ tr:hover td { background: #F9F6F0; }
   margin-right: auto;
 }
 
-/* ── Three core service cards ───────────────────────────────────────────── */
-.rp-core-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
-}
-.rp-core-card {
+/* ── Tenant services (compact, secondary — below listings) ───────────────── */
+.rp-tenant-services .rp-section__head { margin-bottom: 16px; }
+.rp-tenant-services__actions {
   display: flex;
-  flex-direction: column;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 28px 24px;
-  box-shadow: 0 12px 30px rgba(45, 68, 53, 0.07);
-  transition: transform 0.18s, box-shadow 0.18s;
-}
-.rp-core-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(45, 68, 53, 0.12); }
-.rp-core-card__icon {
-  display: inline-flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: rgba(45, 90, 61, 0.09);
-  font-size: 1.5rem;
-  margin-bottom: 16px;
 }
-.rp-core-card__title {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--color-text);
-  margin: 0 0 12px;
-}
-.rp-core-card__list {
-  list-style: none;
-  margin: 0 0 22px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-.rp-core-card__list li {
-  position: relative;
-  padding-left: 22px;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: #5a655d;
-}
-.rp-core-card__list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: var(--color-primary);
-  font-weight: 800;
-}
-.rp-core-card__cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  border-radius: 10px;
-  background: var(--color-primary);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.92rem;
-  text-decoration: none;
-  transition: background 0.15s;
-}
-.rp-core-card__cta:hover { background: var(--color-primary-dark); color: #fff; text-decoration: none; }
 
 /* ── Listings grid ──────────────────────────────────────────────────────── */
 .rp-listing-grid {
@@ -7109,9 +7045,12 @@ tr:hover td { background: #F9F6F0; }
   .rp-listing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .rp-hero { padding: 48px 16px 40px; }
-  .rp-body { padding: 40px 16px 32px; gap: 44px; }
-  .rp-hero__actions .rp-btn { flex: 1 1 100%; }
+  .rp-hero { padding: 18px 16px 16px; }
+  .rp-hero__eyebrow { margin-bottom: 8px; }
+  .rp-hero__title { margin: 0 0 6px; }
+  .rp-hero__sub { margin: 0 auto 14px; }
+  .rp-body { padding: 20px 16px 32px; gap: 40px; }
+  .rp-hero__actions .rp-btn { min-height: 44px; padding: 0 16px; font-size: 0.88rem; }
   .rp-section__head--row { flex-direction: column; align-items: stretch; }
   .rp-emergency { flex-direction: column; gap: 12px; padding: 18px 16px; }
 }
