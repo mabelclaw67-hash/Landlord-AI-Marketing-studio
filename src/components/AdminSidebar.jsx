@@ -100,6 +100,11 @@ export default function AdminSidebar() {
             ⚙️ {L.settings}
           </NavLink>
         )}
+        {!trialSession && (
+          <NavLink to="/admin/system-performance" className={({ isActive }) => (isActive ? "active" : "")}>
+            📈 {L.systemPerformance}
+          </NavLink>
+        )}
         <button className="admin-lock-btn" onClick={handleExit}>
           {trialSession ? `🚪 ${L.exitTrial}` : `🔒 ${L.lockAdmin}`}
         </button>

@@ -30,6 +30,8 @@
  *   dateLabel   "Available: 2025-07-01"
  */
 
+import { traceLocal, PERF_OPERATIONS } from "./perfLog.js";
+
 /**
  * Resolve which photos to pass to the collage generator.
  *
@@ -80,7 +82,13 @@ export function resolveCollagePhotos(allPhotos, selection, getId, coverId) {
  * @param {object}   [options.overlayData]        Text overlay descriptor (see above)
  * @returns {Promise<string>} JPEG dataURL
  */
-export async function generateCollageDataUrl(
+export async function generateCollageDataUrl(imageSrcs, options = {}) {
+  return traceLocal(PERF_OPERATIONS.GENERATE_COVER, "generateCollageDataUrl", () =>
+    generateCollageDataUrlCore(imageSrcs, options)
+  );
+}
+
+async function generateCollageDataUrlCore(
   imageSrcs,
   {
     width       = 1200,

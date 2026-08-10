@@ -1,5 +1,6 @@
 import { getStudioRequestAuth } from "./trialAccess";
 import { buildHomeSalePublicUrl } from "./publicUrls";
+import { beginPerfTrace } from "./perfLog.js";
 export { buildHomeSalePublicUrl };
 const HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
 const HOME_SALE_EXEC_URL = import.meta.env.VITE_HOME_SALE_EXEC_URL || "";
@@ -646,6 +647,7 @@ function ensureHomeSaleApiConnected() {
 }
 
 async function homeSaleApiGet(params) {
+  const trace = beginPerfTrace(params.action, params);
   const url = new URL(HOME_SALE_EXEC_URL);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
@@ -654,33 +656,46 @@ async function homeSaleApiGet(params) {
   });
   url.searchParams.set("_t", String(Date.now()));
 
-  const res = await fetch(url.toString(), {
-    redirect: "follow",
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`Home Sale API GET error: ${res.status}`);
+  try {
+    const res = await fetch(url.toString(), {
+      redirect: "follow",
+      cache: "no-store",
+    });
+    if (!res.ok) throw Object.assign(new Error(`Home Sale API GET error: ${res.status}`), { httpStatus: res.status });
 
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
-  return json.data;
+    const json = await res.json();
+    if (json.error) throw Object.assign(new Error(json.error), { httpStatus: res.status });
+    trace?.finish("success", { httpStatus: res.status });
+    return json.data;
+  } catch (ex) {
+    trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
+    throw ex;
+  }
 }
 
 async function homeSaleApiPost(payload) {
-  const res = await fetch(HOME_SALE_EXEC_URL, {
-    method: "POST",
-    redirect: "follow",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
-    body: JSON.stringify(payload),
-  });
+  const trace = beginPerfTrace(payload.action, payload);
+  try {
+    const res = await fetch(HOME_SALE_EXEC_URL, {
+      method: "POST",
+      redirect: "follow",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
-    throw new Error(`Home Sale API POST error: ${res.status}`);
+    if (!res.ok) {
+      throw Object.assign(new Error(`Home Sale API POST error: ${res.status}`), { httpStatus: res.status });
+    }
+
+    const json = await res.json();
+    if (json.error) throw Object.assign(new Error(json.error), { httpStatus: res.status });
+    trace?.finish("success", { httpStatus: res.status });
+    return json.data;
+  } catch (ex) {
+    trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
+    throw ex;
   }
-
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
-  return json.data;
 }

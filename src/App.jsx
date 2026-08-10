@@ -44,6 +44,7 @@ import ApplicationReview from "./pages/admin/ApplicationReview";
 import AdminSettings from "./pages/admin/AdminSettings";
 import PhotoTips from "./pages/admin/PhotoTips";
 import Faq from "./pages/admin/Faq";
+import SystemPerformance from "./pages/admin/SystemPerformance";
 import RentalApplicationLanding from "./pages/RentalApplicationLanding";
 import RentalApplication from "./pages/RentalApplication";
 import SupportDocuments from "./pages/SupportDocuments";
@@ -113,6 +114,7 @@ function AppInner({ lang, setLang }) {
           <Route path="home-sale/review/:listingId" element={<HomeSaleReviewPublish />} />
           <Route path="application/:applicationId" element={<ApplicationReview />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="system-performance" element={<SystemPerformance />} />
           <Route path="photo-tips" element={<PhotoTips />} />
           <Route path="faq" element={<Faq />} />
         </Route>

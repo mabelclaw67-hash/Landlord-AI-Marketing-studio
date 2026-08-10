@@ -32,6 +32,7 @@ const en = {
   photoTips:          "Photo Tips",
   faq:                "FAQ",
   settings:           "Settings",
+  systemPerformance:  "System Performance",
   exitTrial:          "Exit Trial",
   lockAdmin:          "Lock Admin",
 
@@ -335,6 +336,7 @@ const zh = {
   photoTips:          "拍照建议",
   faq:                "常见问题",
   settings:           "系统设置",
+  systemPerformance:  "系统性能监控",
   exitTrial:          "退出试用",
   lockAdmin:          "锁定",
 
