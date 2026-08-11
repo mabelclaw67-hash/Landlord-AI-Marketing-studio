@@ -4,7 +4,6 @@ import { useLang } from "../../contexts/LangContext";
 import {
   getApplicationById,
   getListing,
-  generateFullApplicantAuditReport,
   updateApplicationRetentionStatus,
   cleanupExpiredApplicationsPreview,
   deleteExpiredApplicantSensitiveFiles,
@@ -14,6 +13,10 @@ import {
   updateApplicationStatus,
   updateApplicationNotes,
 } from "../../utils/storage";
+// Full Applicant Audit Report now goes through the same Professional Report
+// Engine as the approved public demo (VIPM_Report_Design_Standard.md Phase 2)
+// instead of the legacy generateFullApplicantAuditReport Apps Script action.
+import { generateRealFullApplicantAuditReport } from "../../utils/applicantScreeningReports";
 import { downloadSubmittedAppPdf } from "../../utils/rentalApplicationPdf";
 import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
 
@@ -550,27 +553,24 @@ export default function ApplicationReview() {
     setGeneratingFullAudit(true);
     setMessage("");
     try {
-      const result = await generateFullApplicantAuditReport(app.recordId, lang);
-      if (!result?.fullAuditReportPdfUrl || !result?.fullAuditReportDriveFileId) {
-        throw new Error("Report generated, but Drive save failed. Please download or retry save.");
+      const result = await generateRealFullApplicantAuditReport({ app, listing, lang });
+      const driveUrl = result?.saveResult?.url;
+      if (!driveUrl) {
+        throw new Error("Report generated, but Drive save failed. Please retry.");
       }
+      const generatedAt = result?.generatedAt || new Date().toISOString();
+      const pdfFileName = result?.saveResult?.fileName || result?.fileName;
       setApp((prev) => ({
         ...prev,
         fullAuditReportStatus: "Generated",
-        fullAuditReportGeneratedAt: result.fullAuditReportGeneratedAt || new Date().toISOString(),
-        fullAuditReportUrl: result.fullAuditReportUrl || prev?.fullAuditReportUrl,
-        fullAuditReportPdfUrl: result.fullAuditReportPdfUrl,
-        fullAuditReportDriveFileId: result.fullAuditReportDriveFileId,
-        fullAuditReportDriveFileUrl: result.fullAuditReportDriveFileUrl || result.fullAuditReportPdfUrl,
-        fullAuditReportSavedFolderId: result.fullAuditReportSavedFolderId,
-        fullAuditReportSavedFolderName: result.fullAuditReportSavedFolderName || "Tenant Screening Reports",
-        fullAuditReportPdfFileName: result.fullAuditReportPdfFileName,
-        fullAuditReportSavedAt: result.fullAuditReportSavedAt,
-        fullAuditReportMarkdown: result?.fullAuditReportMarkdown || prev?.fullAuditReportMarkdown,
+        fullAuditReportGeneratedAt: generatedAt,
+        fullAuditReportPdfUrl: driveUrl,
+        fullAuditReportDriveFileUrl: driveUrl,
+        fullAuditReportPdfFileName: pdfFileName,
+        fullAuditReportSavedAt: generatedAt,
         fullAuditReportError: "",
-        fullAuditDebug: result?.fullAuditDebug || prev?.fullAuditDebug,
       }));
-      setMessage(`Full Applicant Audit Report generated and saved to Tenant Screening Reports: ${result.fullAuditReportPdfFileName || "PDF saved"}.`);
+      setMessage(`Full Applicant Audit Report generated and saved to Tenant Screening Reports: ${pdfFileName || "PDF saved"}.`);
     } catch (e) {
       setMessage("Full Applicant Audit Report failed: " + (e.message || "unknown error"));
     } finally {

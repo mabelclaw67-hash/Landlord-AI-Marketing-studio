@@ -1327,10 +1327,17 @@ function extractedDocumentSummaryLines(documentAnalysis, lang = "en") {
   });
 }
 
-export async function downloadFullApplicantAuditReport({ applicant, listing, lang = "en", supportFiles = [], documentAnalysis = null, autoOpen = false, saveToDrive = true }) {
+export async function downloadFullApplicantAuditReport({ applicant, listing, lang = "en", supportFiles = [], documentAnalysis = null, documentSummary = null, autoOpen = false, saveToDrive = true }) {
   const c = getCopy(lang);
   const app = applicant || {};
-  const supportSummary = matchSupportDocumentsForApplicant(app, supportFiles);
+  // documentSummary lets a caller supply an already-known { available, count,
+  // files } result instead of name-matching supportFiles — used by the real
+  // Application Review path, which has a real, Sheet-tracked uploadedFileCount
+  // /documentUploadStatus and no per-file listing available client-side. The
+  // demo path never passes this, so matchSupportDocumentsForApplicant (name
+  // matching against the fixed demo supportFiles) still drives its output
+  // exactly as before.
+  const supportSummary = documentSummary || matchSupportDocumentsForApplicant(app, supportFiles);
   const extractedSummary = documentAnalysis?.extractedSummary || {};
   const rentValue = parseIncome(listing?.rent);
   const evaluation = buildApplicantEvaluation(app, rentValue, lang, listing);
@@ -1343,7 +1350,9 @@ export async function downloadFullApplicantAuditReport({ applicant, listing, lan
     : reportText(lang, "documentStatus.not_confirmed");
   const supportFileLines = supportSummary.files.length
     ? supportSummary.files.map((file) => `${file.type}: ${file.name}${file.modifiedAt ? ` (${dateText(file.modifiedAt, lang)})` : ""}`)
-    : [lang === "zh" ? "未匹配到支持文件，需人工核对。" : "No matching supporting document files were found. Manual verification required."];
+    : (supportSummary.count > 0
+      ? [lang === "zh" ? `已记录 ${supportSummary.count} 份支持文件；具体文件名请查看 Drive 文件夹。` : `${supportSummary.count} supporting document(s) on file; see the Drive folder for individual file names.`]
+      : [lang === "zh" ? "未匹配到支持文件，需人工核对。" : "No matching supporting document files were found. Manual verification required."]);
   const confidenceKey = supportSummary.available || documentAnalysis ? "medium" : "low";
   const confidence = reportText(lang, `confidenceLevels.${confidenceKey}`);
   const recommendedDecision = extractedSummary?.recommendedDecision || c.rankings[evaluation.rankingKey] || evaluation.ranking;
@@ -1435,6 +1444,73 @@ export async function downloadFullApplicantAuditReport({ applicant, listing, lan
     html,
     saveResult,
   };
+}
+
+// ── Real applicant Full Applicant Audit Report (VIPM_Report_Design_Standard.md
+// Phase 2) ────────────────────────────────────────────────────────────────
+// Real applicant records (from getApplicationById) carry many fields the
+// owner-facing audit report must never show — phone, email, exact current
+// address, WeChat, internal notes, upload tokens, Drive folder/file links.
+// downloadFullApplicantAuditReport's section-building code above only ever
+// reads the fields listed here, but this explicit allowlist makes that safe
+// subset obvious on its own, independent of the renderer, and mirrors
+// buildFullApplicantAuditDemoReport's synthetic dataset field-for-field so
+// the real report stays the same "family" as the approved demo — same
+// fields considered, only real values instead of synthetic ones.
+function toOwnerSafeApplicant(app) {
+  return {
+    recordId: app?.recordId,
+    listingId: app?.listingId,
+    applicantName: app?.applicantName,
+    moveInDate: app?.moveInDate,
+    occupants: app?.occupants,
+    hasPets: app?.hasPets,
+    leaseTerm: app?.leaseTerm,
+    employmentStatus: app?.employmentStatus,
+    employer: app?.employer,
+    monthlyIncome: app?.monthlyIncome,
+    jointIncome: app?.jointIncome,
+    creditHistory: app?.creditHistory,
+    evictionHistory: app?.evictionHistory,
+    hasTenantInsurance: app?.hasTenantInsurance,
+    depositFundsAvailable: app?.depositFundsAvailable,
+    supportDocumentFolderUrl: app?.supportDocumentFolderUrl,
+    documentUploadStatus: app?.documentUploadStatus,
+    proofOfIncome: app?.proofOfIncome,
+    landlordReference: app?.landlordReference,
+    parkingRequest: app?.parkingRequest,
+  };
+}
+
+// Real applications already track uploadedFileCount and documentUploadStatus
+// (Sheet-backed, shown elsewhere on the Application Review page) — there is
+// no frontend action that lists the applicant's individual Drive file names,
+// so this reports an accurate available/count without fabricating file names.
+function toOwnerSafeDocumentSummary(app) {
+  const count = Number(app?.uploadedFileCount || 0);
+  const status = String(app?.documentUploadStatus || "").trim();
+  return {
+    available: count > 0 || /uploaded|complete/i.test(status),
+    count,
+    files: [],
+  };
+}
+
+/**
+ * Generate the Full Applicant Audit Report for a REAL applicant record, using
+ * the same Professional Report Engine (renderStructuredProfessionalReportHtml)
+ * as the approved public demo — no separate template. Maps the real
+ * application record through toOwnerSafeApplicant/toOwnerSafeDocumentSummary
+ * first so owner-unsafe fields never reach the renderer.
+ */
+export async function generateRealFullApplicantAuditReport({ app, listing, lang = "en" }) {
+  return downloadFullApplicantAuditReport({
+    applicant: toOwnerSafeApplicant(app),
+    listing,
+    lang,
+    documentSummary: toOwnerSafeDocumentSummary(app),
+    saveToDrive: true,
+  });
 }
 
 export async function buildFullApplicantAuditDemoReport(lang = "en") {
