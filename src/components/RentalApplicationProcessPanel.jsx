@@ -1,3 +1,4 @@
+import { useId, useState } from "react";
 import { useLang } from "../contexts/LangContext";
 
 const APPLICATION_PROCESS_TEXT = {
@@ -5,32 +6,82 @@ const APPLICATION_PROCESS_TEXT = {
     title: "Rental Application Process",
     subtitle: "Professional screening process for qualified applicants.",
     mobileTrigger: "View Application Process",
+    beforeApplyTitle: "Before You Apply",
+    beforeApply: [
+      "Please review the advertised rent, tenancy term, move-in date, pet policy, utility arrangements, and our rental process before applying.",
+      "Please apply only if the advertised terms and our rental process are suitable for you.",
+    ],
+    reservationNotice: "Submitting an application, providing documents, completing screening, or receiving conditional approval does not by itself reserve the property.",
+    fairnessNotice: "Our rental process and screening criteria are applied consistently to all applicants, subject to applicable law and any accommodation required by law.",
     note: "Supporting documents may include government photo ID, proof of income, credit report/consent, and landlord references.",
     steps: [
-      "Apply Online",
-      "Identity & Income Verification",
-      "Screening & Verification",
-      "Conditional Approval",
-      "Deposit & Lease Signing",
-      "Tenant Insurance",
-      "Move-In Inspection",
-      "Professional Property Management",
+      { title: "Apply Online" },
+      { title: "Identity & Income Verification" },
+      { title: "Screening & Verification" },
+      {
+        title: "Conditional Approval",
+        details: [
+          "Approval is conditional upon the applicant proceeding on the rental terms offered by management and completing all remaining requirements.",
+          "Any requested change to the rent, tenancy term, occupancy, pets, utilities, move-in date, or other material terms may require a new review and approval.",
+        ],
+      },
+      {
+        title: "Deposit & Lease Execution",
+        details: [
+          "The applicant reviews and signs the tenancy agreement.",
+          "The required security deposit and, where applicable, pet damage deposit must then be received in cleared funds.",
+          "Management/landlord will countersign after the required deposit has been received.",
+          "The property is not considered secured until the required deposit has been received and the tenancy has been finalized.",
+        ],
+        depositLimits: [
+          "Security deposit: up to 50% of one month’s rent.",
+          "Pet damage deposit, where applicable: up to an additional 50% of one month’s rent.",
+        ],
+      },
+      { title: "Tenant Insurance" },
+      { title: "Move-In Inspection" },
+      { title: "Professional Property Management" },
     ],
   },
   zh: {
     title: "租赁申请流程",
     subtitle: "为合格申请人提供专业筛选流程。",
     mobileTrigger: "查看申请流程",
+    beforeApplyTitle: "申请前请先确认",
+    beforeApply: [
+      "申请前，请先查看广告所列租金、租期、入住日期、宠物规定、水电及其他费用安排，以及我们的租赁流程。",
+      "请仅在广告条款及我们的租赁流程适合您的情况下提交申请。",
+    ],
+    reservationNotice: "提交申请、提供文件、完成筛选或获得条件批准，本身均不代表该房源已为您保留。",
+    fairnessNotice: "我们的租赁流程和筛选标准会一致地适用于所有申请人，同时遵守适用法律及法律要求的合理便利安排。",
     note: "申请材料通常包括政府照片 ID、收入证明、信用报告/授权，以及前房东推荐。",
     steps: [
-      "在线申请",
-      "身份与收入核验",
-      "筛选与资料核验",
-      "条件批准",
-      "押金与租约签署",
-      "租客保险",
-      "搬入检查",
-      "专业物业管理",
+      { title: "在线申请" },
+      { title: "身份与收入核验" },
+      { title: "筛选与资料核验" },
+      {
+        title: "条件批准",
+        details: [
+          "批准以申请人接受管理方提供的租赁条款并完成所有剩余要求为条件。",
+          "如申请人要求更改租金、租期、入住人数、宠物、水电及其他费用安排、入住日期或其他重要条款，可能需要重新审核及批准。",
+        ],
+      },
+      {
+        title: "押金与租约签署完成",
+        details: [
+          "申请人查看并签署租赁协议。",
+          "随后，所需的保证金以及适用时的宠物损坏押金，必须以已结算资金形式到账。",
+          "管理方／房东将在收到所需押金后会签。",
+          "在收到所需押金并完成租赁手续前，该房源不视为已被锁定。",
+        ],
+        depositLimits: [
+          "保证金：最高为一个月租金的 50%。",
+          "宠物损坏押金（如适用）：最高可另收一个月租金的 50%。",
+        ],
+      },
+      { title: "租客保险" },
+      { title: "搬入检查" },
+      { title: "专业物业管理" },
     ],
   },
 };
@@ -38,6 +89,8 @@ const APPLICATION_PROCESS_TEXT = {
 export function RentalApplicationProcessCard() {
   const lang = useLang();
   const text = APPLICATION_PROCESS_TEXT[lang === "zh" ? "zh" : "en"];
+  const [expandedStep, setExpandedStep] = useState(null);
+  const detailsIdPrefix = useId();
 
   return (
     <section className="application-process-card" aria-label={text.title}>
@@ -45,15 +98,48 @@ export function RentalApplicationProcessCard() {
         <h2 className="application-process-card__title">{text.title}</h2>
         <p className="application-process-card__subtitle">{text.subtitle}</p>
       </div>
+      <div className="application-process-card__before">
+        <h3>{text.beforeApplyTitle}</h3>
+        {text.beforeApply.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+      </div>
+      <p className="application-process-card__reservation">{text.reservationNotice}</p>
       <ol className="application-process-steps">
         {text.steps.map((step, index) => (
-          <li key={step} className="application-process-step">
+          <li key={step.title} className="application-process-step">
             <span className="application-process-step__index">{index + 1}</span>
-            <span className="application-process-step__label">{step}</span>
+            <div className="application-process-step__content">
+              {step.details ? (
+                <button
+                  type="button"
+                  className="application-process-step__toggle"
+                  aria-expanded={expandedStep === index}
+                  aria-controls={`${detailsIdPrefix}-step-${index}`}
+                  onClick={() => setExpandedStep((current) => current === index ? null : index)}
+                >
+                  <span className="application-process-step__label">{step.title}</span>
+                  <span className="application-process-step__toggle-icon" aria-hidden="true">
+                    {expandedStep === index ? "−" : "+"}
+                  </span>
+                </button>
+              ) : (
+                <span className="application-process-step__label">{step.title}</span>
+              )}
+              {step.details && expandedStep === index && (
+                <div id={`${detailsIdPrefix}-step-${index}`} className="application-process-step__details">
+                  {step.details.map((detail) => <p key={detail}>{detail}</p>)}
+                  {step.depositLimits && (
+                    <ul className="application-process-step__limits">
+                      {step.depositLimits.map((limit) => <li key={limit}>{limit}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           </li>
         ))}
       </ol>
       <p className="application-process-card__note">{text.note}</p>
+      <p className="application-process-card__fairness">{text.fairnessNotice}</p>
     </section>
   );
 }

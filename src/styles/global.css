@@ -1405,6 +1405,38 @@ tr:hover td { background: #F9F6F0; }
   color: #7b857e;
 }
 
+.application-process-card__before {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f7f3eb;
+  color: #4f5e55;
+}
+
+.application-process-card__before h3 {
+  margin: 0 0 6px;
+  font-size: 0.84rem;
+  color: #2f4338;
+}
+
+.application-process-card__before p,
+.application-process-card__reservation,
+.application-process-step__content p,
+.application-process-card__fairness {
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.application-process-card__before p {
+  margin: 4px 0 0;
+}
+
+.application-process-card__reservation {
+  margin: 0 0 14px;
+  font-weight: 700;
+  color: #4b5b52;
+}
+
 .application-process-steps {
   list-style: none;
   margin: 0;
@@ -1435,10 +1467,64 @@ tr:hover td { background: #F9F6F0; }
 }
 
 .application-process-step__label {
+  display: block;
   font-size: 0.88rem;
   line-height: 1.45;
   color: #2d3b34;
   padding-top: 4px;
+}
+
+.application-process-step__toggle {
+  width: 100%;
+  min-height: 28px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font: inherit;
+}
+
+.application-process-step__toggle-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f3eee5;
+  color: #3e5b4b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.application-process-step__toggle:focus-visible {
+  outline: 2px solid #3e5b4b;
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+.application-process-step__details p {
+  margin: 7px 0 0;
+  color: #68746d;
+}
+
+.application-process-step__limits {
+  margin: 8px 0 0;
+  padding-left: 17px;
+  color: #4f5e55;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.application-process-card__fairness {
+  margin: 10px 0 0;
+  color: #7f8882;
 }
 
 .application-process-card__note {
