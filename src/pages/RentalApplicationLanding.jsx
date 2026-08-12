@@ -4,6 +4,7 @@ import { getPublicListings } from "../utils/storage";
 import { COMPANY_FOOTER } from "../components/Footer";
 import { getListingStatusMeta, isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
 import { sortRentalListings } from "../utils/listingSort";
+import RentalApplicationNotice from "../components/RentalApplicationNotice";
 
 function formatDate(value) {
   if (!value) return "";
@@ -51,6 +52,7 @@ export default function RentalApplicationLanding() {
 
       <section className="section">
         <div className="container" style={{ maxWidth: 860 }}>
+          <RentalApplicationNotice style={{ marginBottom: 20 }} />
           {loading && (
             <p className="tenant-loading">Loading available rental listings...</p>
           )}

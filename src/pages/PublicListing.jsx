@@ -15,6 +15,11 @@ import {
   resolveRentalListingImageSrc,
 } from "../utils/listingPublicMeta";
 import { parseListingAdCopy } from "../utils/listingFormat";
+import RentalApplicationNotice from "../components/RentalApplicationNotice";
+import {
+  RENTAL_APPLICATION_PROCESS_NOTICE,
+  RENTAL_APPLICATION_PROCESS_URL,
+} from "../utils/rentalApplicationNotice";
 
 const PUBLIC_LISTING_TEXT = {
   en: {
@@ -509,6 +514,17 @@ export default function PublicListing({ lang = "en" }) {
         color: #6b7280;
         word-break: break-word;
       }
+      .application-note {
+        border-top: 1px solid #dce7df;
+        margin-top: 14px;
+        padding-top: 12px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #6b7280;
+      }
+      .application-note a {
+        color: inherit;
+      }
       @media print {
         body {
           background: #fff;
@@ -558,6 +574,7 @@ export default function PublicListing({ lang = "en" }) {
           ${safeContactEmail ? `<div class="contact-row">Email: ${safeContactEmail}</div>` : ""}
           ` : `<div class="contact-row">Contact information not provided</div>`}
         </div>
+        <div class="application-note"><a href="${escapePrintHtml(RENTAL_APPLICATION_PROCESS_URL)}">${escapePrintHtml(RENTAL_APPLICATION_PROCESS_NOTICE)}</a></div>
         <div class="url">${safeListingUrl}</div>
       </div>
     </div>
@@ -729,6 +746,9 @@ export default function PublicListing({ lang = "en" }) {
           </div>
 
           {/* Primary CTA */}
+          {acceptsApplications && (
+            <RentalApplicationNotice compact style={{ marginBottom: 16 }} />
+          )}
           {!acceptsApplications ? (
             <div style={{ marginBottom: 12 }}>
               <div

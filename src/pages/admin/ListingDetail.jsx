@@ -7,6 +7,7 @@ import { formatListingDate, formatMonthlyRent, splitFeatureList } from "../../ut
 import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
 import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
+import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApplicationNotice";
 import { isApiConnected, apiPost } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
@@ -563,7 +564,10 @@ export default function ListingDetail({ lang: langProp }) {
   // ── Copy edit helpers ────────────────────────────────────────────────────────
   const startEditCopy = (key) => {
     setCopyEditMode(key);
-    setEditingText(editedCopy[key] ?? listing.outputs?.[key] ?? "");
+    setEditingText(addRentalApplicationProcessNoticeToOutput(
+      key,
+      editedCopy[key] ?? listing.outputs?.[key] ?? ""
+    ));
   };
 
   const saveDraftCopy = () => {
@@ -2753,7 +2757,10 @@ export default function ListingDetail({ lang: langProp }) {
         </div>
 
         {currentTab && listing.outputs?.[currentTab] && (() => {
-          const displayText = editedCopy[currentTab] ?? listing.outputs[currentTab];
+          const displayText = addRentalApplicationProcessNoticeToOutput(
+            currentTab,
+            editedCopy[currentTab] ?? listing.outputs[currentTab]
+          );
           const isEditing   = copyEditMode === currentTab;
           const hasDraft    = editedCopy[currentTab] !== undefined;
           const copyStatus  = hasDraft ? "Edited Draft (local, unsaved)" : "Generated";

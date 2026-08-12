@@ -2,6 +2,7 @@
 // In v0.3 this function will call the Claude API instead.
 
 import { splitFeatureList } from "./listingFormat";
+import { addRentalApplicationProcessNoticeToOutput } from "./rentalApplicationNotice";
 
 // ── Protected-term filter ────────────────────────────────────────────────────
 // BC Human Rights Code prohibits tenant preference based on these characteristics.
@@ -363,5 +364,10 @@ ${featList.length ? featChBullets : "• 请在填写表单时补充主要特色
 
 ${tenantLineCh}${compliance}`;
 
-  return outputs;
+  return Object.fromEntries(
+    Object.entries(outputs).map(([key, text]) => [
+      key,
+      addRentalApplicationProcessNoticeToOutput(key, text),
+    ])
+  );
 }

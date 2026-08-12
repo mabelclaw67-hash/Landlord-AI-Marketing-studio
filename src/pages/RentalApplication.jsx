@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import RentalApplicationNotice from "../components/RentalApplicationNotice";
 import { downloadApplicationPdf, getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
 import { downloadSubmittedAppPdf } from "../utils/rentalApplicationPdf";
 import { isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
@@ -710,6 +711,7 @@ export default function RentalApplication() {
           property. All adult occupants may be required to provide supporting
           documents before move-in. Submitting this form does not guarantee approval.
         </div>
+        <RentalApplicationNotice compact style={{ marginTop: 12 }} />
       </div>
 
       {error && (
