@@ -11,7 +11,7 @@ import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApp
 import { isApiConnected, apiPost } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
-import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS } from "../../utils/listingPublicMeta";
+import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS, resolveRentalListingCover } from "../../utils/listingPublicMeta";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
@@ -296,6 +296,8 @@ export default function ListingDetail({ lang: langProp }) {
   const [photoOrder,    setPhotoOrder]    = useState([]);   // fileId[]
   const [excluded,      setExcluded]      = useState(new Set()); // Set<fileId>
   const [manualCover,   setManualCover]   = useState(null); // fileId | null
+  const [coverFiles,    setCoverFiles]    = useState([]);   // files already in 03_Cover_Images/
+  const [videoFiles,    setVideoFiles]    = useState([]);   // files already in 04_Video_Output/
 
   // Collage state
   const [collageStatus,    setCollageStatus]    = useState("idle"); // idle|loading|ready|saving|saved|error
@@ -349,10 +351,20 @@ export default function ListingDetail({ lang: langProp }) {
       .then((l) => {
         setListing(l);
         if (!l) { setError("Listing not found."); return; }
+        // "Save as Cover" persists this pointer to the sheet, and the public
+        // page already reads it — the admin page only ever wrote it, which is
+        // why a saved cover vanished from this screen on reload.
+        if (l.coverImageFileId) setManualCover(l.coverImageFileId);
         const fid = extractFolderId(l.driveFolderLink);
         if (fid) {
           loadFolderFiles(fid);
           loadScreeningReports(fid, l.id);
+          // Drive is the source of truth for generated output too. Without these
+          // reads the admin page only ever saw the folder root, so a collage
+          // cover or short video produced in an earlier session stayed invisible
+          // here even though the file was sitting in Drive.
+          loadCoverFiles(fid, l.id);
+          loadVideoFiles(fid, l.id);
         }
         // Auto-load enhanced photos if subfolder ID was saved from a previous batch run
         if (l.enhancedFolderId) {
@@ -413,6 +425,29 @@ export default function ListingDetail({ lang: langProp }) {
       setFolderError(err?.message || "Unable to load photos from Drive.");
     } finally {
       setFolderLoading(false);
+    }
+  };
+
+  // Rehydrate previously generated output from Drive. Both subfolders are
+  // metadata-only reads (the same endpoint the public listing page uses), so
+  // this adds no Base64 to the listing load path.
+  const loadCoverFiles = async (folderId, listingId) => {
+    try {
+      const res = await getListingSubfolderFiles(folderId, "03_Cover_Images", listingId);
+      setCoverFiles(res?.files || []);
+      if (res?.subfolderUrl) setCollageFolderUrl(res.subfolderUrl);
+    } catch {
+      // A failed read is not proof the folder is empty — leave what we have.
+    }
+  };
+
+  const loadVideoFiles = async (folderId, listingId) => {
+    try {
+      const res = await getListingSubfolderFiles(folderId, "04_Video_Output", listingId);
+      setVideoFiles(res?.files || []);
+      if (res?.subfolderUrl) setVideoFolderUrl(res.subfolderUrl);
+    } catch {
+      // Same as above — keep the existing state rather than showing "none".
     }
   };
 
@@ -774,7 +809,12 @@ export default function ListingDetail({ lang: langProp }) {
   // Effective cover: manual selection takes priority over auto-detect
   let effectiveCover, coverIsManual, coverIsFallback;
   if (manualCover) {
-    effectiveCover  = folderFiles.find((f) => f.fileId === manualCover) || null;
+    // The saved cover normally lives in 03_Cover_Images/, not the folder root,
+    // so search both. resolveRentalListingCover — the same helper the public
+    // page uses — builds a thumbnail straight from the fileId if the subfolder
+    // listing has not arrived yet, so the cover still renders.
+    effectiveCover  = [...coverFiles, ...folderFiles].find((f) => f.fileId === manualCover)
+      || resolveRentalListingCover([], [], manualCover);
     coverIsManual   = true;
     coverIsFallback = false;
   } else {
@@ -2604,6 +2644,41 @@ export default function ListingDetail({ lang: langProp }) {
                   >
                     🎬 Generate Polished Short Video
                   </button>
+                )}
+
+                {/* Videos already in 04_Video_Output/. The in-page player is fed
+                    by a per-browser blob cache, so without this an export made
+                    on another machine or before a cache clear looked missing
+                    even though Drive still had the file. */}
+                {videoStatus === "idle" && videoFiles.length > 0 && (
+                  <div className="notice" style={{ marginTop: 10 }}>
+                    <p style={{ fontSize: "0.82rem", marginBottom: 4 }}>
+                      {lang === "zh"
+                        ? `Drive 中已有 ${videoFiles.length} 个已生成视频：`
+                        : `${videoFiles.length} previously generated video${videoFiles.length !== 1 ? "s" : ""} in Drive:`}
+                    </p>
+                    <ul style={{ fontSize: "0.78rem", lineHeight: 1.8, margin: 0, paddingLeft: 18 }}>
+                      {videoFiles.map((f) => (
+                        <li key={f.fileId}>
+                          <a
+                            href={f.url || `https://drive.google.com/file/d/${f.fileId}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {f.name || f.fileId} ↗
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                    {isAdmin && videoFolderUrl && (
+                      <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                        <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ color: "var(--color-text-muted)", textDecoration: "underline" }}>
+                          📂 04_Video_Output ↗
+                        </a>
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Progress */}
