@@ -3,17 +3,17 @@ import { normalizeLang } from "../utils/lang";
 
 const COPY = {
   en: {
-    title: "Professional Property Services & AI-Powered Tools",
-    subtitle: "From rental strategy and property marketing to tenant screening, ongoing management, and preliminary dispute review—all in one connected service platform.",
+    title: "Professional Landlord Support",
+    subtitle: "Powered by experience, systems and smart technology. Support for independent landlords across rental marketing, tenant screening, documentation, rental administration, record keeping, and dispute preparation — you stay in control of your property and your decisions.",
     sections: [
       {
         key: "professional",
-        title: "Professional Property Services",
-        description: "Practical services for marketing, applications, management, and home sales.",
+        title: "Landlord Support Services",
+        description: "Practical support for rental marketing, applications, tenancy administration, and home sales — provided under the landlord's direction.",
         cards: [
           { icon: "🏠", title: "Rental Listing & Marketing", description: "Professional bilingual rental listings, property pages, photo presentation, QR codes, social-media sharing content, platform-ready posts, cover headlines, and short-video scripts.", button: "Open Rental Studio", to: "/rentals" },
           { icon: "📋", title: "Tenant Application & Preliminary Screening", description: "Tenants submit applications online while the system organizes applicant information for consistent preliminary screening and professional review. Final decisions remain with the landlord or reviewing professional.", button: "Apply Online", to: "/apply" },
-          { icon: "🔑", title: "Property Management", description: "Tenant communication, rent and payment tracking, maintenance coordination, record management, owner reporting, and ongoing tenancy support.", button: "Contact Property Management", to: "/contact" },
+          { icon: "🔑", title: "Tenancy Support & Rental Administration", description: "Tenant communication, rent and payment tracking, maintenance coordination, record keeping, owner reporting, and ongoing tenancy support. The landlord remains the decision-maker throughout.", button: "Talk to Us", to: "/contact" },
           { icon: "🏡", title: "Home Sale Marketing", description: "Bilingual home-sale pages, photo and video marketing content, platform-ready copy, cover headlines, short-video scripts, QR codes, and buyer inquiry links for sellers, private-sale owners, and real-estate professionals.", button: "Open Home Sale Studio", to: "/home-sale-studio" },
         ],
       },
@@ -41,17 +41,17 @@ const COPY = {
     ],
   },
   zh: {
-    title: "专业物业服务与AI智能工具",
-    subtitle: "从出租策略、房源营销、租客筛选到日常管理和争议初评，为房东和租客提供一站式在线服务。",
+    title: "专业房东支持服务",
+    subtitle: "以实务经验、系统与智能技术为支撑，为独立房东提供出租营销、租客筛选、文件准备、租务日常事务、记录保存和争议材料准备等支持——物业和决定权始终由您掌握。",
     sections: [
       {
         key: "professional",
-        title: "专业物业服务",
-        description: "覆盖房源营销、租客申请、日常管理和房屋出售推广的实用服务。",
+        title: "房东支持服务",
+        description: "覆盖出租营销、租客申请、租务日常事务和房屋出售推广的实用支持，均在房东的指示下进行。",
         cards: [
           { icon: "🏠", title: "出租房源营销", description: "创建专业的中英文出租广告、房源页面、照片展示、二维码、社交平台分享内容、平台发帖文案、封面标题及短视频脚本。", button: "进入出租房源工作台", to: "/rentals" },
           { icon: "📋", title: "租客申请与初步筛选", description: "租客可在线提交申请资料，系统集中整理申请信息，协助进行一致、规范的初步筛选和专业审核。最终决定仍由房东或专业人员作出。", button: "在线申请", to: "/apply" },
-          { icon: "🔑", title: "物业管理服务", description: "提供租客沟通、租金与付款跟踪、维修协调、记录管理、业主报告及日常租赁管理支持。", button: "联系物业管理", to: "/contact" },
+          { icon: "🔑", title: "租务支持与日常事务", description: "提供租客沟通、租金与付款跟踪、维修协调、记录保存、业主报告及日常租务支持。整个过程中，决策权始终在房东。", button: "联系我们", to: "/contact" },
           { icon: "🏡", title: "出售房源营销", description: "为卖家、自售业主和房产经纪人创建中英文出售房源页面、照片和视频推广内容、平台发帖文案、封面标题、短视频脚本、二维码及买家咨询入口。", button: "进入出售房源工作台", to: "/home-sale-studio" },
         ],
       },
@@ -72,7 +72,7 @@ const COPY = {
         description: "集中连接租客和房东最常使用的在线服务。",
         cards: [
           { icon: "🛠️", title: "租客在线维修申报", description: "租客可在线提交维修问题、上传照片和相关说明，方便物业经理集中记录、跟踪和处理。", button: "提交维修申报", to: "/tenant-service-request" },
-          { icon: "📚", title: "房东知识中心", description: "提供出租法规、本地政策、短租规则、套房说明和物业管理实务指南。", button: "进入房东知识中心", to: "/resources" },
+          { icon: "📚", title: "房东知识中心", description: "提供出租法规、本地政策、短租规则、套房说明和出租实务指南。", button: "进入房东知识中心", to: "/resources" },
           { icon: "🏘️", title: "租客门户", description: "集中提供房源浏览、在线申请、维修申报、联系方式和常见问题入口。", button: "进入租客门户", to: "/rentals" },
         ],
       },

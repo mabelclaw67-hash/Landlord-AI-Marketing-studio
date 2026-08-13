@@ -48,6 +48,12 @@ export default function RentalApplicationLanding() {
         <p className="tenant-hero__desc">
           Please select one currently available listing. The application stays inside our website flow.
         </p>
+        {/* Applicants need to know who they are dealing with before submitting
+            personal information — VanIsland supports the landlord, who decides. */}
+        <p className="tenant-hero__desc" style={{ marginTop: 10 }}>
+          VanIsland works with individual landlords to provide rental marketing, applicant screening and
+          administrative support. The landlord remains the decision-maker regarding the tenancy.
+        </p>
       </section>
 
       <section className="section">

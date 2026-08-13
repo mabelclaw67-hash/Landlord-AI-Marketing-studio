@@ -27,8 +27,8 @@ const TENANT_SERVICE_TEXT = {
       ["Access Instructions", "Confirm whether entry is permitted and provide preferred access times."],
       ["Submit Request", "The system creates a unique Tenant Service Request ID."],
       ["Receive Confirmation", "The tenant receives an automatic email receipt."],
-      ["Management Review", "Property management receives an immediate notification and reviews the request."],
-      ["Repair Follow-up", "Management contacts the tenant and arranges a contractor when necessary."],
+      ["Request Review", "Our team receives an immediate notification and reviews the request."],
+      ["Repair Follow-up", "Our team contacts the tenant and arranges a contractor when necessary."],
     ],
   },
   zh: {
@@ -56,8 +56,8 @@ const TENANT_SERVICE_TEXT = {
       ["进入说明", "确认是否允许进入，并提供方便进入的时间。"],
       ["提交申请", "系统会生成唯一的租客服务申请编号。"],
       ["接收确认", "租客会自动收到电子邮件回执。"],
-      ["物业审核", "物业管理方会立即收到通知并审核申请。"],
-      ["维修跟进", "物业管理方会联系租客，并在需要时安排承包商。"],
+      ["申请审核", "我们团队会立即收到通知并审核申请。"],
+      ["维修跟进", "我们团队会联系租客，并在需要时安排承包商。"],
     ],
   },
 };

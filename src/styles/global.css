@@ -4284,10 +4284,268 @@ tr:hover td { background: #F9F6F0; }
 }
 
 .lh-hero__desc-ch {
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.62);
   margin: 4px 0 0;
+  max-width: 520px;
+  line-height: 1.65;
   font-size: 13px;
   font-weight: 400;
+}
+
+/* ── Landlord support positioning ─────────────────────────────────────────── */
+
+/* Hero headline is the strongest statement on the page */
+.lh-hero__title span { display: block; }
+
+.lh-hero__brandline {
+  margin: 0 0 18px;
+  font-family: var(--lh-font-heading);
+  font-size: clamp(17px, 1.9vw, 23px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: #E8C98A;
+  letter-spacing: 0.01em;
+  max-width: 520px;
+}
+
+/* Brand principles band — visually strong, subordinate to the hero */
+.lh-principles {
+  background: var(--lh-green, #223B31);
+  border-top: 1px solid rgba(200, 169, 106, 0.35);
+}
+
+.lh-principles__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 34px 48px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+}
+
+.lh-principle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 15px;
+  border-left: 2px solid var(--lh-gold, #C8A96A);
+}
+
+.lh-principle span {
+  font-family: var(--lh-font-heading);
+  font-size: clamp(15px, 1.35vw, 18px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: #FFFFFF;
+}
+
+.lh-principle span + span { color: rgba(255, 255, 255, 0.72); }
+
+.lh-why__title {
+  margin: 12px 0 14px;
+  font-family: var(--lh-font-heading);
+  font-size: clamp(21px, 2.2vw, 28px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--lh-green);
+}
+
+.lh-mission__inner,
+.lh-why__inner {
+  max-width: 780px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Who does what */
+.lh-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.lh-role-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(51, 64, 58, 0.12);
+  border-radius: 14px;
+  padding: 26px 24px;
+  box-shadow: 0 2px 10px rgba(51, 64, 58, 0.05);
+}
+
+.lh-role-card--you {
+  border-color: rgba(200, 169, 106, 0.55);
+  background: rgba(200, 169, 106, 0.07);
+}
+
+.lh-role-card h3 {
+  margin: 0 0 14px;
+  font-family: var(--lh-font-heading);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lh-green);
+}
+
+.lh-role-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lh-role-card li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 9px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--color-text-muted, #5d6b64);
+}
+
+.lh-role-card li:last-child { margin-bottom: 0; }
+
+.lh-role-card li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lh-gold, #C8A96A);
+}
+
+/* Lede headline made of two lines */
+.lh-lede span { display: block; }
+
+.lh-note {
+  max-width: 720px;
+  margin: 26px auto 0;
+  text-align: center;
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--color-text-muted, #5d6b64);
+}
+
+/* Chip list for "when renting gets complicated" */
+.lh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lh-chips li {
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: #FFFFFF;
+  border: 1px solid rgba(51, 64, 58, 0.14);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--lh-green);
+}
+
+.lh-statement--plain {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.lh-why__inner p:not(.lh-statement) {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--color-text-muted, #5d6b64);
+}
+
+.lh-statement {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 32px auto 0;
+  padding: 22px 26px;
+  border-radius: 12px;
+  background: rgba(200, 169, 106, 0.12);
+  border: 1px solid rgba(200, 169, 106, 0.4);
+}
+
+.lh-statement span {
+  font-family: var(--lh-font-heading);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--lh-green);
+}
+
+.lh-values__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.lh-value-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(51, 64, 58, 0.12);
+  border-radius: 14px;
+  padding: 26px 24px;
+  box-shadow: 0 2px 10px rgba(51, 64, 58, 0.05);
+}
+
+.lh-value-card__icon {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 14px;
+}
+
+.lh-value-card h3 {
+  margin: 0 0 10px;
+  font-family: var(--lh-font-heading);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--lh-green);
+  line-height: 1.35;
+}
+
+.lh-value-card p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-text-muted, #5d6b64);
+}
+
+.lh-mission__quote {
+  margin: 0 0 22px;
+  padding: 0;
+  border: none;
+  font-family: var(--lh-font-heading);
+  font-size: clamp(19px, 2.3vw, 27px);
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--lh-green);
+}
+
+.lh-mission__inner p {
+  margin: 0 0 12px;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--color-text, #33403a);
+}
+
+.lh-mission__inner p:last-child { margin-bottom: 0; }
+
+.lh-values__grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 900px) {
+  .lh-values__grid,
+  .lh-values__grid--four { grid-template-columns: 1fr; gap: 14px; }
+  .lh-roles { grid-template-columns: 1fr; gap: 14px; }
+  .lh-principles__inner { grid-template-columns: 1fr; gap: 18px; padding: 26px 20px; }
+  .lh-statement { padding: 18px 18px; }
+  .lh-statement--plain { padding: 0; }
 }
 
 .lh-hero__actions {

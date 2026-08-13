@@ -40,7 +40,7 @@ const APPLICATION_PROCESS_TEXT = {
       },
       { title: "Tenant Insurance" },
       { title: "Move-In Inspection" },
-      { title: "Professional Property Management" },
+      { title: "Ongoing Professional Support" },
     ],
   },
   zh: {
@@ -81,7 +81,7 @@ const APPLICATION_PROCESS_TEXT = {
       },
       { title: "租客保险" },
       { title: "搬入检查" },
-      { title: "专业物业管理" },
+      { title: "持续专业支持" },
     ],
   },
 };

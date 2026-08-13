@@ -68,7 +68,7 @@ const RENTAL_PUBLIC_TEXT = {
 
     // Hero (compact)
     heroBrand: "Vanisland Rentals",
-    heroSub: "Professional rentals and property management on Vancouver Island. Browse available homes, apply online, or access tenant services.",
+    heroSub: "Rental listings and tenant services on Vancouver Island. VanIsland provides rental marketing, applicant screening and administrative support for individual landlords — the landlord remains the decision-maker regarding the tenancy.",
     heroBrowse: "View Rentals",
     heroApply: "Apply Now",
     heroService: "Tenant Service",
@@ -114,10 +114,10 @@ const RENTAL_PUBLIC_TEXT = {
     // Trust highlights
     trustTitle: "Why Rent With Us",
     trustItems: [
-      ["🏢", "Professional Rental Management", "Homes managed by an experienced Vancouver Island team."],
+      ["🏢", "Professionally Supported Rentals", "Listings supported by an experienced Vancouver Island team, on behalf of the landlord."],
       ["🔒", "Secure Online Applications", "Submit your application and documents safely online."],
       ["🛠️", "Maintenance Request Tracking", "Every request gets an ID and a clear handling process."],
-      ["💬", "Responsive Tenant Communication", "Clear, timely updates from management throughout."],
+      ["💬", "Responsive Communication", "Clear, timely updates from our team throughout the process."],
     ],
 
     // Quick help
@@ -126,7 +126,7 @@ const RENTAL_PUBLIC_TEXT = {
       ["How do I apply?", "Open any listing and choose Apply Now, or use the Apply Now button in the top navigation. You'll complete your identity and income details online."],
       ["How do I report a maintenance issue?", "Current tenants can use Start Service Request. Verify your tenancy, describe the issue, upload photos, and you'll receive a Request ID."],
       ["What should I do in an emergency?", "For fire, major flooding, gas smell, or immediate electrical danger, call 911 or the appropriate emergency service first. Do not wait for the online form."],
-      ["How will management contact me?", "Management follows up by email or phone using the contact details you provide, and keeps you updated through each step."],
+      ["How will you contact me?", "Our team follows up by email or phone using the contact details you provide, and keeps you updated through each step. Tenancy decisions are made by the landlord."],
     ],
 
     // Tenant quick links strip
@@ -157,7 +157,7 @@ const RENTAL_PUBLIC_TEXT = {
 
     // Hero (compact)
     heroBrand: "Vanisland 出租",
-    heroSub: "温哥华岛专业租赁与物业管理，浏览房源、在线申请或获取租客服务。",
+    heroSub: "温哥华岛租赁房源与租客服务。VanIsland 为个人房东提供出租营销、申请人筛选和行政支持——租约的最终决定权在房东。",
     heroBrowse: "查看房源",
     heroApply: "立即申请",
     heroService: "租客服务",
@@ -203,10 +203,10 @@ const RENTAL_PUBLIC_TEXT = {
     // Trust highlights
     trustTitle: "为什么选择我们",
     trustItems: [
-      ["🏢", "专业物业管理", "由经验丰富的温哥华岛团队管理房源。"],
+      ["🏢", "专业支持的房源", "由经验丰富的温哥华岛团队代表房东提供支持。"],
       ["🔒", "安全在线申请", "在线安全提交申请与相关资料。"],
       ["🛠️", "维修申请可追踪", "每个申请都有编号和清晰的处理流程。"],
-      ["💬", "及时租客沟通", "全程由物业管理方清晰、及时地更新进度。"],
+      ["💬", "及时沟通", "全程由我们团队清晰、及时地更新进度。"],
     ],
 
     // Quick help
@@ -215,7 +215,7 @@ const RENTAL_PUBLIC_TEXT = {
       ["我要如何申请？", "打开任意房源并点击“立即申请”，或使用顶部导航的“立即申请”按钮，在线完成身份和收入资料。"],
       ["如何报修？", "在住租客可点击“提交服务申请”。验证租赁身份、描述问题、上传照片，即可获得申请编号。"],
       ["遇到紧急情况怎么办？", "如遇火灾、大量漏水、燃气气味或即时电气危险，请先拨打 911 或联系相应紧急服务，不要等待线上表单。"],
-      ["物业会如何联系我？", "物业管理方会使用您提供的联系方式，通过电子邮件或电话跟进，并在每一步更新进度。"],
+      ["你们会如何联系我？", "我们会使用您提供的联系方式，通过电子邮件或电话跟进，并在每一步更新进度。租约的最终决定由房东作出。"],
     ],
 
     // Tenant quick links strip

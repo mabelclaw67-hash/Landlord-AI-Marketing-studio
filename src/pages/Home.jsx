@@ -14,24 +14,85 @@ const T = {
     langLabel: "🌐 EN",
 
     // hero
-    eyebrow: "📚 PLATFORM",
-    heroTitle: "Vanisland Property",
-    heroDesc: "Create marketing packages for rental and home sale listings.",
-    heroSubDesc:
-      "One platform for rental and home sale marketing across public pages, applications, and sharing.",
-    requestAccess: "Request Access",
-    trialAccess: "Trial Access",
-    adminAccess: "Admin",
-    learnMore: "Learn More",
+    eyebrow: "PROFESSIONAL SUPPORT FOR INDEPENDENT LANDLORDS",
+    heroTitleLine1: "Manage your own property\u00A0—",
+    heroTitleLine2: "without managing every challenge alone.",
+    heroBrandLine1: "Stay independent.",
+    heroBrandLine2: "Get professional support.",
+    heroDesc:
+      "VanIsland provides practical, professional support for independent landlords — from rental marketing and applicant screening to documentation, rental administration and difficult rental situations.",
+    requestAccess: "Get Landlord Support",
+    exploreServices: "Explore Our Services",
+
+    // brand principles
+    principles: [
+      ["You manage your property.", "We help you manage the challenges."],
+      ["Get help where you need it.", "Stay in control where you don't."],
+      ["We don't replace the landlord.", "We support the landlord."],
+    ],
 
     // why card
-    whyTitle: "Why Vanisland AI Studio?",
+    whyTitle: "Why Independent Landlords Choose VanIsland",
     reasons: [
-      { icon: "✨", title: "AI-Powered Marketing", desc: "Generate high-quality copy, pages, and materials in minutes." },
-      { icon: "🌐", title: "Bilingual Ready",      desc: "All content and pages are ready for Chinese and English." },
-      { icon: "🔗", title: "Share Anywhere",       desc: "QR codes, share links, and mobile-friendly pages." },
-      { icon: "👥", title: "Built for Real Estate",desc: "Designed for landlords, sellers, FSBO owners, and realtors." },
+      { icon: "🎯", title: "You Stay in Control",   desc: "You remain the landlord and decision-maker on your own property." },
+      { icon: "🧾", title: "Documentation & Records",desc: "Applications, tenancy paperwork, and records kept organized and retrievable." },
+      { icon: "🔍", title: "Tenant Screening",       desc: "Structured screening and applicant review prepared for your final decision." },
+      { icon: "🌐", title: "Bilingual Support",      desc: "Landlord and tenant communication handled in Chinese and English." },
     ],
+
+    // how it works — division of responsibility
+    modelKicker: "HOW IT WORKS",
+    modelTitle: "You stay in control. VanIsland supports the process.",
+    roleYouTitle: "You — the landlord",
+    roleYou: [
+      "Own and control the property",
+      "Set the rental strategy and terms",
+      "Make the final tenant-selection decision",
+      "Approve the tenancy",
+      "Receive rent directly where applicable",
+      "Stay in control of the landlord–tenant relationship",
+    ],
+    roleUsTitle: "VanIsland — your support team",
+    roleUs: [
+      "Rental marketing and listing preparation",
+      "Inquiry handling and showing support",
+      "Applicant intake and tenant screening",
+      "Supporting-document collection",
+      "Rental documentation and administration",
+      "Record keeping and dispute preparation",
+    ],
+
+    // renting your property
+    rentKicker: "RENTING YOUR PROPERTY",
+    rentPullLine1: "You own it. You manage it.",
+    rentPullLine2: "We help you rent it well.",
+    rentSteps: [
+      { icon: "📣", title: "Marketing",             desc: "Listing preparation, bilingual ads, and inquiry handling." },
+      { icon: "🔍", title: "Screening",             desc: "Applicant intake, document collection, and organized review." },
+      { icon: "🧾", title: "Documentation",         desc: "Rental paperwork prepared and kept in order." },
+      { icon: "📂", title: "Rental administration", desc: "Day-to-day rental process and record keeping." },
+    ],
+    rentNote:
+      "You engage VanIsland to assist with marketing, applicant screening and rental administration. We organize and execute the rental process — you stay involved and make the final decision on the tenancy.",
+
+    // when renting gets complicated
+    hardKicker: "WHEN RENTING GETS COMPLICATED",
+    hardTitle: "Professional support for the difficult parts",
+    hardItems: [
+      "Records", "Communications", "Tenancy administration", "Documentation",
+      "Difficult situations", "Issue management", "Dispute preparation",
+    ],
+
+    // why vanisland
+    whyKicker: "WHY VANISLAND",
+    whyHeading: "Professional support without giving up control",
+    whyBody:
+      "Independent landlords shouldn't have to choose between doing absolutely everything alone and handing complete management of their property to a traditional property management company. VanIsland is the professional support layer between those two — use us for the parts where professional support adds value, and keep handling the parts you prefer to manage yourself.",
+
+    // mission
+    missionKicker: "OUR MISSION",
+    missionStatement:
+      "Helping independent landlords handle the real-world challenges of renting — professionally, confidently, and in control.",
 
     // daily brief
     briefEyebrow: "DAILY MARKET BRIEF",
@@ -72,7 +133,7 @@ const T = {
     knowledgeEyebrow: "For landlord reference and policy review",
     knowledgeCardTitle: "Landlord Knowledge Center",
     knowledgeCardDesc:
-      "Practical rental rules, local policy guides, STR reminders, suite notes, and Vanisland Property Management's property management knowledge base.",
+      "Practical rental rules, local policy guides, STR reminders, suite notes, and VanIsland's landlord knowledge base.",
 
     // free resources
     freeKicker: "FREE RESOURCES",
@@ -148,9 +209,9 @@ const T = {
     qrOpenBtn: "Open Website →",
 
     // CTA band
-    ctaTitle: "Ready to market your rental or sale listing?",
-    ctaDesc: "Request access for Rental Studio, Home Sale Studio, or both modules.",
-    ctaBtn: "Request Access",
+    ctaTitle: "Renting out a property and want professional support behind you?",
+    ctaDesc: "Tell us what you are dealing with. You stay in control of your property and your decisions.",
+    ctaBtn: "Talk to Us",
   },
 
   zh: {
@@ -158,24 +219,85 @@ const T = {
     langLabel: "🌐 中文",
 
     // hero
-    eyebrow: "📚 平台介绍",
-    heroTitle: "Vanisland Property",
-    heroDesc: "为出租和出售房源创建专业营销套件。",
-    heroSubDesc:
-      "一站式平台，覆盖出租与出售房源的公开页面、租客申请和社交分享。",
-    requestAccess: "申请访问",
-    trialAccess: "免费试用",
-    adminAccess: "出租后台",
-    learnMore: "了解详情",
+    eyebrow: "为独立房东提供的专业支持",
+    heroTitleLine1: "自己管理物业——",
+    heroTitleLine2: "但不必独自应对每一个难题。",
+    heroBrandLine1: "保持独立。",
+    heroBrandLine2: "获得专业支持。",
+    heroDesc:
+      "VanIsland 为独立房东提供务实、专业的支持——从出租营销、申请人筛选，到文件资料、租务日常事务和棘手的出租情况。",
+    requestAccess: "获取房东支持",
+    exploreServices: "了解我们的服务",
+
+    // brand principles
+    principles: [
+      ["物业由您管理。", "难题由我们协助处理。"],
+      ["需要时，我们来帮忙。", "不需要时，一切由您做主。"],
+      ["我们不取代房东。", "我们支持房东。"],
+    ],
 
     // why card
-    whyTitle: "为什么选择 Vanisland AI Studio？",
+    whyTitle: "独立房东为什么选择 VanIsland",
     reasons: [
-      { icon: "✨", title: "AI 驱动营销",   desc: "数分钟内生成高质量文案、页面和营销素材。" },
-      { icon: "🌐", title: "中英双语",       desc: "所有内容和页面均支持中英双语输出。" },
-      { icon: "🔗", title: "随处分享",       desc: "二维码、分享链接和移动端适配页面。" },
-      { icon: "👥", title: "专为房地产打造", desc: "专为房东、卖家、自售业主和房产经纪人设计。" },
+      { icon: "🎯", title: "决定权在您",   desc: "您始终是房东，也是自己物业的决策人。" },
+      { icon: "🧾", title: "文件与记录",   desc: "申请材料、租务文件和记录条理清晰、随时可查。" },
+      { icon: "🔍", title: "租客筛选",     desc: "结构化筛选与申请人梳理，供您做最终判断。" },
+      { icon: "🌐", title: "中英双语支持", desc: "房东与租客沟通均可中英双语处理。" },
     ],
+
+    // how it works — division of responsibility
+    modelKicker: "运作方式",
+    modelTitle: "决定权在您，流程由我们支持。",
+    roleYouTitle: "您 —— 房东",
+    roleYou: [
+      "拥有并掌控物业",
+      "决定出租策略和条款",
+      "对租客人选作出最终决定",
+      "确认并批准租约",
+      "在适用情况下直接收取租金",
+      "始终掌握房东与租客的关系",
+    ],
+    roleUsTitle: "VanIsland —— 您的支持团队",
+    roleUs: [
+      "出租营销与房源资料准备",
+      "咨询接待与看房支持",
+      "申请接收与租客筛选",
+      "证明材料收集",
+      "租赁文件与日常事务",
+      "记录保存与争议材料准备",
+    ],
+
+    // renting your property
+    rentKicker: "出租您的物业",
+    rentPullLine1: "物业是您的，管理也是您的。",
+    rentPullLine2: "我们帮您把它租好。",
+    rentSteps: [
+      { icon: "📣", title: "营销推广",   desc: "房源资料准备、中英文广告与咨询接待。" },
+      { icon: "🔍", title: "租客筛选",   desc: "申请接收、材料收集与条理化梳理。" },
+      { icon: "🧾", title: "文件准备",   desc: "租赁文件准备妥当、条理清晰。" },
+      { icon: "📂", title: "租务日常",   desc: "出租流程的日常事务与记录保存。" },
+    ],
+    rentNote:
+      "您委托 VanIsland 协助出租营销、租客筛选和租务日常事务。我们负责组织和执行出租流程——您全程参与，并对租约作出最终决定。",
+
+    // when renting gets complicated
+    hardKicker: "当出租变复杂时",
+    hardTitle: "困难环节的专业支持",
+    hardItems: [
+      "记录保存", "沟通协调", "租务日常事务", "文件资料",
+      "棘手情况", "问题处理", "争议材料准备",
+    ],
+
+    // why vanisland
+    whyKicker: "为什么选择 VANISLAND",
+    whyHeading: "获得专业支持，同时不放弃掌控",
+    whyBody:
+      "独立房东不应该只能二选一：要么全部自己扛，要么把物业管理权完全交给传统物业管理公司。VanIsland 正是这两者之间的专业支持层——需要专业支持的部分交给我们，您愿意自己处理的部分依然由您掌握。",
+
+    // mission
+    missionKicker: "我们的使命",
+    missionStatement:
+      "帮助独立房东应对出租过程中的现实难题——专业、从容，并始终由自己做主。",
 
     // daily brief
     briefEyebrow: "每日市场简报",
@@ -216,7 +338,7 @@ const T = {
     knowledgeEyebrow: "适用于房东参考和政策核查",
     knowledgeCardTitle: "房东知识中心",
     knowledgeCardDesc:
-      "实用出租法规、本地政策指南、短租提醒、套房说明，以及 Vanisland Property Management 的物业管理经验知识库。",
+      "实用出租法规、本地政策指南、短租提醒、套房说明，以及 VanIsland 的房东知识库。",
 
     // free resources
     freeKicker: "免费资源",
@@ -292,9 +414,9 @@ const T = {
     qrOpenBtn: "打开网站 →",
 
     // CTA band
-    ctaTitle: "准备好推广您的出租或出售房源了吗？",
-    ctaDesc: "申请出租房源工作台、出售房源工作台或两者的访问权限。",
-    ctaBtn: "申请访问",
+    ctaTitle: "正在出租物业，希望背后有专业支持？",
+    ctaDesc: "告诉我们您当前遇到的情况。物业和决定权始终由您掌握。",
+    ctaBtn: "联系我们",
   },
 };
 
@@ -434,14 +556,17 @@ export default function Home({ lang }) {
         <div className="lh-hero__inner">
           <div className="lh-hero__content">
             <div className="lh-eyebrow">{s.eyebrow}</div>
-            <h1 className="lh-hero__title">{s.heroTitle}</h1>
+            <h1 className="lh-hero__title">
+              <span>{s.heroTitleLine1}</span>
+              <span>{s.heroTitleLine2}</span>
+            </h1>
+            <p className="lh-hero__brandline">
+              <span>{s.heroBrandLine1}</span> <span>{s.heroBrandLine2}</span>
+            </p>
             <p className="lh-hero__desc">{s.heroDesc}</p>
-            <p className="lh-hero__desc-ch">{s.heroSubDesc}</p>
             <div className="lh-hero__actions">
               <Link to="/contact" className="lh-btn lh-btn--sand">{s.requestAccess}</Link>
-              <Link to="/trial-access" className="lh-btn lh-btn--white">{s.trialAccess}</Link>
-              <Link to="/admin" className="lh-btn lh-btn--white">{s.adminAccess}</Link>
-              <a href="#studio-modules" className="lh-btn lh-btn--white">{s.learnMore}</a>
+              <Link to="/services" className="lh-btn lh-btn--white">{s.exploreServices}</Link>
             </div>
           </div>
 
@@ -469,6 +594,86 @@ export default function Home({ lang }) {
               <div className="lh-hero-visual__house" />
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Brand principles — permanent VanIsland statements, subordinate to the hero */}
+      <section className="lh-principles" aria-label="VanIsland brand principles">
+        <div className="lh-principles__inner">
+          {s.principles.map(([a, b]) => (
+            <p key={a} className="lh-principle">
+              <span>{a}</span>
+              <span>{b}</span>
+            </p>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works — division of responsibility */}
+      <section className="lh-section lh-model" id="landlord-support">
+        <div className="lh-section-title">
+          <div className="lh-section-kicker">{s.modelKicker}</div>
+          <h2>{s.modelTitle}</h2>
+        </div>
+        <div className="lh-roles">
+          <article className="lh-role-card lh-role-card--you">
+            <h3>{s.roleYouTitle}</h3>
+            <ul>{s.roleYou.map((item) => <li key={item}>{item}</li>)}</ul>
+          </article>
+          <article className="lh-role-card">
+            <h3>{s.roleUsTitle}</h3>
+            <ul>{s.roleUs.map((item) => <li key={item}>{item}</li>)}</ul>
+          </article>
+        </div>
+      </section>
+
+      {/* Renting your property */}
+      <section className="lh-section lh-renting">
+        <div className="lh-section-title">
+          <div className="lh-section-kicker">{s.rentKicker}</div>
+          <h2 className="lh-lede">
+            <span>{s.rentPullLine1}</span> <span>{s.rentPullLine2}</span>
+          </h2>
+        </div>
+        <div className="lh-values__grid lh-values__grid--four">
+          {s.rentSteps.map((item) => (
+            <article key={item.title} className="lh-value-card">
+              <div className="lh-value-card__icon" aria-hidden="true">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </article>
+          ))}
+        </div>
+        <p className="lh-note">{s.rentNote}</p>
+      </section>
+
+      {/* When renting gets complicated */}
+      <section className="lh-section lh-hard">
+        <div className="lh-section-title">
+          <div className="lh-section-kicker">{s.hardKicker}</div>
+          <h2>{s.hardTitle}</h2>
+        </div>
+        <ul className="lh-chips">
+          {s.hardItems.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </section>
+
+      {/* Why VanIsland */}
+      <section className="lh-section lh-why">
+        <div className="lh-why__inner">
+          <div className="lh-section-kicker">{s.whyKicker}</div>
+          <h2 className="lh-why__title">{s.whyHeading}</h2>
+          <p>{s.whyBody}</p>
+        </div>
+      </section>
+
+      {/* Mission */}
+      <section className="lh-section lh-mission" aria-labelledby="vanisland-mission-title">
+        <div className="lh-mission__inner">
+          <div className="lh-section-kicker">{s.missionKicker}</div>
+          <blockquote className="lh-mission__quote" id="vanisland-mission-title">
+            {s.missionStatement}
+          </blockquote>
         </div>
       </section>
 

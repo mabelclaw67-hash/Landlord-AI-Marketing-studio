@@ -2,7 +2,7 @@ const COPY = {
   en: {
     title: "Landlord Knowledge Center",
     subtitle:
-      "A practical knowledge base for Vancouver Island landlords: government rules, local market observations, and Vanisland Property Management's property management framework.",
+      "A practical knowledge base for Vancouver Island landlords: government rules, local market observations, and VanIsland's practical rental experience.",
     updated: "Last updated: July 2026",
     status: "Status: General reference, professional review required",
     openGuide: "Open guide",
@@ -221,7 +221,7 @@ const COPY = {
   },
   zh: {
     title: "房东知识中心",
-    subtitle: "面向温哥华岛房东的实用知识库：政府法规、本地市场观察，以及 Vanisland Property Management 的物业管理经验框架。",
+    subtitle: "面向温哥华岛房东的实用知识库：政府法规、本地市场观察，以及 VanIsland 的实务出租经验。",
     updated: "最后更新：2026年7月",
     status: "状态：一般参考，需专业审核确认",
     openGuide: "查看指南",
