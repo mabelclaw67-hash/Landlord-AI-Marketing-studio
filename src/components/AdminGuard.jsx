@@ -1,10 +1,22 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { canAccessModule, readTrialAccess, storeAdminSession, clearAdminSession, isAdminSessionActive } from "../utils/trialAccess";
 import { apiPost } from "../utils/api";
 import { useLang } from "../contexts/LangContext";
 
+// Which module's credentials the pages under this path will actually send.
+// Everything under /admin/home-sale talks to the sale module; the rest of the
+// admin workspace calls getStudioRequestAuth("rental"). The /admin index is a
+// dispatch page, so either module may view it.
+function adminModuleForPath(pathname) {
+  if (pathname.startsWith("/admin/home-sale")) return "sale";
+  if (pathname === "/admin" || pathname === "/admin/") return "any";
+  return "rental";
+}
+
 export default function AdminGuard({ children }) {
   const lang = useLang();
+  const location = useLocation();
   const trialSession = readTrialAccess();
   const [unlocked, setUnlocked] = useState(() => isAdminSessionActive());
   const [input, setInput] = useState("");
@@ -12,16 +24,22 @@ export default function AdminGuard({ children }) {
   const [loading, setLoading] = useState(false);
 
   if (unlocked) return children;
-  // Trial users enter the admin workspace with data isolation enforced by the backend.
-  // Only a session that still grants a module may skip the admin unlock: an
-  // expired or wrong-module trial record makes getStudioRequestAuth() emit no
-  // credentials at all, so the workspace would render as if signed in while
-  // every authenticated call fails with "Access denied. Please sign in with an
-  // approved trial access code." (Listing reads hide this — getListings /
-  // getListingById are no-auth actions — so it only surfaces on Collage/upload.)
-  if (trialSession && (canAccessModule(trialSession, "rental") || canAccessModule(trialSession, "sale"))) {
-    return children;
-  }
+  // Trial users enter the admin workspace with data isolation enforced by the
+  // backend, but only for the module their session actually grants. A leftover
+  // or wrong-module trial record used to suppress this login form entirely:
+  // getStudioRequestAuth() then emitted no credentials at all, so the workspace
+  // rendered as if signed in while every authenticated call failed with
+  // "Access denied. Please sign in with an approved trial access code."
+  // Listing pages hid it — getListings/getListingById are no-auth actions — so
+  // it only surfaced on Collage Cover and uploads. Falling through to the admin
+  // unlock keeps a real admin one code away from a working session.
+  const trialModule = adminModuleForPath(location.pathname);
+  const trialGrantsThisArea = trialSession && (
+    trialModule === "any"
+      ? (canAccessModule(trialSession, "rental") || canAccessModule(trialSession, "sale"))
+      : canAccessModule(trialSession, trialModule)
+  );
+  if (trialGrantsThisArea) return children;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
