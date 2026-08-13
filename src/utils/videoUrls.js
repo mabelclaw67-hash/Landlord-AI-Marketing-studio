@@ -43,6 +43,25 @@ export function resolvePlayableVideoUrl(input) {
   return cleanUrl;
 }
 
+// Drive serves the mp4 bytes with `Content-Disposition: attachment` (plus
+// `X-Content-Type-Options: nosniff`), so browsers refuse to play it in a
+// <video> element — every drive.google.com/uc and drive.usercontent.google.com
+// form fails with MEDIA_ERR_SRC_NOT_SUPPORTED, even though the response is
+// video/mp4 with `Accept-Ranges: bytes` and `Access-Control-Allow-Origin: *`.
+// Drive's own preview player is embeddable instead: the endpoint sends no
+// X-Frame-Options, and uploads are already shared ANYONE_WITH_LINK. Accepts a
+// file object, a Drive URL, or a bare fileId.
+export function resolveDriveVideoEmbedUrl(input) {
+  const raw = typeof input === "object" && input !== null
+    ? (input.fileId || input.url || "")
+    : (input || "");
+  const text = String(raw).trim();
+  if (!text) return "";
+  const fileId = text.includes("/") ? extractDriveVideoFileId(text) : text;
+  if (!fileId) return "";
+  return `https://drive.google.com/file/d/${fileId}/preview`;
+}
+
 export function resolveDownloadVideoUrl(originalUrl) {
   const cleanUrl = String(originalUrl || "").trim();
   if (!cleanUrl) return "";

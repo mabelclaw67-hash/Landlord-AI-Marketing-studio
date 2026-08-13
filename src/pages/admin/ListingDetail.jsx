@@ -12,6 +12,7 @@ import { isApiConnected, apiPost } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS, resolveRentalListingCover } from "../../utils/listingPublicMeta";
+import { resolveDriveVideoEmbedUrl } from "../../utils/videoUrls";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
@@ -823,6 +824,13 @@ export default function ListingDetail({ lang: langProp }) {
     coverIsManual   = false;
     coverIsFallback = ci.isFallback;
   }
+
+  // Video already sitting in 04_Video_Output/, matched to the selected format.
+  // Drives the reload player when no locally cached blob exists.
+  const driveVideoFile = videoFiles.length === 0
+    ? null
+    : (videoFiles.find((f) => String(f.name || "").endsWith(`__${videoFormat}.mp4`)) || videoFiles[0]);
+  const driveVideoEmbedUrl = driveVideoFile ? resolveDriveVideoEmbedUrl(driveVideoFile) : "";
 
   const statusBadgeClass = {
     Draft: "badge--draft", "In Review": "badge--review",
@@ -2646,36 +2654,59 @@ export default function ListingDetail({ lang: langProp }) {
                   </button>
                 )}
 
-                {/* Videos already in 04_Video_Output/. The in-page player is fed
-                    by a per-browser blob cache, so without this an export made
-                    on another machine or before a cache clear looked missing
-                    even though Drive still had the file. */}
-                {videoStatus === "idle" && videoFiles.length > 0 && (
-                  <div className="notice" style={{ marginTop: 10 }}>
-                    <p style={{ fontSize: "0.82rem", marginBottom: 4 }}>
-                      {lang === "zh"
-                        ? `Drive 中已有 ${videoFiles.length} 个已生成视频：`
-                        : `${videoFiles.length} previously generated video${videoFiles.length !== 1 ? "s" : ""} in Drive:`}
+                {/* Restore the player for a video already in 04_Video_Output/.
+                    The <video> above is fed by a per-browser blob cache, so an
+                    export made in another session had no playable source and the
+                    preview disappeared on reload. Drive refuses <video> playback
+                    (Content-Disposition: attachment), so its embeddable preview
+                    player is used — no re-generation, no copy, no local cache. */}
+                {videoStatus === "idle" && driveVideoEmbedUrl && (
+                  <div style={{ marginTop: 14 }}>
+                    <p style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 8, color: "var(--color-primary)" }}>
+                      {lang === "zh" ? "视频预览（来自 Drive）" : "Video Preview (from Drive)"}
                     </p>
-                    <ul style={{ fontSize: "0.78rem", lineHeight: 1.8, margin: 0, paddingLeft: 18 }}>
-                      {videoFiles.map((f) => (
-                        <li key={f.fileId}>
-                          <a
-                            href={f.url || `https://drive.google.com/file/d/${f.fileId}/view`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {f.name || f.fileId} ↗
+                    <iframe
+                      key={driveVideoEmbedUrl}
+                      src={driveVideoEmbedUrl}
+                      title={driveVideoFile?.name || "Listing video"}
+                      allow="autoplay; fullscreen"
+                      allowFullScreen
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        maxWidth: videoFormat === "landscape" ? 640 : 300,
+                        aspectRatio: videoFormat === "landscape" ? "16 / 9" : "9 / 16",
+                        border: "none",
+                        borderRadius: 8,
+                        background: "#000",
+                        boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+                      }}
+                    />
+                    <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                      <code>{driveVideoFile?.name}</code>
+                      {" · "}
+                      <a
+                        href={driveVideoFile?.url || `https://drive.google.com/file/d/${driveVideoFile?.fileId}/view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {lang === "zh" ? "在 Drive 中打开 ↗" : "Open in Drive ↗"}
+                      </a>
+                      {isAdmin && videoFolderUrl && (
+                        <>
+                          {" · "}
+                          <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ color: "var(--color-text-muted)", textDecoration: "underline" }}>
+                            📂 04_Video_Output ↗
                           </a>
-                        </li>
-                      ))}
-                    </ul>
-                    {isAdmin && videoFolderUrl && (
-                      <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 6 }}>
-                        <a href={videoFolderUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ color: "var(--color-text-muted)", textDecoration: "underline" }}>
-                          📂 04_Video_Output ↗
-                        </a>
+                        </>
+                      )}
+                    </p>
+                    {videoFiles.length > 1 && (
+                      <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 2 }}>
+                        {lang === "zh"
+                          ? `Drive 中共有 ${videoFiles.length} 个已生成视频，正在显示与当前格式匹配的一个。`
+                          : `${videoFiles.length} videos in Drive — showing the one matching the selected format.`}
                       </p>
                     )}
                   </div>
