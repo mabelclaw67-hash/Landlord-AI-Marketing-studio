@@ -105,8 +105,7 @@ function detectCoverPhoto(files) {
 // Simple thumbnail + "Open in Drive" card — read-only display.
 function DrivePhoto({ file, canOpenDrive = false }) {
   const [failed, setFailed] = useState(false);
-  // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
-  const src = file.dataUrl
+  const src = file.thumbnailUrl
     || file.thumbUrlLg
     || file.thumbUrl
     || `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w1600`;
@@ -142,8 +141,7 @@ function PackagePhoto({ file, isFirst, isLast, isExcluded, isCover, coverIsManua
   inCollage, canAddToCollage, onToggleCollage }) {
   const lang = useLang();
   const [failed, setFailed] = useState(false);
-  // dataUrl (base64 from Apps Script) always works regardless of Drive sharing. Fall back to thumbnails.
-  const src = file.dataUrl
+  const src = file.thumbnailUrl
     || file.thumbUrl
     || `https://drive.google.com/thumbnail?id=${file.fileId}&sz=w800`;
   const btnStyle = {
@@ -293,6 +291,8 @@ export default function ListingDetail({ lang: langProp }) {
   // Photo state
   const [folderFiles,   setFolderFiles]   = useState([]);
   const [folderLoading, setFolderLoading] = useState(false);
+  const [folderStatus,  setFolderStatus]  = useState("idle"); // idle|loading|loaded|empty|error
+  const [folderError,   setFolderError]   = useState(null);
   const [photoOrder,    setPhotoOrder]    = useState([]);   // fileId[]
   const [excluded,      setExcluded]      = useState(new Set()); // Set<fileId>
   const [manualCover,   setManualCover]   = useState(null); // fileId | null
@@ -398,14 +398,19 @@ export default function ListingDetail({ lang: langProp }) {
 
   const loadFolderFiles = async (folderId) => {
     setFolderLoading(true);
+    setFolderStatus("loading");
+    setFolderError(null);
     try {
       const files = await getListingFolderFiles(folderId, id);
       const resolved = sortByFilenameNumber(files || []);
       setFolderFiles(resolved);
       setPhotoOrder(resolved.map((f) => f.fileId));
-    } catch {
-      setFolderFiles([]);
-      setPhotoOrder([]);
+      setFolderStatus(resolved.length > 0 ? "loaded" : "empty");
+    } catch (err) {
+      // Keep the last successful photo list visible. An API failure is not proof
+      // that the Drive folder is empty.
+      setFolderStatus("error");
+      setFolderError(err?.message || "Unable to load photos from Drive.");
     } finally {
       setFolderLoading(false);
     }
@@ -2011,7 +2016,24 @@ export default function ListingDetail({ lang: langProp }) {
               </div>
             )}
             {folderLoading && <p className="text-muted text-sm" style={{ marginBottom: 14 }}>Loading photos…</p>}
-            {!folderLoading && folderFiles.length === 0 && (
+            {folderStatus === "error" && (
+              <div className="notice notice--error" style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: "0.85rem" }}>
+                  {lang === "zh"
+                    ? "照片读取失败，已保留之前显示的照片。请稍后重试。"
+                    : "Photos could not be loaded. Any previously loaded photos remain visible. Please try again."}
+                </p>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => loadFolderFiles(extractFolderId(listing.driveFolderLink))}
+                  style={{ marginTop: 6 }}
+                >
+                  {lang === "zh" ? "重试" : "Retry"}
+                </button>
+                {folderError && <small style={{ display: "block", marginTop: 6, opacity: 0.75 }}>{folderError}</small>}
+              </div>
+            )}
+            {folderStatus === "empty" && folderFiles.length === 0 && (
               <div className="notice notice--info" style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: "0.85rem" }}>
                   {lang === "zh"
@@ -2022,7 +2044,7 @@ export default function ListingDetail({ lang: langProp }) {
             )}
 
             {/* ── Detected Cover Photo ─────────────────────────────────── */}
-            {!folderLoading && folderFiles.length > 0 && (
+            {folderFiles.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 10 }}>🖼️ {lang === "zh" ? "自动识别主图" : "Detected Cover Photo"}</p>
                 {coverIsFallback && (
@@ -2062,7 +2084,7 @@ export default function ListingDetail({ lang: langProp }) {
             )}
 
             {/* ── Collage Cover Generator ───────────────────────────────── */}
-            {!folderLoading && activePhotos.length >= 2 && (
+            {activePhotos.length >= 2 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
                   <div>
@@ -2140,7 +2162,7 @@ export default function ListingDetail({ lang: langProp }) {
             )}
 
             {/* ── Marketplace Photo Package ─────────────────────────────── */}
-            {!folderLoading && folderFiles.length > 0 && (
+            {folderFiles.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 4 }}>🏠 {lang === "zh" ? "广告照片集" : "Marketplace Photo Package"}</p>
                 <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.6 }}>
@@ -2174,7 +2196,7 @@ export default function ListingDetail({ lang: langProp }) {
             )}
 
             {/* ── Light Enhancement Batch ───────────────────────────────── */}
-            {!folderLoading && activePhotos.length > 0 && (
+            {activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 8 }}>✨ {lang === "zh" ? "轻度美化批次" : "Light Enhancement Batch"}</p>
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 8, lineHeight: 1.7 }}>
@@ -2312,7 +2334,7 @@ export default function ListingDetail({ lang: langProp }) {
             )}
 
             {/* ── Short Video Generator ─────────────────────────────────── */}
-            {!folderLoading && activePhotos.length > 0 && (
+            {activePhotos.length > 0 && (
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: 6 }}>🎬 {lang === "zh" ? "短视频生成" : "Short Video Generator"}</p>
                 <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: 10, lineHeight: 1.7 }}>

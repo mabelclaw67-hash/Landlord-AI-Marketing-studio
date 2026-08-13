@@ -3798,15 +3798,10 @@ function listDriveMediaFiles_(folder, options) {
       };
       if (exposeDriveLinks) {
         entry.url = file.getUrl();
-        entry.thumbUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
+        entry.thumbnailUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w800";
+        // Keep the existing field names for current frontend/public consumers.
+        entry.thumbUrl = entry.thumbnailUrl;
         entry.thumbUrlLg = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600";
-      }
-      if (isImage) {
-      var blob = file.getBlob();
-      var contentType = blob.getContentType();
-      var base64 = Utilities.base64Encode(blob.getBytes());
-      var dataUrl = "data:" + contentType + ";base64," + base64;
-        entry.dataUrl = dataUrl;
       }
       files.push(entry);
     }
