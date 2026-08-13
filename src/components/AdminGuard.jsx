@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
-import { getTrialAccessHome, readTrialAccess, storeAdminSession, clearAdminSession, isAdminSessionActive } from "../utils/trialAccess";
+import { canAccessModule, readTrialAccess, storeAdminSession, clearAdminSession, isAdminSessionActive } from "../utils/trialAccess";
 import { apiPost } from "../utils/api";
 import { useLang } from "../contexts/LangContext";
 
@@ -14,7 +13,15 @@ export default function AdminGuard({ children }) {
 
   if (unlocked) return children;
   // Trial users enter the admin workspace with data isolation enforced by the backend.
-  if (trialSession) return children;
+  // Only a session that still grants a module may skip the admin unlock: an
+  // expired or wrong-module trial record makes getStudioRequestAuth() emit no
+  // credentials at all, so the workspace would render as if signed in while
+  // every authenticated call fails with "Access denied. Please sign in with an
+  // approved trial access code." (Listing reads hide this — getListings /
+  // getListingById are no-auth actions — so it only surfaces on Collage/upload.)
+  if (trialSession && (canAccessModule(trialSession, "rental") || canAccessModule(trialSession, "sale"))) {
+    return children;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

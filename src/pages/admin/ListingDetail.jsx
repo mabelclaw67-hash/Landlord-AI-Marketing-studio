@@ -1515,13 +1515,24 @@ export default function ListingDetail({ lang: langProp }) {
       setManualCover(fileId);
       // Persist active cover fileId to listing sheet so public pages can find it
       const currentListing = listingRef.current;
+      let coverPersisted = true;
       if (currentListing) {
         try {
           await persist({ ...currentListing, coverImageFileId: fileId });
-        } catch { /* non-critical — admin view still works via in-memory state */ }
+        } catch {
+          // The image is safely in Drive, but the cover assignment did not reach
+          // the sheet — say so rather than reporting a save that a refresh loses.
+          coverPersisted = false;
+        }
       }
-      setCollageStatus("saved");
-      setCollageMsg(lang === "zh" ? "拼图封面已保存并设为主图。" : "Collage saved to 03_Cover_Images/ and set as cover.");
+      setCollageStatus(coverPersisted ? "saved" : "error");
+      setCollageMsg(
+        coverPersisted
+          ? (lang === "zh" ? "拼图封面已保存并设为主图。" : "Collage saved to 03_Cover_Images/ and set as cover.")
+          : (lang === "zh"
+              ? "拼图已保存到 03_Cover_Images/，但设为主图未能保存，请重新点击保存。"
+              : "Collage saved to 03_Cover_Images/, but setting it as cover did not save. Please click save again.")
+      );
     } catch (err) {
       setCollageStatus("error");
       setCollageMsg(err.message || (lang === "zh" ? "保存失败。" : "Failed to save collage."));
