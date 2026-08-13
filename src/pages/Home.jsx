@@ -663,46 +663,42 @@ export default function Home({ lang }) {
         <p className="lh-note">{s.rentNote}</p>
       </section>
 
-      {/* When renting gets complicated */}
-      <section className="lh-section lh-hard">
-        <div className="lh-section-title">
-          <div className="lh-section-kicker">{s.hardKicker}</div>
-          <h2>{s.hardTitle}</h2>
-        </div>
-        <ul className="lh-chips">
-          {s.hardItems.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      </section>
+      {/* Compact trio — "when renting gets complicated" / "why VanIsland" / "our story",
+          combined into one scannable card row instead of three stacked sections. */}
+      <section className="lh-section lh-trio-section">
+        <div className="lh-trio-grid">
+          <article className="lh-trio-card">
+            <div className="lh-section-kicker">{s.hardKicker}</div>
+            <h3>{s.hardTitle}</h3>
+            <ul className="lh-chips lh-chips--compact">
+              {s.hardItems.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </article>
 
-      {/* Why VanIsland */}
-      <section className="lh-section lh-why">
-        <div className="lh-why__inner">
-          <div className="lh-section-kicker">{s.whyKicker}</div>
-          <h2 className="lh-why__title">{s.whyHeading}</h2>
-          <p>{s.whyBody}</p>
-        </div>
-      </section>
+          <article className="lh-trio-card">
+            <div className="lh-section-kicker">{s.whyKicker}</div>
+            <h3>{s.whyHeading}</h3>
+            <p>{s.whyBody}</p>
+            <p className="lh-trio-card__closing">{s.heroBrandLine1} {s.heroBrandLine2}</p>
+          </article>
 
-      {/* Our Story preview — credibility between WHY and MISSION. Understated
-          on purpose: the 18 years of firsthand landlord experience is the
-          claim, not marketing language. */}
-      <section className="lh-section lh-story">
-        <div className="lh-story__inner">
-          <div className="lh-section-kicker">{s.storyKicker}</div>
-          <h2 className="lh-story__title">{s.storyTitle}</h2>
-          <p className="lh-story__body">{s.storyBody}</p>
-          <p className="lh-story__line">{s.storyLine}</p>
-          <Link to="/our-story" className="lh-story__cta">{s.storyCta} →</Link>
+          {/* Our Story preview — understated on purpose: the 18 years of
+              firsthand landlord experience is the claim, not marketing language. */}
+          <article className="lh-trio-card">
+            <div className="lh-section-kicker">{s.storyKicker}</div>
+            <h3>{s.storyTitle}</h3>
+            <p>{s.storyBody}</p>
+            <p className="lh-trio-card__closing">{s.storyLine}</p>
+            <Link to="/our-story" className="lh-story__cta">{s.storyCta} →</Link>
+          </article>
         </div>
       </section>
 
-      {/* Mission */}
-      <section className="lh-section lh-mission" aria-labelledby="vanisland-mission-title">
-        <div className="lh-mission__inner">
-          <div className="lh-section-kicker">{s.missionKicker}</div>
-          <blockquote className="lh-mission__quote" id="vanisland-mission-title">
-            {s.missionStatement}
-          </blockquote>
+      {/* Mission — compact full-width band, not a large standalone section */}
+      <section className="lh-mission-band" aria-labelledby="vanisland-mission-title">
+        <div className="lh-mission-band__inner">
+          <span className="lh-mission-band__kicker">{s.missionKicker}</span>
+          <p id="vanisland-mission-title">{s.missionStatement}</p>
         </div>
       </section>
 

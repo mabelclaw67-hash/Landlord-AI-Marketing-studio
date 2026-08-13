@@ -133,8 +133,8 @@ export default function Navbar({ lang, setLang }) {
     <nav className="navbar">
       <div className="navbar__inner">
         <Link to="/" className="navbar__brand" onClick={() => setOpen(false)}>
-          <span>🏠</span>
-          Vanisland AI Studio
+          🏠 VanIsland Property
+          <span>AI Studio</span>
         </Link>
 
         <button

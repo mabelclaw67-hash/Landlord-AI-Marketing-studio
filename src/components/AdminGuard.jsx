@@ -69,8 +69,8 @@ export default function AdminGuard({ children }) {
         <div className="admin-guard__brand">
           <div className="admin-guard__mark">V</div>
           <div>
-            <strong>Vanisland AI Studio</strong>
-            <span>Admin Studio</span>
+            <strong>VanIsland Property</strong>
+            <span>AI Studio · Admin</span>
           </div>
         </div>
 

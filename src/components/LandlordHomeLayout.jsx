@@ -56,7 +56,8 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         <div className="lh-brand">
           <div className="lh-brand-mark">V</div>
           <div>
-            <strong>Vanisland AI Studio</strong>
+            <strong>VanIsland Property</strong>
+            <span>AI Studio</span>
           </div>
         </div>
 
@@ -136,7 +137,8 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         {/* Mobile Top Bar */}
         <div className="lh-mobile-top">
           <div>
-            <strong>🏠 Vanisland AI Studio</strong>
+            <strong>🏠 VanIsland Property</strong>
+            <span>AI Studio</span>
           </div>
           <div className="lh-mobile-actions">
             <div className="lh-mobile-lang">
