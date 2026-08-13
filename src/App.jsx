@@ -45,6 +45,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import PhotoTips from "./pages/admin/PhotoTips";
 import Faq from "./pages/admin/Faq";
 import SystemPerformance from "./pages/admin/SystemPerformance";
+import OurStory from "./pages/OurStory";
 import RentalApplicationLanding from "./pages/RentalApplicationLanding";
 import RentalApplication from "./pages/RentalApplication";
 import SupportDocuments from "./pages/SupportDocuments";
@@ -72,6 +73,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/rentals" element={<Examples lang={lang} />} />
         {/* Old public rental homepage URL — keep working for existing links/QR codes */}
         <Route path="/examples" element={<Navigate to="/rentals" replace />} />
+        <Route path="/our-story" element={<OurStory lang={lang} />} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
         <Route path="/trial-access" element={<TrialAccess lang={lang} />} />

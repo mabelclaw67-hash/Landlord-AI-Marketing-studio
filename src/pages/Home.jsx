@@ -89,6 +89,14 @@ const T = {
     whyBody:
       "Independent landlords shouldn't have to choose between doing absolutely everything alone and handing complete management of their property to a traditional property management company. VanIsland is the professional support layer between those two — use us for the parts where professional support adds value, and keep handling the parts you prefer to manage yourself.",
 
+    // our story preview
+    storyKicker: "BUILT FROM REAL LANDLORD EXPERIENCE",
+    storyTitle: "18 Years of Firsthand Experience as an Independent Landlord",
+    storyBody:
+      "VanIsland grew from real-world rental experience — beginning with managing our own rental properties in Calgary and later supporting independent landlords across British Columbia.",
+    storyLine: "We understand the challenges because we have lived them ourselves.",
+    storyCta: "Our Story",
+
     // mission
     missionKicker: "OUR MISSION",
     missionStatement:
@@ -293,6 +301,14 @@ const T = {
     whyHeading: "获得专业支持，同时不放弃掌控",
     whyBody:
       "独立房东不应该只能二选一：要么全部自己扛，要么把物业管理权完全交给传统物业管理公司。VanIsland 正是这两者之间的专业支持层——需要专业支持的部分交给我们，您愿意自己处理的部分依然由您掌握。",
+
+    // our story preview
+    storyKicker: "源于真实的房东经历",
+    storyTitle: "18 年独立房东的亲身经历",
+    storyBody:
+      "VanIsland 源于真实的出租经历——从在卡尔加里打理自己的出租物业开始，到后来为卑诗省各地的独立房东提供支持。",
+    storyLine: "我们懂这些难处，因为我们自己也一路走过。",
+    storyCta: "我们的故事",
 
     // mission
     missionKicker: "我们的使命",
@@ -664,6 +680,19 @@ export default function Home({ lang }) {
           <div className="lh-section-kicker">{s.whyKicker}</div>
           <h2 className="lh-why__title">{s.whyHeading}</h2>
           <p>{s.whyBody}</p>
+        </div>
+      </section>
+
+      {/* Our Story preview — credibility between WHY and MISSION. Understated
+          on purpose: the 18 years of firsthand landlord experience is the
+          claim, not marketing language. */}
+      <section className="lh-section lh-story">
+        <div className="lh-story__inner">
+          <div className="lh-section-kicker">{s.storyKicker}</div>
+          <h2 className="lh-story__title">{s.storyTitle}</h2>
+          <p className="lh-story__body">{s.storyBody}</p>
+          <p className="lh-story__line">{s.storyLine}</p>
+          <Link to="/our-story" className="lh-story__cta">{s.storyCta} →</Link>
         </div>
       </section>
 
