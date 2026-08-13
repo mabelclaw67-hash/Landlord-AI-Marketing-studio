@@ -11,7 +11,7 @@ import {
   saveTrialAccess,
 } from "../utils/trialAccess";
 
-const INVALID_ACCESS_MESSAGE = "Access code not found, expired, or not approved. Please contact Vanisland Property Management.";
+const INVALID_ACCESS_MESSAGE = "Access code not found, expired, or not approved. Please contact VanIsland Property.";
 
 function inferModuleFromPath(path) {
   if (!path) return "";

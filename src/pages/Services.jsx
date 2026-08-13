@@ -33,7 +33,7 @@ const COPY = {
         title: "Online Tenant & Landlord Services",
         description: "Direct access to the online tools tenants and landlords use most often.",
         cards: [
-          { icon: "🛠️", title: "Online Maintenance Request", description: "Tenants can report maintenance issues online, upload photos and details, and help property managers track each request in one place.", button: "Submit Maintenance Request", to: "/tenant-service-request" },
+          { icon: "🛠️", title: "Online Maintenance Request", description: "Tenants can report maintenance issues online, upload photos and details, and help our team track each request in one place.", button: "Submit Maintenance Request", to: "/tenant-service-request" },
           { icon: "📚", title: "Landlord Knowledge Center", description: "Rental regulations, local policy guidance, short-term rental rules, suite information, and practical property-management resources.", button: "Open Knowledge Center", to: "/resources" },
           { icon: "🏘️", title: "Tenant Portal", description: "A central place for rental listings, online applications, maintenance requests, contact options, and frequently asked questions.", button: "Open Tenant Portal", to: "/rentals" },
         ],
@@ -71,7 +71,7 @@ const COPY = {
         title: "在线租客与房东服务",
         description: "集中连接租客和房东最常使用的在线服务。",
         cards: [
-          { icon: "🛠️", title: "租客在线维修申报", description: "租客可在线提交维修问题、上传照片和相关说明，方便物业经理集中记录、跟踪和处理。", button: "提交维修申报", to: "/tenant-service-request" },
+          { icon: "🛠️", title: "租客在线维修申报", description: "租客可在线提交维修问题、上传照片和相关说明，方便我们团队集中记录、跟踪和处理。", button: "提交维修申报", to: "/tenant-service-request" },
           { icon: "📚", title: "房东知识中心", description: "提供出租法规、本地政策、短租规则、套房说明和出租实务指南。", button: "进入房东知识中心", to: "/resources" },
           { icon: "🏘️", title: "租客门户", description: "集中提供房源浏览、在线申请、维修申报、联系方式和常见问题入口。", button: "进入租客门户", to: "/rentals" },
         ],

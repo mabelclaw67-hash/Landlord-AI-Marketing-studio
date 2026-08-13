@@ -8,7 +8,7 @@ export const STRATEGY_ASSESSMENT_DISCLAIMER =
   "This report is generated from the available property details, community knowledge base, and local property-management experience for preliminary decision support.";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER_ZH =
-  "本报告基于现有物业资料、社区知识库及本地物业管理经验生成，供初步决策参考。";
+  "本报告基于现有物业资料、社区知识库及本地出租实务经验生成，供初步决策参考。";
 
 const KNOWLEDGE_CENTER_GUIDE = {
   en: "Please review the latest guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.",
@@ -41,10 +41,10 @@ const OPTION_LABELS_ZH = {
   "Tenant Pays Own Account": "租客自行开户缴费",
   "Book a professional strategy review": "预约专业策略审核",
   "Request AI Marketing / Listing Service": "申请 AI 营销 / 房源发布服务",
-  "Request Full Property Management": "申请完整物业管理服务",
+  "Request Full Landlord Support": "申请完整房东支持服务",
   "Request full rental market assessment": "申请完整租赁市场评估",
   "Prepare listing marketing package": "准备房源营销套件",
-  "Discuss property management": "咨询物业管理",
+  "Discuss landlord support": "咨询房东支持",
   "Not ready yet - keep my intake on file": "暂未准备好，先保留资料",
   "Professional legal/compliance review before listing": "挂牌前进行专业法规与合规审核",
   "STR feasibility review": "短租可行性审核",
@@ -899,8 +899,8 @@ function buildCommunityKnowledgeNarrative(form, community, lang = "en") {
   const development = localizeKnowledgeText(facts.futureDevelopment, lang);
   if (development) notes.push(lang === "zh" ? `社区发展趋势：${development}` : `Community development outlook: ${development}`);
   if (facts.professionalNotes) notes.push(lang === "zh"
-    ? "需由 VanIsland Property Management 进行专业复核；最终出租策略需经公司专业审核，本地租金判断需结合当前市场进一步确认。"
-    : "Professional review required. Final strategy is subject to VanIsland Property Management review, and local rent positioning must be confirmed against the current market.");
+    ? "需由 VanIsland Property 进行专业复核；最终出租策略需经公司专业审核，本地租金判断需结合当前市场进一步确认。"
+    : "Professional review required. Final strategy is subject to VanIsland Property review, and local rent positioning must be confirmed against the current market.");
   return notes;
 }
 
@@ -1463,8 +1463,8 @@ function buildServiceRecommendation(form, lang) {
       `★★★★★ AI 营销方案：适合把${confirmedText}整理成准确广告和照片顺序。`,
       "★★★★☆ 专业出租挂牌服务：适合需要正式挂牌、市场反馈测试、租金定位和租客筛选的业主。",
       hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
-        ? "★★★★★ 物业管理服务：适合法规、分租或长期管理需要专业把关的物业。"
-        : "★★★★☆ 物业管理服务：适合希望减少日常沟通、筛选和租后管理工作的业主。",
+        ? "★★★★★ 房东专业支持：适合法规、分租或长期出租需要专业把关的物业。"
+        : "★★★★☆ 房东专业支持：适合希望减少日常沟通、筛选和租后事务的业主。",
     ];
     if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
       items.push("建议预约专业咨询，先确认法规、租金定位和整租 / 分租路径。");
@@ -1475,8 +1475,8 @@ function buildServiceRecommendation(form, lang) {
     `★★★★★ AI Marketing Package: Best for turning ${confirmedText} into accurate ad copy and photo order.`,
     "★★★★☆ Professional Rental Listing: Suitable for owners who need a formal listing launch, market-response testing, rent positioning, and tenant screening.",
     hasSplitRentalBasis(form, form.followUpAnswers || {}) || form.airbnbInterest === "Yes"
-      ? "★★★★★ Property Management: Best when regulation, split-rental review, or long-term oversight needs professional control."
-      : "★★★★☆ Property Management: Best when the owner wants help with communication, screening, and ongoing rental management.",
+      ? "★★★★★ Professional Landlord Support: Best when regulation, split-rental review, or long-term oversight needs professional attention."
+      : "★★★★☆ Professional Landlord Support: Best when the owner wants help with communication, screening, and ongoing rental administration.",
   ];
   if (form.airbnbInterest === "Yes" || hasSplitRentalBasis(form, form.followUpAnswers || {}) || hasOwnerOccupancyLegalWarning(form)) {
     items.push("Book a professional consultation before confirming the final path.");

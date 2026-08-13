@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Vanisland Rentals | Vanisland Property Management",
+  "name": "VanIsland Property | Landlord Support & Rentals",
   "short_name": "Vanisland Rentals",
-  "description": "Browse rental listings, apply online, and connect with Vanisland Property Management on Vancouver Island.",
+  "description": "Rental listings, online applications and tenant services from VanIsland Property on Vancouver Island.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

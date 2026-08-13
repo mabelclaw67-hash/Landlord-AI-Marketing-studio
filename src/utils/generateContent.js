@@ -155,10 +155,10 @@ function cleanFeaturesList(raw) {
 // Safe to regenerate: existing block is replaced, never duplicated.
 
 const DEFAULT_APPLICATION_REQUIREMENTS_EN =
-`\n\n---\n\nApplication Requirements\n\nQualified applicants must provide the following:\n\n- A completed rental application for each adult occupant\n- Proof of income and/or employment\n- Credit score report, or written consent for the landlord/property manager to obtain a credit report\n- References\n- Tenant insurance with a minimum of $1 million third-party liability coverage\n\nContact Information\n\nIf interested, please contact Vanisland Property Management with a brief introduction about yourself.`;
+`\n\n---\n\nApplication Requirements\n\nQualified applicants must provide the following:\n\n- A completed rental application for each adult occupant\n- Proof of income and/or employment\n- Credit score report, or written consent for the landlord/property manager to obtain a credit report\n- References\n- Tenant insurance with a minimum of $1 million third-party liability coverage\n\nContact Information\n\nIf interested, please contact VanIsland Property with a brief introduction about yourself.`;
 
 const DEFAULT_APPLICATION_REQUIREMENTS_ZH =
-`\n\n---\n\n【申请要求】\n\n符合条件的申请人须提供以下材料：\n\n- 每位成年居住者填写完整的租赁申请表\n- 收入及/或就业证明\n- 信用评分报告，或书面授权房东/物业经理获取信用报告\n- 推荐人信息\n- 至少 100 万加元第三方责任险的租客保险证明\n\n【联系方式】\n\n如有意向，请联系 Vanisland Property Management 并简单介绍一下您自己。`;
+`\n\n---\n\n【申请要求】\n\n符合条件的申请人须提供以下材料：\n\n- 每位成年居住者填写完整的租赁申请表\n- 收入及/或就业证明\n- 信用评分报告，或书面授权房东/物业经理获取信用报告\n- 推荐人信息\n- 至少 100 万加元第三方责任险的租客保险证明\n\n【联系方式】\n\n如有意向，请联系 VanIsland Property 并简单介绍一下您自己。`;
 
 const COMPLIANCE_MARKER = "\n\n---\n⚠️";
 

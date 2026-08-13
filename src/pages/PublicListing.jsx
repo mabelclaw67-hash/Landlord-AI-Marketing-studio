@@ -1003,7 +1003,7 @@ export default function PublicListing({ lang = "en" }) {
                 Contact Information
               </h3>
               <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)", lineHeight: 1.75 }}>
-                If interested, please contact <strong>Vanisland Property Management</strong> with a brief introduction about yourself.
+                If interested, please contact <strong>VanIsland Property</strong> with a brief introduction about yourself.
               </p>
               {acceptsApplications && (
                 <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
@@ -1038,7 +1038,7 @@ export default function PublicListing({ lang = "en" }) {
 
             {/* ── Page footer ─────────────────────────────────────────────────── */}
             <p style={{ marginTop: 32, fontSize: "0.75rem", color: "var(--color-text-muted)", textAlign: "center", lineHeight: 1.8 }}>
-              Vanisland Residential Property Management · {listing.city}, BC
+              VanIsland Property · {listing.city}, BC
               <br />Listing ID: {listing.id}
             </p>
           </div>

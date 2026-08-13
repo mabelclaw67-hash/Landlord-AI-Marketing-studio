@@ -4,7 +4,7 @@ const DEMO_COPY = {
   en: {
     eyebrow: "AI SCREENING DEMO",
     title: "AI Tenant Screening Report Demo",
-    desc: "See how VanIsland Property Management uses AI to turn rental applications, support documents, and manual verification steps into clear, professional owner-ready screening reports.",
+    desc: "See how VanIsland Property uses AI to turn rental applications, support documents, and manual verification steps into clear, professional owner-ready screening reports.",
     button: "View Demo PDF",
     cards: [
       {
@@ -30,7 +30,7 @@ const DEMO_COPY = {
   zh: {
     eyebrow: "AI 筛选 Demo",
     title: "AI 租客筛选报告 Demo",
-    desc: "展示 VanIsland Property Management 如何使用 AI 将租客申请、支持文件和人工审核流程整理成清晰、专业、可供房东查看的筛选报告。",
+    desc: "展示 VanIsland Property 如何使用 AI 将租客申请、支持文件和人工审核流程整理成清晰、专业、可供房东查看的筛选报告。",
     button: "查看 Demo PDF",
     cards: [
       {

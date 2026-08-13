@@ -522,7 +522,7 @@ export default function RentalApplication() {
         };
         downloadSubmittedAppPdf(data, submitted.recordId, submitted.recordId || listingId);
       } catch (e) {
-        const expiredMessage = "This link has expired. Please contact property management.";
+        const expiredMessage = "This link has expired. Please contact VanIsland Property.";
         if (String(e?.message || "").includes(expiredMessage)) {
           setDownloadMessage(expiredMessage);
           return;

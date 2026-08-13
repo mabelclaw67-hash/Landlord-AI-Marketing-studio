@@ -202,7 +202,7 @@ export const translations = {
       s3Desc: "可直接录制的房源介绍视频脚本，适合社交媒体分享。",
       betaTitle: "申请使用",
       betaNotice:
-        "如需使用出租或出售房源推广工作台，请联系 Vanisland Property Management 申请开通。",
+        "如需使用出租或出售房源推广工作台，请联系 VanIsland Property 申请开通。",
       betaCh:
         "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
       complianceTitle: "内容合规声明",
@@ -253,7 +253,7 @@ export const translations = {
       title: "联系我们 / 申请使用",
       chTitle: "Contact / Request Access",
       betaNotice:
-        "请联系 Vanisland Property Management 申请使用，我们将为您准备房源广告素材包。",
+        "请联系 VanIsland Property 申请使用，我们将为您准备房源广告素材包。",
       betaNoticeCh:
         "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access.",
       name: "姓名",

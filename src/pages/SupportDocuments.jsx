@@ -35,7 +35,7 @@ function PrivacySecurityNote() {
     <section className="notice notice--sage mb-24">
       <h4>Privacy and security note</h4>
       <p>
-        Your documents will be submitted to Vanisland Property Management through our secure company workflow.
+        Your documents will be submitted to VanIsland Property through our secure company workflow.
       </p>
       <p style={{ marginTop: 8 }}>
         You may choose either: upload documents online through this website, or email documents to our company email:{" "}
@@ -93,7 +93,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
   const [message, setMessage] = useState("");
 
   const invalidMessage = "This upload link is invalid or expired.";
-  const expiredMessage = "This link has expired. Please contact property management.";
+  const expiredMessage = "This link has expired. Please contact VanIsland Property.";
 
   useEffect(() => {
     if (hasMissingParams) return;

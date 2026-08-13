@@ -207,7 +207,7 @@ const FIELD_LABELS = {
 const COPY = {
   en: {
     title: "AI Property Strategy Assessment",
-    subtitle: "Get a preliminary rental strategy assessment in 3-5 minutes, based on Vanisland Property Management's property management framework.",
+    subtitle: "Get a preliminary rental strategy assessment in 3-5 minutes, based on VanIsland Property's practical rental experience.",
     desc: "Answer a few focused questions, then review the AI preliminary assessment before submitting it for professional review.",
     bullets: [
       "Recommended rental strategy",
@@ -343,7 +343,7 @@ const COPY = {
   },
   zh: {
     title: "房产出租策略AI初评",
-    subtitle: "3-5 分钟获得一份基于 Vanisland Property Management 物业管理经验的 AI 初步出租建议。",
+    subtitle: "3-5 分钟获得一份基于 VanIsland Property 实务出租经验的 AI 初步出租建议。",
     desc: "按步骤填写关键信息，提交前可先查看 AI 初步评估摘要。",
     bullets: [
       "推荐出租方式",
@@ -525,7 +525,7 @@ const OWNER_GOALS = [
   {
     value: "Not Sure",
     enTitle: "Not Sure",
-    enDesc: "Use Vanisland property management framework to compare the options first.",
+    enDesc: "Use VanIsland Property's rental experience to compare the options first.",
     zhTitle: "还不确定",
     zhDesc: "先用专业判断框架比较不同出租方案。",
   },
@@ -533,10 +533,10 @@ const OWNER_GOALS = [
 const NEXT_STEPS = [
   "Book a professional strategy review",
   "Request AI Marketing / Listing Service",
-  "Request Full Property Management",
+  "Request Full Landlord Support",
   "Request full rental market assessment",
   "Prepare listing marketing package",
-  "Discuss property management",
+  "Discuss landlord support",
   "Not ready yet - keep my intake on file",
 ];
 
@@ -599,10 +599,10 @@ const OPTION_LABELS_ZH = {
   "Unsure - need professional advice": "不确定，需要专业建议",
   "Book a professional strategy review": "预约专业策略审核",
   "Request AI Marketing / Listing Service": "申请 AI 营销 / 房源发布服务",
-  "Request Full Property Management": "申请完整物业管理服务",
+  "Request Full Landlord Support": "申请完整房东支持服务",
   "Request full rental market assessment": "申请完整租赁市场评估",
   "Prepare listing marketing package": "准备房源营销套件",
-  "Discuss property management": "咨询物业管理",
+  "Discuss landlord support": "咨询房东支持",
   "Not ready yet - keep my intake on file": "暂未准备好，先保留资料",
   "Rooms only": "只出租房间",
   "Whole home": "整套出租",
@@ -727,7 +727,7 @@ export default function StrategyAssessment({ lang }) {
   const isLastStep = step === steps.length - 1;
   const nextStepNeedsContact = submitted && [
     "Request AI Marketing / Listing Service",
-    "Request Full Property Management",
+    "Request Full Landlord Support",
   ].includes(submitted.nextStep);
   const sessionReport = reportRouteAssessmentId ? readStrategyReportSession() : null;
   const publicReport = sessionReport?.assessmentId === reportRouteAssessmentId ? sessionReport : null;
