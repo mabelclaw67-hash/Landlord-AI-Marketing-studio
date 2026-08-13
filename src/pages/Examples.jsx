@@ -352,7 +352,7 @@ export default function Examples({ lang = "en" }) {
       {/* ── Hero ───────────────────────────────────────────── */}
       <section className="rp-hero">
         <div className="rp-hero__inner">
-          <span className="rp-hero__eyebrow">🏠 Vanisland Property Management</span>
+          <span className="rp-hero__eyebrow">🏠 VanIsland Rentals</span>
           <h1 className="rp-hero__title">{labels.heroBrand}</h1>
           <p className="rp-hero__sub">{labels.heroSub}</p>
           <div className="rp-hero__actions">
