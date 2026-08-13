@@ -213,6 +213,32 @@ export async function uploadToSubfolder(folderId, subfolderName, file, listingId
   });
 }
 
+// Collage Cover save uses an already-generated base64 payload. Apps Script
+// can occasionally return a transient 404 after its POST redirect; retry the
+// same filename once so a response-only redirect failure does not surface as
+// a failed save. The backend removes an existing same-name file first.
+export async function uploadBase64ToSubfolder({ folderId, listingId = "", subfolderName = "", fileName, mimeType, data }) {
+  if (!isApiConnected()) {
+    throw new Error("Photo upload requires Google Drive integration.");
+  }
+  const request = {
+    action: "uploadToSubfolder",
+    folderId,
+    listingId,
+    subfolderName,
+    fileName,
+    mimeType,
+    data,
+    ...getStudioRequestAuth("rental"),
+  };
+  try {
+    return await apiPost(request);
+  } catch (error) {
+    if (error?.httpStatus !== 404) throw error;
+    return apiPost(request);
+  }
+}
+
 // Save a generated applicant report (Initial Screening Summary, etc.) as a PDF
 // into the listing's Tenant Screening Reports folder. Used by
 // src/utils/applicantScreeningReports.js. Additive endpoint - does not affect

@@ -4,7 +4,7 @@ import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
 import { formatListingDate, formatMonthlyRent, splitFeatureList } from "../../utils/listingFormat";
-import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getCollagePhotoData, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
+import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getCollagePhotoData, getListingSubfolderFiles, uploadToSubfolder, uploadBase64ToSubfolder, getApplicationsByListing } from "../../utils/storage";
 import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
 import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApplicationNotice";
@@ -1488,14 +1488,13 @@ export default function ListingDetail({ lang: langProp }) {
       const base64 = collageDataUrl.split(",")[1];
       const ts = Date.now();
       const fileName = `collage_cover__${ts}.jpg`;
-      const res = await apiPost({
-        action:        "uploadToSubfolder",
+      const res = await uploadBase64ToSubfolder({
         folderId,
+        listingId:     listing.id,
         subfolderName: "03_Cover_Images",
         fileName,
         mimeType:      "image/jpeg",
         data:          base64,
-        ...getStudioRequestAuth("rental"),
       });
       if (res?.subfolderUrl) setCollageFolderUrl(res.subfolderUrl);
       const fileId = res?.fileId;
