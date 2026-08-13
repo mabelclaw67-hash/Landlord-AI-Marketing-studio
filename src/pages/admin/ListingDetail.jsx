@@ -12,7 +12,7 @@ import { isApiConnected, apiPost } from "../../utils/api";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS, resolveRentalListingCover } from "../../utils/listingPublicMeta";
-import { resolveDriveVideoEmbedUrl } from "../../utils/videoUrls";
+import { resolvePlayableVideoUrl } from "../../utils/videoUrls";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import PrototypeBanner from "../../components/PrototypeBanner";
 import { generateCollageDataUrl, resolveCollagePhotos } from "../../utils/generateCollage";
@@ -298,7 +298,7 @@ export default function ListingDetail({ lang: langProp }) {
   const [excluded,      setExcluded]      = useState(new Set()); // Set<fileId>
   const [manualCover,   setManualCover]   = useState(null); // fileId | null
   const [coverFiles,    setCoverFiles]    = useState([]);   // files already in 03_Cover_Images/
-  const [videoFiles,    setVideoFiles]    = useState([]);   // files already in 04_Video_Output/
+  const [savedVideoError, setSavedVideoError] = useState(false); // restored player failed to load
 
   // Collage state
   const [collageStatus,    setCollageStatus]    = useState("idle"); // idle|loading|ready|saving|saved|error
@@ -442,10 +442,11 @@ export default function ListingDetail({ lang: langProp }) {
     }
   };
 
+  // The player itself is fed by publicVideoUrl from the sheet; this read only
+  // restores the admin-only Drive folder shortcut.
   const loadVideoFiles = async (folderId, listingId) => {
     try {
       const res = await getListingSubfolderFiles(folderId, "04_Video_Output", listingId);
-      setVideoFiles(res?.files || []);
       if (res?.subfolderUrl) setVideoFolderUrl(res.subfolderUrl);
     } catch {
       // Same as above — keep the existing state rather than showing "none".
@@ -825,12 +826,20 @@ export default function ListingDetail({ lang: langProp }) {
     coverIsFallback = ci.isFallback;
   }
 
-  // Video already sitting in 04_Video_Output/, matched to the selected format.
-  // Drives the reload player when no locally cached blob exists.
-  const driveVideoFile = videoFiles.length === 0
-    ? null
-    : (videoFiles.find((f) => String(f.name || "").endsWith(`__${videoFormat}.mp4`)) || videoFiles[0]);
-  const driveVideoEmbedUrl = driveVideoFile ? resolveDriveVideoEmbedUrl(driveVideoFile) : "";
+  // Restore the player from the same source the rest of the app already uses:
+  // syncVideoUrl_ mirrors each generated 04_Video_Output/ mp4 to Cloudinary and
+  // writes publicVideoUrl to the sheet, and resolvePlayableVideoUrl() resolves
+  // Cloudinary -> /videos static -> non-Drive fallback. Drive's own URL is not a
+  // player source: docs/01_SYSTEM_ARCHITECTURE.md keeps Drive internal-only, and
+  // Drive serves the mp4 as Content-Disposition: attachment so <video> rejects it.
+  const savedVideoUrl = String(listing?.publicVideoUrl || listing?.videoUrl || "").trim();
+  const savedVideoPlayerUrl = savedVideoUrl
+    ? resolvePlayableVideoUrl({
+        listingId: id,
+        publicVideoUrl: listing?.publicVideoUrl,
+        sourceUrl: listing?.videoUrl,
+      })
+    : "";
 
   const statusBadgeClass = {
     Draft: "badge--draft", "In Review": "badge--review",
@@ -2660,38 +2669,40 @@ export default function ListingDetail({ lang: langProp }) {
                     preview disappeared on reload. Drive refuses <video> playback
                     (Content-Disposition: attachment), so its embeddable preview
                     player is used — no re-generation, no copy, no local cache. */}
-                {videoStatus === "idle" && driveVideoEmbedUrl && (
+                {videoStatus === "idle" && savedVideoPlayerUrl && (
                   <div style={{ marginTop: 14 }}>
                     <p style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 8, color: "var(--color-primary)" }}>
-                      {lang === "zh" ? "视频预览（来自 Drive）" : "Video Preview (from Drive)"}
+                      {lang === "zh" ? "视频预览（已保存）" : "Video Preview (saved)"}
                     </p>
-                    <iframe
-                      key={driveVideoEmbedUrl}
-                      src={driveVideoEmbedUrl}
-                      title={driveVideoFile?.name || "Listing video"}
-                      allow="autoplay; fullscreen"
-                      allowFullScreen
+                    <video
+                      key={savedVideoPlayerUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      src={savedVideoPlayerUrl}
+                      onError={() => setSavedVideoError(true)}
                       style={{
                         display: "block",
                         width: "100%",
                         maxWidth: videoFormat === "landscape" ? 640 : 300,
-                        aspectRatio: videoFormat === "landscape" ? "16 / 9" : "9 / 16",
-                        border: "none",
                         borderRadius: 8,
                         background: "#000",
                         boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
                       }}
                     />
-                    <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 6 }}>
-                      <code>{driveVideoFile?.name}</code>
-                      {" · "}
-                      <a
-                        href={driveVideoFile?.url || `https://drive.google.com/file/d/${driveVideoFile?.fileId}/view`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {lang === "zh" ? "在 Drive 中打开 ↗" : "Open in Drive ↗"}
-                      </a>
+                    {savedVideoError && (
+                      <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                        {lang === "zh"
+                          ? "视频预览暂不可用。可点击下方 Drive 链接查看，或重新生成以刷新 CDN 副本。"
+                          : "Video preview is unavailable. Open it in Drive below, or regenerate to refresh the CDN copy."}
+                      </p>
+                    )}
+                    <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                      {lang === "zh"
+                        ? "重新进入房源时自动恢复，无需重新生成。"
+                        : "Restored automatically when the listing is reopened — no need to regenerate."}
+                      {/* Drive stays an admin-only auxiliary entry point: the
+                          architecture doc forbids exposing Drive links to trial users. */}
                       {isAdmin && videoFolderUrl && (
                         <>
                           {" · "}
@@ -2702,13 +2713,6 @@ export default function ListingDetail({ lang: langProp }) {
                         </>
                       )}
                     </p>
-                    {videoFiles.length > 1 && (
-                      <p style={{ fontSize: "0.74rem", color: "var(--color-text-muted)", marginTop: 2 }}>
-                        {lang === "zh"
-                          ? `Drive 中共有 ${videoFiles.length} 个已生成视频，正在显示与当前格式匹配的一个。`
-                          : `${videoFiles.length} videos in Drive — showing the one matching the selected format.`}
-                      </p>
-                    )}
                   </div>
                 )}
 
