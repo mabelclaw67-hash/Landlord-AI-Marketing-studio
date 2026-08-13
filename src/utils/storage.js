@@ -161,6 +161,20 @@ export async function getListingFolderFiles(folderId, listingId = "") {
   return apiGet({ action: "getListingFolder", folderId, listingId, ...getStudioRequestAuth("rental") });
 }
 
+// Read only the selected photos needed for a Collage Cover. The backend caps
+// this request at five files; normal listing photo reads stay metadata-only.
+export async function getCollagePhotoData(listingId, fileIds) {
+  if (!isApiConnected()) {
+    throw new Error("Collage photo loading requires Google Drive integration.");
+  }
+  return apiPost({
+    action: "getCollagePhotoData",
+    listingId,
+    fileIds,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 export async function getPublicListingFolderFiles(folderId, listingId = "") {
   if (!isApiConnected() || (!folderId && !listingId)) return [];
   return apiGet({ action: "getListingFolder", folderId, listingId });

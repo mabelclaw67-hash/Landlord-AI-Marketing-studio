@@ -4,7 +4,7 @@ import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
 import { formatListingDate, formatMonthlyRent, splitFeatureList } from "../../utils/listingFormat";
-import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
+import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getCollagePhotoData, getListingSubfolderFiles, uploadToSubfolder, getApplicationsByListing } from "../../utils/storage";
 import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
 import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApplicationNotice";
@@ -1438,7 +1438,7 @@ export default function ListingDetail({ lang: langProp }) {
   }
 
   async function handleGenerateCollage() {
-    const pool    = activePhotos.filter((f) => f.dataUrl || f.thumbUrl);
+    const pool    = activePhotos.filter((f) => f.fileId);
     const sources = resolveCollagePhotos(pool, collageSelection, (f) => f.fileId, effectiveCover?.fileId);
     if (sources.length < 2) {
       setCollageStatus("error");
@@ -1449,8 +1449,20 @@ export default function ListingDetail({ lang: langProp }) {
     setCollageMsg("");
     setCollageDataUrl(null);
     try {
-      // Prefer dataUrl (base64, no CORS) — fall back to thumbUrl with crossOrigin
-      const imageSrcs = sources.map((f) => f.dataUrl || f.thumbUrl || f.thumbUrlLg || "");
+      // Read only the final selected photos on demand. Do not put these data
+      // URLs into folderFiles; the normal listing response stays metadata-only.
+      const photoResults = await getCollagePhotoData(id, sources.map((f) => f.fileId));
+      const resultById = new Map((photoResults || []).map((result) => [result.fileId, result]));
+      const loadedCount = sources.filter((photo) => resultById.get(photo.fileId)?.dataUrl).length;
+      const failedCount = sources.length - loadedCount;
+      if (failedCount > 0) {
+        throw new Error(
+          lang === "zh"
+            ? `拼图照片读取失败：${loadedCount} 张成功，${failedCount} 张失败。`
+            : `Collage photo loading failed: ${loadedCount} succeeded, ${failedCount} failed.`
+        );
+      }
+      const imageSrcs = sources.map((photo) => resultById.get(photo.fileId).dataUrl);
       const dataUrl = await generateCollageDataUrl(imageSrcs, {
         overlayData: buildRentOverlay(listing),
       });

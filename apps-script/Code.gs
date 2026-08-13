@@ -280,6 +280,7 @@ function doPost(e) {
     });
     if (action === "getListings")       return ok(getListings_(auth));        // POST avoids GET cache
     if (action === "getListingById")    return ok(getListingById_(body.listingId, auth));
+    if (action === "getCollagePhotoData") return ok(getCollagePhotoData_(body.listingId, body.fileIds, auth));
     if (action === "generateListingId") return ok({ listingId: generateListingId_() });
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
     if (action === "saveContact")       return ok(saveContact_(body.data));
@@ -3687,6 +3688,61 @@ function getListingFolderFiles_(folderId, listingId, auth) {
   var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
   var folder = DriveApp.getFolderById(resolvedFolderId);
   return listDriveMediaFiles_(folder, { includeVideos: false });
+}
+
+// Read only the selected listing photos needed for a Collage Cover.
+// The normal listing-folder endpoint remains metadata-only; this endpoint is
+// called only after the user clicks Generate Collage Cover and is capped at 5
+// image files. Original Drive files are never modified.
+function getCollagePhotoData_(listingId, fileIds, auth) {
+  if (!listingId) throw new Error("getCollagePhotoData: listingId required");
+  if (!Array.isArray(fileIds)) throw new Error("getCollagePhotoData: fileIds must be an array");
+  if (fileIds.length > 5) throw new Error("getCollagePhotoData: maximum 5 photos allowed");
+
+  var listing = getListingById_(listingId, auth);
+  var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
+  if (!folderId) throw new Error("Drive folder not found for this listing.");
+
+  var requestedIds = [];
+  var seen = {};
+  for (var i = 0; i < fileIds.length; i++) {
+    var requestedId = String(fileIds[i] || "").trim();
+    if (!requestedId || seen[requestedId]) continue;
+    seen[requestedId] = true;
+    requestedIds.push(requestedId);
+  }
+
+  var folder = DriveApp.getFolderById(folderId);
+  var filesById = {};
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var file = it.next();
+    filesById[file.getId()] = file;
+  }
+
+  return requestedIds.map(function(fileId) {
+    var file = filesById[fileId];
+    if (!file) {
+      return { fileId: fileId, fileName: "", error: "Photo is not in this listing folder." };
+    }
+
+    var mime = file.getMimeType();
+    if (mime !== "image/jpeg" && mime !== "image/png") {
+      return { fileId: fileId, fileName: file.getName(), error: "Selected file is not a JPEG or PNG image." };
+    }
+
+    try {
+      var blob = file.getBlob();
+      var contentType = blob.getContentType() || mime;
+      return {
+        fileId: fileId,
+        fileName: file.getName(),
+        dataUrl: "data:" + contentType + ";base64," + Utilities.base64Encode(blob.getBytes()),
+      };
+    } catch (ex) {
+      return { fileId: fileId, fileName: file.getName(), error: "Photo could not be read from Drive." };
+    }
+  });
 }
 
 function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
