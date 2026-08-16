@@ -19,6 +19,7 @@ const CATEGORIES = [
   "Tenant insurance",
   "Other requested documents",
 ];
+const DEFAULT_CATEGORY = CATEGORIES[CATEGORIES.length - 1];
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
 const ALLOWED_TYPES = [
@@ -90,8 +91,8 @@ function TokenUploadPage({ listingId, recordId, token }) {
   const [loading, setLoading] = useState(!hasMissingParams);
   const [error, setError] = useState("");
   const [details, setDetails] = useState(null);
-  const [selected, setSelected] = useState({});
-  const [busyCategory, setBusyCategory] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   // Ref, not state: must block a second click synchronously, before React
   // re-renders the disabled button — state updates alone are too slow to
@@ -114,37 +115,37 @@ function TokenUploadPage({ listingId, recordId, token }) {
     return Number.isFinite(count) ? count : 0;
   }, [details]);
 
-  async function handleUpload(category) {
+  async function handleUpload() {
     if (uploadLockRef.current) return;
-    const files = Array.from(selected[category] || []);
-    if (files.length === 0) {
+    if (selectedFiles.length === 0) {
       setMessage("Please choose at least one file first.");
       return;
     }
-    const invalid = files.map(validateFile).find(Boolean);
+    const invalid = selectedFiles.map((entry) => validateFile(entry.file)).find(Boolean);
     if (invalid) {
       setMessage(invalid);
       return;
     }
     uploadLockRef.current = true;
-    setBusyCategory(category);
+    setBusy(true);
     setMessage("");
     const uploadedDocs = [];
     let latest = null;
     let uploadError = null;
     try {
       try {
-        for (const file of files) {
-          latest = await uploadSupportingDocument(listingId, recordId, token, category, file, await uploadTurnstile.consumeToken());
+        for (const entry of selectedFiles) {
+          latest = await uploadSupportingDocument(listingId, recordId, token, entry.category, entry.file, await uploadTurnstile.consumeToken());
           // Only the Drive fileId (not the name) is what the notify call is
           // authorized by — the backend re-verifies it against the folder.
-          if (latest?.fileId) uploadedDocs.push({ fileId: latest.fileId, fileName: latest.fileName || file.name });
+          if (latest?.fileId) uploadedDocs.push({ fileId: latest.fileId, fileName: latest.fileName || entry.file.name });
         }
       } catch (e) {
         uploadError = e;
       }
-      // One submission (this whole upload click) = one notification, sent
-      // once here after every file in the batch has finished, not per file.
+      // One submission (this whole upload click, across every file and
+      // document type selected) = one notification, sent once here after
+      // the whole batch has finished, not per file or per category.
       if (uploadedDocs.length > 0) {
         try {
           await notifySupportingDocumentsUploaded(listingId, recordId, token, uploadedDocs, await uploadTurnstile.consumeToken());
@@ -162,11 +163,11 @@ function TokenUploadPage({ listingId, recordId, token }) {
           uploadedFileCount: latest?.uploadedFileCount ?? prev?.uploadedFileCount,
           lastUploadAt: latest?.lastUploadAt || prev?.lastUploadAt,
         }));
-        setSelected((prev) => ({ ...prev, [category]: [] }));
+        setSelectedFiles([]);
         setMessage(SUCCESS_MESSAGE);
       }
     } finally {
-      setBusyCategory("");
+      setBusy(false);
       uploadLockRef.current = false;
     }
   }
@@ -217,9 +218,9 @@ function TokenUploadPage({ listingId, recordId, token }) {
       <PrivacySecurityNote />
 
       <UploadPanel
-        selected={selected}
-        setSelected={setSelected}
-        busyCategory={busyCategory}
+        selectedFiles={selectedFiles}
+        setSelectedFiles={setSelectedFiles}
+        busy={busy}
         onUpload={handleUpload}
         message={message}
         turnstile={uploadTurnstile}
@@ -237,44 +238,79 @@ function InfoBlock({ label, value, code = false }) {
   );
 }
 
-function UploadPanel({ selected, setSelected, busyCategory, onUpload, message, turnstile }) {
+function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message, turnstile }) {
+  function handleFilesChosen(e) {
+    const chosen = Array.from(e.target.files || []);
+    if (chosen.length > 0) {
+      setSelectedFiles((prev) => [
+        ...prev,
+        ...chosen.map((file) => ({
+          key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          category: DEFAULT_CATEGORY,
+        })),
+      ]);
+    }
+    // Allow re-choosing the same file again after removing it from the list.
+    e.target.value = "";
+  }
+
+  function removeFile(key) {
+    setSelectedFiles((prev) => prev.filter((entry) => entry.key !== key));
+  }
+
+  function setFileCategory(key, category) {
+    setSelectedFiles((prev) => prev.map((entry) => (entry.key === key ? { ...entry, category } : entry)));
+  }
+
   return (
     <section className="card">
       <h2 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 12 }}>Upload files</h2>
-      <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
+      <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 8 }}>
         Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 10 MB per file.
       </p>
+      <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
+        You can upload documents such as: {CATEGORIES.join(", ")}. Select all your files below at once — you don't need to submit them separately by type.
+      </p>
       {turnstile && <div style={{ marginBottom: 16 }}>{turnstile.widget}<p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem" }}>{turnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</p></div>}
-      <div style={{ display: "grid", gap: 14 }}>
-        {CATEGORIES.map((category) => (
-          <div
-            key={category}
-            className="support-upload-row"
-            style={{
-              gap: 12,
-              alignItems: "center",
-              padding: "12px 0",
-              borderBottom: "1px solid var(--color-border)",
-            }}
-          >
-            <label style={{ fontWeight: 700, fontSize: "0.88rem" }}>{category}</label>
-            <input
-              type="file"
-              multiple
-              accept={ALLOWED_EXTENSIONS.join(",")}
-              onChange={(e) => setSelected((prev) => ({ ...prev, [category]: e.target.files }))}
-            />
-            <button
-              type="button"
-              className="btn btn--sm"
-              disabled={busyCategory === category}
-              onClick={() => onUpload(category)}
-            >
-              {busyCategory === category ? "Uploading..." : "Upload"}
-            </button>
-          </div>
-        ))}
+
+      <div style={{ marginBottom: 16 }}>
+        <input type="file" multiple accept={ALLOWED_EXTENSIONS.join(",")} onChange={handleFilesChosen} />
       </div>
+
+      {selectedFiles.length > 0 && (
+        <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+          {selectedFiles.map((entry) => (
+            <div
+              key={entry.key}
+              className="support-upload-row"
+              style={{ gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--color-border)" }}
+            >
+              <span style={{ fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={entry.file.name}>
+                {entry.file.name}
+              </span>
+              <select
+                className="form-control"
+                value={entry.category}
+                onChange={(e) => setFileCategory(entry.key, e.target.value)}
+                style={{ fontSize: "0.82rem" }}
+              >
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              <button type="button" className="btn btn--sm btn--ghost" onClick={() => removeFile(entry.key)}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button type="button" className="btn btn--primary" disabled={busy || selectedFiles.length === 0} onClick={onUpload}>
+        {busy ? "Uploading..." : "Upload"}
+      </button>
+
       {message && (
         <p style={{ marginTop: 16, color: message.startsWith("Thank you") ? "#2e7d4f" : "var(--color-text-muted)", fontWeight: 700 }}>
           {message}
@@ -295,8 +331,8 @@ export default function SupportDocuments() {
   const [listingLoading, setListingLoading] = useState(!isTokenMode && !!publicListingId);
   const [listingError, setListingError] = useState("");
   const [form, setForm] = useState({ applicantName: "", email: "", phone: "", notes: "" });
-  const [selected, setSelected] = useState({});
-  const [busyCategory, setBusyCategory] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   // Ref, not state: must block a second click synchronously, before React
   // re-renders the disabled button — state updates alone are too slow to
@@ -336,9 +372,8 @@ export default function SupportDocuments() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handlePublicUpload(category) {
+  async function handlePublicUpload() {
     if (uploadLockRef.current) return;
-    const files = Array.from(selected[category] || []);
     if (!isListingOpen) {
       setMessage(CLOSED_MESSAGE);
       return;
@@ -347,43 +382,44 @@ export default function SupportDocuments() {
       setMessage("Please enter your full name, email, and phone number before uploading.");
       return;
     }
-    if (files.length === 0) {
+    if (selectedFiles.length === 0) {
       setMessage("Please choose at least one file first.");
       return;
     }
-    const invalid = files.map(validateFile).find(Boolean);
+    const invalid = selectedFiles.map((entry) => validateFile(entry.file)).find(Boolean);
     if (invalid) {
       setMessage(invalid);
       return;
     }
 
     uploadLockRef.current = true;
-    setBusyCategory(category);
+    setBusy(true);
     setMessage("");
     const uploadedDocs = [];
     let uploadError = null;
     try {
       try {
-        for (const file of files) {
+        for (const entry of selectedFiles) {
           const result = await uploadPublicSupportingDocument({
             listingId: publicListingId,
             applicantName: clean(form.applicantName),
             email: clean(form.email),
             phone: clean(form.phone),
             notes: clean(form.notes),
-            category,
-            file,
+            category: entry.category,
+            file: entry.file,
             turnstileToken: await uploadTurnstile.consumeToken(),
           });
           // Only the Drive fileId (not the name) is what the notify call is
           // authorized by — the backend re-verifies it against the folder.
-          if (result?.fileId) uploadedDocs.push({ fileId: result.fileId, fileName: result.fileName || file.name });
+          if (result?.fileId) uploadedDocs.push({ fileId: result.fileId, fileName: result.fileName || entry.file.name });
         }
       } catch (err) {
         uploadError = err;
       }
-      // One submission (this whole upload click) = one notification, sent
-      // once here after every file in the batch has finished, not per file.
+      // One submission (this whole upload click, across every file and
+      // document type selected) = one notification, sent once here after
+      // the whole batch has finished, not per file or per category.
       if (uploadedDocs.length > 0) {
         try {
           await notifyPublicSupportingDocumentsUploaded({
@@ -402,11 +438,11 @@ export default function SupportDocuments() {
       if (uploadError) {
         setMessage(uploadError.message || "Upload failed. Please try again.");
       } else {
-        setSelected((prev) => ({ ...prev, [category]: [] }));
+        setSelectedFiles([]);
         setMessage(SUCCESS_MESSAGE);
       }
     } finally {
-      setBusyCategory("");
+      setBusy(false);
       uploadLockRef.current = false;
     }
   }
@@ -489,9 +525,9 @@ export default function SupportDocuments() {
           <PrivacySecurityNote />
 
           <UploadPanel
-            selected={selected}
-            setSelected={setSelected}
-            busyCategory={busyCategory}
+            selectedFiles={selectedFiles}
+            setSelectedFiles={setSelectedFiles}
+            busy={busy}
             onUpload={handlePublicUpload}
             message={message}
             turnstile={uploadTurnstile}
