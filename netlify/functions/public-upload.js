@@ -2,7 +2,9 @@ import { bridgePublicUpload, ipDigest, json, parse, preflight, rateLimit, safeEr
 
 const ALLOWED_ACTIONS = new Set([
   "uploadSupportingDocument",
+  "notifySupportingDocumentsUploaded",
   "uploadPublicSupportingDocument",
+  "notifyPublicSupportingDocumentsUploaded",
   "uploadDisputeFile",
   "uploadPropertyStrategyFile",
 ]);

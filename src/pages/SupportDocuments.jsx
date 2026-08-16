@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   getListing,
+  notifyPublicSupportingDocumentsUploaded,
+  notifySupportingDocumentsUploaded,
   uploadPublicSupportingDocument,
   uploadSupportingDocument,
   validateUploadToken,
@@ -91,6 +93,10 @@ function TokenUploadPage({ listingId, recordId, token }) {
   const [selected, setSelected] = useState({});
   const [busyCategory, setBusyCategory] = useState("");
   const [message, setMessage] = useState("");
+  // Ref, not state: must block a second click synchronously, before React
+  // re-renders the disabled button — state updates alone are too slow to
+  // stop a fast double-click from starting two overlapping submissions.
+  const uploadLockRef = useRef(false);
 
   const invalidMessage = "This upload link is invalid or expired.";
   const expiredMessage = "This link has expired. Please contact VanIsland Property.";
@@ -109,6 +115,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
   }, [details]);
 
   async function handleUpload(category) {
+    if (uploadLockRef.current) return;
     const files = Array.from(selected[category] || []);
     if (files.length === 0) {
       setMessage("Please choose at least one file first.");
@@ -119,26 +126,48 @@ function TokenUploadPage({ listingId, recordId, token }) {
       setMessage(invalid);
       return;
     }
+    uploadLockRef.current = true;
     setBusyCategory(category);
     setMessage("");
+    const uploadedDocs = [];
+    let latest = null;
+    let uploadError = null;
     try {
-      let latest = null;
-      for (const file of files) {
-        latest = await uploadSupportingDocument(listingId, recordId, token, category, file, await uploadTurnstile.consumeToken());
+      try {
+        for (const file of files) {
+          latest = await uploadSupportingDocument(listingId, recordId, token, category, file, await uploadTurnstile.consumeToken());
+          // Only the Drive fileId (not the name) is what the notify call is
+          // authorized by — the backend re-verifies it against the folder.
+          if (latest?.fileId) uploadedDocs.push({ fileId: latest.fileId, fileName: latest.fileName || file.name });
+        }
+      } catch (e) {
+        uploadError = e;
       }
-      setDetails((prev) => ({
-        ...prev,
-        documentUploadStatus: latest?.documentUploadStatus || "Uploaded",
-        uploadedFileCount: latest?.uploadedFileCount ?? prev?.uploadedFileCount,
-        lastUploadAt: latest?.lastUploadAt || prev?.lastUploadAt,
-      }));
-      setSelected((prev) => ({ ...prev, [category]: [] }));
-      setMessage(SUCCESS_MESSAGE);
-    } catch (e) {
-      const text = e.message || "Upload failed. Please try again.";
-      setMessage(text.includes(expiredMessage) ? expiredMessage : text);
+      // One submission (this whole upload click) = one notification, sent
+      // once here after every file in the batch has finished, not per file.
+      if (uploadedDocs.length > 0) {
+        try {
+          await notifySupportingDocumentsUploaded(listingId, recordId, token, uploadedDocs, await uploadTurnstile.consumeToken());
+        } catch (notifyErr) {
+          if (!uploadError) uploadError = notifyErr;
+        }
+      }
+      if (uploadError) {
+        const text = uploadError.message || "Upload failed. Please try again.";
+        setMessage(text.includes(expiredMessage) ? expiredMessage : text);
+      } else {
+        setDetails((prev) => ({
+          ...prev,
+          documentUploadStatus: latest?.documentUploadStatus || "Uploaded",
+          uploadedFileCount: latest?.uploadedFileCount ?? prev?.uploadedFileCount,
+          lastUploadAt: latest?.lastUploadAt || prev?.lastUploadAt,
+        }));
+        setSelected((prev) => ({ ...prev, [category]: [] }));
+        setMessage(SUCCESS_MESSAGE);
+      }
     } finally {
       setBusyCategory("");
+      uploadLockRef.current = false;
     }
   }
 
@@ -269,6 +298,10 @@ export default function SupportDocuments() {
   const [selected, setSelected] = useState({});
   const [busyCategory, setBusyCategory] = useState("");
   const [message, setMessage] = useState("");
+  // Ref, not state: must block a second click synchronously, before React
+  // re-renders the disabled button — state updates alone are too slow to
+  // stop a fast double-click from starting two overlapping submissions.
+  const uploadLockRef = useRef(false);
 
   useEffect(() => {
     if (isTokenMode || !publicListingId) return;
@@ -304,6 +337,7 @@ export default function SupportDocuments() {
   }
 
   async function handlePublicUpload(category) {
+    if (uploadLockRef.current) return;
     const files = Array.from(selected[category] || []);
     if (!isListingOpen) {
       setMessage(CLOSED_MESSAGE);
@@ -323,27 +357,57 @@ export default function SupportDocuments() {
       return;
     }
 
+    uploadLockRef.current = true;
     setBusyCategory(category);
     setMessage("");
+    const uploadedDocs = [];
+    let uploadError = null;
     try {
-      for (const file of files) {
-        await uploadPublicSupportingDocument({
-          listingId: publicListingId,
-          applicantName: clean(form.applicantName),
-          email: clean(form.email),
-          phone: clean(form.phone),
-          notes: clean(form.notes),
-          category,
-          file,
-          turnstileToken: await uploadTurnstile.consumeToken(),
-        });
+      try {
+        for (const file of files) {
+          const result = await uploadPublicSupportingDocument({
+            listingId: publicListingId,
+            applicantName: clean(form.applicantName),
+            email: clean(form.email),
+            phone: clean(form.phone),
+            notes: clean(form.notes),
+            category,
+            file,
+            turnstileToken: await uploadTurnstile.consumeToken(),
+          });
+          // Only the Drive fileId (not the name) is what the notify call is
+          // authorized by — the backend re-verifies it against the folder.
+          if (result?.fileId) uploadedDocs.push({ fileId: result.fileId, fileName: result.fileName || file.name });
+        }
+      } catch (err) {
+        uploadError = err;
       }
-      setSelected((prev) => ({ ...prev, [category]: [] }));
-      setMessage(SUCCESS_MESSAGE);
-    } catch (err) {
-      setMessage(err.message || "Upload failed. Please try again.");
+      // One submission (this whole upload click) = one notification, sent
+      // once here after every file in the batch has finished, not per file.
+      if (uploadedDocs.length > 0) {
+        try {
+          await notifyPublicSupportingDocumentsUploaded({
+            listingId: publicListingId,
+            applicantName: clean(form.applicantName),
+            email: clean(form.email),
+            phone: clean(form.phone),
+            notes: clean(form.notes),
+            documents: uploadedDocs,
+            turnstileToken: await uploadTurnstile.consumeToken(),
+          });
+        } catch (notifyErr) {
+          if (!uploadError) uploadError = notifyErr;
+        }
+      }
+      if (uploadError) {
+        setMessage(uploadError.message || "Upload failed. Please try again.");
+      } else {
+        setSelected((prev) => ({ ...prev, [category]: [] }));
+        setMessage(SUCCESS_MESSAGE);
+      }
     } finally {
       setBusyCategory("");
+      uploadLockRef.current = false;
     }
   }
 

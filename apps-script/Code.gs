@@ -367,7 +367,9 @@ function doPost(e) {
     if (action === "deleteExpiredApplicantSensitiveFiles") return ok(deleteExpiredApplicantSensitiveFiles_(body.recordId, auth));
     if (action === "validateUploadToken") return ok(validateUploadToken_(body.listingId, body.recordId, body.token));
     if (action === "uploadSupportingDocument") return ok(uploadSupportingDocument_(body));
+    if (action === "notifySupportingDocumentsUploaded") return ok(notifySupportingDocumentsUploaded_(body));
     if (action === "uploadPublicSupportingDocument") return ok(uploadPublicSupportingDocument_(body));
+    if (action === "notifyPublicSupportingDocumentsUploaded") return ok(notifyPublicSupportingDocumentsUploaded_(body));
     if (action === "updateDocumentUploadStatus") return ok(updateDocumentUploadStatus_(body.recordId));
     if (action === "approveContactRequest")   return ok(approveContactRequest_(body, auth));
     if (action === "updateContactRequestNotes") return ok(updateContactRequestNotes_(body.rowNumber, body.notes, auth));
@@ -4424,32 +4426,74 @@ function uploadSupportingDocument_(body) {
   var file = folder.createFile(blob);
   trySetDriveViewSharing_(file, "supporting document");
   var status = updateDocumentUploadStatus_(body.recordId);
-  var uploadedAt = status.lastUploadAt || new Date().toISOString();
+  return {
+    success: true,
+    fileId: file.getId(),
+    fileName: file.getName(),
+    fileUrl: file.getUrl(),
+    documentUploadStatus: status.documentUploadStatus,
+    uploadedFileCount: status.uploadedFileCount,
+    lastUploadAt: status.lastUploadAt,
+  };
+}
+
+// Returns only the {fileId, fileName} entries whose fileId is a real Drive
+// file that actually lives inside folder right now. The Drive file ID —
+// not a client-supplied name — is the authorization key: a caller can't
+// get credit for a file it never created in the correct folder, and can't
+// pass off some other file's name as its own.
+function filterVerifiedFilesInFolder_(folder, documents) {
+  var folderId = folder.getId();
+  var entries = Array.isArray(documents) ? documents : [documents];
+  var verified = [];
+  entries.forEach(function(entry) {
+    var fileId = entry && entry.fileId ? String(entry.fileId) : "";
+    if (!fileId) return;
+    var file;
+    try {
+      file = DriveApp.getFileById(fileId);
+    } catch (e) {
+      return;
+    }
+    var parents = file.getParents();
+    var belongsToFolder = false;
+    while (parents.hasNext()) {
+      if (parents.next().getId() === folderId) { belongsToFolder = true; break; }
+    }
+    if (!belongsToFolder) return;
+    verified.push(file.getName());
+  });
+  return verified;
+}
+
+// Fires the single "Supporting Documents Uploaded" notification for a whole
+// upload submission (one or many files), decoupled from per-file storage in
+// uploadSupportingDocument_ above so N files selected together produce one
+// admin email instead of N.
+function notifySupportingDocumentsUploaded_(body) {
+  validateUploadToken_(body.listingId, body.recordId, body.token);
+  var found = findApplicationRowByRecordId_(body.recordId);
+  var folderId = extractDriveFolderId_(found.app.supportDocumentFolderUrl);
+  if (!folderId) throw new Error("Support Document Folder URL is missing.");
+  var verifiedNames = filterVerifiedFilesInFolder_(DriveApp.getFolderById(folderId), body.documents);
+  if (!verifiedNames.length) throw new Error("No matching uploaded documents found for this application.");
+  var documentList = verifiedNames.join(", ");
   var emailWarnings = {};
   try {
     var listing = findListingById_(found.app.listingId || body.listingId);
     emailWarnings = sendSupportDocumentReceiptEmails_(found.app, listing, {
       recordId: body.recordId,
       listingId: body.listingId,
-      fileName: file.getName(),
-      documentList: file.getName(),
-      uploadedAt: uploadedAt
+      documentList: documentList,
+      uploadedAt: new Date().toISOString()
     }, body.origin);
   } catch (emailErr) {
     var emailWarning = emailErr && emailErr.message ? emailErr.message : String(emailErr || "Unknown support document email error");
-    Logger.log("[uploadSupportingDocument] email notification skipped: " + emailWarning);
+    Logger.log("[notifySupportingDocumentsUploaded] email notification skipped: " + emailWarning);
     if (emailErr && emailErr.stack) Logger.log(emailErr.stack);
     emailWarnings.notificationWarning = emailWarning;
   }
-  return {
-    success: true,
-    fileName: file.getName(),
-    fileUrl: file.getUrl(),
-    documentUploadStatus: status.documentUploadStatus,
-    uploadedFileCount: status.uploadedFileCount,
-    lastUploadAt: status.lastUploadAt,
-    emailWarnings: emailWarnings,
-  };
+  return { success: true, emailWarnings: emailWarnings };
 }
 
 var SUPPORTING_DOCUMENT_ALLOWED_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "doc", "docx"];
@@ -4625,22 +4669,46 @@ function uploadPublicSupportingDocument_(body) {
     "Uploaded At: " + uploadedAt,
     "Notes: " + String(body.notes || "").trim()
   ].join("\n"));
+  return {
+    success: true,
+    listingId: listingId,
+    fileId: file.getId(),
+    fileName: file.getName(),
+    uploadedAt: uploadedAt
+  };
+}
+
+// Fires the single "Supporting Documents Uploaded" notification for a whole
+// public (no-token) upload submission, decoupled from per-file storage in
+// uploadPublicSupportingDocument_ above so N files selected together produce
+// one admin email instead of N.
+function notifyPublicSupportingDocumentsUploaded_(body) {
+  var listingId = String(body.listingId || "").trim();
+  var applicantName = String(body.applicantName || "").trim();
+  var email = String(body.email || "").trim();
+  var phone = String(body.phone || "").trim();
+  if (!listingId) throw new Error("Listing ID is required.");
+  if (!applicantName) throw new Error("Full name is required.");
+  if (!email) throw new Error("Email is required.");
+  if (!phone) throw new Error("Phone number is required.");
+
+  var listing = findListingById_(listingId);
+  if (!isPublicRentalListingOpenForDocuments_(listing)) {
+    throw new Error("This listing is no longer accepting applications or supporting documents.");
+  }
+  var folder = getPublicSupportingDocumentsFolder_(listing);
+  var verifiedNames = filterVerifiedFilesInFolder_(folder, body.documents);
+  if (!verifiedNames.length) throw new Error("No matching uploaded documents found for this listing.");
+  var documentList = verifiedNames.join(", ");
   var emailWarnings = sendSupportDocumentReceiptEmails_({}, listing, {
     listingId: listingId,
     applicantName: applicantName,
     email: email,
     phone: phone,
-    fileName: file.getName(),
-    documentList: category + " - " + originalFileName,
-    uploadedAt: uploadedAt
+    documentList: documentList,
+    uploadedAt: new Date().toISOString()
   }, body.origin);
-  return {
-    success: true,
-    listingId: listingId,
-    fileName: file.getName(),
-    uploadedAt: uploadedAt,
-    emailWarnings: emailWarnings
-  };
+  return { success: true, emailWarnings: emailWarnings };
 }
 
 var SCREENING_REPORT_CATEGORIES = [

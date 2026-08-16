@@ -495,6 +495,39 @@ export async function uploadPublicSupportingDocument({ listingId, applicantName,
   }, turnstileToken);
 }
 
+// Fires exactly one "Supporting Documents Uploaded" admin email for a whole
+// upload submission, regardless of how many files were selected together.
+// `documents` is the list of {fileId, fileName} for files that individually
+// finished uploading — the backend re-verifies each fileId against Drive
+// before trusting it, so this is a claim, not an authorization.
+export async function notifySupportingDocumentsUploaded(listingId, recordId, token, documents, turnstileToken) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document upload requires Google Apps Script integration.");
+  }
+  return publicUpload("notifySupportingDocumentsUploaded", {
+    listingId,
+    recordId,
+    token,
+    documents,
+    origin: window.location.origin,
+  }, turnstileToken);
+}
+
+export async function notifyPublicSupportingDocumentsUploaded({ listingId, applicantName, email, phone, notes, documents, turnstileToken }) {
+  if (!isApiConnected()) {
+    throw new Error("Supporting document upload requires Google Apps Script integration.");
+  }
+  return publicUpload("notifyPublicSupportingDocumentsUploaded", {
+    listingId,
+    applicantName,
+    email,
+    phone,
+    notes,
+    documents,
+    origin: window.location.origin,
+  }, turnstileToken);
+}
+
 // v0.3+ swap surface — replace these with API calls without touching components.
 export const storageAdapter = {
   getListings,
