@@ -999,11 +999,13 @@ export default function ListingDetail({ lang: langProp }) {
 
     const loadedImages = await Promise.all(
       photoSource.map(photo => new Promise(resolve => {
-        const src = photo.dataUrl || photo.thumbUrlLg || photo.thumbUrl;
+        const src = photo.dataUrl
+          || (photo.fileId ? `https://lh3.googleusercontent.com/d/${photo.fileId}=w1600` : photo.thumbUrlLg || photo.thumbUrl);
         if (!src) { resolve(null); return; }
         const img = new Image();
         img.onload  = () => resolve(img);
         img.onerror = () => resolve(null);
+        img.crossOrigin = "anonymous";
         img.src = src;
       }))
     );
@@ -1260,7 +1262,6 @@ export default function ListingDetail({ lang: langProp }) {
     }
 
     // ── Frame loop (frame-based for deterministic MP4 timestamps) ────────────
-    const FRAME_MS = Math.round(1000 / 24);
     async function renderFor(drawFn, secs) {
       const totalFrames = Math.max(1, Math.round(secs * 24));
       for (let f = 0; f < totalFrames; f++) {
@@ -1271,8 +1272,8 @@ export default function ListingDetail({ lang: langProp }) {
         frame.close();
         videoTimestampUs += FRAME_DURATION_US;
         totalFrameCount++;
-        // Yield to browser; slow down if encoder queue is backing up
-        await new Promise(r => setTimeout(r, videoEncoder.encodeQueueSize > 8 ? 80 : FRAME_MS));
+        // Yield to browser; briefly back off only when the encoder queue backs up
+        await new Promise(r => setTimeout(r, videoEncoder.encodeQueueSize > 8 ? 20 : 0));
       }
     }
 
