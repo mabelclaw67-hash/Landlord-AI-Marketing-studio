@@ -300,6 +300,7 @@ export default function Examples({ lang = "en" }) {
         const all = await getPublicListings();
         const active = (all || []).filter((listing) =>
           (listing.status || "").trim().toLowerCase() === "published"
+          && getListingStatusMeta(listing).status !== "Unavailable"
         );
         if (cancelled) return;
         setListings(sortRentalListings(active));
