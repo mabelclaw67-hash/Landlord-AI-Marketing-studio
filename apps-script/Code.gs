@@ -6,6 +6,7 @@
 
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
+var APPLICANT_SENSITIVE_ROOT_FOLDER_NAME = "Applicant Sensitive Data";
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 var PROPERTY_STRATEGY_REPORTS_FOLDER_ID = "1J4p5SdWLGcSVzbZnAhla3PRR8fJgJUll";
@@ -267,7 +268,7 @@ function doPost(e) {
   try {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
-    if (["uploadSupportingDocument", "uploadPublicSupportingDocument", "uploadDisputeFile", "uploadPropertyStrategyFile"].indexOf(action) >= 0) {
+    if (["uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "uploadDisputeFile", "uploadPropertyStrategyFile"].indexOf(action) >= 0) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
@@ -3154,27 +3155,19 @@ function isAffirmativeJointApplicant_(value) {
 }
 
 function getRentalApplicationArchiveFolder_(listingId, listingFolderId) {
-  var parentFolder = listingFolderId
-    ? DriveApp.getFolderById(listingFolderId)
-    : DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var parentFolder = getApplicantSensitiveListingFolder_(listingId);
   var applicationsIter = parentFolder.getFoldersByName("Applications");
   var applicationsFolder = applicationsIter.hasNext()
     ? applicationsIter.next()
     : parentFolder.createFolder("Applications");
+  keepDriveItemPrivate_(applicationsFolder, "application archive folder");
   var listingFolderName = String(listingId || "Unknown Listing");
   var listingFolderIter = applicationsFolder.getFoldersByName(listingFolderName);
-  return listingFolderIter.hasNext()
+  var archiveFolder = listingFolderIter.hasNext()
     ? listingFolderIter.next()
     : applicationsFolder.createFolder(listingFolderName);
-}
-
-function trySetDriveViewSharing_(driveItem, label) {
-  try {
-    driveItem.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (e) {
-    Logger.log("[trySetDriveViewSharing] " + label + " sharing skipped: " + e.message);
-    if (e && e.stack) Logger.log(e.stack);
-  }
+  keepDriveItemPrivate_(archiveFolder, "application archive listing folder");
+  return archiveFolder;
 }
 
 // Sync videoUrl for one listing. Can also be called from the Apps Script editor.
@@ -3749,10 +3742,36 @@ function getCollagePhotoData_(listingId, fileIds, auth) {
 
 function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
   if (!subfolderName) throw new Error("getListingSubfolder: subfolderName required");
-  var isTenantReportsFolder = String(subfolderName || "").toLowerCase() === "tenant screening reports";
+  var normalizedSubfolderName = String(subfolderName || "").toLowerCase();
+  var isTenantReportsFolder = normalizedSubfolderName === "tenant screening reports";
+  var isSupportDocumentsFolder = normalizedSubfolderName === "supporting documents";
+  if (isSupportDocumentsFolder && (!auth || auth.mode !== "admin")) {
+    throw new Error("Access denied for applicant supporting documents.");
+  }
   if (isTenantReportsFolder && (!auth || (auth.mode !== "admin" && auth.mode !== "trial"))) {
     throw new Error("Access denied for tenant screening reports.");
   }
+
+  if (isTenantReportsFolder && listingId) {
+    var reportListing = findListingById_(listingId);
+    if (!reportListing || !canAccessListingRecord_(reportListing, auth)) {
+      throw new Error("Access denied for tenant screening reports.");
+    }
+    var reportFolder = getListingScreeningReportsFolder_(reportListing, false);
+    if (!reportFolder) {
+      return { subfolderFolderId: "", subfolderUrl: "", files: [] };
+    }
+    return {
+      subfolderFolderId: auth.mode === "admin" ? reportFolder.getId() : "",
+      subfolderUrl: auth.mode === "admin" ? reportFolder.getUrl() : "",
+      files: listDriveMediaFiles_(reportFolder, {
+        includeVideos: false,
+        includeDocuments: true,
+        exposeDriveLinks: auth.mode === "admin",
+      }),
+    };
+  }
+
   var resolvedFolderId = resolveListingFolderIdForAccess_(folderId, listingId, auth);
   var parent = DriveApp.getFolderById(resolvedFolderId);
   var folders = parent.getFoldersByName(subfolderName);
@@ -3764,7 +3783,6 @@ function getListingSubfolderFiles_(folderId, subfolderName, listingId, auth) {
     };
   }
   var folder = folders.next();
-  var isSupportDocumentsFolder = String(subfolderName || "").toLowerCase() === "supporting documents";
   return {
     subfolderFolderId: auth && auth.mode === "admin" ? folder.getId() : "",
     subfolderUrl: auth && auth.mode === "admin" ? folder.getUrl() : "",
@@ -4040,6 +4058,52 @@ function getOrCreateChildFolder_(parent, name) {
   return it.hasNext() ? it.next() : parent.createFolder(safeName);
 }
 
+function findChildFolder_(parent, name) {
+  if (!parent || !name) return null;
+  var it = parent.getFoldersByName(sanitizePdfFilePart_(name, "Applicant"));
+  return it.hasNext() ? it.next() : null;
+}
+
+function keepDriveItemPrivate_(driveItem, label) {
+  try {
+    driveItem.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+  } catch (e) {
+    var message = e && e.message ? e.message : String(e || "Unknown Drive permission error");
+    throw new Error("Could not keep " + label + " private: " + message);
+  }
+}
+
+function getApplicantSensitiveRootFolder_() {
+  var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var folder = getOrCreateChildFolder_(root, APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
+  keepDriveItemPrivate_(folder, "applicant sensitive data folder");
+  return folder;
+}
+
+function findApplicantSensitiveRootFolder_() {
+  return findChildFolder_(DriveApp.getFolderById(DRIVE_FOLDER_ID), APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
+}
+
+function getApplicantSensitiveListingFolder_(listingId) {
+  var folder = getOrCreateChildFolder_(getApplicantSensitiveRootFolder_(), listingId);
+  keepDriveItemPrivate_(folder, "applicant sensitive listing folder");
+  return folder;
+}
+
+function findApplicantSensitiveListingFolder_(listingId) {
+  return findChildFolder_(findApplicantSensitiveRootFolder_(), listingId);
+}
+
+function getApplicantSensitiveSupportingDocumentsFolder_(listingId) {
+  var folder = getOrCreateChildFolder_(getApplicantSensitiveListingFolder_(listingId), "Supporting Documents");
+  keepDriveItemPrivate_(folder, "applicant supporting documents folder");
+  return folder;
+}
+
+function findApplicantSensitiveSupportingDocumentsFolder_(listingId) {
+  return findChildFolder_(findApplicantSensitiveListingFolder_(listingId), "Supporting Documents");
+}
+
 function generateUploadToken_() {
   var bytes = Utilities.getUuid() + "-" + Utilities.getUuid() + "-" + Date.now();
   var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes, Utilities.Charset.UTF_8);
@@ -4275,14 +4339,9 @@ function requestSupportingDocuments_(recordId, origin, auth) {
 
   var listing = findListingById_(app.listingId);
   if (!listing) throw new Error("Listing not found: " + app.listingId);
-  if (!listing.driveFolderLink) throw new Error("Drive Folder Link is missing for listing: " + app.listingId);
-  var listingFolderId = extractDriveFolderId_(listing.driveFolderLink);
-  if (!listingFolderId) throw new Error("Could not read Drive folder ID from listing Drive Folder Link.");
-
-  var listingFolder = DriveApp.getFolderById(listingFolderId);
-  var supportFolder = getOrCreateChildFolder_(listingFolder, "Supporting Documents");
+  var supportFolder = getApplicantSensitiveSupportingDocumentsFolder_(app.listingId);
   var applicantFolder = getOrCreateChildFolder_(supportFolder, recordId + " - " + resolved.applicantName);
-  trySetDriveViewSharing_(applicantFolder, "supporting document folder");
+  keepDriveItemPrivate_(applicantFolder, "applicant supporting document folder");
 
   var token = generateUploadToken_();
   var tokenExpiresAt = getExpiryIso_(14);
@@ -4424,7 +4483,7 @@ function uploadSupportingDocument_(body) {
     fileName
   );
   var file = folder.createFile(blob);
-  trySetDriveViewSharing_(file, "supporting document");
+  keepDriveItemPrivate_(file, "supporting document");
   var status = updateDocumentUploadStatus_(body.recordId);
   return {
     success: true,
@@ -4625,9 +4684,8 @@ function findExistingRentalListingMediaFolder_(listing) {
   throw new Error("Existing listing media folder not found for listing: " + listingId);
 }
 
-function getPublicSupportingDocumentsFolder_(listing) {
-  var listingFolder = findExistingRentalListingMediaFolder_(listing);
-  return getOrCreateChildFolder_(listingFolder, "Supporting Documents");
+function getApplicantSupportingDocumentsFolder_(listing) {
+  return getApplicantSensitiveSupportingDocumentsFolder_(listing.id);
 }
 
 function uploadPublicSupportingDocument_(body) {
@@ -4650,7 +4708,7 @@ function uploadPublicSupportingDocument_(body) {
   }
   validateSupportingDocumentFile_(originalFileName, body.mimeType, body.fileSize);
 
-  var folder = getPublicSupportingDocumentsFolder_(listing);
+  var folder = getApplicantSupportingDocumentsFolder_(listing);
   var fileName = buildPublicSupportingDocumentFileName_(applicantName, category, originalFileName);
   var uploadedAt = new Date().toISOString();
   var blob = Utilities.newBlob(
@@ -4659,6 +4717,7 @@ function uploadPublicSupportingDocument_(body) {
     fileName
   );
   var file = folder.createFile(blob);
+  keepDriveItemPrivate_(file, "public-uploaded supporting document");
   file.setDescription([
     "Listing ID: " + listingId,
     "Property Address: " + (listing.address || ""),
@@ -4696,7 +4755,7 @@ function notifyPublicSupportingDocumentsUploaded_(body) {
   if (!isPublicRentalListingOpenForDocuments_(listing)) {
     throw new Error("This listing is no longer accepting applications or supporting documents.");
   }
-  var folder = getPublicSupportingDocumentsFolder_(listing);
+  var folder = getApplicantSupportingDocumentsFolder_(listing);
   var verifiedNames = filterVerifiedFilesInFolder_(folder, body.documents);
   if (!verifiedNames.length) throw new Error("No matching uploaded documents found for this listing.");
   var documentList = verifiedNames.join(", ");
@@ -4998,22 +5057,46 @@ function publicSupportFileMatchesApplication_(file, record) {
   return false;
 }
 
-function listPublicSupportFilesForApplication_(listing, record) {
-  var listingFolder = findExistingRentalListingMediaFolder_(listing);
-  var folders = listingFolder.getFoldersByName("Supporting Documents");
-  if (!folders.hasNext()) return [];
-  var folder = folders.next();
-  var files = folder.getFiles();
-  var uploaded = [];
-  while (files.hasNext()) {
-    var file = files.next();
-    if (!publicSupportFileMatchesApplication_(file, record)) continue;
-    uploaded.push({
-      name: file.getName(),
-      url: file.getUrl(),
-      category: inferSupportDocumentCategory_(file.getName()),
-    });
+function getSupportDocumentFoldersForRead_(listing) {
+  var folders = [];
+  var seen = {};
+  function add(folder) {
+    if (!folder || seen[folder.getId()]) return;
+    seen[folder.getId()] = true;
+    folders.push(folder);
   }
+
+  add(findApplicantSensitiveSupportingDocumentsFolder_(listing && listing.id));
+
+  // Read-only fallback for listing-level uploads created before the private
+  // applicant storage boundary was introduced.
+  try {
+    var legacyListingFolder = findExistingRentalListingMediaFolder_(listing);
+    add(findChildFolder_(legacyListingFolder, "Supporting Documents"));
+  } catch (e) {
+    // The private folder remains the authoritative new path; a missing legacy
+    // media folder should not prevent internal matching from using it.
+  }
+  return folders;
+}
+
+function listPublicSupportFilesForApplication_(listing, record) {
+  var uploaded = [];
+  var seen = {};
+  var folders = getSupportDocumentFoldersForRead_(listing);
+  folders.forEach(function(folder) {
+    var files = folder.getFiles();
+    while (files.hasNext()) {
+      var file = files.next();
+      if (!publicSupportFileMatchesApplication_(file, record) || seen[file.getId()]) continue;
+      seen[file.getId()] = true;
+      uploaded.push({
+        name: file.getName(),
+        url: file.getUrl(),
+        category: inferSupportDocumentCategory_(file.getName()),
+      });
+    }
+  });
   return uploaded;
 }
 
@@ -5065,29 +5148,33 @@ function buildSupportDocumentDebugInfo_(record, listing) {
   }
 
   try {
-    var listingFolder = findExistingRentalListingMediaFolder_(listing);
-    var folders = listingFolder.getFoldersByName("Supporting Documents");
-    if (folders.hasNext()) {
-      debug.listingLevelFolderFound = true;
-      var folder = folders.next();
+    var supportFolders = getSupportDocumentFoldersForRead_(listing);
+    debug.listingLevelFolderFound = supportFolders.length > 0;
+    var matchedNames = [];
+    var unmatchedNames = [];
+    var matchedIds = {};
+    var unmatchedIds = {};
+    supportFolders.forEach(function(folder) {
       var files = folder.getFiles();
-      var matchedNames = [];
-      var unmatchedNames = [];
       while (files.hasNext()) {
         var file = files.next();
         if (publicSupportFileMatchesApplication_(file, record)) {
-          matchedNames.push(file.getName());
-        } else {
+          if (!matchedIds[file.getId()]) {
+            matchedIds[file.getId()] = true;
+            matchedNames.push(file.getName());
+          }
+        } else if (!unmatchedIds[file.getId()]) {
+          unmatchedIds[file.getId()] = true;
           unmatchedNames.push(file.getName());
         }
       }
-      debug.listingLevelMatchedCount = matchedNames.length;
-      debug.matchedFileNames = matchedNames;
-      debug.unmatchedFileNames = unmatchedNames;
-      if (matchedNames.length) {
-        debug.finalSource = "listing";
-        debug.finalDocumentNames = matchedNames;
-      }
+    });
+    debug.listingLevelMatchedCount = matchedNames.length;
+    debug.matchedFileNames = matchedNames;
+    debug.unmatchedFileNames = unmatchedNames;
+    if (matchedNames.length) {
+      debug.finalSource = "listing";
+      debug.finalDocumentNames = matchedNames;
     }
   } catch (err) {
     debug.error = "Listing-level folder lookup failed: " + (err && err.message ? err.message : String(err));
@@ -5097,13 +5184,32 @@ function buildSupportDocumentDebugInfo_(record, listing) {
 }
 
 function getListingScreeningReportsFolder_(listing, createIfMissing) {
-  if (!listing || !listing.driveFolderLink) return null;
-  var folderId = extractDriveFolderId_(listing.driveFolderLink);
-  if (!folderId) return null;
-  var listingFolder = DriveApp.getFolderById(folderId);
-  var existing = listingFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
-  if (existing.hasNext()) return existing.next();
-  return createIfMissing ? listingFolder.createFolder(FULL_AUDIT_REPORT_FOLDER_NAME) : null;
+  if (!listing || !listing.id) return null;
+
+  var privateListingFolder = createIfMissing
+    ? getApplicantSensitiveListingFolder_(listing.id)
+    : findApplicantSensitiveListingFolder_(listing.id);
+  if (privateListingFolder) {
+    var privateExisting = privateListingFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
+    if (privateExisting.hasNext()) return privateExisting.next();
+    if (createIfMissing) {
+      var privateFolder = privateListingFolder.createFolder(FULL_AUDIT_REPORT_FOLDER_NAME);
+      keepDriveItemPrivate_(privateFolder, "applicant screening reports folder");
+      return privateFolder;
+    }
+  }
+
+  // Read-only fallback for reports created before the private applicant
+  // storage boundary was introduced. New reports never use this path.
+  if (!createIfMissing && listing.driveFolderLink) {
+    var folderId = extractDriveFolderId_(listing.driveFolderLink);
+    if (folderId) {
+      var legacyListingFolder = DriveApp.getFolderById(folderId);
+      var legacyExisting = legacyListingFolder.getFoldersByName(FULL_AUDIT_REPORT_FOLDER_NAME);
+      if (legacyExisting.hasNext()) return legacyExisting.next();
+    }
+  }
+  return null;
 }
 
 function safeFullAuditNamePart_(value, fallback) {
@@ -5578,9 +5684,9 @@ function saveFullApplicantAuditToDrive_(listing, markdown, record) {
   var docFile = DriveApp.getFileById(doc.getId());
   docFile.moveTo(folder);
   var pdfFile = folder.createFile(docFile.getAs(MimeType.PDF).setName(pdfName));
-  trySetDriveViewSharing_(mdFile, "full audit markdown");
-  trySetDriveViewSharing_(docFile, "full audit document");
-  trySetDriveViewSharing_(pdfFile, "full audit pdf");
+  keepDriveItemPrivate_(mdFile, "full audit markdown");
+  keepDriveItemPrivate_(docFile, "full audit document");
+  keepDriveItemPrivate_(pdfFile, "full audit pdf");
   return {
     reportType: "full_applicant_audit",
     listingId: record.listingId,
@@ -5927,7 +6033,6 @@ function saveRentalApplication_(body) {
   var subfolderUrl = "";
   try {
     var appFolder = getRentalApplicationArchiveFolder_(body.listingId, folderId);
-    trySetDriveViewSharing_(appFolder, "archive folder");
     subfolderUrl = appFolder.getUrl();
 
     var pdfBlob = generateApplicationPdf_(dataMap, recordId);
@@ -5939,7 +6044,7 @@ function saveRentalApplication_(body) {
     var existingPdf = appFolder.getFilesByName(pdfFileName);
     while (existingPdf.hasNext()) { existingPdf.next().setTrashed(true); }
     var pdfFile = appFolder.createFile(pdfBlob.setName(pdfFileName));
-    trySetDriveViewSharing_(pdfFile, "pdf file");
+    keepDriveItemPrivate_(pdfFile, "application pdf");
     pdfUrl = pdfFile.getUrl();
 
     // Write PDF URL back to row.
@@ -6311,13 +6416,8 @@ function saveApplicantReportPdf_(body, auth) {
   Logger.log("[saveApplicantReportPdf] reportType=" + (body.reportType || ""));
 
   var listing = getListingById_(body.listingId, auth);
-  var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
-  if (!folderId) throw new Error("Drive folder not found for this listing.");
-  Logger.log("[saveApplicantReportPdf] resolvedListingFolderId=" + folderId);
-
-  var parent = DriveApp.getFolderById(folderId);
-  var folders = parent.getFoldersByName("Tenant Screening Reports");
-  var reportsFolder = folders.hasNext() ? folders.next() : parent.createFolder("Tenant Screening Reports");
+  var reportsFolder = getListingScreeningReportsFolder_(listing, true);
+  if (!reportsFolder) throw new Error("Applicant screening reports folder could not be opened for this listing.");
   Logger.log("[saveApplicantReportPdf] reportsFolderId=" + reportsFolder.getId());
   var safeName = sanitizeApplicantReportFileName_(body.fileName || ("Applicant_Report_" + body.listingId + ".pdf"));
   if (!/\.pdf$/i.test(safeName)) safeName += ".pdf";
@@ -6330,6 +6430,7 @@ function saveApplicantReportPdf_(body, auth) {
     existing.next().setTrashed(true);
   }
   var file = reportsFolder.createFile(pdfBlob);
+  keepDriveItemPrivate_(file, "initial applicant screening report");
 
   return {
     fileId: file.getId(),
