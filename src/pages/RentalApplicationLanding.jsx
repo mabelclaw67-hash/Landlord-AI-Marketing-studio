@@ -52,7 +52,8 @@ export default function RentalApplicationLanding() {
             personal information — VanIsland supports the landlord, who decides. */}
         <p className="tenant-hero__desc" style={{ marginTop: 10 }}>
           VanIsland works with individual landlords to provide rental marketing, applicant screening and
-          administrative support. The landlord remains the decision-maker regarding the tenancy.
+          administrative support. We organize the process for the landlord's review; the landlord makes the
+          final rental decision, subject to applicable law.
         </p>
       </section>
 

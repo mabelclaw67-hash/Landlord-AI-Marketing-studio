@@ -39,7 +39,7 @@ const PUBLIC_LISTING_TEXT = {
     loadingPhotos: "Loading photos...",
     photos: "photos",
     applyTitle: "Apply for This Rental",
-    applyDesc: "Interested applicants may apply online using the rental application form. Please have proof of income, credit information, references, and tenant insurance details ready.",
+    applyDesc: "Interested applicants may apply online using the rental application form. VanIsland organizes applications and requested verification for the landlord's review; the landlord retains the final rental decision, subject to applicable law. Completing an application does not guarantee tenancy. Please have proof of income, credit information, references, and tenant insurance details ready.",
     applyingFor: "Applying for:",
     listingId: "Listing ID:",
     status: "Status:",
@@ -67,7 +67,7 @@ const PUBLIC_LISTING_TEXT = {
     loadingPhotos: "正在加载照片...",
     photos: "张照片",
     applyTitle: "申请此出租房源",
-    applyDesc: "感兴趣的申请人可以使用在线租赁申请表提交申请。请提前准备收入证明、信用资料、推荐人和租客保险相关信息。",
+    applyDesc: "感兴趣的申请人可以使用在线租赁申请表提交申请。VanIsland 会整理申请资料和所需核验信息供房东审核；房东在适用法律范围内保留最终租赁决定权。提交申请并不保证获得租约。请提前准备收入证明、信用资料、推荐人和租客保险相关信息。",
     applyingFor: "申请房源：",
     listingId: "房源编号：",
     status: "状态：",
@@ -979,13 +979,13 @@ export default function PublicListing({ lang = "en" }) {
                 Application Requirements
               </h3>
               <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: 12, lineHeight: 1.6 }}>
-                Qualified applicants must provide the following:
+                Depending on the listing and applicable requirements, applicants may be asked for:
               </p>
               <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   "A completed rental application for each adult occupant",
                   "Proof of income and/or employment",
-                  "Credit score report, or written consent for the landlord/property manager to obtain a credit report",
+                  "Credit report, or written consent if a credit report is requested as part of the rental process",
                   "References",
                   "Tenant insurance with a minimum of $1 million third-party liability coverage",
                 ].map((req, i) => (

@@ -307,7 +307,7 @@ const COPY = {
     select: "Select",
     shortAnswer: "Short answer",
     followTitle: "Professional follow-up questions",
-    followDesc: "These questions help the AI apply a more professional property-management review before generating the assessment.",
+    followDesc: "These questions help the AI apply a more professional rental-strategy review before generating the assessment.",
     followEmpty: "Follow-up questions will appear after rental goal, suite, yard, pet, ocean view, or Airbnb / STR details are selected.",
     questionSingular: "question",
     questionPlural: "questions",

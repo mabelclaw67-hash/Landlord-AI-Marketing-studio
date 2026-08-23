@@ -12,7 +12,7 @@ const COPY = {
         description: "Practical support for rental marketing, applications, tenancy administration, and home sales — provided under the landlord's direction.",
         cards: [
           { icon: "🏠", title: "Rental Listing & Marketing", description: "Professional bilingual rental listings, property pages, photo presentation, QR codes, social-media sharing content, platform-ready posts, cover headlines, and short-video scripts.", button: "Open Rental Studio", to: "/rentals" },
-          { icon: "📋", title: "Tenant Application & Preliminary Screening", description: "Tenants submit applications online while the system organizes applicant information for consistent preliminary screening and professional review. Final decisions remain with the landlord or reviewing professional.", button: "Apply Online", to: "/apply" },
+          { icon: "📋", title: "Tenant Application & Preliminary Screening", description: "Tenants submit applications online while the system organizes applicant information and requested verification for consistent review. The landlord reviews the relevant information and retains the final rental decision, subject to applicable law.", button: "Apply Online", to: "/apply" },
           { icon: "🔑", title: "Tenancy Support & Rental Administration", description: "Tenant communication, rent and payment tracking, maintenance coordination, record keeping, owner reporting, and ongoing tenancy support. The landlord remains the decision-maker throughout.", button: "Talk to Us", to: "/contact" },
           { icon: "🏡", title: "Home Sale Marketing", description: "Bilingual home-sale pages, photo and video marketing content, platform-ready copy, cover headlines, short-video scripts, QR codes, and buyer inquiry links for sellers, private-sale owners, and real-estate professionals.", button: "Open Home Sale Studio", to: "/home-sale-studio" },
         ],
@@ -34,7 +34,7 @@ const COPY = {
         description: "Direct access to the online tools tenants and landlords use most often.",
         cards: [
           { icon: "🛠️", title: "Online Maintenance Request", description: "Tenants can report maintenance issues online, upload photos and details, and help our team track each request in one place.", button: "Submit Maintenance Request", to: "/tenant-service-request" },
-          { icon: "📚", title: "Landlord Knowledge Center", description: "Rental regulations, local policy guidance, short-term rental rules, suite information, and practical property-management resources.", button: "Open Knowledge Center", to: "/resources" },
+          { icon: "📚", title: "Landlord Knowledge Center", description: "Rental regulations, local policy guidance, short-term rental rules, suite information, and practical rental-support resources.", button: "Open Knowledge Center", to: "/resources" },
           { icon: "🏘️", title: "Tenant Portal", description: "A central place for rental listings, online applications, maintenance requests, contact options, and frequently asked questions.", button: "Open Tenant Portal", to: "/rentals" },
         ],
       },
@@ -50,7 +50,7 @@ const COPY = {
         description: "覆盖出租营销、租客申请、租务日常事务和房屋出售推广的实用支持，均在房东的指示下进行。",
         cards: [
           { icon: "🏠", title: "出租房源营销", description: "创建专业的中英文出租广告、房源页面、照片展示、二维码、社交平台分享内容、平台发帖文案、封面标题及短视频脚本。", button: "进入出租房源工作台", to: "/rentals" },
-          { icon: "📋", title: "租客申请与初步筛选", description: "租客可在线提交申请资料，系统集中整理申请信息，协助进行一致、规范的初步筛选和专业审核。最终决定仍由房东或专业人员作出。", button: "在线申请", to: "/apply" },
+          { icon: "📋", title: "租客申请与初步筛选", description: "租客可在线提交申请资料，系统集中整理申请信息及所需核验资料，协助进行一致、规范的审核。房东查看相关信息，并在适用法律范围内保留最终租赁决定权。", button: "在线申请", to: "/apply" },
           { icon: "🔑", title: "租务支持与日常事务", description: "提供租客沟通、租金与付款跟踪、维修协调、记录保存、业主报告及日常租务支持。整个过程中，决策权始终在房东。", button: "联系我们", to: "/contact" },
           { icon: "🏡", title: "出售房源营销", description: "为卖家、自售业主和房产经纪人创建中英文出售房源页面、照片和视频推广内容、平台发帖文案、封面标题、短视频脚本、二维码及买家咨询入口。", button: "进入出售房源工作台", to: "/home-sale-studio" },
         ],

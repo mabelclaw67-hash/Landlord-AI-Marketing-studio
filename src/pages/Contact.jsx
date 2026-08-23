@@ -7,7 +7,7 @@ import { normalizeLang } from "../utils/lang";
 const CONTACT_COPY = {
   en: {
     requestTitle: "Request Access",
-    requestDesc: "You can request Rental Listing Studio, Home Sale Studio, or both.",
+    requestDesc: "You can request Rental Listing Studio, Home Sale Studio, or both. Rental support is provided under the landlord's direction — you keep control of the property and important rental decisions.",
     prepareTitle: "What we prepare for you:",
     prepareItems: [
       "🏘️ Rental listing promotion workflow",
@@ -34,7 +34,7 @@ const CONTACT_COPY = {
   },
   zh: {
     requestTitle: "申请使用",
-    requestDesc: "您可以申请出租房源工作台、出售房源工作台，或两个模块都申请。",
+    requestDesc: "您可以申请出租房源工作台、出售房源工作台，或两个模块都申请。出租支持由房东主导，物业和重要租赁决定始终由您掌握。",
     prepareTitle: "我们会为您准备：",
     prepareItems: [
       "🏘️ 出租房源推广流程",

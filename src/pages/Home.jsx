@@ -124,7 +124,7 @@ const T = {
     sectionKicker: "SECTION 2",
     chooseTitle: "Choose Your Studio",
     chooseDesc: "Select the studio that fits your needs. You can switch anytime.",
-    rentalEyebrow: "For landlords and property managers",
+    rentalEyebrow: "For independent landlords and property owners",
     rentalCardTitle: "Rental Studio",
     rentalCardDesc:
       "Create bilingual rental ads, listing pages, QR codes, online rental application links, and social sharing packages.",
@@ -172,7 +172,7 @@ const T = {
     generateTitle: "What We Generate",
     generateDesc: "One workflow for rental and home sale marketing materials",
     rentalOutputsTitle: "Rental Listing Outputs",
-    rentalOutputsDesc: "Marketing materials for landlords, property owners, and property managers.",
+    rentalOutputsDesc: "Marketing materials for independent landlords and property owners.",
     saleOutputsTitle: "Home Sale Outputs",
     saleOutputsDesc: "Sale marketing materials for home sellers, FSBO owners, and realtors.",
     secondaryLabel: "Secondary outputs",
@@ -201,7 +201,7 @@ const T = {
     qrEyebrow: "Scan to Access the Platform",
     qrTitle: "Vanisland Property",
     qrBody:
-      "Built for Vancouver Island landlords, home sellers, FSBO owners, property managers, and realtors. Scan the QR code to open our website on any device — easy to share with clients and partners.",
+      "Built for Vancouver Island landlords, home sellers, FSBO owners, and realtors. Scan the QR code to open our website on any device — easy to share with clients and partners.",
     qrFeatures: [
       "📋 Rental Studio — bilingual ads, listing pages, photo management",
       "🔍 Online rental application intake + AI initial screening",
@@ -337,7 +337,7 @@ const T = {
     sectionKicker: "第二部分",
     chooseTitle: "选择您的工作台",
     chooseDesc: "选择适合您需求的工作台，随时可以切换。",
-    rentalEyebrow: "适用于房东和物业管理人",
+    rentalEyebrow: "适用于独立房东和物业业主",
     rentalCardTitle: "出租房源工作台",
     rentalCardDesc:
       "创建双语出租广告、房源页面、二维码、在线租客申请链接和社交分享套件。",
@@ -385,7 +385,7 @@ const T = {
     generateTitle: "我们生成什么",
     generateDesc: "出租与出售房源营销素材一站式工作流",
     rentalOutputsTitle: "出租房源产出",
-    rentalOutputsDesc: "适用于房东、业主和物业管理人的营销素材。",
+    rentalOutputsDesc: "适用于独立房东和物业业主的营销素材。",
     saleOutputsTitle: "出售房源产出",
     saleOutputsDesc: "适用于卖家、自售业主和房产经纪人的营销素材。",
     secondaryLabel: "辅助产出",
@@ -414,7 +414,7 @@ const T = {
     qrEyebrow: "扫码访问平台",
     qrTitle: "Vanisland Property",
     qrBody:
-      "专为温哥华岛房东、卖家、自售业主、物业管理人和房产经纪人打造。扫描二维码在任何设备上访问我们的网站，方便分享给客户和合作伙伴。",
+      "专为温哥华岛房东、卖家、自售业主和房产经纪人打造。扫描二维码在任何设备上访问我们的网站，方便分享给客户和合作伙伴。",
     qrFeatures: [
       "📋 出租工作台 — 双语广告、房源页面、照片管理",
       "🔍 在线租客申请接收 + AI 初步筛选",
@@ -442,14 +442,14 @@ const LANDLORD_SHARE_MESSAGES = [
     label: "WeChat Landlord Promotion",
     rows: 8,
     text:
-      "Hello landlords and property owners,\n\nVanisland AI Rental Listing Marketing Studio helps prepare bilingual rental ads, photo listing pages, online application links, QR-code application access, media display, and organized application materials.\n\nIdeal for busy Vancouver Island landlords, property owners, and property managers. Tenants can view listings and apply online from any device — no printing or emailing documents back and forth.",
+      "Hello landlords and property owners,\n\nVanisland AI Rental Listing Marketing Studio helps prepare bilingual rental ads, photo listing pages, online application links, QR-code application access, media display, and organized application materials.\n\nIdeal for busy Vancouver Island independent landlords and property owners. Tenants can view listings and apply online from any device — no printing or emailing documents back and forth.",
   },
   {
     id: "facebook-landlord",
     label: "Facebook / Community Promotion",
     rows: 6,
     text:
-      "A practical rental marketing tool for Vancouver Island landlords, property owners, and property managers. It helps package bilingual listing copy, a shareable photo page, QR-code access, and online applications in one lightweight workflow.",
+      "A practical rental marketing tool for Vancouver Island independent landlords and property owners. It helps package bilingual listing copy, a shareable photo page, QR-code access, and online applications in one lightweight workflow.",
   },
   {
     id: "owner-invite",

@@ -162,6 +162,13 @@ const DEFAULT_APPLICATION_REQUIREMENTS_ZH =
 
 const COMPLIANCE_MARKER = "\n\n---\n⚠️";
 
+const PUBLIC_APPLICATION_REQUIREMENTS_EN = DEFAULT_APPLICATION_REQUIREMENTS_EN
+  .replace("Qualified applicants must provide the following:", "Depending on the listing and applicable requirements, applicants may be asked for:")
+  .replace("Credit score report, or written consent for the landlord/property manager to obtain a credit report", "Credit report, or written consent if a credit report is requested as part of the rental process");
+const PUBLIC_APPLICATION_REQUIREMENTS_ZH = DEFAULT_APPLICATION_REQUIREMENTS_ZH
+  .replace("符合条件的申请人须提供以下材料：", "根据房源和适用要求，申请人可能需要提供：")
+  .replace("信用评分报告，或书面授权房东/物业经理获取信用报告", "信用报告，或在租赁流程要求信用报告时提供书面授权");
+
 // Inserts the requirements block before the compliance footer.
 // If a requirements block already exists it is replaced, not duplicated.
 function appendAppRequirements(text, reqBlock) {
@@ -224,7 +231,7 @@ export function generateOutputs(form) {
 ${tenantLine}
 
 To schedule a viewing, please send us a message.${compliance}`,
-      DEFAULT_APPLICATION_REQUIREMENTS_EN
+      PUBLIC_APPLICATION_REQUIREMENTS_EN
     );
   }
 
@@ -251,7 +258,7 @@ ${featSection}RENTAL DETAILS:
 ${tenantLine}
 
 To arrange a viewing, please reply with your name, contact number, and preferred move-in date.${compliance}`,
-      DEFAULT_APPLICATION_REQUIREMENTS_EN
+      PUBLIC_APPLICATION_REQUIREMENTS_EN
     );
   }
 
@@ -277,7 +284,7 @@ ${featList.length ? `\n✨ 房源亮点：\n${featChBullets}\n` : ""}
 ${tenantLineCh}
 
 欢迎有意向的租客私信联系预约看房。📩${compliance}`,
-      DEFAULT_APPLICATION_REQUIREMENTS_ZH
+      PUBLIC_APPLICATION_REQUIREMENTS_ZH
     );
   }
 

@@ -5,7 +5,7 @@ import { publicUpload } from "./publicUpload";
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER =
-  "This report is generated from the available property details, community knowledge base, and local property-management experience for preliminary decision support.";
+  "This report is generated from the available property details, community knowledge base, and local rental experience for preliminary decision support.";
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER_ZH =
   "本报告基于现有物业资料、社区知识库及本地出租实务经验生成，供初步决策参考。";

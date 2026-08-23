@@ -711,6 +711,10 @@ export default function RentalApplication() {
           property. All adult occupants may be required to provide supporting
           documents before move-in. Submitting this form does not guarantee approval.
         </div>
+        <div className="notice notice--sage" style={{ marginTop: 12 }}>
+          VanIsland receives and organizes application information for the landlord's review.
+          The landlord makes the final rental decision, subject to applicable law.
+        </div>
         <RentalApplicationNotice compact style={{ marginTop: 12 }} />
       </div>
 

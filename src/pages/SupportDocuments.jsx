@@ -38,7 +38,7 @@ function PrivacySecurityNote() {
     <section className="notice notice--sage mb-24">
       <h4>Privacy and security note</h4>
       <p>
-        Your documents will be submitted to VanIsland Property through our secure company workflow.
+        Your documents will be submitted to VanIsland Property through our secure company workflow and organized for the landlord's rental application review.
       </p>
       <p style={{ marginTop: 8 }}>
         You may choose either: upload documents online through this website, or email documents to our company email:{" "}
@@ -48,7 +48,7 @@ function PrivacySecurityNote() {
         Please do not send documents through personal email, text message, or social media.
       </p>
       <p style={{ marginTop: 8 }}>
-        Uploaded documents are stored in the company's secure Google Workspace / Google Drive environment and are used only for rental application review.
+        Uploaded documents are stored in the company's secure Google Workspace / Google Drive environment and are used only for rental application review. Submitting documents does not guarantee tenancy.
       </p>
     </section>
   );
@@ -197,7 +197,7 @@ function TokenUploadPage({ listingId, recordId, token }) {
           Submit Supporting Documents
         </h1>
         <p style={{ color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-          You may upload supporting documents here to help us review your rental application. Submitting documents early is optional, but it may help speed up the review process.
+          You may upload supporting documents here to help VanIsland organize your rental application for landlord review. Submitting documents early is optional, but it may help speed up the review process.
         </p>
       </div>
 
@@ -454,7 +454,7 @@ export default function SupportDocuments() {
           Submit Supporting Documents
         </h1>
         <p style={{ color: "var(--color-text-muted)", lineHeight: 1.7 }}>
-          You may upload supporting documents here to help us review your rental application. Submitting documents early is optional, but it may help speed up the review process.
+          You may upload supporting documents here to help VanIsland organize your rental application for landlord review. Submitting documents early is optional, but it may help speed up the review process.
         </p>
       </div>
 
