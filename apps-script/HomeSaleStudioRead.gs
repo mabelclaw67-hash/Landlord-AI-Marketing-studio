@@ -18,9 +18,37 @@ var HOME_SALE_LISTING_ACCESS_HEADERS = [
   "Created By Role",
 ];
 
+var HOME_SALE_ROUTED_ACTIONS_ = [
+  "getSaleListings",
+  "getSaleListingById",
+  "getSalePhotoData",
+  "submitBuyerInquiry",
+  "createSaleListing",
+  "updateSaleListing",
+  "getSaleMediaByListingId",
+  "createSaleMediaAsset",
+  "syncSaleMediaFromDriveFolder",
+  "uploadSaleMediaFile",
+  "uploadSaleEnhancedPhoto",
+  "getSaleSubfolderFiles",
+  "uploadSaleToSubfolder",
+  "getMarketingCopyByListingId",
+  "generateHomeSaleMarketingCopy",
+  "createOrUpdateMarketingCopy",
+  "getVideoScriptsByListingId",
+  "createOrUpdateVideoScript",
+  "getBuyerInquiries",
+  "updateBuyerInquiry",
+];
+
+function isHomeSaleRoutedAction_(action) {
+  return HOME_SALE_ROUTED_ACTIONS_.indexOf(String(action || "")) >= 0;
+}
+
 function doGet(e) {
+  var action = homeSaleParam_(e, "action");
+  if (!isHomeSaleRoutedAction_(action)) return rentalDoGet_(e);
   try {
-    var action = homeSaleParam_(e, "action");
     var publicGetActions = ["getSaleListings", "getSaleListingById", "getMarketingCopyByListingId", "getVideoScriptsByListingId", "getSaleMediaByListingId"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = homeSaleResolveAccess_((e && e.parameter) || {}, "sale", isPublicGet);
@@ -38,8 +66,9 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  var body = JSON.parse((e.postData && e.postData.contents) || "{}");
+  if (!isHomeSaleRoutedAction_(body.action)) return rentalDoPost_(e);
   try {
-    var body = JSON.parse((e.postData && e.postData.contents) || "{}");
     var action = body.action || "";
     var publicPostActions = ["getSaleListings", "getSaleListingById", "getSalePhotoData", "submitBuyerInquiry"];
     var isPublicPost = publicPostActions.indexOf(action) >= 0;

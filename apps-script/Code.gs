@@ -239,7 +239,7 @@ var LISTING_HEADERS = [
 
 // ── Router ───────────────────────────────────────────────────────────────────
 
-function doGet(e) {
+function rentalDoGet_(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
@@ -264,7 +264,7 @@ function doGet(e) {
   }
 }
 
-function doPost(e) {
+function rentalDoPost_(e) {
   try {
     var body   = JSON.parse(e.postData.contents);
     var action = body.action || "";
