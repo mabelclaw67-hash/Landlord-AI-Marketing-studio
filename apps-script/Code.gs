@@ -4073,6 +4073,50 @@ function keepDriveItemPrivate_(driveItem, label) {
   }
 }
 
+function setDriveFolderLimitedAccess_(folder, label) {
+  var url = "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(folder.getId()) +
+    "?supportsAllDrives=true&fields=id,inheritedPermissionsDisabled";
+  var response;
+  try {
+    response = UrlFetchApp.fetch(url, {
+      method: "patch",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+      payload: JSON.stringify({ inheritedPermissionsDisabled: true }),
+      muteHttpExceptions: true,
+    });
+  } catch (e) {
+    var fetchMessage = e && e.message ? e.message : String(e || "Unknown Drive API error");
+    throw new Error("Could not enable Limited access for " + label + ": " + fetchMessage);
+  }
+
+  var status = response.getResponseCode();
+  var rawBody = response.getContentText() || "";
+  var body = {};
+  try { body = rawBody ? JSON.parse(rawBody) : {}; } catch (_) {}
+  if (status < 200 || status >= 300) {
+    var apiMessage = body.error && body.error.message ? body.error.message : rawBody.slice(0, 500);
+    if (status === 401 || status === 403) {
+      throw new Error(
+        "Could not enable Limited access for " + label + ". Drive API returned HTTP " + status +
+        ". Required OAuth scope: https://www.googleapis.com/auth/drive; required folder capability: " +
+        "canDisableInheritedPermissions. Google response: " + apiMessage
+      );
+    }
+    throw new Error("Could not enable Limited access for " + label + ". Drive API returned HTTP " + status + ": " + apiMessage);
+  }
+  if (!body || body.inheritedPermissionsDisabled !== true) {
+    throw new Error("Drive API did not confirm Limited access for " + label + ".");
+  }
+}
+
+function getOrCreateSupportingDocumentsFolder_(parent) {
+  var name = "Supporting Documents";
+  var it = parent.getFoldersByName(name);
+  if (it.hasNext()) return { folder: it.next(), created: false };
+  return { folder: parent.createFolder(name), created: true };
+}
+
 function getApplicantSensitiveRootFolder_() {
   var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   var folder = getOrCreateChildFolder_(root, APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
@@ -4095,9 +4139,12 @@ function findApplicantSensitiveListingFolder_(listingId) {
 }
 
 function getApplicantSensitiveSupportingDocumentsFolder_(listingId) {
-  var folder = getOrCreateChildFolder_(getApplicantSensitiveListingFolder_(listingId), "Supporting Documents");
-  keepDriveItemPrivate_(folder, "applicant supporting documents folder");
-  return folder;
+  var result = getOrCreateSupportingDocumentsFolder_(getApplicantSensitiveListingFolder_(listingId));
+  if (result.created) {
+    setDriveFolderLimitedAccess_(result.folder, "new applicant supporting documents folder");
+  }
+  keepDriveItemPrivate_(result.folder, "applicant supporting documents folder");
+  return result.folder;
 }
 
 function findApplicantSensitiveSupportingDocumentsFolder_(listingId) {
