@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getListingFolderFiles, getListingSubfolderFiles, getPublicListings } from "../utils/storage";
+import { getPublicListingFolderFiles, getPublicListingSubfolderFiles, getPublicListings } from "../utils/storage";
 import { buildPublicSiteUrl } from "../utils/publicUrls";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
@@ -316,8 +316,8 @@ export default function Examples({ lang = "en" }) {
           active.map(async (listing) => {
             try {
               const [rootFiles, subfolder] = await Promise.all([
-                getListingFolderFiles("", listing.id).catch(() => []),
-                getListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
+                getPublicListingFolderFiles("", listing.id).catch(() => []),
+                getPublicListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
               ]);
               const coverPhoto = resolveRentalListingCover(
                 rootFiles || [],

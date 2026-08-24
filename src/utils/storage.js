@@ -38,7 +38,7 @@ export async function getListings() {
 // Public variant: no auth sent — backend returns only Published listings visible to everyone.
 export async function getPublicListings() {
   if (isApiConnected()) {
-    return apiGet({ action: "getListings" });
+    return apiPost({ action: "getListings" });
   }
   return lsGetAll();
 }
@@ -47,7 +47,7 @@ export async function getPublicListings() {
 // trial/admin access stored in a visitor's browser.
 export async function getPublicListing(id) {
   if (isApiConnected()) {
-    return apiGet({ action: "getListingById", listingId: id });
+    return apiPost({ action: "getListingById", listingId: id });
   }
   const all = await getPublicListings();
   return all.find((l) => l.id === id) || null;
@@ -177,7 +177,7 @@ export async function getCollagePhotoData(listingId, fileIds) {
 
 export async function getPublicListingFolderFiles(folderId, listingId = "") {
   if (!isApiConnected() || (!folderId && !listingId)) return [];
-  return apiGet({ action: "getListingFolder", folderId, listingId });
+  return apiPost({ action: "getListingFolder", folderId, listingId });
 }
 
 export async function getListingSubfolderFiles(folderId, subfolderName, listingId = "") {
@@ -191,7 +191,7 @@ export async function getPublicListingSubfolderFiles(folderId, subfolderName, li
   if (!isApiConnected() || (!folderId && !listingId) || !subfolderName) {
     return { subfolderFolderId: "", subfolderUrl: "", files: [] };
   }
-  return apiGet({ action: "getListingSubfolder", folderId, subfolderName, listingId });
+  return apiPost({ action: "getListingSubfolder", folderId, subfolderName, listingId });
 }
 
 // Upload a file into a subfolder of the listing's own Drive folder.

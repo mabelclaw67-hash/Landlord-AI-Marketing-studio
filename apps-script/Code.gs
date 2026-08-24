@@ -272,7 +272,7 @@ function doPost(e) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -281,6 +281,8 @@ function doPost(e) {
     });
     if (action === "getListings")       return ok(getListings_(auth));        // POST avoids GET cache
     if (action === "getListingById")    return ok(getListingById_(body.listingId, auth));
+    if (action === "getListingFolder")  return ok(getListingFolderFiles_(body.folderId, body.listingId, auth));
+    if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(body.folderId, body.subfolderName, body.listingId, auth));
     if (action === "getCollagePhotoData") return ok(getCollagePhotoData_(body.listingId, body.fileIds, auth));
     if (action === "generateListingId") return ok({ listingId: generateListingId_() });
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
