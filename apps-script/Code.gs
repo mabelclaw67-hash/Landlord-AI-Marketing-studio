@@ -7,6 +7,16 @@
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
 var APPLICANT_SENSITIVE_ROOT_FOLDER_NAME = "Applicant Sensitive Data";
+// Applicant Sensitive Data must NOT live under DRIVE_FOLDER_ID: that folder
+// carries a direct (non-inherited) "Anyone with the link" grant for public
+// listing-photo browsing, and Drive permission inheritance cannot be severed
+// for a descendant — DriveApp.setSharing(PRIVATE) is rejected with
+// "Access denied: DriveApp.", and the inherited grant cannot be deleted via
+// the Drive API on the child (404 Permission not found) even after disabling
+// inheritance. Parented one level up instead, under the studio's own root
+// (which has no public grant anywhere in its ancestry), private sharing
+// works normally.
+var APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID = "1RNF_WZWsDECSnlqnaZuXWsbUy-xtmE2r";
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 var PROPERTY_STRATEGY_REPORTS_FOLDER_ID = "1J4p5SdWLGcSVzbZnAhla3PRR8fJgJUll";
@@ -4120,14 +4130,14 @@ function getOrCreateSupportingDocumentsFolder_(parent) {
 }
 
 function getApplicantSensitiveRootFolder_() {
-  var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var root = DriveApp.getFolderById(APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID);
   var folder = getOrCreateChildFolder_(root, APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
   keepDriveItemPrivate_(folder, "applicant sensitive data folder");
   return folder;
 }
 
 function findApplicantSensitiveRootFolder_() {
-  return findChildFolder_(DriveApp.getFolderById(DRIVE_FOLDER_ID), APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
+  return findChildFolder_(DriveApp.getFolderById(APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID), APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
 }
 
 function getApplicantSensitiveListingFolder_(listingId) {
