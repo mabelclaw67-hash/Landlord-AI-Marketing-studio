@@ -3167,19 +3167,17 @@ function isAffirmativeJointApplicant_(value) {
 }
 
 function getRentalApplicationArchiveFolder_(listingId, listingFolderId) {
+  // "Applications" is already scoped to this listing (it's a child of
+  // getApplicantSensitiveListingFolder_(listingId)), so it must not also
+  // contain a nested {listingId} subfolder — that produces the duplicate
+  // {Listing ID}/Applications/{Listing ID}/ path.
   var parentFolder = getApplicantSensitiveListingFolder_(listingId);
   var applicationsIter = parentFolder.getFoldersByName("Applications");
   var applicationsFolder = applicationsIter.hasNext()
     ? applicationsIter.next()
     : parentFolder.createFolder("Applications");
   keepDriveItemPrivate_(applicationsFolder, "application archive folder");
-  var listingFolderName = String(listingId || "Unknown Listing");
-  var listingFolderIter = applicationsFolder.getFoldersByName(listingFolderName);
-  var archiveFolder = listingFolderIter.hasNext()
-    ? listingFolderIter.next()
-    : applicationsFolder.createFolder(listingFolderName);
-  keepDriveItemPrivate_(archiveFolder, "application archive listing folder");
-  return archiveFolder;
+  return applicationsFolder;
 }
 
 // Sync videoUrl for one listing. Can also be called from the Apps Script editor.
