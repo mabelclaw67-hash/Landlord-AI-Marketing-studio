@@ -2,17 +2,21 @@
 
 ## Current production
 
-- Git main: `9f487cf765ff697223dcb3687c57a49fa8b58a1c`
-- Apps Script version: `146`
+- Git main: `7aa3960113730af8bc84b0e83471464a915543e4`
+- Apps Script version: `152`
 - Production deployment ID: `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`
 - Production and Git were verified file-by-file as identical.
 - No production/source fork exists.
-- Baseline recorded: `2026-08-25 12:56:00 PDT`
+- Baseline recorded: `2026-08-25 13:25:00 PDT`
 
-v139-146 were a further transient, user-approved read-only investigation and
-then a data-only remediation of 7 pre-v116 records (see "Historical
-missing-PDF audit" below) — no application code changed in this range, only
-"07 Intake Records" cell values. v146 is code-identical to v138/v135/Git.
+v147-152 were a further transient, user-approved investigation + migration of
+a duplicate-folder-nesting bug (see "Duplicate Applications folder nesting
+fix" below); v152 is the first of that range with no scan/migration
+scaffolding left in it, carrying only the permanent `getRentalApplicationArchiveFolder_`
+fix. v139-146 were a further transient, user-approved read-only investigation
+and then a data-only remediation of 7 pre-v116 records (see "Historical
+missing-PDF audit" below) — no application code changed in that range, only
+"07 Intake Records" cell values. v146 was code-identical to v138/v135/Git.
 
 Versions 120-134 were transient, user-approved diagnostic/backfill probes on
 this same deployment ID (root-cause investigation, then the one-time
@@ -141,3 +145,53 @@ Verification:
 - No code changed for any of this — purely "07 Intake Records" cell values
   (`PDF URL`, `Internal Notes`, `Updated At`). v146 remains code-identical to
   Git.
+- Note: at the time of this remediation, the archive path was actually
+  `Applications/<Listing ID>/` (one level deeper than described above) due
+  to the duplicate-nesting bug fixed below — those 6 PDFs (the 5 above plus
+  APP-2026-067) were moved up to `Applications/` directly as part of that
+  fix, keeping the same file ID/URL/PRIVATE permission.
+
+## Duplicate Applications folder nesting fix (2026-08-25)
+
+**Root cause**: `getRentalApplicationArchiveFolder_` created a redundant
+`{listingId}`-named subfolder inside "Applications", even though
+"Applications" is already scoped to that listing (it's a child of
+`getApplicantSensitiveListingFolder_(listingId)`, which is itself named after
+the listing). Every Application PDF was archived one level deeper than
+intended:
+
+```
+Applicant Sensitive Data/{Listing ID}/Applications/{Listing ID}/<PDF>   (before, wrong)
+Applicant Sensitive Data/{Listing ID}/Applications/<PDF>                 (after, correct)
+```
+
+**Fix**: `getRentalApplicationArchiveFolder_` now returns the "Applications"
+folder directly — the redundant per-listing lookup/creation was removed. Only
+this one function changed (5 lines removed, 1 comment added); its single
+caller (`saveRentalApplication_`) and everything else (PDF generation,
+Supporting Documents, submission flow, database writes, permissions,
+auth) were not touched.
+
+**Existing-file migration**: found 6 listings with the duplicate nested
+folder (LST-2026-001/002/006/007/008/017), each containing exactly one PDF
+(APP-2026-006/003/017/029/024/067). Used `File.moveTo()` to move each PDF up
+one level — same file ID, same URL, same `PRIVATE` sharing (verified
+before/after for all 6) — then trashed the now-empty duplicate `{listingId}`
+subfolder in all 6 cases (none had leftover files/subfolders after the move,
+so none needed to be left in place). Verified afterward that the new
+`getRentalApplicationArchiveFolder_` resolves directly to the existing
+"Applications" folder and creates no new nested folder on a repeat call — no
+test application or throwaway PDF was created to check this.
+
+- Git SHA: `7aa3960113730af8bc84b0e83471464a915543e4`
+- Apps Script version: `152`
+- Files changed: `apps-script/Code.gs`
+- Functions changed: `getRentalApplicationArchiveFolder_`
+- PDFs migrated: 6 (APP-2026-003, 006, 017, 024, 029, 067)
+- Duplicate folders deleted: 6 (all safely empty after migration)
+- Folders left undeleted due to leftover contents: 0
+- Duplicates created: No
+- All existing/migrated PDF permissions: PRIVATE (confirmed for all 6)
+- Supporting Documents regression: PASS (zero code touched)
+- Application submission regression: PASS (zero code touched in
+  `saveRentalApplication_` itself; only the folder-resolution helper it calls)
