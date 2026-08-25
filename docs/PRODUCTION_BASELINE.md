@@ -3,11 +3,16 @@
 ## Current production
 
 - Git main: `9f487cf765ff697223dcb3687c57a49fa8b58a1c`
-- Apps Script version: `138`
+- Apps Script version: `146`
 - Production deployment ID: `AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`
 - Production and Git were verified file-by-file as identical.
 - No production/source fork exists.
-- Baseline recorded: `2026-08-25 12:35:00 PDT`
+- Baseline recorded: `2026-08-25 12:56:00 PDT`
+
+v139-146 were a further transient, user-approved read-only investigation and
+then a data-only remediation of 7 pre-v116 records (see "Historical
+missing-PDF audit" below) — no application code changed in this range, only
+"07 Intake Records" cell values. v146 is code-identical to v138/v135/Git.
 
 Versions 120-134 were transient, user-approved diagnostic/backfill probes on
 this same deployment ID (root-cause investigation, then the one-time
@@ -76,11 +81,63 @@ is both present and resolves to a real, readable Drive file.
   needed or performed for this window.
 - Outside the requested window (7 pre-2026-08-23 rows: APP-2026-003,
   APP-2026-004, APP-2026-005, APP-2026-006, APP-2026-017, APP-2026-024,
-  APP-2026-029): each has a PDF URL on record, but the Drive file it points
-  to no longer exists ("No item with the given ID could be found"). This is
+  APP-2026-029): each had a PDF URL on record, but the Drive file it pointed
+  to no longer existed ("No item with the given ID could be found"). This is
   a *different* symptom from the folder-inheritance bug (URL present vs. URL
-  never written) and predates v116, so it is out of scope for this fix and
-  was intentionally left untouched — it may be the result of the existing
-  data-retention cleanup path (`deleteExpiredApplicantSensitiveFiles_`) or a
-  pre-privacy-architecture folder restructuring, not this bug. Flagged here
-  for awareness; no action taken.
+  never written) and predates v116. Resolved on 2026-08-25 — see the
+  "Historical stale-PDF remediation" section below for the full
+  investigation, classification, and outcome.
+
+## Historical stale-PDF remediation (2026-08-25)
+
+Investigated the 7 pre-v116 records flagged above. All 7 predate the
+Applicant Sensitive Data architecture (no private folder ever existed for
+their listings) and none have retention-workflow evidence
+(`Data Retention Status`/`Sensitive Files Deleted At` all blank) — so none
+match "expected retention deletion" under the formal policy. Confirmed
+`deleteExpiredApplicantSensitiveFiles_` only ever clears the Supporting
+Documents folder/fields (`Support Document Folder URL`, `Upload Link`,
+`Upload Token`, `Upload Token Expires At`) — it never touches `PDF URL` or
+the Applications-archive PDF, so it cannot be the cause and has no
+stale-reference bug relative to `PDF URL` (there was nothing to fix in that
+function).
+
+Classification, by full row inspection:
+
+- **APP-2026-004** and **APP-2026-005** — confirmed developer/QA test
+  submissions, not real applicants. APP-2026-004 used the developer's own
+  email address (`mabelclaw67@gmail.com`) with placeholder junk field values
+  ("employer", "victoria", "ll"). APP-2026-005 used the reserved
+  `@example.com` test domain and its own `reasonForMoving`/`additionalNotes`
+  fields explicitly say "Final verification after authorization" / "Final
+  pdf generation verification". Action: cleared the stale `PDF URL` (now
+  empty, so the Admin UI's `app.pdfUrl &&` guard no longer renders a dead
+  link — confirmed in `src/pages/admin/ApplicationReview.jsx` and
+  `Leads.jsx`), no PDF regenerated, and annotated `Internal Notes`
+  explaining why.
+- **APP-2026-003, APP-2026-006, APP-2026-017, APP-2026-024, APP-2026-029** —
+  all contain complete, realistic personal/financial data (real employers,
+  phone numbers, family/pet details, narrative specifics) with no test
+  markers, and their listings (LST-2026-001/002/006/007/008) are all still
+  `Published`. No forensic proof of the exact deletion mechanism was
+  available (no Drive Activity API access, no Stackdriver logs reachable for
+  this Apps Script project — see clasp limitations noted elsewhere in this
+  doc). User reviewed this evidence and approved treating these as
+  unexpected/mistaken loss of otherwise-recoverable data. Action: regenerated
+  each PDF from the existing database row with the same generator/private
+  archive path used for APP-2026-067, wrote the new `PDF URL` back, and
+  annotated `Internal Notes`.
+
+Verification:
+- All 5 regenerated PDFs: `sharingAccess: PRIVATE`, correctly parented under
+  `Applications/<their Listing ID>/`, exactly one file each (checked
+  post-hoc via a read-only folder listing — no duplicates).
+- The 2 test records: `PDF URL` empty, no file created.
+- A retry made during verification caused `Internal Notes` to be appended
+  twice for APP-2026-004/005 only (the note-clearing step is not itself
+  idempotent against manual re-invocation the way the PDF-regeneration path
+  is); deduplicated immediately afterward. No Drive file or PDF URL was
+  affected by this — text-only.
+- No code changed for any of this — purely "07 Intake Records" cell values
+  (`PDF URL`, `Internal Notes`, `Updated At`). v146 remains code-identical to
+  Git.
