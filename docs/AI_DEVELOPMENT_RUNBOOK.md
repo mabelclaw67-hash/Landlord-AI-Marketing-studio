@@ -56,7 +56,8 @@ netlify api listSiteDeploys --data '{"site_id":"678aa8d4-81e4-4c19-b4a1-2021c906
 ```
 Script ID:               1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp
 Production deployment ID: AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0
-Current production version: 114
+Current production version: 132 (always confirm with `clasp deployments` — this
+number has drifted from reality before; see docs/PRODUCTION_BASELINE.md)
 ```
 
 The exec URL for this deployment (`.env` / `.env.local` as `VITE_STUDIO_EXEC_URL`)
