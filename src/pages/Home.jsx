@@ -482,6 +482,12 @@ const DAILY_BRIEF_CARD_META = {
   websiteSummary:       { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
 };
 
+function hasDailyBriefCardContent(value) {
+  if (value === null || value === undefined) return false;
+  const text = String(value).trim();
+  return text !== "" && !/^[\s—]+$/.test(text);
+}
+
 export default function Home({ lang }) {
   const safeLang = lang === "zh" ? "zh" : "en";
   const s = T[safeLang];
@@ -494,6 +500,11 @@ export default function Home({ lang }) {
   const websiteReports = Array.isArray(brief?.websiteReports) ? brief.websiteReports : [];
   const homepageBriefDate = brief?.date || "—";
   const isGreaterNanaimoRentReport = /^Greater Nanaimo Daily Rental Report\b/i.test(brief?.title || "");
+  const visibleWebsiteReports = websiteReports.filter((report) => {
+    const title = safeLang === "zh" ? report.titleCn : report.titleEn;
+    const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
+    return hasDailyBriefCardContent(title) || hasDailyBriefCardContent(desc);
+  });
 
   useEffect(() => {
     let active = true;
@@ -730,35 +741,41 @@ export default function Home({ lang }) {
                 <span className="lh-daily-brief__section-meta">{brief.date}</span>
               </div>
               <div className="lh-daily-brief__flash-grid">
-                {s.briefFields.filter(f => DAILY_FLASH_TOP_KEYS.has(f.key)).map((field) => {
-                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                  return (
-                    <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                      <div className="lh-daily-brief__card-head">
-                        <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                        <div className="lh-daily-brief__label">{field.label}</div>
-                      </div>
-                      <p>{brief[field.key] || "—"}</p>
-                    </article>
-                  );
-                })}
+                {s.briefFields
+                  .filter((field) => DAILY_FLASH_TOP_KEYS.has(field.key))
+                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
+                  .map((field) => {
+                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                    return (
+                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                        <div className="lh-daily-brief__card-head">
+                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                          <div className="lh-daily-brief__label">{field.label}</div>
+                        </div>
+                        <p>{brief[field.key]}</p>
+                      </article>
+                    );
+                  })}
               </div>
               <div className="lh-daily-brief__grid lh-daily-brief__grid--summary">
-                {s.briefFields.filter(f => f.key === "websiteSummary").map((field) => {
-                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                  return (
-                    <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                      <div className="lh-daily-brief__card-head">
-                        <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                        <div className="lh-daily-brief__label">{field.label}</div>
-                      </div>
-                      <p>{brief[field.key] || "—"}</p>
-                    </article>
-                  );
-                })}
+                {s.briefFields
+                  .filter((field) => field.key === "websiteSummary")
+                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
+                  .map((field) => {
+                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                    return (
+                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                        <div className="lh-daily-brief__card-head">
+                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                          <div className="lh-daily-brief__label">{field.label}</div>
+                        </div>
+                        <p>{brief[field.key]}</p>
+                      </article>
+                    );
+                  })}
               </div>
 
-              {isGreaterNanaimoRentReport && brief.fullContent ? (
+              {isGreaterNanaimoRentReport && hasDailyBriefCardContent(brief.fullContent) ? (
                 <article className="lh-daily-brief__card lh-daily-brief__card--wide">
                   <div className="lh-daily-brief__card-head">
                     <div className="lh-daily-brief__card-icon" aria-hidden="true">📝</div>
@@ -778,25 +795,28 @@ export default function Home({ lang }) {
                 </span>
               </div>
               <div className="lh-daily-brief__grid">
-                {s.briefFields.filter(f => WEEKLY_DATA_KEYS.has(f.key)).map((field) => {
-                  const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                  return (
-                    <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                      <div className="lh-daily-brief__card-head">
-                        <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                        <div className="lh-daily-brief__label">{field.label}</div>
-                      </div>
-                      <p>{brief[field.key] || "—"}</p>
-                      <Link
-                        to={`/reports/daily-market-brief#${field.key}`}
-                        className="lh-daily-brief__detail-link"
-                      >
-                        {safeLang === "zh" ? "查看详情 →" : "View details →"}
-                      </Link>
-                    </article>
-                  );
-                })}
-                {websiteReports.map((report) => {
+                {s.briefFields
+                  .filter((field) => WEEKLY_DATA_KEYS.has(field.key))
+                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
+                  .map((field) => {
+                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
+                    return (
+                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
+                        <div className="lh-daily-brief__card-head">
+                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
+                          <div className="lh-daily-brief__label">{field.label}</div>
+                        </div>
+                        <p>{brief[field.key]}</p>
+                        <Link
+                          to={`/reports/daily-market-brief#${field.key}`}
+                          className="lh-daily-brief__detail-link"
+                        >
+                          {safeLang === "zh" ? "查看详情 →" : "View details →"}
+                        </Link>
+                      </article>
+                    );
+                  })}
+                {visibleWebsiteReports.map((report) => {
                   const title = safeLang === "zh" ? report.titleCn : report.titleEn;
                   const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
                   return (
