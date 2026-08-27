@@ -482,17 +482,6 @@ const DAILY_BRIEF_CARD_META = {
   websiteSummary:       { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
 };
 
-function getVancouverTodayText() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Vancouver",
-    year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const year  = parts.find((p) => p.type === "year")?.value  || "";
-  const month = parts.find((p) => p.type === "month")?.value || "";
-  const day   = parts.find((p) => p.type === "day")?.value   || "";
-  return `${year}-${month}-${day}`;
-}
-
 export default function Home({ lang }) {
   const safeLang = lang === "zh" ? "zh" : "en";
   const s = T[safeLang];
@@ -503,7 +492,8 @@ export default function Home({ lang }) {
   const [wechatCopied, setWechatCopied] = useState(false);
   const [retireBrief, setRetireBrief] = useState(null);
   const websiteReports = Array.isArray(brief?.websiteReports) ? brief.websiteReports : [];
-  const homepageBriefDate = getVancouverTodayText();
+  const homepageBriefDate = brief?.date || "—";
+  const isGreaterNanaimoRentReport = /^Greater Nanaimo Daily Rental Report\b/i.test(brief?.title || "");
 
   useEffect(() => {
     let active = true;
@@ -767,6 +757,16 @@ export default function Home({ lang }) {
                   );
                 })}
               </div>
+
+              {isGreaterNanaimoRentReport && brief.fullContent ? (
+                <article className="lh-daily-brief__card lh-daily-brief__card--wide">
+                  <div className="lh-daily-brief__card-head">
+                    <div className="lh-daily-brief__card-icon" aria-hidden="true">📝</div>
+                    <div className="lh-daily-brief__label">{safeLang === "zh" ? "报告原文" : "Source Report"}</div>
+                  </div>
+                  <p>{brief.fullContent}</p>
+                </article>
+              ) : null}
 
               {/* ── Market Data (CMHC / REBGV / Zumper — updated monthly) ── */}
               <div className="lh-daily-brief__section-head" style={{ marginTop: 28 }}>

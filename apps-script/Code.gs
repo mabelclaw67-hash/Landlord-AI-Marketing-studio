@@ -612,6 +612,7 @@ function getDailyMarketBrief_() {
     landlordActionNotes: normalizeCellText_(colVal_(latestRow, headerMap, "Landlord Action Notes")),
     websiteSummary: normalizeCellText_(colVal_(latestRow, headerMap, "Website Summary")),
     wechatShareText: normalizeCellText_(colVal_(latestRow, headerMap, "WeChat Share Text")),
+    fullContent: normalizeCellText_(colVal_(latestRow, headerMap, "Full Content")),
     fullReportPath: "/reports/daily-market-brief",
     websiteReports: getPublishedWebsiteReports_(),
   };
@@ -1971,7 +1972,9 @@ function getBriefSourceFolderId_() {
 
 function isSupportedBriefSourceFile_(file) {
   var name = file.getName();
-  if (!/^Daily_BC_Rent_Sale_Intelligence_Brief_/i.test(name)) return false;
+  var isLegacyBrief = /^Daily_BC_Rent_Sale_Intelligence_Brief_/i.test(name);
+  var isGreaterNanaimoRentReport = /^20\d{2}-\d{2}-\d{2}\s*-\s*Greater Nanaimo Daily Rent Report(?:\.[^.]+)?$/i.test(name);
+  if (!isLegacyBrief && !isGreaterNanaimoRentReport) return false;
 
   var mimeType = file.getMimeType();
   if (mimeType === MimeType.GOOGLE_DOCS) return true;
@@ -2282,6 +2285,39 @@ function parseDailyMarketBriefRecord_(file) {
     throw new Error("Latest report file is empty.");
   }
 
+  var isGreaterNanaimoRentReport = /^20\d{2}-\d{2}-\d{2}\s*-\s*Greater Nanaimo Daily Rent Report(?:\.[^.]+)?$/i.test(file.getName());
+  if (isGreaterNanaimoRentReport) {
+    var reportText = normalizeDailyRentReportText_(text);
+    var reportLines = reportText.split("\n").filter(function(line) { return !!line; });
+    var reportTitle = reportLines[0] || file.getName();
+    var reportSummary = reportLines.slice(0, 4).join(" ");
+    var reportDateValue = parseBriefDateFromText_(file.getName()) ||
+      parseBriefDateFromText_(reportTitle) ||
+      file.getLastUpdated();
+    return {
+      title: reportTitle,
+      dateText: Utilities.formatDate(reportDateValue, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+      dateValue: reportDateValue,
+      briefType: "Greater Nanaimo Daily Rent Report",
+      language: "EN",
+      sourceDocLink: "https://drive.google.com/file/d/" + file.getId() + "/view",
+      policySummary: "",
+      bcRentalSummary: "",
+      bcSaleSummary: "",
+      nanaimoRentalSummary: reportSummary,
+      nanaimoSaleSummary: "",
+      mortgageNotes: "",
+      marketDataNotes: reportText,
+      landlordActionNotes: "",
+      wechatShareText: reportText,
+      websiteSummary: reportSummary,
+      fullContent: reportText,
+      status: "Published",
+      sourceFileId: file.getId(),
+      sourceFileName: file.getName(),
+    };
+  }
+
   var titleMatch = text.match(/^#\s+(.+)$/m);
   var title = titleMatch ? normalizeCellText_(titleMatch[1]) : normalizeCellText_(file.getName());
 
@@ -2446,6 +2482,15 @@ function parseDailyMarketBriefRecord_(file) {
     sourceFileId: file.getId(),
     sourceFileName: file.getName(),
   };
+}
+
+function normalizeDailyRentReportText_(text) {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map(function(line) { return line.replace(/\s+$/g, "").trim(); })
+    .filter(function(line) { return !!line; })
+    .join("\n");
 }
 
 function generateBriefId_(sheet, headerMap, dateText) {

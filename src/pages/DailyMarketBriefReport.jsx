@@ -92,6 +92,18 @@ export default function DailyMarketBriefReport({ lang }) {
                   <p>{brief?.[key] || "—"}</p>
                 </ContentAccordion>
               ))}
+              {/^Greater Nanaimo Daily Rental Report\b/i.test(brief?.title || "") && brief?.fullContent ? (
+                <ContentAccordion
+                  key="fullContent"
+                  id="fullContent"
+                  title={safeLang === "zh" ? "报告原文" : "Source Report"}
+                  summary={brief.title}
+                  defaultOpen={typeof window !== "undefined" && window.location.hash === "#fullContent"}
+                  className="website-report__section"
+                >
+                  <p>{brief.fullContent}</p>
+                </ContentAccordion>
+              ) : null}
             </article>
           </>
         )}
