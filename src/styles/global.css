@@ -3806,6 +3806,33 @@ tr:hover td { background: #F9F6F0; }
   scroll-margin-top: calc(var(--nav-height, 76px) + 18px);
 }
 
+.website-report__structured-section {
+  scroll-margin-top: calc(var(--nav-height, 76px) + 18px);
+}
+
+.website-report__structured-section h2 {
+  margin-top: 34px;
+}
+
+.website-report__structured-section:first-child h2 {
+  margin-top: 0;
+}
+
+.website-report__structured-subsection h3 {
+  margin-top: 20px;
+}
+
+.website-report__sources {
+  border-top: 1px solid #e8e2d9;
+  padding-top: 12px;
+}
+
+.website-report__sources .website-report__list,
+.website-report__sources .website-report__list li {
+  color: #7d7469;
+  font-size: 0.88rem;
+}
+
 .website-report__list {
   margin: 0 0 10px 22px;
   padding: 0;

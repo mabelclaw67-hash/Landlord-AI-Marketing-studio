@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import ShareKit from "../components/ShareKit";
 import ContentAccordion from "../components/ContentAccordion";
 import { PUBLIC_SITE_BASE_URL } from "../utils/publicUrls";
-import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
+import { getDailyMarketBrief, parseDailyMarketBrief } from "../utils/dailyMarketBrief";
 import { getRetirementBrief, field as rlField, roomType as rlRoomType, strategyScore as rlStrategyScore, bestPick as rlBestPick } from "../utils/retirementBrief";
 
 // ─── Translation dictionary ────────────────────────────────────────────────
@@ -107,7 +107,7 @@ const T = {
     briefTitle: "Daily BC Rent & Sale Market Brief",
     briefDateLabel: "Date",
     briefLoading: "Loading latest published brief...",
-    viewFullReport: "View Full Report",
+    viewFullReport: "View Full Daily Report →",
     copyWechat: "Copy WeChat Version",
     copiedWechat: "Copied WeChat Version",
     briefFields: [
@@ -320,7 +320,7 @@ const T = {
     briefTitle: "每日BC租赁与房屋买卖市场晨报",
     briefDateLabel: "日期",
     briefLoading: "正在加载最新简报…",
-    viewFullReport: "查看完整报告",
+    viewFullReport: "查看完整日报 →",
     copyWechat: "复制微信版本",
     copiedWechat: "已复制",
     briefFields: [
@@ -467,25 +467,19 @@ const LANDLORD_SHARE_MESSAGES = [
   },
 ];
 
-// Keys that are written fresh each day (policy, actions, summary)
-const DAILY_FLASH_TOP_KEYS = new Set(["policySummary", "landlordActionNotes"]);
-// Keys backed by monthly/quarterly data sources (CMHC, REBGV, Zumper)
-const WEEKLY_DATA_KEYS = new Set(["bcRentalSummary", "bcSaleSummary", "nanaimoRentalSummary", "nanaimoSaleSummary"]);
-
-const DAILY_BRIEF_CARD_META = {
-  policySummary:        { icon: "📄", className: "" },
-  bcRentalSummary:      { icon: "🏢", className: "" },
-  bcSaleSummary:        { icon: "🏠", className: "" },
-  nanaimoRentalSummary: { icon: "📍", className: "" },
-  nanaimoSaleSummary:   { icon: "🏡", className: "" },
-  landlordActionNotes:  { icon: "💡", className: "" },
-  websiteSummary:       { icon: "🧭", className: "lh-daily-brief__card--wide lh-daily-brief__card--muted" },
-};
-
 function hasDailyBriefCardContent(value) {
   if (value === null || value === undefined) return false;
   const text = String(value).trim();
   return text !== "" && !/^[\s—]+$/.test(text);
+}
+
+function ReportLines({ lines, className = "" }) {
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+  return (
+    <ul className={`lh-daily-brief__summary-list ${className}`.trim()}>
+      {lines.map((line, index) => <li key={`${index}-${line}`}>{line}</li>)}
+    </ul>
+  );
 }
 
 export default function Home({ lang }) {
@@ -495,16 +489,10 @@ export default function Home({ lang }) {
   const [brief, setBrief] = useState(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError] = useState("");
-  const [wechatCopied, setWechatCopied] = useState(false);
   const [retireBrief, setRetireBrief] = useState(null);
-  const websiteReports = Array.isArray(brief?.websiteReports) ? brief.websiteReports : [];
   const homepageBriefDate = brief?.date || "—";
-  const isGreaterNanaimoRentReport = /^Greater Nanaimo Daily Rental Report\b/i.test(brief?.title || "");
-  const visibleWebsiteReports = websiteReports.filter((report) => {
-    const title = safeLang === "zh" ? report.titleCn : report.titleEn;
-    const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
-    return hasDailyBriefCardContent(title) || hasDailyBriefCardContent(desc);
-  });
+  const parsedBrief = brief ? parseDailyMarketBrief(brief) : null;
+  const overviewSection = parsedBrief?.sections.find((section) => section.id === "overview");
 
   useEffect(() => {
     let active = true;
@@ -540,17 +528,6 @@ export default function Home({ lang }) {
     loadRetire();
     return () => { active = false; };
   }, []);
-
-  async function handleCopyWechat() {
-    if (!brief?.wechatShareText) return;
-    try {
-      await navigator.clipboard.writeText(brief.wechatShareText);
-      setWechatCopied(true);
-      window.setTimeout(() => setWechatCopied(false), 1800);
-    } catch {
-      setWechatCopied(false);
-    }
-  }
 
   const rlBest = retireBrief ? rlBestPick(retireBrief) : null;
 
@@ -733,117 +710,30 @@ export default function Home({ lang }) {
                 <h3>{brief.title || "Untitled Brief"}</h3>
               </div>
 
-              {/* ── Today's Update (policy, actions, summary — written fresh daily) ── */}
               <div className="lh-daily-brief__section-head">
                 <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--flash">
-                  {safeLang === "zh" ? "今日更新" : "Today's Update"}
+                  {safeLang === "zh" ? "今日市场速览" : "Today's Market Overview"}
                 </span>
                 <span className="lh-daily-brief__section-meta">{brief.date}</span>
               </div>
-              <div className="lh-daily-brief__flash-grid">
-                {s.briefFields
-                  .filter((field) => DAILY_FLASH_TOP_KEYS.has(field.key))
-                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
-                  .map((field) => {
-                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                    return (
-                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                        <div className="lh-daily-brief__card-head">
-                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                          <div className="lh-daily-brief__label">{field.label}</div>
-                        </div>
-                        <p>{brief[field.key]}</p>
-                      </article>
-                    );
-                  })}
-              </div>
-              <div className="lh-daily-brief__grid lh-daily-brief__grid--summary">
-                {s.briefFields
-                  .filter((field) => field.key === "websiteSummary")
-                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
-                  .map((field) => {
-                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                    return (
-                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                        <div className="lh-daily-brief__card-head">
-                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                          <div className="lh-daily-brief__label">{field.label}</div>
-                        </div>
-                        <p>{brief[field.key]}</p>
-                      </article>
-                    );
-                  })}
-              </div>
+              {overviewSection ? <ReportLines lines={overviewSection.lines} /> : null}
 
-              {isGreaterNanaimoRentReport && hasDailyBriefCardContent(brief.fullContent) ? (
-                <article className="lh-daily-brief__card lh-daily-brief__card--wide">
+              {hasDailyBriefCardContent(brief.nanaimoRentalSummary) ? (
+                <article className="lh-daily-brief__card lh-daily-brief__card--wide lh-daily-brief__card--muted">
                   <div className="lh-daily-brief__card-head">
-                    <div className="lh-daily-brief__card-icon" aria-hidden="true">📝</div>
-                    <div className="lh-daily-brief__label">{safeLang === "zh" ? "报告原文" : "Source Report"}</div>
+                    <div className="lh-daily-brief__card-icon" aria-hidden="true">📍</div>
+                    <div className="lh-daily-brief__label">
+                      {safeLang === "zh" ? "Greater Nanaimo Rental Market" : "Greater Nanaimo Rental Market"}
+                    </div>
                   </div>
-                  <p>{brief.fullContent}</p>
+                  <p>{brief.nanaimoRentalSummary}</p>
                 </article>
               ) : null}
-
-              {/* ── Market Data (CMHC / REBGV / Zumper — updated monthly) ── */}
-              <div className="lh-daily-brief__section-head" style={{ marginTop: 28 }}>
-                <span className="lh-daily-brief__section-tag lh-daily-brief__section-tag--data">
-                  {safeLang === "zh" ? "市场数据" : "Market Data"}
-                </span>
-                <span className="lh-daily-brief__section-meta">
-                  {safeLang === "zh" ? "每月更新" : "Updated monthly"}
-                </span>
-              </div>
-              <div className="lh-daily-brief__grid">
-                {s.briefFields
-                  .filter((field) => WEEKLY_DATA_KEYS.has(field.key))
-                  .filter((field) => hasDailyBriefCardContent(brief[field.key]))
-                  .map((field) => {
-                    const meta = DAILY_BRIEF_CARD_META[field.key] || { icon: "•", className: "" };
-                    return (
-                      <article key={field.key} className={`lh-daily-brief__card ${meta.className}`.trim()}>
-                        <div className="lh-daily-brief__card-head">
-                          <div className="lh-daily-brief__card-icon" aria-hidden="true">{meta.icon}</div>
-                          <div className="lh-daily-brief__label">{field.label}</div>
-                        </div>
-                        <p>{brief[field.key]}</p>
-                        <Link
-                          to={`/reports/daily-market-brief#${field.key}`}
-                          className="lh-daily-brief__detail-link"
-                        >
-                          {safeLang === "zh" ? "查看详情 →" : "View details →"}
-                        </Link>
-                      </article>
-                    );
-                  })}
-                {visibleWebsiteReports.map((report) => {
-                  const title = safeLang === "zh" ? report.titleCn : report.titleEn;
-                  const desc = safeLang === "zh" ? report.descriptionCn : report.descriptionEn;
-                  return (
-                    <article key={report.reportId || report.reportPath} className="lh-daily-brief__card">
-                      <div className="lh-daily-brief__card-head">
-                        <div className="lh-daily-brief__card-icon" aria-hidden="true">📘</div>
-                        <div className="lh-daily-brief__label">{title}</div>
-                      </div>
-                      <p>{desc}</p>
-                      <Link
-                        to={report.reportPath || `/reports/${report.reportId}`}
-                        className="lh-daily-brief__detail-link"
-                      >
-                        {safeLang === "zh" ? "查看报告 →" : "View Report →"}
-                      </Link>
-                    </article>
-                  );
-                })}
-              </div>
 
               <div className="lh-daily-brief__actions">
                 <Link to="/reports/daily-market-brief" className="lh-btn lh-btn--sand">
                   {s.viewFullReport}
                 </Link>
-                <button type="button" className="lh-btn lh-btn--white" onClick={handleCopyWechat}>
-                  {wechatCopied ? s.copiedWechat : s.copyWechat}
-                </button>
               </div>
             </ContentAccordion>
           ) : null}

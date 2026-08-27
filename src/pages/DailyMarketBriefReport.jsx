@@ -1,28 +1,53 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getDailyMarketBrief } from "../utils/dailyMarketBrief";
+import { getDailyMarketBrief, parseDailyMarketBrief } from "../utils/dailyMarketBrief";
 import ContentAccordion from "../components/ContentAccordion";
 
-const FIELDS = {
-  en: [
-    ["policySummary", "Policy Summary"],
-    ["bcRentalSummary", "BC Rental Summary"],
-    ["bcSaleSummary", "BC Sale Summary"],
-    ["nanaimoRentalSummary", "Nanaimo Rental Summary"],
-    ["nanaimoSaleSummary", "Nanaimo Sale Summary"],
-    ["landlordActionNotes", "Landlord Action Notes"],
-    ["websiteSummary", "Website Summary"],
-  ],
-  zh: [
-    ["policySummary", "政策摘要"],
-    ["bcRentalSummary", "BC 租赁市场"],
-    ["bcSaleSummary", "BC 销售市场"],
-    ["nanaimoRentalSummary", "楠奈莫租赁市场"],
-    ["nanaimoSaleSummary", "楠奈莫销售市场"],
-    ["landlordActionNotes", "房东操作建议"],
-    ["websiteSummary", "平台动态"],
-  ],
-};
+function isReportSubheading(line) {
+  return line.length <= 100 && (
+    /[:：]$/.test(line)
+    || /^(North Nanaimo \/ Country Club|Departure Bay|South Nanaimo \/ Hospital \/ Pleasant Valley|Downtown|Lantzville|Ladysmith|新增供应|优惠 Incentives|Days on Market)$/i.test(line)
+  );
+}
+
+function ReportLines({ lines, className = "" }) {
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+
+  const blocks = [];
+  let list = [];
+  const flushList = () => {
+    if (list.length > 0) {
+      blocks.push({ type: "list", lines: list });
+      list = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    if (isReportSubheading(line)) {
+      flushList();
+      blocks.push({ type: "heading", line: line.replace(/[:：]$/, "") });
+    } else {
+      list.push(line.replace(/^[-•]\s*/, ""));
+    }
+  });
+  flushList();
+
+  return (
+    <div className={`website-report__structured-body ${className}`.trim()}>
+      {blocks.map((block, index) => block.type === "heading" ? (
+        <h3 key={`${index}-${block.line}`}>{block.line}</h3>
+      ) : (
+        <ul key={`${index}-list`} className="website-report__list">
+          {block.lines.map((line, lineIndex) => <li key={`${lineIndex}-${line}`}>{line}</li>)}
+        </ul>
+      ))}
+    </div>
+  );
+}
+
+function SectionHeading({ section, lang }) {
+  return <h2>{lang === "zh" ? section.titleZh : section.titleEn}</h2>;
+}
 
 export default function DailyMarketBriefReport({ lang }) {
   const safeLang = lang === "zh" ? "zh" : "en";
@@ -80,26 +105,35 @@ export default function DailyMarketBriefReport({ lang }) {
             </header>
 
             <article className="website-report__content">
-              {(FIELDS[safeLang] || FIELDS.en).map(([key, label]) => (
-                <ContentAccordion
-                  key={key}
-                  id={key}
-                  title={label}
-                  summary={brief?.[key] || "—"}
-                  defaultOpen={typeof window !== "undefined" && window.location.hash === `#${key}`}
-                  className="website-report__section"
-                >
-                  <p>{brief?.[key] || "—"}</p>
-                </ContentAccordion>
+              {parseDailyMarketBrief(brief).sections.map((section) => (
+                <section key={section.id} id={section.id} className="website-report__structured-section">
+                  <SectionHeading section={section} lang={safeLang} />
+                  {section.id === "marketplace" ? (
+                    <>
+                      <ReportLines lines={section.introLines} />
+                      {section.subsections.map((subsection) => (
+                        <div key={subsection.id} className="website-report__structured-subsection">
+                          <h3>{safeLang === "zh" ? subsection.titleZh : subsection.titleEn}</h3>
+                          <ReportLines lines={subsection.lines} />
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <ReportLines
+                      lines={section.lines}
+                      className={section.id === "sources" ? "website-report__sources" : ""}
+                    />
+                  )}
+                </section>
               ))}
-              {/^Greater Nanaimo Daily Rental Report\b/i.test(brief?.title || "") && brief?.fullContent ? (
+              {brief?.fullContent ? (
                 <ContentAccordion
                   key="fullContent"
                   id="fullContent"
                   title={safeLang === "zh" ? "报告原文" : "Source Report"}
-                  summary={brief.title}
-                  defaultOpen={typeof window !== "undefined" && window.location.hash === "#fullContent"}
-                  className="website-report__section"
+                  summary={safeLang === "zh" ? "展开后查看 Google Doc 原始全文" : "Open to view the original Google Doc text"}
+                  defaultOpen={false}
+                  className="website-report__section website-report__raw-section"
                 >
                   <p>{brief.fullContent}</p>
                 </ContentAccordion>
