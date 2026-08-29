@@ -2298,6 +2298,7 @@ function parseDailyMarketBriefRecord_(file) {
   }
 
   var isGreaterNanaimoRentReport = isGreaterNanaimoRentReportFileName_(file.getName());
+  var isMorningBrief = isMorningBriefFileName_(file.getName());
   if (isGreaterNanaimoRentReport) {
     var reportText = normalizeDailyRentReportText_(text);
     var reportLines = reportText.split("\n").filter(function(line) { return !!line; });
