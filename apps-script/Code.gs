@@ -572,6 +572,7 @@ function getDailyMarketBrief_() {
 
   var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var displayValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  var updatedHeader = firstHeaderMatch_(headerMap, ["Updated At", "Last Updated", "Updated"]);
   var latest = null;
 
   for (var rowIndex = 0; rowIndex < values.length; rowIndex++) {
@@ -584,11 +585,18 @@ function getDailyMarketBrief_() {
     var dateValue = normalizeBriefDateValue_(colVal_(displayRow, headerMap, dateHeader));
     if (!dateValue) continue;
 
-    if (!latest || dateValue.getTime() > latest.dateValue.getTime()) {
+    var updatedValue = updatedHeader ?
+      normalizeBriefDateValue_(colVal_(displayRow, headerMap, updatedHeader) || colVal_(row, headerMap, updatedHeader)) :
+      null;
+    var isNewerDate = !latest || dateValue.getTime() > latest.dateValue.getTime();
+    var isNewerUpdate = latest && dateValue.getTime() === latest.dateValue.getTime() && updatedValue &&
+      (!latest.updatedValue || updatedValue.getTime() > latest.updatedValue.getTime());
+    if (isNewerDate || isNewerUpdate) {
       latest = {
         row: row,
         displayRow: displayRow,
         dateValue: dateValue,
+        updatedValue: updatedValue,
       };
     }
   }
