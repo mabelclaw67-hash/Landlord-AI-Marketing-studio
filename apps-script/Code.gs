@@ -2049,6 +2049,13 @@ function parseBriefDateFromText_(text) {
     return new Date(Number(compact[1]), Number(compact[2]) - 1, Number(compact[3]));
   }
 
+  var dateTime = value.match(/^(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (dateTime) {
+    var hour = Number(dateTime[4]) % 12;
+    if (dateTime[6].toUpperCase() === "PM") hour += 12;
+    return new Date(Number(dateTime[1]), Number(dateTime[2]) - 1, Number(dateTime[3]), hour, Number(dateTime[5]));
+  }
+
   var dashed = value.match(/(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})/);
   if (dashed) {
     return new Date(Number(dashed[1]), Number(dashed[2]) - 1, Number(dashed[3]));
@@ -2057,13 +2064,6 @@ function parseBriefDateFromText_(text) {
   var chineseDate = value.match(/(20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
   if (chineseDate) {
     return new Date(Number(chineseDate[1]), Number(chineseDate[2]) - 1, Number(chineseDate[3]));
-  }
-
-  var dateTime = value.match(/^(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (dateTime) {
-    var hour = Number(dateTime[4]) % 12;
-    if (dateTime[6].toUpperCase() === "PM") hour += 12;
-    return new Date(Number(dateTime[1]), Number(dateTime[2]) - 1, Number(dateTime[3]), hour, Number(dateTime[5]));
   }
 
   return null;
