@@ -1970,10 +1970,17 @@ function getBriefSourceFolderId_() {
   return folderId;
 }
 
+function isGreaterNanaimoRentReportFileName_(name) {
+  var value = String(name || "");
+  var hasReportName = /Greater Nanaimo Daily Rent Report/i.test(value);
+  var hasDate = /20\d{2}[-\/]\d{1,2}[-\/]\d{1,2}|20\d{2}年\d{1,2}月\d{1,2}日/.test(value);
+  return hasReportName && hasDate;
+}
+
 function isSupportedBriefSourceFile_(file) {
   var name = file.getName();
   var isLegacyBrief = /^Daily_BC_Rent_Sale_Intelligence_Brief_/i.test(name);
-  var isGreaterNanaimoRentReport = /^20\d{2}-\d{2}-\d{2}\s*-\s*Greater Nanaimo Daily Rent Report(?:\.[^.]+)?$/i.test(name);
+  var isGreaterNanaimoRentReport = isGreaterNanaimoRentReportFileName_(name);
   if (!isLegacyBrief && !isGreaterNanaimoRentReport) return false;
 
   var mimeType = file.getMimeType();
@@ -2285,7 +2292,7 @@ function parseDailyMarketBriefRecord_(file) {
     throw new Error("Latest report file is empty.");
   }
 
-  var isGreaterNanaimoRentReport = /^20\d{2}-\d{2}-\d{2}\s*-\s*Greater Nanaimo Daily Rent Report(?:\.[^.]+)?$/i.test(file.getName());
+  var isGreaterNanaimoRentReport = isGreaterNanaimoRentReportFileName_(file.getName());
   if (isGreaterNanaimoRentReport) {
     var reportText = normalizeDailyRentReportText_(text);
     var reportLines = reportText.split("\n").filter(function(line) { return !!line; });
