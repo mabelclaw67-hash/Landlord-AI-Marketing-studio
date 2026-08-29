@@ -3,7 +3,7 @@ const COPY = {
     title: "Landlord Knowledge Center",
     subtitle:
       "A practical knowledge base for Vancouver Island landlords: government rules, local market observations, and VanIsland's practical rental experience.",
-    updated: "Last updated: July 2026",
+    updated: "Latest policy update: August 27, 2026",
     status: "Status: General reference, professional review required",
     openGuide: "Open guide",
     categoryLabel: "Category",
@@ -33,6 +33,15 @@ const COPY = {
             icon: "⚖️",
             title: "BC Rental Rules",
             body: "Core tenancy reminders for advertising, deposits, screening, notices, and owner responsibilities.",
+          },
+          {
+            id: "rent-increases",
+            icon: "📈",
+            title: "2027 BC Annual Rent Increase",
+            body: "Official update: the maximum annual rent increase for covered residential tenancies is 2.2% in 2027. Review the effective date, notice, calculation, exemptions, and manufactured-home-park rules.",
+            href: "#rent-increases",
+            lastReviewed: "Last Reviewed: August 27, 2026",
+            nextReview: "Next Review: October 2026",
           },
           {
             id: "owner-occupancy",
@@ -149,6 +158,43 @@ const COPY = {
     ],
     detailSections: [
       {
+        id: "rent-increases",
+        title: "2027 BC Annual Rent Increase",
+        intro:
+          "Official update: the maximum annual rent increase for covered residential tenancies is 2.2% for increases taking effect on or after January 1, 2027.",
+        lastUpdated: "Last updated: August 27, 2026",
+        sources: [
+          ["BC Government news release - 2027 rent increase", "https://news.gov.bc.ca/releases/2026HMA0085-000982"],
+          ["BC Government - Rent increases", "https://www2.gov.bc.ca/gov/content/housing-tenancy/residential-tenancies/rent-rtb/rent-increases"],
+          ["Residential Tenancy Act - Part 3 (sections 41-43)", "https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/00_02078_01#part3"],
+          ["Residential Tenancy Regulation - section 22", "https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/10_477_2003#section22"],
+          ["Notice of Rent Increase - Residential Rental Units (RTB-7)", "https://www2.gov.bc.ca/assets/gov/housing-and-tenancy/residential-tenancies/forms/rtb7.pdf"],
+        ],
+        keyPoints: [
+          "The 2027 maximum annual rent increase is 2.2% for covered residential tenancies, and it takes effect January 1, 2027.",
+          "The annual percentage is based on the 12-month average percentage change in the all-items Consumer Price Index for B.C. ending in July of the year before the increase takes effect.",
+          "A landlord can increase rent only once every 12 months and must give the tenant at least three full months' notice in the approved form, RTB-7.",
+          "The increase cannot exceed the amount calculated from the allowable percentage and must not be rounded up. For example, $2,000 × 2.2% = $44, for a maximum new rent of $2,044.",
+          "An unused portion of a previous year's allowable increase cannot be carried forward and added to the current year's limit.",
+          "For manufactured home park tenancies, the 2027 standard increase is also 2.2%, plus a proportional amount for changes in local government levies and regulated utility fees.",
+          "The annual increase does not apply to commercial tenancies, non-profit housing where rent is geared to income, co-operative housing, and some assisted-living facilities.",
+          "An increase above the annual limit generally requires the tenant's written agreement or an application to the Residential Tenancy Branch for approval under the Act and regulations.",
+        ],
+        landlordChecks: [
+          "Confirm that at least 12 months have passed since the rent was first payable or since the last legal rent increase.",
+          "Use the current RTB-7 form and provide at least three full months' notice before the effective date.",
+          "Record the current rent, exact dollar increase, and effective date. Do not round the result up.",
+          "For a January 1, 2027 effective date, count three full months and confirm the applicable service and receipt rules before serving the notice.",
+          "If the proposed increase is above 2.2%, do not treat the excess as an ordinary annual increase; obtain the required written agreement or RTB approval first.",
+        ],
+        reviewNote: [
+          "The tenancy may fall outside the Residential Tenancy Act or may involve supportive or assisted living.",
+          "The property is a manufactured home park and local levies or regulated utility fees may form part of the calculation.",
+          "The landlord is considering an increase above the annual limit or an additional rent increase.",
+          "The effective date, service method, or timing of an RTB-7 notice is uncertain.",
+        ],
+      },
+      {
         id: "str",
         title: "Airbnb / STR Short-Term Rental Policy",
         intro:
@@ -222,7 +268,7 @@ const COPY = {
   zh: {
     title: "房东知识中心",
     subtitle: "面向温哥华岛房东的实用知识库：政府法规、本地市场观察，以及 VanIsland 的实务出租经验。",
-    updated: "最后更新：2026年7月",
+    updated: "最新政策更新：2026年8月27日",
     status: "状态：一般参考，需专业审核确认",
     openGuide: "查看指南",
     categoryLabel: "分类",
@@ -252,6 +298,15 @@ const COPY = {
             icon: "⚖️",
             title: "BC 租赁法规",
             body: "BC 住宅租赁中的广告、押金、租客筛选、通知和房东责任基础提醒。",
+          },
+          {
+            id: "rent-increases",
+            icon: "📈",
+            title: "2027 年 BC 租金上涨规定",
+            body: "官方更新：受法规覆盖的住宅租赁，2027 年最高年度租金上涨幅度为 2.2%。可查看生效日期、通知、计算、例外情况和流动房屋公园规则。",
+            href: "#rent-increases",
+            lastReviewed: "最后审核：2026年8月27日",
+            nextReview: "下次审核：2026年10月",
           },
           {
             id: "owner-occupancy",
@@ -367,6 +422,43 @@ const COPY = {
       },
     ],
     detailSections: [
+      {
+        id: "rent-increases",
+        title: "2027 年 BC 年度租金上涨规定",
+        intro:
+          "官方更新：受法规覆盖的住宅租赁，凡在 2027 年 1 月 1 日或之后生效的年度租金上涨，最高幅度为 2.2%。",
+        lastUpdated: "最后更新：2026年8月27日",
+        sources: [
+          ["BC 政府新闻稿：2027 年租金上涨", "https://news.gov.bc.ca/releases/2026HMA0085-000982"],
+          ["BC 政府：Rent increases", "https://www2.gov.bc.ca/gov/content/housing-tenancy/residential-tenancies/rent-rtb/rent-increases"],
+          ["Residential Tenancy Act：Part 3（第 41-43 条）", "https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/00_02078_01#part3"],
+          ["Residential Tenancy Regulation：第 22 条", "https://www.bclaws.gov.bc.ca/civix/document/id/complete/statreg/10_477_2003#section22"],
+          ["Notice of Rent Increase - Residential Rental Units（RTB-7）", "https://www2.gov.bc.ca/assets/gov/housing-and-tenancy/residential-tenancies/forms/rtb7.pdf"],
+        ],
+        keyPoints: [
+          "2027 年受法规覆盖的住宅租赁，最高年度租金上涨幅度为 2.2%，并适用于 2027 年 1 月 1 日起生效的上涨。",
+          "年度上涨比例依据：截至上涨生效年份前一年 7 月，BC 省所有项目消费者价格指数（CPI）的 12 个月平均变化率。",
+          "房东每 12 个月只能上涨一次，并且必须使用获批准的 RTB-7 表格，至少提前三个完整月份书面通知租客。",
+          "上涨金额不能超过按允许比例计算出的金额，也不能向上舍入。例如：$2,000 × 2.2% = $44，最高新租金为 $2,044。",
+          "上一年度没有使用的上涨额度不能结转，也不能加到本年度的允许额度上。",
+          "流动房屋公园租赁的 2027 年标准上涨也是 2.2%，另加地方政府税费和受监管公用事业费用变化的比例部分。",
+          "商业租赁、租金与收入挂钩的非营利住房、合作社住房，以及部分辅助生活设施不适用这一年度上涨规定。",
+          "如果想超过年度上限，通常需要租客书面同意，或依据法律和法规向 Residential Tenancy Branch 申请批准；不能把超出部分当作普通年度上涨直接收取。",
+        ],
+        landlordChecks: [
+          "确认距离租金首次应付日，或上一次合法上涨的生效日，已经至少 12 个月。",
+          "使用当前 RTB-7 表格，并在生效日前至少提供三个完整月份的通知。",
+          "记录当前租金、精确到分的上涨金额和生效日期；计算结果不能向上舍入。",
+          "如果计划让上涨在 2027 年 1 月 1 日生效，要按三个完整月份计算，并在送达前确认适用的送达和视为收到规则。",
+          "如果计划上涨超过 2.2%，不要把超出部分当作普通年度上涨；应先取得租客书面同意或 RTB 批准。",
+        ],
+        reviewNote: [
+          "该租赁可能不受 Residential Tenancy Act 覆盖，或属于 supportive / assisted living 情况。",
+          "物业属于流动房屋公园，且地方税费或受监管公用事业费用可能参与计算。",
+          "房东考虑超过年度上限，或申请额外租金上涨。",
+          "RTB-7 的生效日期、送达方式或通知时间不确定。",
+        ],
+      },
       {
         id: "str",
         title: "Airbnb / STR 短租政策",
@@ -494,8 +586,8 @@ function KnowledgeCard({ item, pillarTitle, copy }) {
         <h3>{item.title}</h3>
         <p>{item.body}</p>
         <div className="knowledge-card__meta">
-          <span>{copy.lastReviewed}</span>
-          <span>{copy.nextReview}</span>
+          <span>{item.lastReviewed || copy.lastReviewed}</span>
+          <span>{item.nextReview || copy.nextReview}</span>
           <span>{copy.cardStatus}</span>
         </div>
         {item.href ? <a className="knowledge-card__link" href={item.href}>{copy.openGuide}</a> : <span className="knowledge-card__placeholder">{copy.sectionCta}</span>}
@@ -514,7 +606,7 @@ function PolicySection({ section, labels }) {
       className="knowledge-policy-accordion"
     >
       <p className="knowledge-policy__eyebrow" style={{ marginBottom: 12, color: "var(--color-text-muted)", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {labels.lastUpdated}
+        {section.lastUpdated || labels.lastUpdated}
       </p>
 
       <div className="knowledge-policy__source-box">

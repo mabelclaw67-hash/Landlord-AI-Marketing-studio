@@ -142,6 +142,11 @@ const T = {
     knowledgeCardTitle: "Landlord Knowledge Center",
     knowledgeCardDesc:
       "Practical rental rules, local policy guides, STR reminders, suite notes, and VanIsland's landlord knowledge base.",
+    policyAlertEyebrow: "LATEST BC POLICY UPDATE",
+    policyAlertTitle: "2027 annual rent increase limit: 2.2%",
+    policyAlertDesc:
+      "The B.C. Government announced the maximum allowable annual increase for covered residential tenancies on August 27, 2026. It takes effect January 1, 2027.",
+    policyAlertLink: "Read the official details →",
 
     // free resources
     freeKicker: "FREE RESOURCES",
@@ -355,6 +360,11 @@ const T = {
     knowledgeCardTitle: "房东知识中心",
     knowledgeCardDesc:
       "实用出租法规、本地政策指南、短租提醒、套房说明，以及 VanIsland 的房东知识库。",
+    policyAlertEyebrow: "BC 最新政策更新",
+    policyAlertTitle: "2027 年度租金上涨上限：2.2%",
+    policyAlertDesc:
+      "BC 政府于 2026 年 8 月 27 日公布受法规覆盖住宅租赁的最高年度上涨幅度，2027 年 1 月 1 日起生效。",
+    policyAlertLink: "查看官方具体规定 →",
 
     // free resources
     freeKicker: "免费资源",
@@ -588,6 +598,20 @@ export default function Home({ lang }) {
               <div className="lh-hero-visual__house" />
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Latest policy update */}
+      <section className="lh-policy-alert" aria-labelledby="latest-policy-alert-title">
+        <div className="lh-policy-alert__inner">
+          <div>
+            <div className="lh-section-kicker">{s.policyAlertEyebrow}</div>
+            <h2 id="latest-policy-alert-title">{s.policyAlertTitle}</h2>
+            <p>{s.policyAlertDesc}</p>
+          </div>
+          <Link to="/resources#rent-increases" className="lh-policy-alert__link">
+            {s.policyAlertLink}
+          </Link>
         </div>
       </section>
 
