@@ -1977,11 +1977,16 @@ function isGreaterNanaimoRentReportFileName_(name) {
   return hasReportName && hasDate;
 }
 
+function isMorningBriefFileName_(name) {
+  return /^Morning_Brief_20\d{6}(?:\.[^.]+)?$/i.test(String(name || ""));
+}
+
 function isSupportedBriefSourceFile_(file) {
   var name = file.getName();
   var isLegacyBrief = /^Daily_BC_Rent_Sale_Intelligence_Brief_/i.test(name);
   var isGreaterNanaimoRentReport = isGreaterNanaimoRentReportFileName_(name);
-  if (!isLegacyBrief && !isGreaterNanaimoRentReport) return false;
+  var isMorningBrief = isMorningBriefFileName_(name);
+  if (!isLegacyBrief && !isGreaterNanaimoRentReport && !isMorningBrief) return false;
 
   var mimeType = file.getMimeType();
   if (mimeType === MimeType.GOOGLE_DOCS) return true;
@@ -2326,7 +2331,12 @@ function parseDailyMarketBriefRecord_(file) {
   }
 
   var titleMatch = text.match(/^#\s+(.+)$/m);
-  var title = titleMatch ? normalizeCellText_(titleMatch[1]) : normalizeCellText_(file.getName());
+  var morningTitleMatch = isMorningBrief
+    ? text.match(/^\uFEFF?\s*(物业管理晨报[^\r\n]*)/m)
+    : null;
+  var title = titleMatch
+    ? normalizeCellText_(titleMatch[1])
+    : (morningTitleMatch ? normalizeCellText_(morningTitleMatch[1]) : normalizeCellText_(file.getName()));
 
   var dateValue = parseBriefDateFromText_(file.getName()) ||
     parseBriefDateFromText_(title) ||
