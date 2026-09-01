@@ -3234,18 +3234,62 @@ function isAffirmativeJointApplicant_(value) {
     normalized === "Yes / 是";
 }
 
-function getRentalApplicationArchiveFolder_(listingId, listingFolderId, applicantSensitiveListingFolder) {
-  // "Applications" is already scoped to this listing (it's a child of
-  // getApplicantSensitiveListingFolder_(listingId)), so it must not also
-  // contain a nested {listingId} subfolder — that produces the duplicate
-  // {Listing ID}/Applications/{Listing ID}/ path.
+function getApplicantArchiveFolderName_(recordId, applicantName) {
+  var normalizedRecordId = sanitizePdfFilePart_(recordId, "APP");
+  var normalizedApplicantName = sanitizePdfFilePart_(applicantName, "Applicant");
+  return normalizedRecordId + " - " + normalizedApplicantName;
+}
+
+function findApplicantArchiveFolders_(applicationsFolder, recordId) {
+  var normalizedRecordId = sanitizePdfFilePart_(recordId, "");
+  if (!applicationsFolder || !normalizedRecordId) return [];
+  var prefix = normalizedRecordId + " - ";
+  var matches = [];
+  var folders = applicationsFolder.getFolders();
+  while (folders.hasNext()) {
+    var folder = folders.next();
+    var name = String(folder.getName() || "").trim();
+    if (name === normalizedRecordId || name.indexOf(prefix) === 0) matches.push(folder);
+  }
+  return matches;
+}
+
+function getApplicantSensitiveApplicationFolder_(listingId, recordId, applicantName, applicantSensitiveListingFolder) {
   var parentFolder = applicantSensitiveListingFolder || getApplicantSensitiveListingFolder_(listingId);
-  var applicationsIter = parentFolder.getFoldersByName("Applications");
-  var applicationsFolder = applicationsIter.hasNext()
-    ? applicationsIter.next()
-    : parentFolder.createFolder("Applications");
+  var applicationsFolder = getOrCreateChildFolder_(parentFolder, "Applications");
   keepDriveItemPrivate_(applicationsFolder, "application archive folder");
-  return applicationsFolder;
+
+  var expectedName = getApplicantArchiveFolderName_(recordId, applicantName);
+  var matches = findApplicantArchiveFolders_(applicationsFolder, recordId);
+  if (matches.length > 1) {
+    throw new Error(
+      "Duplicate private applicant folders found for " + String(recordId || "").trim() + ": " +
+      matches.map(function(folder) { return folder.getId(); }).join(", ")
+    );
+  }
+  var applicantFolder = matches.length === 1 ? matches[0] : applicationsFolder.createFolder(expectedName);
+  if (String(applicantFolder.getName() || "").trim() !== expectedName) applicantFolder.setName(expectedName);
+  keepDriveItemPrivate_(applicantFolder, "applicant application folder");
+  return applicantFolder;
+}
+
+function getApplicantSensitiveRecordSupportingDocumentsFolder_(listingId, recordId, applicantName) {
+  var applicantFolder = getApplicantSensitiveApplicationFolder_(listingId, recordId, applicantName);
+  var result = getOrCreateSupportingDocumentsFolder_(applicantFolder);
+  if (result.created) {
+    setDriveFolderLimitedAccess_(result.folder, "new applicant supporting documents folder");
+  }
+  keepDriveItemPrivate_(result.folder, "applicant supporting document folder");
+  return result.folder;
+}
+
+function getRentalApplicationArchiveFolder_(listingId, recordId, applicantName, applicantSensitiveListingFolder) {
+  return getApplicantSensitiveApplicationFolder_(
+    listingId,
+    recordId,
+    applicantName,
+    applicantSensitiveListingFolder
+  );
 }
 
 // Sync videoUrl for one listing. Can also be called from the Apps Script editor.
@@ -4546,9 +4590,18 @@ function requestSupportingDocuments_(recordId, origin, auth) {
 
   var listing = findListingById_(app.listingId);
   if (!listing) throw new Error("Listing not found: " + app.listingId);
-  var supportFolder = getApplicantSensitiveSupportingDocumentsFolder_(app.listingId);
-  var applicantFolder = getOrCreateChildFolder_(supportFolder, recordId + " - " + resolved.applicantName);
-  keepDriveItemPrivate_(applicantFolder, "applicant supporting document folder");
+  var existingSupportFolderId = extractDriveFolderId_(app.supportDocumentFolderUrl || "");
+  var supportFolder = null;
+  if (existingSupportFolderId) {
+    supportFolder = DriveApp.getFolderById(existingSupportFolderId);
+  } else {
+    supportFolder = getApplicantSensitiveRecordSupportingDocumentsFolder_(
+      app.listingId,
+      recordId,
+      resolved.applicantName
+    );
+  }
+  keepDriveItemPrivate_(supportFolder, "applicant supporting document folder");
 
   var token = generateUploadToken_();
   var tokenExpiresAt = getExpiryIso_(14);
@@ -4566,7 +4619,7 @@ function requestSupportingDocuments_(recordId, origin, auth) {
     "Upload Token": token,
     "Upload Token Expires At": tokenExpiresAt,
     "Upload Link": uploadLink,
-    "Support Document Folder URL": applicantFolder.getUrl(),
+    "Support Document Folder URL": supportFolder.getUrl(),
     "Document Upload Status": "Pending",
     "Updated At": now,
   });
@@ -4578,7 +4631,7 @@ function requestSupportingDocuments_(recordId, origin, auth) {
     applicantName: resolved.applicantName,
     email: resolved.email,
     uploadLink: uploadLink,
-    supportDocumentFolderUrl: applicantFolder.getUrl(),
+    supportDocumentFolderUrl: supportFolder.getUrl(),
     documentUploadStatus: "Pending",
     documentRequestSent: "Yes",
     documentRequestSentAt: now,
@@ -6246,7 +6299,8 @@ function saveRentalApplication_(body) {
   try {
     var appFolder = getRentalApplicationArchiveFolder_(
       body.listingId,
-      folderId,
+      recordId,
+      body.applicantName || body.applicantFullName || "Applicant",
       applicantSensitiveListingFolder
     );
     subfolderUrl = appFolder.getUrl();

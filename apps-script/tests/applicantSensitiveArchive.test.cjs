@@ -17,13 +17,24 @@ function iterator(items) {
 }
 
 function makeFolder(id, name) {
+  const childFolders = [];
   return {
     id,
     name,
+    childFolders,
     getId() { return this.id; },
     getName() { return this.name; },
     setName(next) { this.name = next; return this; },
     setSharing() { return this; },
+    getFolders() { return iterator(childFolders); },
+    getFoldersByName(childName) {
+      return iterator(childFolders.filter((folder) => folder.getName() === childName));
+    },
+    createFolder(childName) {
+      const child = makeFolder(`${this.id}-child-${childFolders.length + 1}`, childName);
+      childFolders.push(child);
+      return child;
+    },
   };
 }
 
@@ -114,6 +125,43 @@ const created = second.sandbox.getApplicantSensitiveListingFolder_("LST-TEST-001
 const reused = second.sandbox.getApplicantSensitiveListingFolder_("LST-TEST-001");
 check(created.getId() === reused.getId(), "repeat lookup is idempotent");
 check(second.getCreateCount() === 1, "creates exactly one listing folder");
+
+// Each application is archived under one idempotent APP-ID - Applicant Name
+// folder inside the listing's Applications folder.
+const listingFolder = makeFolder("listing-folder-archive", "LST-TEST-001 - 123 Main St");
+const archive = loadSandbox({ children: [listingFolder] });
+const applicantFolder = archive.sandbox.getRentalApplicationArchiveFolder_(
+  "LST-TEST-001",
+  "APP-2026-001",
+  "Test Applicant",
+  listingFolder
+);
+const applicantFolderAgain = archive.sandbox.getRentalApplicationArchiveFolder_(
+  "LST-TEST-001",
+  "APP-2026-001",
+  "Test Applicant",
+  listingFolder
+);
+const applicationsFolder = listingFolder.childFolders.find((folder) => folder.getName() === "Applications");
+check(Boolean(applicationsFolder), "creates the Applications container inside the private listing folder");
+check(applicantFolder.getName() === "APP-2026-001 - Test Applicant", "uses the required applicant folder name");
+check(applicantFolderAgain.getId() === applicantFolder.getId(), "reuses the same applicant folder by Application ID");
+check(applicationsFolder.childFolders.length === 1, "does not create a duplicate applicant folder");
+
+archive.sandbox.setDriveFolderLimitedAccess_ = () => {};
+const supportFolder = archive.sandbox.getApplicantSensitiveRecordSupportingDocumentsFolder_(
+  "LST-TEST-001",
+  "APP-2026-001",
+  "Test Applicant"
+);
+const supportFolderAgain = archive.sandbox.getApplicantSensitiveRecordSupportingDocumentsFolder_(
+  "LST-TEST-001",
+  "APP-2026-001",
+  "Test Applicant"
+);
+check(supportFolder.getName() === "Supporting Documents", "creates Supporting Documents inside the applicant folder");
+check(supportFolderAgain.getId() === supportFolder.getId(), "reuses the same Supporting Documents subfolder");
+check(applicantFolder.childFolders.length === 1, "keeps application PDF and Supporting Documents under one applicant folder");
 
 // Duplicate Listing ID folders fail closed instead of silently choosing one.
 const duplicate = loadSandbox({
