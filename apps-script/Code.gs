@@ -6,6 +6,7 @@
 
 var SPREADSHEET_ID  = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
 var DRIVE_FOLDER_ID = "1NeilrEpNtuwNkru9xNTWDmZ_LL3jIqWD";
+var APPLICANT_SENSITIVE_ROOT_FOLDER_ID = "1rP1Z05zTkOh8Rp9NMdXOrWEh8t7Qi2nA";
 var APPLICANT_SENSITIVE_ROOT_FOLDER_NAME = "Applicant Sensitive Data";
 // Applicant Sensitive Data must NOT live under DRIVE_FOLDER_ID: that folder
 // carries a direct (non-inherited) "Anyone with the link" grant for public
@@ -15,8 +16,8 @@ var APPLICANT_SENSITIVE_ROOT_FOLDER_NAME = "Applicant Sensitive Data";
 // the Drive API on the child (404 Permission not found) even after disabling
 // inheritance. Parented one level up instead, under the studio's own root
 // (which has no public grant anywhere in its ancestry), private sharing
-// works normally.
-var APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID = "1RNF_WZWsDECSnlqnaZuXWsbUy-xtmE2r";
+// works normally. The root is resolved only by the canonical folder ID above;
+// the backend must never search by name or create a replacement root.
 var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8";
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 var PROPERTY_STRATEGY_REPORTS_FOLDER_ID = "1J4p5SdWLGcSVzbZnAhla3PRR8fJgJUll";
@@ -3233,12 +3234,12 @@ function isAffirmativeJointApplicant_(value) {
     normalized === "Yes / 是";
 }
 
-function getRentalApplicationArchiveFolder_(listingId, listingFolderId) {
+function getRentalApplicationArchiveFolder_(listingId, listingFolderId, applicantSensitiveListingFolder) {
   // "Applications" is already scoped to this listing (it's a child of
   // getApplicantSensitiveListingFolder_(listingId)), so it must not also
   // contain a nested {listingId} subfolder — that produces the duplicate
   // {Listing ID}/Applications/{Listing ID}/ path.
-  var parentFolder = getApplicantSensitiveListingFolder_(listingId);
+  var parentFolder = applicantSensitiveListingFolder || getApplicantSensitiveListingFolder_(listingId);
   var applicationsIter = parentFolder.getFoldersByName("Applications");
   var applicationsFolder = applicationsIter.hasNext()
     ? applicationsIter.next()
@@ -4195,24 +4196,106 @@ function getOrCreateSupportingDocumentsFolder_(parent) {
 }
 
 function getApplicantSensitiveRootFolder_() {
-  var root = DriveApp.getFolderById(APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID);
-  var folder = getOrCreateChildFolder_(root, APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
-  keepDriveItemPrivate_(folder, "applicant sensitive data folder");
-  return folder;
+  try {
+    var folder = DriveApp.getFolderById(APPLICANT_SENSITIVE_ROOT_FOLDER_ID);
+    var actualName = String(folder.getName() || "").trim();
+    if (actualName !== APPLICANT_SENSITIVE_ROOT_FOLDER_NAME) {
+      throw new Error(
+        "Expected folder name \"" + APPLICANT_SENSITIVE_ROOT_FOLDER_NAME +
+        "\" but found \"" + actualName + "\"."
+      );
+    }
+    keepDriveItemPrivate_(folder, "applicant sensitive data folder");
+    return folder;
+  } catch (e) {
+    var message = e && e.message ? e.message : String(e || "Unknown Drive error");
+    Logger.log(
+      "[ApplicantSensitiveData] Canonical root unavailable: " +
+      APPLICANT_SENSITIVE_ROOT_FOLDER_ID + " - " + message
+    );
+    throw new Error(
+      "Canonical Applicant Sensitive Data root is unavailable or inaccessible (" +
+      APPLICANT_SENSITIVE_ROOT_FOLDER_ID + "): " + message
+    );
+  }
 }
 
 function findApplicantSensitiveRootFolder_() {
-  return findChildFolder_(DriveApp.getFolderById(APPLICANT_SENSITIVE_DATA_PARENT_FOLDER_ID), APPLICANT_SENSITIVE_ROOT_FOLDER_NAME);
+  try {
+    var folder = DriveApp.getFolderById(APPLICANT_SENSITIVE_ROOT_FOLDER_ID);
+    return String(folder.getName() || "").trim() === APPLICANT_SENSITIVE_ROOT_FOLDER_NAME
+      ? folder
+      : null;
+  } catch (e) {
+    Logger.log(
+      "[ApplicantSensitiveData] Canonical root lookup failed: " +
+      APPLICANT_SENSITIVE_ROOT_FOLDER_ID + " - " +
+      (e && e.message ? e.message : String(e || "Unknown Drive error"))
+    );
+    return null;
+  }
+}
+
+function getApplicantSensitiveListingFolderName_(listingId) {
+  var normalizedListingId = String(listingId || "").trim();
+  if (!normalizedListingId) throw new Error("Listing ID is required.");
+  var listing = findListingById_(normalizedListingId);
+  if (!listing) throw new Error("Listing not found in " + LISTINGS_SHEET + ": " + normalizedListingId);
+  var propertyAddress = sanitizePdfFilePart_(listing.address, "");
+  if (!propertyAddress) {
+    throw new Error("Property Address is missing in " + LISTINGS_SHEET + " for " + normalizedListingId + ".");
+  }
+  return normalizedListingId + " - " + propertyAddress;
+}
+
+function findApplicantSensitiveListingFolders_(root, listingId) {
+  var normalizedListingId = String(listingId || "").trim();
+  if (!root || !normalizedListingId) return [];
+  var prefix = normalizedListingId + " - ";
+  var matches = [];
+  var folders = root.getFolders();
+  while (folders.hasNext()) {
+    var folder = folders.next();
+    var name = String(folder.getName() || "").trim();
+    if (name === normalizedListingId || name.indexOf(prefix) === 0) matches.push(folder);
+  }
+  return matches;
 }
 
 function getApplicantSensitiveListingFolder_(listingId) {
-  var folder = getOrCreateChildFolder_(getApplicantSensitiveRootFolder_(), listingId);
-  keepDriveItemPrivate_(folder, "applicant sensitive listing folder");
-  return folder;
+  var normalizedListingId = String(listingId || "").trim();
+  var expectedName = getApplicantSensitiveListingFolderName_(normalizedListingId);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var root = getApplicantSensitiveRootFolder_();
+    var matches = findApplicantSensitiveListingFolders_(root, normalizedListingId);
+    if (matches.length > 1) {
+      throw new Error(
+        "Duplicate private listing folders found for " + normalizedListingId + ": " +
+        matches.map(function(folder) { return folder.getId(); }).join(", ")
+      );
+    }
+    var folder = matches.length === 1 ? matches[0] : root.createFolder(expectedName);
+    if (String(folder.getName() || "").trim() !== expectedName) folder.setName(expectedName);
+    keepDriveItemPrivate_(folder, "applicant sensitive listing folder");
+    return folder;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function findApplicantSensitiveListingFolder_(listingId) {
-  return findChildFolder_(findApplicantSensitiveRootFolder_(), listingId);
+  var root = findApplicantSensitiveRootFolder_();
+  if (!root) return null;
+  var matches = findApplicantSensitiveListingFolders_(root, listingId);
+  if (matches.length > 1) {
+    throw new Error(
+      "Duplicate private listing folders found for " + String(listingId || "").trim() + ": " +
+      matches.map(function(folder) { return folder.getId(); }).join(", ")
+    );
+  }
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function getApplicantSensitiveSupportingDocumentsFolder_(listingId) {
@@ -6016,6 +6099,11 @@ function deleteExpiredApplicantSensitiveFiles_(recordId, auth) {
 function saveRentalApplication_(body) {
   if (!body.listingId) throw new Error("saveRentalApplication: listingId required");
 
+  // Fail before any Sheet write or email if the fixed private root/listing
+  // path is missing, inaccessible, duplicated, or inconsistent with
+  // "01 Listings". Never create a replacement root by folder name.
+  var applicantSensitiveListingFolder = getApplicantSensitiveListingFolder_(body.listingId);
+
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
   var headerMap = getHeaderMap_(sheet);
@@ -6156,7 +6244,11 @@ function saveRentalApplication_(body) {
   var pdfError = "";
   var subfolderUrl = "";
   try {
-    var appFolder = getRentalApplicationArchiveFolder_(body.listingId, folderId);
+    var appFolder = getRentalApplicationArchiveFolder_(
+      body.listingId,
+      folderId,
+      applicantSensitiveListingFolder
+    );
     subfolderUrl = appFolder.getUrl();
 
     var pdfBlob = generateApplicationPdf_(dataMap, recordId);
