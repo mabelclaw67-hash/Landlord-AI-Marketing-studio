@@ -9,7 +9,7 @@ import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } f
 import { generateOutputs } from "../../utils/generateContent";
 import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApplicationNotice";
 import { isApiConnected, apiPost } from "../../utils/api";
-import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
+import { getStudioRequestAuth, isAdminSessionActive, isStudioRequestAuthReady } from "../../utils/trialAccess";
 import { saveVideoBlob, loadVideoBlob } from "../../utils/videoCache";
 import { getListingDisplayStatus, PUBLIC_LISTING_STATUS_OPTIONS, resolveRentalListingCover } from "../../utils/listingPublicMeta";
 import { resolvePlayableVideoUrl } from "../../utils/videoUrls";
@@ -778,6 +778,8 @@ export default function ListingDetail({ lang: langProp }) {
 
   // ── Derived values ───────────────────────────────────────────────────────────
   const isAdmin    = isAdminSessionActive();
+  const collageAuth = getStudioRequestAuth("rental");
+  const collageAuthReady = isStudioRequestAuthReady(collageAuth);
   const canGenerateApplicantReports = Boolean(isAdmin || listing);
   const initialSummaryReports = screeningReports
     .filter((r) => r.reportType === "Initial Screening Summary")
@@ -1496,6 +1498,12 @@ export default function ListingDetail({ lang: langProp }) {
   }
 
   async function handleGenerateCollage() {
+    const auth = getStudioRequestAuth("rental");
+    if (!isStudioRequestAuthReady(auth)) {
+      setCollageStatus("error");
+      setCollageMsg("Access denied. Please sign in with an approved trial access code.");
+      return;
+    }
     const pool    = activePhotos.filter((f) => f.fileId);
     const sources = resolveCollagePhotos(pool, collageSelection, (f) => f.fileId, effectiveCover?.fileId);
     if (sources.length < 2) {
@@ -2186,7 +2194,7 @@ export default function ListingDetail({ lang: langProp }) {
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
-                      disabled={collageStatus === "loading" || collageStatus === "saving"}
+                      disabled={!collageAuthReady || collageStatus === "loading" || collageStatus === "saving"}
                       onClick={handleGenerateCollage}
                     >
                       {collageStatus === "loading"

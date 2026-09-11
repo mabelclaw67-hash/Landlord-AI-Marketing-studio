@@ -76,7 +76,10 @@ export function getTrialModuleLabel(module) {
 
 export function isAdminSessionActive() {
   try {
-    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1";
+    // The flag and the validated code are one session. A stale flag without
+    // its code must never make the admin UI look authenticated.
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1" &&
+      Boolean(sessionStorage.getItem(ADMIN_CODE_KEY));
   } catch {
     return false;
   }
@@ -118,4 +121,8 @@ export function getStudioRequestAuth(module = "") {
   }
 
   return payload;
+}
+
+export function isStudioRequestAuthReady(auth) {
+  return Boolean(auth?.adminAccessCode || (auth?.accessEmail && auth?.accessCode));
 }

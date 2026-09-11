@@ -6,7 +6,7 @@
 // In v0.3+, swap the API layer without touching any component.
 
 import { isApiConnected, apiGet, apiPost } from "./api.js";
-import { getStudioRequestAuth } from "./trialAccess.js";
+import { getStudioRequestAuth, isStudioRequestAuthReady } from "./trialAccess.js";
 import { publicUpload } from "./publicUpload.js";
 
 const LISTINGS_KEY = "vanisland_listings_v1";
@@ -167,11 +167,18 @@ export async function getCollagePhotoData(listingId, fileIds) {
   if (!isApiConnected()) {
     throw new Error("Collage photo loading requires Google Drive integration.");
   }
+  // Collage photo data is the authenticated counterpart to the public
+  // metadata/photo-package read. Reuse the canonical page session and fail
+  // locally if it is incomplete; never send an empty auth payload.
+  const auth = getStudioRequestAuth("rental");
+  if (!isStudioRequestAuthReady(auth)) {
+    throw new Error("Access denied. Please sign in with an approved trial access code.");
+  }
   return apiPost({
     action: "getCollagePhotoData",
     listingId,
     fileIds,
-    ...getStudioRequestAuth("rental"),
+    ...auth,
   });
 }
 
