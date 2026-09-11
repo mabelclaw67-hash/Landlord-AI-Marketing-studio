@@ -317,6 +317,7 @@ export default function ListingDetail({ lang: langProp }) {
   const [infoSaving,   setInfoSaving]   = useState(false);
   const [infoEdited,   setInfoEdited]   = useState(false); // true after any save this session
   const [infoDraft,    setInfoDraft]    = useState({});    // live field values while editing
+  const [rentedNotificationResult, setRentedNotificationResult] = useState(null);
 
   // Copy regeneration state
   const [regenerating, setRegenerating] = useState(false);
@@ -649,14 +650,16 @@ export default function ListingDetail({ lang: langProp }) {
 
   const saveInfoToSheet = async () => {
     setInfoSaving(true);
+    setRentedNotificationResult(null);
     try {
       const updated = {
         ...listing,
         ...infoDraft,
         listingStatus: infoDraft.listingStatus || "Available",
       };
-      await saveListing(updated);
+      const result = await saveListing(updated);
       setListing(updated);
+      if (result?.rentedNotification) setRentedNotificationResult(result.rentedNotification);
       setInfoEdited(true);
       setInfoEditMode(false);
       setInfoDraft({});
@@ -2026,6 +2029,17 @@ export default function ListingDetail({ lang: langProp }) {
               </div>
             </div>
           </>
+        )}
+        {rentedNotificationResult && (
+          <div className="notice notice--info" style={{ marginTop: 12 }}>
+            <p style={{ fontSize: "0.8rem", lineHeight: 1.6 }}>
+              <strong>Rented notification:</strong>{" "}
+              {rentedNotificationResult.totalApplicantsFound || 0} applicants found ·{" "}
+              {rentedNotificationResult.emailsSent || 0} emails sent ·{" "}
+              {rentedNotificationResult.failures || 0} failed
+              {rentedNotificationResult.skipped ? ` · ${rentedNotificationResult.skipped} skipped` : ""}
+            </p>
+          </div>
         )}
       </div>
       </CollapsibleCard>

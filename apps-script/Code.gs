@@ -150,6 +150,10 @@ var INTAKE_HEADERS = [
   "Retention Notes",
   "Sensitive Files Deleted At",
   "Archived Tenant File URL",
+  "Rented Notification Status",
+  "Rented Notification Sent At",
+  "Rented Notification Failure",
+  "Rented Notification Sent",
 ];
 
 var CONTACT_HEADERS = [
@@ -3096,7 +3100,170 @@ function updateVideoUrl_(listingId, videoUrl, auth) {
   throw new Error("Listing not found in sheet \"" + LISTINGS_SHEET + "\": " + listingId);
 }
 
+function rentedNotificationText_(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isRentedStatusTransition_(previousStatus, nextStatus) {
+  return rentedNotificationText_(previousStatus) !== "rented" &&
+    rentedNotificationText_(nextStatus) === "rented";
+}
+
+function isRentedNotificationFinalTenant_(app) {
+  var retentionStatus = rentedNotificationText_(app.dataRetentionStatus);
+  var reviewStatus = rentedNotificationText_(app.reviewStatus);
+  return retentionStatus === "archived" ||
+    retentionStatus === "signed tenant" ||
+    reviewStatus === "signed tenant" ||
+    reviewStatus === "final tenant" ||
+    reviewStatus === "selected tenant";
+}
+
+function isRentedNotificationWithdrawn_(app) {
+  return rentedNotificationText_(app.dataRetentionStatus) === "withdrawn" ||
+    rentedNotificationText_(app.reviewStatus) === "withdrawn";
+}
+
+function isRentedNotificationDoNotContact_(app) {
+  var values = [app.doNotContact, app.contactOptOut, app.emailOptOut, app.communicationOptOut];
+  var blocked = ["yes", "true", "1", "y", "do not contact", "do-not-contact", "opt out", "opted out"];
+  return values.some(function(value) {
+    return blocked.indexOf(rentedNotificationText_(value)) >= 0;
+  });
+}
+
+function firstApplicantName_(name) {
+  var clean = String(name || "").trim();
+  return clean ? clean.split(/\s+/)[0] : "Applicant";
+}
+
+function buildRentedNotificationEmail_(applicantName, propertyAddress) {
+  return [
+    "Hi " + firstApplicantName_(applicantName) + ",",
+    "",
+    "Thank you for your interest in " + propertyAddress + " and for submitting your rental application.",
+    "",
+    "We would like to let you know that this property has now been rented and is no longer available.",
+    "",
+    "We appreciate the time you took to apply. You are welcome to view our other available rental listings here:",
+    "https://www.vanislandproperty.ca/rentals",
+    "",
+    "Best regards,",
+    "VanIsland Property",
+    "support@vanislandproperty.ca",
+  ].join("\n");
+}
+
+function setRentedNotificationState_(found, status, sent, sentAt, failure) {
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, {
+    "Rented Notification Status": status,
+    "Rented Notification Sent": sent ? "Yes" : "",
+    "Rented Notification Sent At": sentAt || "",
+    "Rented Notification Failure": failure || "",
+    "Updated At": new Date().toISOString(),
+  });
+  SpreadsheetApp.flush();
+}
+
+function notifyApplicantsListingRented_(listingId, propertyAddress) {
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  var result = {
+    listingId: listingId,
+    propertyAddress: propertyAddress || listingId,
+    triggerTimestamp: new Date().toISOString(),
+    totalApplicantsFound: 0,
+    emailsSent: 0,
+    failures: 0,
+    skipped: 0,
+    alreadyNotified: 0,
+  };
+  if (last < 2) {
+    Logger.log("[rented notification] " + JSON.stringify(result));
+    return result;
+  }
+
+  var headerMap = getHeaderMap_(sheet);
+  var numCols = sheet.getLastColumn();
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  rows.forEach(function(row, index) {
+    var app = rowToApplication_(row, headerMap);
+    if (String(app.listingId || "").trim() !== String(listingId || "").trim()) return;
+    result.totalApplicantsFound++;
+
+    var found = {
+      sheet: sheet,
+      rowNumber: index + 2,
+      row: row,
+      headerMap: headerMap,
+      app: app,
+    };
+    if (rentedNotificationText_(app.rentedNotificationSent) === "yes" ||
+        app.rentedNotificationSentAt ||
+        rentedNotificationText_(app.rentedNotificationStatus) === "sent") {
+      result.alreadyNotified++;
+      return;
+    }
+
+    var skipStatus = "";
+    if (isRentedNotificationFinalTenant_(app)) skipStatus = "Skipped - final tenant";
+    else if (isRentedNotificationWithdrawn_(app)) skipStatus = "Skipped - withdrawn";
+    else if (isRentedNotificationDoNotContact_(app)) skipStatus = "Skipped - do not contact";
+
+    if (skipStatus) {
+      setRentedNotificationState_(found, skipStatus, false, "", "");
+      result.skipped++;
+      return;
+    }
+
+    var resolved;
+    try {
+      resolved = resolveApplicantEmailByRecordId_(app.recordId);
+    } catch (resolveErr) {
+      var resolveMessage = resolveErr && resolveErr.message ? resolveErr.message : String(resolveErr || "Applicant email could not be resolved.");
+      setRentedNotificationState_(found, "Failed", false, "", resolveMessage);
+      result.failures++;
+      Logger.log("[rented notification] applicant resolution failed for " + app.recordId + ": " + resolveMessage);
+      return;
+    }
+    if (!resolved.verified || !resolved.email) {
+      setRentedNotificationState_(found, "Skipped - no valid email", false, "", "");
+      result.skipped++;
+      return;
+    }
+
+    setRentedNotificationState_(found, "Sending", false, "", "");
+    var warning = sendApplicantWorkflowEmail_(
+      resolved.email,
+      "Rental Update – " + (propertyAddress || listingId),
+      buildRentedNotificationEmail_(resolved.applicantName, propertyAddress || listingId),
+      "rented notification " + listingId
+    );
+    if (warning) {
+      setRentedNotificationState_(found, "Failed", false, "", warning);
+      result.failures++;
+      return;
+    }
+    setRentedNotificationState_(found, "Sent", true, new Date().toISOString(), "");
+    result.emailsSent++;
+  });
+
+  Logger.log("[rented notification] " + JSON.stringify(result));
+  return result;
+}
+
 function saveListing_(data, auth) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return saveListingUnlocked_(data, auth);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveListingUnlocked_(data, auth) {
   if (!data || !data.id) throw new Error("Listing data missing id");
   var sheet = getSheet_(LISTINGS_SHEET);
   addMissingHeaders_(sheet, LISTING_HEADERS);
@@ -3163,7 +3330,15 @@ function saveListing_(data, auth) {
   }
 
   SpreadsheetApp.flush(); // commit writes before returning response
-  return { success: true, id: data.id };
+
+  var rentedNotification = null;
+  var previousTenantStatus = existingRow > 0 ? (existingListing.listingStatus || existingListing.tenantListingStatus || existingListing.publicStatus) : "";
+  var nextTenantStatus = dataMap["Listing Status"] || "";
+  if (isRentedStatusTransition_(previousTenantStatus, nextTenantStatus)) {
+    rentedNotification = notifyApplicantsListingRented_(data.id, existingListing ? existingListing.address : (data.address || ""));
+  }
+
+  return { success: true, id: data.id, rentedNotification: rentedNotification };
 }
 
 function generateListingId_() {
@@ -4136,6 +4311,14 @@ function rowToApplication_(row, headerMap) {
     retentionNotes: col("Retention Notes"),
     sensitiveFilesDeletedAt: col("Sensitive Files Deleted At"),
     archivedTenantFileUrl: col("Archived Tenant File URL"),
+    rentedNotificationStatus: col("Rented Notification Status"),
+    rentedNotificationSentAt: col("Rented Notification Sent At"),
+    rentedNotificationFailure: col("Rented Notification Failure"),
+    rentedNotificationSent: col("Rented Notification Sent"),
+    doNotContact: col("Do Not Contact"),
+    contactOptOut: col("Contact Opt Out"),
+    emailOptOut: col("Email Opt Out"),
+    communicationOptOut: col("Communication Opt Out"),
   };
 }
 
