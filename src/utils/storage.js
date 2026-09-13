@@ -258,6 +258,21 @@ export async function saveApplicantReportPdf({ listingId, fileName, html, report
   });
 }
 
+export async function emailApplicantReportToOwner({ listingId, fileId }) {
+  if (!isApiConnected()) {
+    throw new Error("Report email requires Google Apps Script integration.");
+  }
+  if (!listingId || !fileId) {
+    throw new Error("A saved applicant report is required before emailing the owner.");
+  }
+  return apiPost({
+    action: "emailApplicantReportToOwner",
+    listingId,
+    fileId,
+    ...getStudioRequestAuth("rental"),
+  });
+}
+
 // Upload a File object to Drive. Requires API connection.
 export async function uploadListingFile(listingId, file) {
   if (!isApiConnected()) {

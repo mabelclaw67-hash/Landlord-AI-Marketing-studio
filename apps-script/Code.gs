@@ -47,7 +47,7 @@ var OUTGOING_EMAIL_NAME = "Vanisland Property Management";
 // All automated mail must use the approved Gmail "Send mail as" alias. This
 // deliberately fails instead of falling back to the script owner's personal
 // mailbox, so applicant communications never leave with the wrong sender.
-function sendCompanyEmail_(to, subject, body) {
+function sendCompanyEmail_(to, subject, body, extraOptions) {
   var aliases = GmailApp.getAliases();
   if (aliases.indexOf(OUTGOING_EMAIL_ADDRESS) === -1) {
     throw new Error(
@@ -55,11 +55,12 @@ function sendCompanyEmail_(to, subject, body) {
       " as a verified Gmail 'Send mail as' alias for the Apps Script execution account."
     );
   }
-  GmailApp.sendEmail(to, subject, body, {
+  var options = Object.assign({
     from: OUTGOING_EMAIL_ADDRESS,
     replyTo: OUTGOING_EMAIL_ADDRESS,
     name: OUTGOING_EMAIL_NAME
-  });
+  }, extraOptions || {});
+  GmailApp.sendEmail(to, subject, body, options);
 }
 
 var INTAKE_HEADERS = [
@@ -364,6 +365,7 @@ function rentalDoPost_(e) {
     if (action === "uploadFile")        return ok(uploadFile_(body, auth));
     if (action === "uploadToSubfolder") return ok(uploadToSubfolder_(body, auth));
     if (action === "saveApplicantReportPdf") return ok(saveApplicantReportPdf_(body, auth));
+    if (action === "emailApplicantReportToOwner") return ok(emailApplicantReportToOwner_(body, auth));
     if (action === "updateVideoUrl")    return ok(updateVideoUrl_(body.listingId, body.videoUrl, auth));
     if (action === "syncVideoUrl")      return ok(syncVideoUrl_(body.listingId, auth));
     if (action === "syncAllVideoUrls")       return ok(syncAllVideoUrls_());
@@ -4220,6 +4222,35 @@ function driveFileNameParts_(name) {
 
 // ── Rental Application Intake ─────────────────────────────────────────────────
 
+// Owner-facing screening reports may use only active application records.
+// Retention and review states are authoritative; unknown non-empty retention
+// states fail closed so a future lifecycle state cannot leak into a report.
+function normalizeApplicantScreeningState_(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isEligibleApplicantForOwnerScreening_(app) {
+  if (!app || !app.recordId) return false;
+  var retention = normalizeApplicantScreeningState_(app.dataRetentionStatus);
+  var review = normalizeApplicantScreeningState_(app.reviewStatus);
+  var inactiveRetentionStates = [
+    "declined", "withdrawn", "incomplete", "approved but not signed",
+    "archived", "deleted", "purged", "expired", "sensitive files deleted"
+  ];
+  var inactiveReviewStates = [
+    "declined", "not selected", "withdrawn", "rejected", "archived",
+    "deleted", "inactive", "closed", "signed tenant", "final tenant",
+    "selected tenant"
+  ];
+  if (retention && inactiveRetentionStates.indexOf(retention) >= 0) return false;
+  if (retention && inactiveRetentionStates.indexOf(retention) === -1) return false;
+  return !review || inactiveReviewStates.indexOf(review) === -1;
+}
+
 function rowToApplication_(row, headerMap) {
   function col(name) { return colVal_(row, headerMap, name); }
   var legacySupportingDocs = col("Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).");
@@ -6662,7 +6693,9 @@ function getApplicationsByListing_(listingId, auth) {
   var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
   return rows
     .filter(function(row) { return colVal_(row, headerMap, "Listing ID") === listingId; })
-    .map(function(row) { return enrichApplicationWithFullAudit_(rowToApplication_(row, headerMap), false); });
+    .map(function(row) { return rowToApplication_(row, headerMap); })
+    .filter(isEligibleApplicantForOwnerScreening_)
+    .map(function(app) { return enrichApplicationWithFullAudit_(app, false); });
 }
 
 function getAllApplications_(auth) {
@@ -6902,6 +6935,56 @@ function sanitizeApplicantReportFileName_(name) {
     .replace(/\s+/g, "_")
     .replace(/_+/g, "_")
     .substring(0, 180);
+}
+
+function emailApplicantReportToOwner_(body, auth) {
+  if (!body || !body.listingId) throw new Error("emailApplicantReportToOwner: listingId required");
+  if (!body.fileId) throw new Error("emailApplicantReportToOwner: fileId required");
+  if (!auth || (auth.mode !== "admin" && auth.mode !== "trial")) {
+    throw new Error("Access denied for applicant report email.");
+  }
+
+  var listing = getListingById_(body.listingId, auth);
+  var ownerEmail = String(listing.ownerEmail || "").trim();
+  if (!ownerEmail) throw new Error("Owner email is missing for this listing.");
+
+  var reportsFolder = getListingScreeningReportsFolder_(listing, false);
+  if (!reportsFolder) throw new Error("Tenant Screening Reports folder could not be opened for this listing.");
+  var file = DriveApp.getFileById(String(body.fileId).trim());
+  var parentIds = [];
+  var parents = file.getParents();
+  while (parents.hasNext()) parentIds.push(parents.next().getId());
+  if (parentIds.indexOf(reportsFolder.getId()) === -1) {
+    throw new Error("The selected report is not stored in this listing's Tenant Screening Reports folder.");
+  }
+  if (file.getMimeType() !== "application/pdf") throw new Error("The selected applicant report is not a PDF.");
+
+  var propertyAddress = [listing.address, listing.city].filter(String).join(", ") || listing.id;
+  var fileName = file.getName();
+  sendCompanyEmail_(
+    ownerEmail,
+    "Applicant Screening Report - " + (listing.id || propertyAddress),
+    [
+      "Hello,",
+      "",
+      "The applicant screening report for " + propertyAddress + " is attached.",
+      "",
+      "Report: " + fileName,
+      "Listing ID: " + (listing.id || body.listingId),
+      "",
+      "This report is provided for landlord review. Final tenancy decisions remain with the landlord.",
+      "",
+      "Vanisland Property Management"
+    ].join("\n"),
+    { attachments: [file.getBlob().setName(fileName)] }
+  );
+  return {
+    success: true,
+    listingId: listing.id || body.listingId,
+    fileId: file.getId(),
+    fileName: fileName,
+    ownerEmail: ownerEmail,
+  };
 }
 
 // ── Cloudinary Video Upload ───────────────────────────────────────────────────

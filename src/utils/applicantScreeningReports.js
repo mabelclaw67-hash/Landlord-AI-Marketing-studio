@@ -397,6 +397,89 @@ function clean(value) {
   return text || "-";
 }
 
+const INACTIVE_RETENTION_STATES = new Set([
+  "declined",
+  "withdrawn",
+  "incomplete",
+  "approved but not signed",
+  "archived",
+  "deleted",
+  "purged",
+  "expired",
+  "sensitive files deleted",
+]);
+
+const INACTIVE_REVIEW_STATES = new Set([
+  "declined",
+  "not selected",
+  "withdrawn",
+  "rejected",
+  "archived",
+  "deleted",
+  "inactive",
+  "closed",
+  "signed tenant",
+  "final tenant",
+  "selected tenant",
+]);
+
+function normalizeApplicantScreeningState(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+export function isEligibleApplicantForOwnerScreening(app) {
+  if (!app?.recordId) return false;
+  const retention = normalizeApplicantScreeningState(app.dataRetentionStatus);
+  const review = normalizeApplicantScreeningState(app.reviewStatus);
+  // A known terminal state is never owner-facing. An unknown non-empty
+  // retention state also fails closed because retention is authoritative.
+  if (retention && !INACTIVE_RETENTION_STATES.has(retention)) return false;
+  if (INACTIVE_RETENTION_STATES.has(retention)) return false;
+  return !INACTIVE_REVIEW_STATES.has(review);
+}
+
+function applicantDuplicateKey(app) {
+  const normalize = (value) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const name = normalize(app?.applicantName);
+  const email = normalize(app?.email);
+  const phone = String(app?.phone ?? "").replace(/\D/g, "");
+  const address = normalize(app?.currentAddress);
+  if (!name || !email || !phone || !address) return "";
+  return [name, email, phone, address].join("|");
+}
+
+function applicantTimestamp(app) {
+  const time = new Date(app?.submittedAt || app?.updatedAt || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+// Keep every source record intact, but prevent exact duplicate submissions
+// from becoming two candidates in an owner-facing report. The latest source
+// row is the display representative; the original Record IDs remain in the
+// database for audit and applicant workflow purposes.
+export function prepareApplicantScreeningApplications(applications) {
+  const eligible = (Array.isArray(applications) ? applications : [])
+    .filter(isEligibleApplicantForOwnerScreening);
+  const representatives = new Map();
+  const withoutStableKey = [];
+  eligible.forEach((app) => {
+    const key = applicantDuplicateKey(app);
+    if (!key) {
+      withoutStableKey.push(app);
+      return;
+    }
+    const current = representatives.get(key);
+    if (!current || applicantTimestamp(app) >= applicantTimestamp(current)) {
+      representatives.set(key, app);
+    }
+  });
+  return [...representatives.values(), ...withoutStableKey];
+}
+
 function money(value) {
   const raw = String(value ?? "").trim();
   if (!raw) return "-";
@@ -1145,7 +1228,8 @@ function buildInitialScreeningReportData({ listing, applications, evaluated, lan
 
 export async function downloadApplicantInitialScreeningSummary({ listing, applications, lang = "en", autoOpen = false }) {
   const c = getCopy(lang);
-  const apps = Array.isArray(applications) ? applications : [];
+  const sourceApps = Array.isArray(applications) ? applications : [];
+  const apps = prepareApplicantScreeningApplications(sourceApps);
   const rentValue = parseIncome(listing?.rent);
   debugApplicantScreeningForListing({ listing, applications: apps, lang });
   const evaluated = apps
@@ -1178,7 +1262,14 @@ export async function downloadApplicantInitialScreeningSummary({ listing, applic
     reportData,
     html,
     saveResult,
+    sourceApplicationCount: sourceApps.length,
+    eligibleApplicationCount: apps.length,
   };
+}
+
+export function buildApplicantReportDownloadUrl(fileId) {
+  const id = String(fileId || "").trim();
+  return id ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}` : "";
 }
 
 export function buildApplicantInitialScreeningDemoReport(lang = "en") {

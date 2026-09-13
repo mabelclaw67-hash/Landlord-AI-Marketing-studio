@@ -7,10 +7,11 @@ import {
   getListings,
   requestSupportingDocuments,
   resolveApplicantEmailByRecordId,
+  emailApplicantReportToOwner,
 } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
 import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
-import { downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
+import { buildApplicantReportDownloadUrl, downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
 
 const STATUS_BADGE = {
   Pending:   "badge--draft",
@@ -99,6 +100,7 @@ export default function Leads() {
   const [busyId, setBusyId]   = useState("");
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [summaryReportLink, setSummaryReportLink] = useState(null);
+  const [summaryEmailing, setSummaryEmailing] = useState(false);
   const filter = queryListingId;
   const isInternalAdmin = isAdminSessionActive();
   const trialSession = readTrialAccess();
@@ -187,7 +189,12 @@ export default function Leads() {
         lang,
       });
       if (result?.saveResult?.url) {
-        setSummaryReportLink({ url: result.saveResult.url, fileName: result.saveResult.fileName || result.fileName });
+        setSummaryReportLink({
+          url: result.saveResult.url,
+          fileId: result.saveResult.fileId || "",
+          downloadUrl: buildApplicantReportDownloadUrl(result.saveResult.fileId),
+          fileName: result.saveResult.fileName || result.fileName,
+        });
       } else {
         setError(lang === "zh" ? "报告已生成，但保存到 Drive 失败。" : "Report generated, but Drive save failed.");
       }
@@ -195,6 +202,21 @@ export default function Leads() {
       setError(e.message || (lang === "zh" ? "初步筛选汇总生成失败。" : "Failed to generate initial screening summary."));
     } finally {
       setSummaryBusy(false);
+    }
+  }
+
+  async function handleEmailSummaryToOwner() {
+    const listingRecord = listings.find((l) => l.id === filter);
+    if (!summaryReportLink?.fileId || !listingRecord?.ownerEmail) return;
+    if (!window.confirm(`Email ${summaryReportLink.fileName || "this screening report"} to the owner at ${listingRecord.ownerEmail}?\n\nThe generated PDF will be attached. This action sends an email immediately.`)) return;
+    setSummaryEmailing(true);
+    try {
+      await emailApplicantReportToOwner({ listingId: filter, fileId: summaryReportLink.fileId });
+      alert(lang === "zh" ? "报告已发送给房东。" : "The report was emailed to the owner.");
+    } catch (e) {
+      setError((lang === "zh" ? "发送报告失败：" : "Report email failed: ") + (e.message || "unknown error"));
+    } finally {
+      setSummaryEmailing(false);
     }
   }
 
@@ -295,9 +317,21 @@ export default function Leads() {
                 {lang === "zh" ? "查看初筛汇总报告" : "View Initial Screening Summary"}
               </Link>
               {summaryReportLink?.url && (
-                <a href={summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                  {lang === "zh" ? "已保存到 Google Drive：打开报告" : "Report saved to Google Drive: Open Report"}
-                </a>
+                <>
+                  <a href={summaryReportLink.downloadUrl || summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                    {lang === "zh" ? "下载 PDF" : "Download PDF"}
+                  </a>
+                  <a href={summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                    {lang === "zh" ? "在 Drive 中打开" : "Open in Drive"}
+                  </a>
+                  {summaryReportLink.fileId && (
+                    <button type="button" className="btn btn--ghost btn--sm" disabled={summaryEmailing || !listings.find((l) => l.id === filter)?.ownerEmail} title={!listings.find((l) => l.id === filter)?.ownerEmail ? "Owner email is missing for this listing." : undefined} onClick={handleEmailSummaryToOwner}>
+                      {summaryEmailing
+                        ? (lang === "zh" ? "发送中..." : "Emailing...")
+                        : (lang === "zh" ? "发送给房东" : "Email to Owner")}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

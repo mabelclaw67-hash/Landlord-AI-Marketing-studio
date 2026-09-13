@@ -4,8 +4,8 @@ import { t } from "../../translations";
 import { useLang } from "../../contexts/LangContext";
 import { AL, getStatusLabel } from "../../utils/adminLabels";
 import { formatListingDate, formatMonthlyRent, splitFeatureList } from "../../utils/listingFormat";
-import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getCollagePhotoData, getListingSubfolderFiles, uploadToSubfolder, uploadBase64ToSubfolder, getApplicationsByListing } from "../../utils/storage";
-import { downloadApplicantInitialScreeningSummary, openApplicantReportWindow } from "../../utils/applicantScreeningReports";
+import { getListing, saveListing, syncVideoUrl, updateVideoUrl, getListingFolderFiles, getCollagePhotoData, getListingSubfolderFiles, uploadToSubfolder, uploadBase64ToSubfolder, getApplicationsByListing, emailApplicantReportToOwner } from "../../utils/storage";
+import { buildApplicantReportDownloadUrl, downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
 import { generateOutputs } from "../../utils/generateContent";
 import { addRentalApplicationProcessNoticeToOutput } from "../../utils/rentalApplicationNotice";
 import { isApiConnected, apiPost } from "../../utils/api";
@@ -278,6 +278,7 @@ export default function ListingDetail({ lang: langProp }) {
 
   // Initial Screening Summary (listing-level applicant ranking report) state
   const [screeningSummaryBusy, setScreeningSummaryBusy] = useState(false);
+  const [emailingReportId, setEmailingReportId] = useState("");
   const [screeningReports, setScreeningReports] = useState([]);
   const [activeScreeningReport, setActiveScreeningReport] = useState(null);
 
@@ -473,6 +474,8 @@ export default function ListingDetail({ lang: langProp }) {
         html: result.html,
         status: result.saveResult?.url ? "saved" : "local",
         driveUrl: result.saveResult?.url || "",
+        driveFileId: result.saveResult?.fileId || "",
+        downloadUrl: buildApplicantReportDownloadUrl(result.saveResult?.fileId),
       };
       setScreeningReports((prev) => {
         const reportKey = `${report.reportType}::${report.fileName}`;
@@ -484,6 +487,23 @@ export default function ListingDetail({ lang: langProp }) {
       alert((lang === "zh" ? "初步筛选汇总生成失败：" : "Initial screening summary failed: ") + (e.message || "unknown error"));
     } finally {
       setScreeningSummaryBusy(false);
+    }
+  };
+
+  const handleEmailScreeningReport = async (report) => {
+    if (!report?.driveFileId || !listing?.id || !listing?.ownerEmail) return;
+    const confirmed = window.confirm(
+      `Email ${report.fileName || "this screening report"} to the owner at ${listing.ownerEmail}?\n\nThe generated PDF will be attached. This action sends an email immediately.`
+    );
+    if (!confirmed) return;
+    setEmailingReportId(report.id);
+    try {
+      await emailApplicantReportToOwner({ listingId: listing.id, fileId: report.driveFileId });
+      alert(lang === "zh" ? "报告已发送给房东。" : "The report was emailed to the owner.");
+    } catch (e) {
+      alert((lang === "zh" ? "发送报告失败：" : "Report email failed: ") + (e.message || "unknown error"));
+    } finally {
+      setEmailingReportId("");
     }
   };
 
@@ -508,6 +528,8 @@ export default function ListingDetail({ lang: langProp }) {
             html: "",
             status: "saved",
             driveUrl: file.url || "",
+            driveFileId: file.fileId || "",
+            downloadUrl: buildApplicantReportDownloadUrl(file.fileId),
             source: "drive",
           };
         })
@@ -1686,9 +1708,21 @@ export default function ListingDetail({ lang: langProp }) {
             </button>
           )}
           {latestInitialSummary?.driveUrl && (
-            <a href={latestInitialSummary.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-              {lang === "zh" ? "下载初筛报告 PDF" : "Download Initial Summary PDF"}
-            </a>
+            <>
+              <a href={latestInitialSummary.downloadUrl || latestInitialSummary.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                {lang === "zh" ? "下载 PDF" : "Download PDF"}
+              </a>
+              <a href={latestInitialSummary.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                {lang === "zh" ? "在 Drive 中打开" : "Open in Drive"}
+              </a>
+              {latestInitialSummary.driveFileId && (
+                <button type="button" className="btn btn--ghost btn--sm" disabled={emailingReportId === latestInitialSummary.id || !listing.ownerEmail} title={!listing.ownerEmail ? "Owner email is missing for this listing." : undefined} onClick={() => handleEmailScreeningReport(latestInitialSummary)}>
+                  {emailingReportId === latestInitialSummary.id
+                    ? (lang === "zh" ? "发送中..." : "Emailing...")
+                    : (lang === "zh" ? "发送给房东" : "Email to Owner")}
+                </button>
+              )}
+            </>
           )}
         </div>
         <p className="text-muted text-sm" style={{ marginTop: 10 }}>
@@ -1729,15 +1763,24 @@ export default function ListingDetail({ lang: langProp }) {
                       <button type="button" className="btn btn--ghost btn--sm" onClick={() => setActiveScreeningReport(report)}>
                         {lang === "zh" ? "查看报告" : "View Report"}
                       </button>
-                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => openApplicantReportWindow(report.html)}>
-                        {lang === "zh" ? "下载 PDF" : "Download PDF"}
-                      </button>
                     </>
                   )}
                   {isAdmin && report.driveUrl && (
-                    <a href={report.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                      {report.html ? "Drive" : (lang === "zh" ? "打开归档报告" : "Open Archived Report")}
-                    </a>
+                    <>
+                      <a href={report.downloadUrl || report.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                        {lang === "zh" ? "下载 PDF" : "Download PDF"}
+                      </a>
+                      <a href={report.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                        {lang === "zh" ? "在 Drive 中打开" : "Open in Drive"}
+                      </a>
+                      {report.driveFileId && (
+                        <button type="button" className="btn btn--ghost btn--sm" disabled={emailingReportId === report.id || !listing.ownerEmail} title={!listing.ownerEmail ? "Owner email is missing for this listing." : undefined} onClick={() => handleEmailScreeningReport(report)}>
+                          {emailingReportId === report.id
+                            ? (lang === "zh" ? "发送中..." : "Emailing...")
+                            : (lang === "zh" ? "发送给房东" : "Email to Owner")}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1768,14 +1811,22 @@ export default function ListingDetail({ lang: langProp }) {
                 <p className="text-muted text-sm" style={{ margin: 0 }}>{activeScreeningReport.fileName}</p>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {activeScreeningReport.html ? (
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => openApplicantReportWindow(activeScreeningReport.html)}>
-                    {lang === "zh" ? "下载 PDF" : "Download PDF"}
-                  </button>
-                ) : activeScreeningReport.driveUrl ? (
-                  <a href={activeScreeningReport.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
-                    {lang === "zh" ? "打开归档报告" : "Open Archived Report"}
-                  </a>
+                {activeScreeningReport.driveUrl ? (
+                  <>
+                    <a href={activeScreeningReport.downloadUrl || activeScreeningReport.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                      {lang === "zh" ? "下载 PDF" : "Download PDF"}
+                    </a>
+                    <a href={activeScreeningReport.driveUrl} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
+                      {lang === "zh" ? "在 Drive 中打开" : "Open in Drive"}
+                    </a>
+                    {activeScreeningReport.driveFileId && (
+                      <button type="button" className="btn btn--ghost btn--sm" disabled={emailingReportId === activeScreeningReport.id || !listing.ownerEmail} title={!listing.ownerEmail ? "Owner email is missing for this listing." : undefined} onClick={() => handleEmailScreeningReport(activeScreeningReport)}>
+                        {emailingReportId === activeScreeningReport.id
+                          ? (lang === "zh" ? "发送中..." : "Emailing...")
+                          : (lang === "zh" ? "发送给房东" : "Email to Owner")}
+                      </button>
+                    )}
+                  </>
                 ) : null}
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => setActiveScreeningReport(null)}>
                   {lang === "zh" ? "关闭" : "Close"}
