@@ -56,8 +56,10 @@ export default function AdminGuard({ children }) {
         setError(lang === "zh" ? "访问密码不正确。" : "Invalid access code.");
         setInput("");
       }
-    } catch {
-      setError("Could not reach server. Check connection and try again.");
+    } catch (error) {
+      setError(error?.httpStatus != null
+        ? (error.message || "Server rejected the request.")
+        : "Could not reach server. Check connection and try again.");
     } finally {
       setLoading(false);
     }
