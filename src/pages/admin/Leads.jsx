@@ -188,14 +188,14 @@ export default function Leads() {
         applications,
         lang,
       });
-      if (result?.saveResult?.url) {
+      if (result?.saveResult?.success && result.saveResult.url) {
         setSummaryReportLink({
           url: result.saveResult.url,
           fileId: result.saveResult.fileId || "",
           downloadUrl: buildApplicantReportDownloadUrl(result.saveResult.fileId),
           fileName: result.saveResult.fileName || result.fileName,
         });
-      } else {
+      } else if (!result?.saveResult?.success) {
         setError(lang === "zh" ? "报告已生成，但保存到 Drive 失败。" : "Report generated, but Drive save failed.");
       }
     } catch (e) {
@@ -316,7 +316,7 @@ export default function Leads() {
               <Link to={`/admin/listing/${encodeURIComponent(filter)}`} className="btn btn--ghost btn--sm">
                 {lang === "zh" ? "查看初筛汇总报告" : "View Initial Screening Summary"}
               </Link>
-              {summaryReportLink?.url && (
+              {canSeeInternalDriveLinks && summaryReportLink?.url && (
                 <>
                   <a href={summaryReportLink.downloadUrl || summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                     {lang === "zh" ? "下载 PDF" : "Download PDF"}
@@ -324,8 +324,8 @@ export default function Leads() {
                   <a href={summaryReportLink.url} target="_blank" rel="noreferrer" className="btn btn--ghost btn--sm">
                     {lang === "zh" ? "在 Drive 中打开" : "Open in Drive"}
                   </a>
-                  {summaryReportLink.fileId && (
-                    <button type="button" className="btn btn--ghost btn--sm" disabled={summaryEmailing || !listings.find((l) => l.id === filter)?.ownerEmail} title={!listings.find((l) => l.id === filter)?.ownerEmail ? "Owner email is missing for this listing." : undefined} onClick={handleEmailSummaryToOwner}>
+                  {canSeeInternalDriveLinks && summaryReportLink.fileId && listings.find((l) => l.id === filter)?.ownerEmail && (
+                    <button type="button" className="btn btn--ghost btn--sm" disabled={summaryEmailing} onClick={handleEmailSummaryToOwner}>
                       {summaryEmailing
                         ? (lang === "zh" ? "发送中..." : "Emailing...")
                         : (lang === "zh" ? "发送给房东" : "Email to Owner")}

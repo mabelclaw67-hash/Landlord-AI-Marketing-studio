@@ -55,11 +55,11 @@ function sendCompanyEmail_(to, subject, body, extraOptions) {
       " as a verified Gmail 'Send mail as' alias for the Apps Script execution account."
     );
   }
-  var options = Object.assign({
+  var options = Object.assign({}, extraOptions || {}, {
     from: OUTGOING_EMAIL_ADDRESS,
     replyTo: OUTGOING_EMAIL_ADDRESS,
     name: OUTGOING_EMAIL_NAME
-  }, extraOptions || {});
+  });
   GmailApp.sendEmail(to, subject, body, options);
 }
 
@@ -4251,6 +4251,17 @@ function isEligibleApplicantForOwnerScreening_(app) {
   return !review || inactiveReviewStates.indexOf(review) === -1;
 }
 
+function sanitizeApplicantReportLinksForAccess_(app, auth) {
+  if (!app || (auth && auth.mode === "admin")) return app;
+  delete app.screeningReportUrl;
+  delete app.fullAuditReportUrl;
+  delete app.fullAuditReportPdfUrl;
+  delete app.fullAuditReportDriveFileId;
+  delete app.fullAuditReportDriveFileUrl;
+  delete app.fullAuditReportSavedFolderId;
+  return app;
+}
+
 function rowToApplication_(row, headerMap) {
   function col(name) { return colVal_(row, headerMap, name); }
   var legacySupportingDocs = col("Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).");
@@ -6695,7 +6706,9 @@ function getApplicationsByListing_(listingId, auth) {
     .filter(function(row) { return colVal_(row, headerMap, "Listing ID") === listingId; })
     .map(function(row) { return rowToApplication_(row, headerMap); })
     .filter(isEligibleApplicantForOwnerScreening_)
-    .map(function(app) { return enrichApplicationWithFullAudit_(app, false); });
+    .map(function(app) {
+      return sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, false), auth);
+    });
 }
 
 function getAllApplications_(auth) {
@@ -6713,7 +6726,9 @@ function getAllApplications_(auth) {
       if (!auth || auth.mode === "admin") return true;
       return !!findListingByIdForEmail_(app.listingId, auth.email);
     })
-    .map(function(app) { return enrichApplicationWithFullAudit_(app, false); });
+    .map(function(app) {
+      return sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, false), auth);
+    });
 }
 
 function getApplicationById_(applicationId, auth) {
@@ -6730,7 +6745,7 @@ function getApplicationById_(applicationId, auth) {
       if (auth && auth.mode === "trial" && !findListingByIdForEmail_(app.listingId, auth.email)) {
         throw new Error("Access denied for this listing.");
       }
-      var enriched = enrichApplicationWithFullAudit_(app, true);
+      var enriched = sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, true), auth);
       if (auth && auth.mode === "admin" && enriched.listingId) {
         try {
           var listingForDebug = findListingById_(enriched.listingId);
@@ -6918,7 +6933,8 @@ function saveApplicantReportPdf_(body, auth) {
   var file = reportsFolder.createFile(pdfBlob);
   keepDriveItemPrivate_(file, "initial applicant screening report");
 
-  return {
+  var result = {
+    success: true,
     fileId: file.getId(),
     url: file.getUrl(),
     fileName: file.getName(),
@@ -6927,6 +6943,15 @@ function saveApplicantReportPdf_(body, auth) {
     folderName: "Tenant Screening Reports",
     folderUrl: reportsFolder.getUrl(),
   };
+  // Trial users may generate an inline report, but must not receive internal
+  // Drive identifiers or URLs. Admin is the existing internal Drive boundary.
+  if (auth.mode !== "admin") {
+    delete result.fileId;
+    delete result.url;
+    delete result.folderId;
+    delete result.folderUrl;
+  }
+  return result;
 }
 
 function sanitizeApplicantReportFileName_(name) {
@@ -6940,9 +6965,7 @@ function sanitizeApplicantReportFileName_(name) {
 function emailApplicantReportToOwner_(body, auth) {
   if (!body || !body.listingId) throw new Error("emailApplicantReportToOwner: listingId required");
   if (!body.fileId) throw new Error("emailApplicantReportToOwner: fileId required");
-  if (!auth || (auth.mode !== "admin" && auth.mode !== "trial")) {
-    throw new Error("Access denied for applicant report email.");
-  }
+  if (!auth || auth.mode !== "admin") throw new Error("Admin access is required for applicant report email.");
 
   var listing = getListingById_(body.listingId, auth);
   var ownerEmail = String(listing.ownerEmail || "").trim();
