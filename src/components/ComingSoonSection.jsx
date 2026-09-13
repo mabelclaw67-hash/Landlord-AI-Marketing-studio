@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { isAdminSessionActive, readTrialAccess } from "../utils/trialAccess";
+import { isAdminSessionActive } from "../utils/trialAccess";
 import { useLang } from "../contexts/LangContext";
 
 const FREE_MODULES = [

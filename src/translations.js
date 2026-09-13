@@ -7,7 +7,7 @@ export const translations = {
       strategyAssessment: "AI Review",
       saleListing: "Home Sale Studio",
       resources: "Landlord Knowledge Center",
-      contact: "Contact / Request",
+      contact: "Contact Us",
       admin: "Admin Studio",
     },
     adminNav: {
@@ -21,7 +21,7 @@ export const translations = {
         "Create marketing packages for rental and home sale listings.",
       heroChTitle: "",
       heroChSubtitle: "",
-      ctaStart: "Request Access",
+      ctaStart: "Contact Us",
       ctaLearn: "Learn More",
       servicesTitle: "What We Generate",
       servicesCh: "",
@@ -34,9 +34,9 @@ export const translations = {
       s3Title: "Short Video Script",
       s3Ch: "",
       s3Desc: "Ready-to-record video scripts for property walkthroughs and social sharing.",
-      betaTitle: "Request Access",
+      betaTitle: "Contact Us",
       betaNotice:
-        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
+        "Contact VanIsland Property for rental, property, landlord, or general company inquiries.",
       betaCh: "",
       complianceTitle: "Content Compliance Notice",
       complianceEn:
@@ -77,10 +77,10 @@ export const translations = {
       r4BodyCh: "",
     },
     contact: {
-      title: "Contact / Request Access",
+      title: "Contact Us",
       chTitle: "",
       betaNotice:
-        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
+        "Send a normal company inquiry to the VanIsland Property support team.",
       betaNoticeCh: "",
       name: "Name",
       email: "Email",
@@ -88,7 +88,7 @@ export const translations = {
       city: "City",
       serviceInterest: "Service Interest",
       message: "Message",
-      submit: "Send Request",
+      submit: "Send Message",
       successMsg: "Thank you! We will be in touch shortly.",
       successMsgCh: "",
       placeholder: {
@@ -173,7 +173,7 @@ export const translations = {
       strategyAssessment: "AI 初评",
       saleListing: "售房工作台",
       resources: "房东知识中心",
-      contact: "联系 / 申请",
+      contact: "联系我们",
       admin: "管理后台",
     },
     adminNav: {
@@ -187,7 +187,7 @@ export const translations = {
       heroChTitle: "Vanisland AI Marketing Studio",
       heroChSubtitle:
         "Create marketing packages for rental and home sale listings.",
-      ctaStart: "申请使用 / Request Access",
+      ctaStart: "联系我们",
       ctaLearn: "了解更多",
       servicesTitle: "我们能生成什么",
       servicesCh: "What We Generate",
@@ -200,11 +200,11 @@ export const translations = {
       s3Title: "短视频脚本",
       s3Ch: "Short Video Script",
       s3Desc: "可直接录制的房源介绍视频脚本，适合社交媒体分享。",
-      betaTitle: "申请使用",
+      betaTitle: "联系我们",
       betaNotice:
-        "如需使用出租或出售房源推广工作台，请联系 VanIsland Property 申请开通。",
+        "如有租房、房产、房东或其他公司咨询，请联系 VanIsland Property。",
       betaCh:
-        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access for Rental Listing Studio, Home Sale Studio, or both modules.",
+        "Contact VanIsland Property for rental, property, landlord, or general company inquiries.",
       complianceTitle: "内容合规声明",
       complianceEn:
         "所有 AI 生成内容发布前必须人工审核。若使用 AI 美化或虚拟布置，必须明确标注，避免误导租客。",
@@ -250,20 +250,20 @@ export const translations = {
         "You may request: rental application, employment/income verification, references. You may NOT deny tenancy based on protected characteristics.",
     },
     contact: {
-      title: "联系我们 / 申请使用",
-      chTitle: "Contact / Request Access",
+      title: "联系我们",
+      chTitle: "Contact Us",
       betaNotice:
-        "请联系 VanIsland Property 申请使用，我们将为您准备房源广告素材包。",
+        "如有租房、房产、房东或其他公司咨询，请联系我们。",
       betaNoticeCh:
-        "Vanisland AI Marketing Studio is available by invitation. Please contact us to request access.",
+        "Send a normal company inquiry to the VanIsland Property support team.",
       name: "姓名",
       email: "邮箱",
       phone: "电话",
       city: "城市",
       serviceInterest: "服务需求",
       message: "留言",
-      submit: "提交申请",
-      successMsg: "感谢您的申请！我们将尽快与您联系。",
+      submit: "发送咨询",
+      successMsg: "感谢您的咨询！我们将尽快与您联系。",
       successMsgCh: "Thank you! We will be in touch shortly.",
       placeholder: {
         name: "请输入您的姓名",

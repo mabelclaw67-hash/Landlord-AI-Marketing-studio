@@ -536,27 +536,6 @@ tr:hover td { background: #F9F6F0; }
   padding: 24px 16px;
   box-shadow: inset -2px 0 8px rgba(45, 90, 61, 0.04);
 }
-.admin-sidebar__trial-badge {
-  background: #E6F5EE;
-  border: 1px solid #2D5A3D;
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin-bottom: 14px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #1f3d2a;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.admin-sidebar__trial-badge span {
-  font-weight: 500;
-  font-size: 0.75rem;
-  text-transform: none;
-  color: #3D6D4C;
-}
 .admin-sidebar h3 {
   font-size: 0.75rem;
   font-weight: 700;

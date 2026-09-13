@@ -1526,7 +1526,7 @@ export default function ListingDetail({ lang: langProp }) {
     const auth = getStudioRequestAuth("rental");
     if (!isStudioRequestAuthReady(auth)) {
       setCollageStatus("error");
-      setCollageMsg("Access denied. Please sign in with an approved trial access code.");
+      setCollageMsg("Admin access required.");
       return;
     }
     const pool    = activePhotos.filter((f) => f.fileId);
@@ -2775,8 +2775,7 @@ export default function ListingDetail({ lang: langProp }) {
                       {lang === "zh"
                         ? "重新进入房源时自动恢复，无需重新生成。"
                         : "Restored automatically when the listing is reopened — no need to regenerate."}
-                      {/* Drive stays an admin-only auxiliary entry point: the
-                          architecture doc forbids exposing Drive links to trial users. */}
+                      {/* Drive stays an Admin-only auxiliary entry point. */}
                       {isAdmin && videoFolderUrl && (
                         <>
                           {" · "}

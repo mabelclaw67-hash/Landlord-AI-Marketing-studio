@@ -942,7 +942,7 @@ export default function HomeSaleVideo() {
                   )}
                 </div>
               )}
-              {/* Preview inline; Trial users do not receive direct Drive open/download links. */}
+              {/* Preview inline; Drive links remain an Admin-only entry point. */}
               {(videoBlobUrl || driveVideoBlobUrl) ? (
                 <video
                   controls

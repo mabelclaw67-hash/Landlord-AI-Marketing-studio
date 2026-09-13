@@ -13,7 +13,6 @@
 const en = {
   // ── Sidebar ─────────────────────────────────────────────────────────────
   platformMenu:       "Platform Menu",
-  trialMode:          "Trial Mode",
   groupAdmin:         "ADMIN STUDIO",
   groupRental:        "RENTAL STUDIO",
   groupSale:          "HOME SALE STUDIO",
@@ -24,7 +23,6 @@ const en = {
   newRentalListing:   "New Rental Listing",
   rentalListings:     "Rental Listings",
   rentalLeads:        "Rental Leads",
-  trialRequests:      "Trial Requests",
   homeSaleDashboard:  "Home Sale Dashboard",
   newSaleListing:     "New Sale Listing",
   saleListings:       "Sale Listings",
@@ -33,7 +31,6 @@ const en = {
   faq:                "FAQ",
   settings:           "Settings",
   systemPerformance:  "System Performance",
-  exitTrial:          "Exit Trial",
   lockAdmin:          "Lock Admin",
 
   // ── Dashboard ────────────────────────────────────────────────────────────
@@ -252,8 +249,6 @@ const en = {
   adminSettingsTitle:   "Admin Settings",
   adminAccessCode:      "Admin Access Code",
 
-  // ── Trial Requests ───────────────────────────────────────────────────────
-  trialRequestsTitle:   "Trial Requests",
   adminNotes:           "Admin Notes",
   paymentStatus:        "Payment Status",
 
@@ -317,7 +312,6 @@ const en = {
 const zh = {
   // ── Sidebar ─────────────────────────────────────────────────────────────
   platformMenu:       "平台菜单",
-  trialMode:          "试用模式",
   groupAdmin:         "管理后台",
   groupRental:        "出租房源",
   groupSale:          "出售房源",
@@ -328,7 +322,6 @@ const zh = {
   newRentalListing:   "新增出租房源",
   rentalListings:     "出租房源列表",
   rentalLeads:        "租客申请",
-  trialRequests:      "试用申请",
   homeSaleDashboard:  "出售后台",
   newSaleListing:     "新增出售房源",
   saleListings:       "出售房源列表",
@@ -337,7 +330,6 @@ const zh = {
   faq:                "常见问题",
   settings:           "系统设置",
   systemPerformance:  "系统性能监控",
-  exitTrial:          "退出试用",
   lockAdmin:          "锁定",
 
   // ── Dashboard ────────────────────────────────────────────────────────────
@@ -556,8 +548,6 @@ const zh = {
   adminSettingsTitle:   "管理员设置",
   adminAccessCode:      "管理员访问密码",
 
-  // ── Trial Requests ───────────────────────────────────────────────────────
-  trialRequestsTitle:   "试用申请",
   adminNotes:           "管理备注",
   paymentStatus:        "付款状态",
 

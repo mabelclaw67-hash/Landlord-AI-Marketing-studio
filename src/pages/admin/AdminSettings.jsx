@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
 import { apiPost } from "../../utils/api";
-import { getStudioRequestAuth, getTrialAccessHome, readTrialAccess, refreshAdminCode } from "../../utils/trialAccess";
+import { getStudioRequestAuth, refreshAdminCode } from "../../utils/trialAccess";
 import { useLang } from "../../contexts/LangContext";
 import { AL } from "../../utils/adminLabels";
 
 export default function AdminSettings() {
-  const trialSession = readTrialAccess();
-  if (trialSession) return <Navigate to={getTrialAccessHome(trialSession.approvedModule)} replace />;
   return <AdminSettingsInner />;
 }
 
@@ -139,7 +136,7 @@ function AdminSettingsInner() {
             <li>Mix uppercase, lowercase, numbers, and symbols.</li>
             <li>After saving, the old code stops working immediately.</li>
             <li>You will remain logged in with the new code.</li>
-            <li>Trial user access codes cannot be used as admin codes.</li>
+            <li>Only the existing Admin Access Code can authorize this workspace.</li>
           </ul>
         </div>
       </section>

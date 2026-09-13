@@ -108,22 +108,8 @@ function homeSaleResolveAccess_(payload, moduleName, allowPublic) {
     return { mode: "admin", module: moduleName || "" };
   }
 
-  var email = homeSaleNormalizeEmail_(payload.accessEmail || payload.email || "");
-  var accessCode = String(payload.accessCode || "").trim().toUpperCase();
-  if (email && accessCode) {
-    var validated = homeSaleValidateTrialAccess_(email, accessCode, moduleName || "");
-    return {
-      mode: "trial",
-      module: moduleName || "",
-      email: validated.email,
-      accessCode: validated.accessCode,
-      approvedModule: validated.approvedModule,
-      accessExpiresAt: validated.accessExpiresAt,
-    };
-  }
-
   if (allowPublic) return { mode: "public", module: moduleName || "" };
-  throw new Error("Access denied. Please sign in with an approved trial access code.");
+  throw new Error("Admin access required.");
 }
 
 function homeSaleIsValidAdminAccessCode_(adminAccessCode) {
@@ -160,69 +146,6 @@ function homeSaleGetAdminAccessCode_() {
   return bootstrap;
 }
 
-function homeSaleValidateTrialAccess_(email, accessCode, moduleName) {
-  var contactsSheet = homeSaleGetSheetById_("1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4", "Contacts");
-  homeSaleAddMissingHeaders_(contactsSheet, [
-    "Email",
-    "Access Code",
-    "Approval Status",
-    "Approved Module",
-    "Access Expires At",
-  ]);
-  var lastRow = contactsSheet.getLastRow();
-  if (lastRow < 2) throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
-  var headerMap = homeSaleHeaderMap_(contactsSheet);
-  var rows = contactsSheet.getRange(2, 1, lastRow - 1, contactsSheet.getLastColumn()).getValues();
-
-  for (var i = rows.length - 1; i >= 0; i--) {
-    var row = rows[i];
-    var rowEmail = homeSaleNormalizeEmail_(homeSaleColVal_(row, headerMap, "Email"));
-    var rowCode = String(homeSaleColVal_(row, headerMap, "Access Code") || "").trim().toUpperCase();
-    if (rowEmail !== homeSaleNormalizeEmail_(email)) continue;
-    if (rowCode !== String(accessCode || "").trim().toUpperCase()) continue;
-    if (String(homeSaleColVal_(row, headerMap, "Approval Status") || "").trim() !== "Approved") {
-      throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
-    }
-    var approvedModule = homeSaleColVal_(row, headerMap, "Approved Module");
-    if (!homeSaleApprovedModuleAllows_(approvedModule, moduleName)) {
-      throw new Error("Access denied for this module.");
-    }
-    var expiresAt = homeSaleColVal_(row, headerMap, "Access Expires At");
-    if (homeSaleIsExpired_(expiresAt)) {
-      throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
-    }
-    return {
-      valid: true,
-      email: homeSaleColVal_(row, headerMap, "Email"),
-      accessCode: rowCode,
-      approvedModule: approvedModule,
-      accessExpiresAt: expiresAt,
-    };
-  }
-
-  throw new Error("Access code not found, expired, or not approved. Please contact Mabel.");
-}
-
-function homeSaleApprovedModuleAllows_(approvedModule, moduleName) {
-  var text = String(approvedModule || "").toLowerCase();
-  var module = String(moduleName || "").toLowerCase();
-  if (text.indexOf("both") >= 0) return true;
-  if (module === "sale") return text.indexOf("sale") >= 0;
-  if (module === "rental") return text.indexOf("rental") >= 0;
-  return false;
-}
-
-function homeSaleNormalizeEmail_(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function homeSaleIsExpired_(expiresAt) {
-  if (!expiresAt) return false;
-  var dt = new Date(expiresAt);
-  if (isNaN(dt.getTime())) return false;
-  return dt.getTime() < Date.now();
-}
-
 function homeSaleCanAccessListing_(record, auth) {
   if (!record) return false;
   if (!auth) return false;
@@ -233,14 +156,6 @@ function homeSaleCanAccessListing_(record, auth) {
     // rental); hide only pre-publish / withdrawn states.
     return status !== "" && ["draft", "in review", "ready to publish", "archived", "hidden", "unpublished", "deleted"].indexOf(status.toLowerCase()) === -1;
   }
-  // Trial mode: match by email first, then fall back to access code for listings
-  // created before the "Created By Email" column existed.
-  var recordEmail = homeSaleNormalizeEmail_(record["Created By Email"]);
-  var authEmail = homeSaleNormalizeEmail_(auth.email);
-  if (recordEmail && authEmail && recordEmail === authEmail) return true;
-  var recordCode = String(record["Created By Access Code"] || "").trim().toUpperCase();
-  var authCode = String(auth.accessCode || "").trim().toUpperCase();
-  if (recordCode && authCode && recordCode === authCode) return true;
   return false;
 }
 
@@ -282,13 +197,7 @@ function createSaleListing_(record, auth) {
   record["Listing ID"] = listingId;
   if (!record.Status) record.Status = "Draft";
   if (!record["Public Listing URL"]) record["Public Listing URL"] = "";
-  if (auth.mode === "trial") {
-    record["Created By Email"] = auth.email;
-    record["Created By Access Code"] = auth.accessCode;
-    record["Created By Role"] = "Trial User";
-  } else {
-    record["Created By Role"] = record["Created By Role"] || "Admin";
-  }
+  record["Created By Role"] = record["Created By Role"] || "Admin";
   // Auto-create Drive media folder if one isn't already provided.
   if (!record["Google Drive Folder URL"]) {
     try {
@@ -313,12 +222,6 @@ function updateSaleListing_(listingId, record, auth) {
   homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), HOME_SALE_LISTING_ACCESS_HEADERS);
   homeSaleAddMissingHeaders_(homeSaleGetSheet_(HOME_SALE_LISTINGS_SHEET), ["Showing Availability"]);
   var match = homeSaleAssertListingAccess_(targetId, auth);
-  if (auth.mode === "trial") {
-    record["Created By Email"] = auth.email;
-    record["Created By Access Code"] = auth.accessCode;
-    record["Created By Role"] = "Trial User";
-  }
-
   homeSaleUpdateRecord_(match.sheet, match.headers, match.rowIndex, record, { setUpdatedAt: true });
   return {
     success: true,
@@ -1639,8 +1542,7 @@ function homeSaleSanitizeListingForAccess_(listing, auth) {
     safe[key] = listing[key];
   }
 
-  // Trial users need googleDriveFolderUrl to upload photos to their own listings.
-  if (auth.mode !== "trial") delete safe.googleDriveFolderUrl;
+  delete safe.googleDriveFolderUrl;
   delete safe.notes;
   delete safe.internalStatus;
   delete safe.createdByEmail;

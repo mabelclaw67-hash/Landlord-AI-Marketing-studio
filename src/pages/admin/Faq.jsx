@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { readTrialAccess } from "../../utils/trialAccess";
 import { useLang } from "../../contexts/LangContext";
 
 const FAQS = [
@@ -21,16 +20,8 @@ const FAQS = [
     a: "For Sale Listings: after saving your listing, go to the Marketing tab in the Home Sale workflow. The system can generate bilingual (English + Chinese) marketing copy for multiple channels including WeChat, Xiaohongshu, and Facebook. For Rental Listings: marketing copy is generated automatically when you create the listing.\n\n出售房源：保存后进入 Home Sale 工作流的 Marketing 标签页，系统可生成微信、小红书、Facebook 等平台的双语广告文案。出租房源：创建房源时系统自动生成广告文案。",
   },
   {
-    q: "What can trial users access? / Trial 用户能使用哪些功能？",
-    a: "Trial users can: create sale or rental listings (depending on approved module), upload photos, generate marketing copy, view public listing pages, use the QR code feature, access Smart Photo Tips, and read the FAQ.\n\nTrial users cannot: use Virtual Staging, access AI Advanced Image Generation, or use other Premium features.\n\nTrial 用户可以：创建出售或出租房源（取决于已批准模块）、上传照片、生成广告文案、查看公开房源页、使用二维码功能、访问智能拍照建议和常见问题。\n\nTrial 用户不能使用：AI 虚拟布置、AI 高级图片生成及其他 Premium 功能。",
-  },
-  {
     q: "What are Premium features? / Premium 功能是什么？",
     a: "Premium features are advanced AI-powered tools that require a paid subscription. These include:\n• AI Virtual Staging — automatically furnish empty room photos using AI\n• AI Advanced Image Generation — enhance and transform listing photos with AI\n\nThese features are planned for future release. Contact us to be notified when they become available.\n\nPremium 功能是需要付费订阅的高级 AI 工具，包括：\n• AI 虚拟布置 — AI 自动为空房间照片添加家具布置\n• AI 高级图片生成 — AI 增强和优化房源照片\n\n这些功能计划在未来上线。如需第一时间获得通知，请联系我们。",
-  },
-  {
-    q: "How long does trial access last? / 试用期多长时间？",
-    a: "Trial access duration is set when your access code is approved. You can see your access expiry in the Trial Mode badge in the sidebar. Contact us if you need to extend your trial or upgrade to a paid plan.\n\n试用期长度在您的访问码批准时设定。您可以在侧边栏的试用模式标识中查看到期时间。如需延长试用或升级为付费计划，请联系我们。",
   },
   {
     q: "Can I share my listing page with buyers or tenants? / 如何将房源页面分享给买家或租客？",
@@ -100,8 +91,6 @@ function FaqItem({ item }) {
 
 export default function Faq() {
   const lang = useLang();
-  const isTrial = !!readTrialAccess();
-
   return (
     <div>
       <div className="flex-between mb-24">
@@ -113,17 +102,6 @@ export default function Faq() {
         </div>
         <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
       </div>
-
-      {isTrial && (
-        <div className="notice notice--sage" style={{ marginBottom: 24 }}>
-          <p style={{ margin: 0, fontSize: "0.88rem" }}>
-            {lang === "zh"
-              ? <>💡 您正在使用试用模式，请查看下方<strong>"Trial 用户能使用哪些功能"</strong>了解详情。</>
-              : <>💡 You are in Trial Mode. See <strong>"What can trial users access?"</strong> below for details on your available features.</>
-            }
-          </p>
-        </div>
-      )}
 
       <div style={{ display: "grid", gap: 10 }}>
         {FAQS.map((item, i) => (

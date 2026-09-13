@@ -21,7 +21,7 @@ const T = {
     heroBrandLine2: "Get professional support.",
     heroDesc:
       "VanIsland provides practical, professional support for independent landlords — from rental marketing and applicant screening to documentation, rental administration and difficult rental situations.",
-    requestAccess: "Get Landlord Support",
+    requestAccess: "Contact Us",
     exploreServices: "Explore Our Services",
 
     // brand principles
@@ -239,7 +239,7 @@ const T = {
     heroBrandLine2: "获得专业支持。",
     heroDesc:
       "VanIsland 为独立房东提供务实、专业的支持——从出租营销、申请人筛选，到文件资料、租务日常事务和棘手的出租情况。",
-    requestAccess: "获取房东支持",
+    requestAccess: "联系我们",
     exploreServices: "了解我们的服务",
 
     // brand principles

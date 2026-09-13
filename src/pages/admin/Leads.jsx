@@ -10,7 +10,7 @@ import {
   emailApplicantReportToOwner,
 } from "../../utils/storage";
 import { useLang } from "../../contexts/LangContext";
-import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 import { buildApplicantReportDownloadUrl, downloadApplicantInitialScreeningSummary } from "../../utils/applicantScreeningReports";
 
 const STATUS_BADGE = {
@@ -103,8 +103,6 @@ export default function Leads() {
   const [summaryEmailing, setSummaryEmailing] = useState(false);
   const filter = queryListingId;
   const isInternalAdmin = isAdminSessionActive();
-  const trialSession = readTrialAccess();
-  const isTrialUser = !!trialSession && !isInternalAdmin;
   const canSeeInternalDriveLinks = isInternalAdmin;
 
   const refreshApplications = useCallback(() => {
@@ -231,11 +229,8 @@ export default function Leads() {
     ? sortedApps
     : [];
   const accessDenied = !setupError && String(error || "").toLowerCase().includes("access denied");
-  const trialNeedsListing = isTrialUser && !filter && !loading && !setupError && !accessDenied;
   const resultLabel = accessDenied
     ? "Access denied. You do not have permission to view this listing's applications."
-    : trialNeedsListing
-    ? "Please select one of your listings to view applications."
     : filter
     ? `Showing ${visible.length} application${visible.length === 1 ? "" : "s"} for ${filter}`
     : `Showing ${visible.length} application${visible.length === 1 ? "" : "s"} across all listings`;
@@ -381,26 +376,6 @@ export default function Leads() {
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem", lineHeight: 1.7, maxWidth: 580, margin: "0 auto" }}>
               Access denied. You do not have permission to view this listing's applications.
             </p>
-          </div>
-        </div>
-      ) : trialNeedsListing ? (
-        <div className="card mb-24">
-          <div style={{ padding: "24px 12px" }}>
-            <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>
-              {lang === "zh" ? "请选择房源查看申请" : "Select a listing to view applications"}
-            </h2>
-            <p style={{ color: "var(--color-text-muted)", fontSize: "0.88rem", lineHeight: 1.7, marginBottom: 14 }}>
-              {lang === "zh"
-                ? "外部房东账号只能查看自己房源下的申请，不能打开全部申请列表。"
-                : "External listing owners can only view applications for their own listings. The all-applications view is internal admin only."}
-            </p>
-            <div className="admin-action-row admin-action-row--full-mobile">
-              {listingIds.map((id) => (
-                <Link key={id} to={`/admin/leads?listingId=${encodeURIComponent(id)}`} className="btn btn--ghost btn--sm">
-                  {id} ({apps.filter((a) => a.listingId === id).length})
-                </Link>
-              ))}
-            </div>
           </div>
         </div>
       ) : visible.length === 0 ? (

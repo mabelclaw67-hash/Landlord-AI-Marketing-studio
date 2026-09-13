@@ -44,7 +44,7 @@ export async function getPublicListings() {
 }
 
 // Public variant: no auth sent. Public pages must not be affected by stale
-// trial/admin access stored in a visitor's browser.
+// Admin access is stored only for the current browser session.
 export async function getPublicListing(id) {
   if (isApiConnected()) {
     return apiPost({ action: "getListingById", listingId: id });
@@ -114,45 +114,7 @@ export async function saveContact(data) {
   }
   // localStorage mode: contacts are not persisted (no contacts sheet in v0.1).
   console.info("[localStorage mode] Contact submission (not persisted):", data);
-  return { success: true, approvalStatus: "Pending" };
-}
-
-export async function getContactRequests() {
-  if (!isApiConnected()) {
-    throw new Error("VITE_STUDIO_EXEC_URL not configured");
-  }
-  return apiGet({ action: "getContactRequests", ...getStudioRequestAuth("rental") });
-}
-
-export async function approveContactRequest(rowNumber, approvedModule, adminNotes = "", approvalStatus = "Approved", accessType = "Trial", durationDays = 10, paymentStatus = "Unpaid") {
-  if (!isApiConnected()) {
-    throw new Error("VITE_STUDIO_EXEC_URL not configured");
-  }
-  return apiPost({
-    action: "approveContactRequest",
-    rowNumber,
-    approvedModule,
-    adminNotes,
-    approvalStatus,
-    accessType,
-    durationDays,
-    paymentStatus,
-    ...getStudioRequestAuth("rental"),
-  });
-}
-
-export async function updateContactRequestNotes(rowNumber, notes) {
-  if (!isApiConnected()) {
-    throw new Error("VITE_STUDIO_EXEC_URL not configured");
-  }
-  return apiPost({ action: "updateContactRequestNotes", rowNumber, notes, ...getStudioRequestAuth("rental") });
-}
-
-export async function validateAccessCode(email, accessCode) {
-  if (!isApiConnected()) {
-    throw new Error("VITE_STUDIO_EXEC_URL not configured");
-  }
-  return apiPost({ action: "validateAccessCode", email, accessCode });
+  return { success: true, approvalStatus: "Contact Inquiry" };
 }
 
 // List JPG/PNG files from a listing's own Drive folder (by folder ID).
@@ -172,7 +134,7 @@ export async function getCollagePhotoData(listingId, fileIds) {
   // locally if it is incomplete; never send an empty auth payload.
   const auth = getStudioRequestAuth("rental");
   if (!isStudioRequestAuthReady(auth)) {
-    throw new Error("Access denied. Please sign in with an approved trial access code.");
+    throw new Error("Admin access required.");
   }
   return apiPost({
     action: "getCollagePhotoData",

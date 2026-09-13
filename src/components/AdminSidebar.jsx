@@ -1,32 +1,14 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { lockAdmin } from "./AdminGuard";
-import { readTrialAccess, clearTrialAccess } from "../utils/trialAccess";
 import { useLang } from "../contexts/LangContext";
 import { AL } from "../utils/adminLabels";
 
 export default function AdminSidebar() {
-  const navigate = useNavigate();
-  const trialSession = readTrialAccess();
   const lang = useLang();
   const L = AL[lang] ?? AL.en;
 
-  const handleExit = () => {
-    if (trialSession) {
-      clearTrialAccess();
-      navigate("/", { replace: true });
-    } else {
-      lockAdmin();
-    }
-  };
-
   return (
     <aside className="admin-sidebar">
-      {trialSession && (
-        <div className="admin-sidebar__trial-badge">
-          {L.trialMode}
-          <span>{trialSession.approvedModule}</span>
-        </div>
-      )}
       <h3>{L.platformMenu}</h3>
 
       <div className="admin-sidebar__group">
@@ -50,21 +32,12 @@ export default function AdminSidebar() {
         <NavLink to="/admin/leads" className={({ isActive }) => (isActive ? "active" : "")}>
           🗂️ {L.rentalLeads}
         </NavLink>
-        {!trialSession && (
-          <NavLink to="/admin/trial-requests" className={({ isActive }) => (isActive ? "active" : "")}>
-            📨 {L.trialRequests}
-          </NavLink>
-        )}
-        {!trialSession && (
-          <NavLink to="/admin/strategy-assessments" className={({ isActive }) => (isActive ? "active" : "")}>
+        <NavLink to="/admin/strategy-assessments" className={({ isActive }) => (isActive ? "active" : "")}>
             📚 {lang === "zh" ? "房产出租策略初评" : "Property Strategy Reviews"}
-          </NavLink>
-        )}
-        {!trialSession && (
-          <NavLink to="/admin/dispute-reviews" className={({ isActive }) => (isActive ? "active" : "")}>
+        </NavLink>
+        <NavLink to="/admin/dispute-reviews" className={({ isActive }) => (isActive ? "active" : "")}>
             ⚖️ {lang === "zh" ? "法律争议AI初评" : "AI Dispute Reviews"}
-          </NavLink>
-        )}
+        </NavLink>
       </div>
 
       <div className="admin-sidebar__group">
@@ -95,18 +68,14 @@ export default function AdminSidebar() {
 
       <div className="admin-sidebar__group">
         <div className="admin-sidebar__label">{L.groupSystem}</div>
-        {!trialSession && (
-          <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
+        <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? "active" : "")}>
             ⚙️ {L.settings}
-          </NavLink>
-        )}
-        {!trialSession && (
-          <NavLink to="/admin/system-performance" className={({ isActive }) => (isActive ? "active" : "")}>
+        </NavLink>
+        <NavLink to="/admin/system-performance" className={({ isActive }) => (isActive ? "active" : "")}>
             📈 {L.systemPerformance}
-          </NavLink>
-        )}
-        <button className="admin-lock-btn" onClick={handleExit}>
-          {trialSession ? `🚪 ${L.exitTrial}` : `🔒 ${L.lockAdmin}`}
+        </NavLink>
+        <button className="admin-lock-btn" onClick={lockAdmin}>
+          🔒 {L.lockAdmin}
         </button>
       </div>
     </aside>

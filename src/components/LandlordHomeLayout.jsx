@@ -14,11 +14,10 @@ const NAV = {
     photoGuide: "Photo Guide",
     faq: "FAQ",
     resources: "Landlord Knowledge Center",
-    contact: "Contact / Apply",
+    contact: "Contact Us",
     workspaceLabel: "WORKSPACE",
     admin: "Admin Studio",
-    requestAccess: "Get Landlord Support",
-    trialAccess: "Trial Access",
+    requestAccess: "Contact Us",
     mobileFooter: "On mobile, the sidebar becomes a bottom navigation bar for seamless access across devices.",
     mobileFooterTitle: "Mobile Experience",
     mobileAdmin: "⚙️ Admin",
@@ -33,11 +32,10 @@ const NAV = {
     photoGuide: "拍照指南",
     faq: "常见问题",
     resources: "房东知识中心",
-    contact: "联系 / 申请",
+    contact: "联系我们",
     workspaceLabel: "工作区",
     admin: "管理后台",
-    requestAccess: "获取房东支持",
-    trialAccess: "免费试用",
+    requestAccess: "联系我们",
     mobileFooter: "在移动端，侧边栏将变为底部导航栏，方便随时访问。",
     mobileFooterTitle: "移动端体验",
     mobileAdmin: "⚙️ 后台",
@@ -117,12 +115,8 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <div className="lh-sidebar-cta">
           <Link to="/contact" className="lh-sidebar-cta__btn">
-            <span className="lh-sidebar-cta__icon">🔐</span>
+            <span className="lh-sidebar-cta__icon">💬</span>
             <span><strong>{n.requestAccess}</strong></span>
-          </Link>
-          <Link to="/trial-access" className="lh-sidebar-cta__btn lh-sidebar-cta__btn--secondary">
-            <span className="lh-sidebar-cta__icon">🗝️</span>
-            <span><strong>{n.trialAccess}</strong></span>
           </Link>
         </div>
 

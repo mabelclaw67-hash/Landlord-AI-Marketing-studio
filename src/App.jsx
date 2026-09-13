@@ -10,7 +10,6 @@ import Services from "./pages/Services";
 import Examples from "./pages/Examples";
 import Resources from "./pages/Resources";
 import Contact from "./pages/Contact";
-import TrialAccess from "./pages/TrialAccess";
 import HomeSaleStudio from "./pages/HomeSaleStudio";
 import StrategyAssessment from "./pages/StrategyAssessment";
 import AIReviewCenter from "./pages/AIReviewCenter";
@@ -23,7 +22,6 @@ import NewListing from "./pages/admin/NewListing";
 import ListingDetail from "./pages/admin/ListingDetail";
 import Listings from "./pages/admin/Listings";
 import Leads from "./pages/admin/Leads";
-import TrialRequests from "./pages/admin/TrialRequests";
 import StrategyAssessments from "./pages/admin/StrategyAssessments";
 import DisputeReviews from "./pages/admin/DisputeReviews";
 import HomeSaleListings from "./pages/admin/HomeSaleListings";
@@ -76,7 +74,6 @@ function AppInner({ lang, setLang }) {
         <Route path="/our-story" element={<OurStory lang={lang} />} />
         <Route path="/resources" element={<Resources lang={lang} />} />
         <Route path="/contact" element={<Contact lang={lang} />} />
-        <Route path="/trial-access" element={<TrialAccess lang={lang} />} />
         <Route path="/home-sale-studio" element={<HomeSaleStudio lang={lang} />} />
         <Route path="/landlord-ai/strategy-assessment" element={<StrategyAssessment lang={lang} />} />
         <Route path="/strategy-assessment/report/:assessmentId" element={<StrategyAssessment lang={lang} />} />
@@ -93,7 +90,6 @@ function AppInner({ lang, setLang }) {
           <Route path="new" element={<NewListing lang={lang} />} />
           <Route path="listings" element={<Listings lang={lang} />} />
           <Route path="leads" element={<Leads />} />
-          <Route path="trial-requests" element={<TrialRequests />} />
           <Route path="strategy-reports" element={<Navigate to="/admin/strategy-assessments" replace />} />
           <Route path="strategy-assessments" element={<StrategyAssessments />} />
           <Route path="dispute-reviews" element={<DisputeReviews />} />

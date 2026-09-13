@@ -18,7 +18,7 @@ import {
 // instead of the legacy generateFullApplicantAuditReport Apps Script action.
 import { generateRealFullApplicantAuditReport } from "../../utils/applicantScreeningReports";
 import { downloadSubmittedAppPdf } from "../../utils/rentalApplicationPdf";
-import { isAdminSessionActive, readTrialAccess } from "../../utils/trialAccess";
+import { isAdminSessionActive } from "../../utils/trialAccess";
 
 const REVIEW_STATUSES = ["Pending", "Reviewing", "Approved", "Rejected", "On Hold"];
 
@@ -702,14 +702,10 @@ export default function ApplicationReview() {
   const documentRequestBlocker = getDocumentRequestBlocker(app);
 
   // ── PDF access control ────────────────────────────────────────────────────
-  // Backend getApplicationById validates applicant RecordID against listing access
-  // before this page receives application data. Frontend keeps the same boundary:
-  // internal admin or an authenticated trial listing owner only.
+  // Application records and internal Drive links are available only to Admin.
   const _isAdmin      = isAdminSessionActive();
-  const _trialSession = readTrialAccess();
-  const _isTrial      = !!_trialSession && !_isAdmin;
   const canSeeInternalDriveLinks = _isAdmin;
-  const canAccessSubmittedPdf = _isAdmin || _isTrial;
+  const canAccessSubmittedPdf = _isAdmin;
 
   return (
     <div>
@@ -1156,7 +1152,7 @@ export default function ApplicationReview() {
                   Open PDF (Drive) →
                 </a>
               )}
-              {/* Client-side PDF generation — admin and listing-owner trial users only */}
+              {/* Client-side PDF generation — Admin only */}
               <button
                 type="button"
                 className="btn btn--ghost btn--sm"
@@ -1225,8 +1221,8 @@ export default function ApplicationReview() {
             </p>
             <p style={{ fontSize: "0.82rem", color: "#7a5a2f", lineHeight: 1.65 }}>
               {lang === "zh"
-                ? <>申请表 PDF 仅供管理员及对应房源的拥有者查看。此申请所属房源（<code>{app.listingId}</code>）与您的试用账号不匹配。</>
-                : <>Submitted application PDFs are only accessible by admins and the listing owner. This application is connected to listing <code>{app.listingId}</code>, which does not match your trial account.</>
+                ? <>申请表 PDF 仅供管理员查看。</>
+                : <>Submitted application PDFs are only accessible by Admin.</>
               }
             </p>
           </div>
