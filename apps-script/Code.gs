@@ -288,7 +288,7 @@ function rentalDoPost_(e) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
+  var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "validateAccessCode", "saveRentalApplication", "getRentalApplicationResume", "updateRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -372,6 +372,8 @@ function rentalDoPost_(e) {
     if (action === "uploadVideoToCloudinary") return ok(uploadVideoToCloudinary_(body.driveFileId, body.listingId));
     if (action === "migrateExistingVideos")  return ok(migrateExistingVideos_());
     if (action === "saveRentalApplication")  return ok(saveRentalApplication_(body.data));
+    if (action === "getRentalApplicationResume") return ok(getRentalApplicationResume_(body.listingId, body.recordId, body.token));
+    if (action === "updateRentalApplication") return ok(updateRentalApplication_(body.listingId, body.recordId, body.token, body.data || body));
     if (action === "getApplicationsByListing") return ok(getApplicationsByListing_(body.listingId, auth));
     if (action === "getAllApplications")     return ok(getAllApplications_(auth));
     if (action === "getApplicationPdfDownloadData") return ok(getApplicationPdfDownloadData_(body.recordId, body.token));
@@ -4589,6 +4591,43 @@ function generateUploadToken_() {
   }).join("");
 }
 
+function rentalApplicationResumeTokenSecret_() {
+  var props = PropertiesService.getScriptProperties();
+  var secret = props.getProperty("RENTAL_APPLICATION_RESUME_TOKEN_SECRET");
+  if (!secret) {
+    secret = Utilities.getUuid() + "-" + Utilities.getUuid();
+    props.setProperty("RENTAL_APPLICATION_RESUME_TOKEN_SECRET", secret);
+  }
+  return secret;
+}
+
+function rentalApplicationResumeToken_(listingId, recordId, expiresAt, applicationVersion) {
+  var expiresAtMs = Date.parse(expiresAt);
+  if (!listingId || !recordId || !isFinite(expiresAtMs)) throw new Error("Could not create application resume token.");
+  var raw = [
+    "rental-application-resume",
+    String(listingId),
+    String(recordId),
+    String(expiresAtMs),
+    String(applicationVersion || ""),
+    rentalApplicationResumeTokenSecret_(),
+  ].join("|");
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
+  var signature = digest.map(function(b) {
+    var hex = (b < 0 ? b + 256 : b).toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join("");
+  return String(expiresAtMs) + "." + signature;
+}
+
+function parseRentalApplicationResumeToken_(token) {
+  var match = String(token || "").match(/^(\d{10,})\.([0-9a-f]+)$/i);
+  if (!match) return null;
+  var expiresAtMs = Number(match[1]);
+  if (!isFinite(expiresAtMs) || expiresAtMs <= 0) return null;
+  return { expiresAtMs: expiresAtMs, signature: match[2].toLowerCase() };
+}
+
 function getExpiryIso_(days) {
   return new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000).toISOString();
 }
@@ -6374,8 +6413,186 @@ function deleteExpiredApplicantSensitiveFiles_(recordId, auth) {
   };
 }
 
+function normalizeApplicantDuplicateEmail_(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeApplicantDuplicatePhone_(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function findActiveDuplicateApplication_(body) {
+  var email = normalizeApplicantDuplicateEmail_(body && body.email);
+  var phone = normalizeApplicantDuplicatePhone_(body && body.phone);
+  if (!body || !body.listingId || !email || !phone) return null;
+
+  var sheet = getSheet_(INTAKE_SHEET);
+  var last = sheet.getLastRow();
+  if (last < 2) return null;
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  var matches = rows
+    .map(function(row, index) {
+      return {
+        sheet: sheet,
+        headerMap: headerMap,
+        row: row,
+        rowNumber: index + 2,
+        app: rowToApplication_(row, headerMap),
+      };
+    })
+    .filter(function(found) {
+      return found.app.listingId === String(body.listingId).trim() &&
+        normalizeApplicantDuplicateEmail_(found.app.email) === email &&
+        normalizeApplicantDuplicatePhone_(found.app.phone) === phone &&
+        isEligibleApplicantForOwnerScreening_(found.app);
+    });
+  if (!matches.length) return null;
+
+  // If historical data already contains more than one matching active row,
+  // use the newest existing submission for the secure resume email. The
+  // duplicate prevention still creates no additional row.
+  matches.sort(function(left, right) {
+    var leftTime = Date.parse(left.app.submittedAt || "") || 0;
+    var rightTime = Date.parse(right.app.submittedAt || "") || 0;
+    return rightTime - leftTime || right.rowNumber - left.rowNumber;
+  });
+  return matches[0];
+}
+
+function buildRentalApplicationResumePath_(listingId, recordId, token) {
+  return "/apply/" + encodeURIComponent(listingId) +
+    "?resumeRecordId=" + encodeURIComponent(recordId) +
+    "&token=" + encodeURIComponent(token);
+}
+
+function sendRentalApplicationResumeEmail_(app, origin, token) {
+  var cleanOrigin = String(origin || "").replace(/\/+$/, "");
+  var resumeLink = cleanOrigin + buildRentalApplicationResumePath_(app.listingId, app.recordId, token);
+  var body = [
+    "Dear " + (app.applicantName || "Applicant") + ",",
+    "",
+    "We found an existing rental application for this property.",
+    "",
+    "If you need to make changes, please continue with your existing application using this secure link:",
+    "",
+    resumeLink,
+    "",
+    "This link expires in 7 days and is intended only for the applicant who submitted the application.",
+    "",
+    "Thank you,",
+    "Vanisland Property Management",
+  ].join("\n");
+  sendApplicantWorkflowEmail_(
+    app.email,
+    "Continue Your Rental Application",
+    body,
+    "saveRentalApplication duplicate resume"
+  );
+}
+
+var RENTAL_APPLICATION_EDITABLE_FIELDS_ = [
+  "Applicant Name", "Email", "Phone", "Date of Birth", "Current Address", "WeChat",
+  "Employment Status", "Employer", "Monthly Income", "Landlord Reference", "Credit History",
+  "Move-in Date", "Lease Term Requested", "Occupants", "Adults", "Minors", "Occupant Names Ages",
+  "Has Joint Applicant", "Joint Name", "Joint Phone", "Joint Email", "Joint DOB", "Joint Address",
+  "Joint Employment", "Joint Income", "Joint Employer Contact", "Joint Landlord Reference", "Joint Credit Info",
+  "Joint Proof of Income", "Joint Applicant / Co-Applicant Information", "Joint Applicant Full Legal Name",
+  "Joint Applicant Phone Number", "Joint Applicant Email Address", "Joint Applicant's Date of Birth (DD/MM/YYYY)",
+  "Joint Applicant Current Address", "Joint Applicant Employment / Income Source", "Joint Applicant Monthly Income",
+  "Joint Applicant Employer Contact ", "Joint Applicant Landlord Reference", "Joint Applicant Credit Information",
+  "Deposit Funds Available", "Deposit Agreement", "Has Pets", "Pet Deposit Funds", "Pet Details",
+  "Eviction History", "Smokes Vapes Cannabis", "No Smoking Agreement", "Proof of Income",
+  "Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).",
+  "Has Tenant Insurance", "Tenant Insurance Agreement", "Proof Insurance Before Move-in",
+  "Reason for Moving", "Parking Request", "Additional Notes",
+];
+
+function buildRentalApplicationEditableDataMap_(body) {
+  var supportingDocsValue = [
+    body.proofOfIncome ? "Applicant: " + body.proofOfIncome : "",
+    body.jointProofOfIncome ? "Joint Applicant: " + body.jointProofOfIncome : "",
+  ].filter(Boolean).join(" | ");
+  return {
+    "Applicant Name": body.applicantName || "",
+    "Email": body.email || "",
+    "Phone": body.phone || "",
+    "Date of Birth": body.dateOfBirth || "",
+    "Current Address": body.currentAddress || "",
+    "WeChat": body.wechat || "",
+    "Employment Status": body.employmentStatus || "",
+    "Employer": body.employer || "",
+    "Monthly Income": body.monthlyIncome || "",
+    "Landlord Reference": body.landlordReference || "",
+    "Credit History": body.creditHistory || "",
+    "Move-in Date": body.moveInDate || "",
+    "Lease Term Requested": body.leaseTerm || "",
+    "Occupants": body.occupants || "",
+    "Adults": body.adults || "",
+    "Minors": body.minors || "",
+    "Occupant Names Ages": body.occupantNamesAges || "",
+    "Has Joint Applicant": body.hasJointApplicant || "",
+    "Joint Name": body.jointName || "",
+    "Joint Phone": body.jointPhone || "",
+    "Joint Email": body.jointEmail || "",
+    "Joint DOB": body.jointDob || "",
+    "Joint Address": body.jointAddress || "",
+    "Joint Employment": body.jointEmployment || "",
+    "Joint Income": body.jointIncome || "",
+    "Joint Employer Contact": body.jointEmployerContact || "",
+    "Joint Landlord Reference": body.jointLandlordReference || "",
+    "Joint Credit Info": body.jointCreditInfo || "",
+    "Joint Proof of Income": body.jointProofOfIncome || "",
+    "Joint Applicant / Co-Applicant Information": body.hasJointApplicant || "",
+    "Joint Applicant Full Legal Name": body.jointName || "",
+    "Joint Applicant Phone Number": body.jointPhone || "",
+    "Joint Applicant Email Address": body.jointEmail || "",
+    "Joint Applicant's Date of Birth (DD/MM/YYYY)": body.jointDob || "",
+    "Joint Applicant Current Address": body.jointAddress || "",
+    "Joint Applicant Employment / Income Source": body.jointEmployment || "",
+    "Joint Applicant Monthly Income": body.jointIncome || "",
+    "Joint Applicant Employer Contact ": body.jointEmployerContact || "",
+    "Joint Applicant Landlord Reference": body.jointLandlordReference || "",
+    "Joint Applicant Credit Information": body.jointCreditInfo || "",
+    "Deposit Funds Available": body.depositFundsAvailable || "",
+    "Deposit Agreement": body.depositAgreement || "",
+    "Has Pets": body.hasPets || "",
+    "Pet Deposit Funds": body.petDepositFunds || "",
+    "Pet Details": body.petDetails || "",
+    "Eviction History": body.evictionHistory || "",
+    "Smokes Vapes Cannabis": body.smokesVapesCannabis || "",
+    "No Smoking Agreement": body.noSmokingAgreement || "",
+    "Proof of Income": body.proofOfIncome || "",
+    "Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).": supportingDocsValue,
+    "Has Tenant Insurance": body.hasTenantInsurance || "",
+    "Tenant Insurance Agreement": body.tenantInsuranceAgreement || "",
+    "Proof Insurance Before Move-in": body.proofInsuranceBeforeMoveIn || "",
+    "Reason for Moving": body.reasonForMoving || "",
+    "Parking Request": body.parkingRequest || "",
+    "Additional Notes": body.additionalNotes || "",
+  };
+}
+
 function saveRentalApplication_(body) {
   if (!body.listingId) throw new Error("saveRentalApplication: listingId required");
+
+  var duplicate = findActiveDuplicateApplication_(body);
+  if (duplicate) {
+    var resumeExpiresAt = getExpiryIso_(7);
+    var resumeToken = rentalApplicationResumeToken_(
+      duplicate.app.listingId,
+      duplicate.app.recordId,
+      resumeExpiresAt,
+      duplicate.app.updatedAt || duplicate.app.submittedAt
+    );
+    sendRentalApplicationResumeEmail_(duplicate.app, body.origin, resumeToken);
+    return {
+      success: true,
+      duplicate: true,
+      message: "We found an existing application for this property. If you need to make changes, please continue with your existing application.",
+    };
+  }
 
   // Fail before any Sheet write or email if the fixed private root/listing
   // path is missing, inaccessible, duplicated, or inconsistent with
@@ -6760,6 +6977,236 @@ function getApplicationById_(applicationId, auth) {
     }
   }
   throw new Error("Application not found: " + applicationId);
+}
+
+function summarySection_(text, title) {
+  var lines = String(text || "").split(/\r?\n/);
+  var start = lines.indexOf(title);
+  if (start < 0) return "";
+  var section = [];
+  for (var i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (lines[i].trim() === "Current Residence" ||
+        lines[i].trim() === "Previous Residence" ||
+        lines[i].trim() === "References" ||
+        lines[i].trim() === "Employment & Income" ||
+        lines[i].trim() === "Background / Credit" ||
+        lines[i].trim() === "Emergency Contact" ||
+        lines[i].trim() === "Supporting Documents" ||
+        lines[i].trim() === "Other Notes") break;
+    section.push(lines[i]);
+  }
+  return section.join("\n");
+}
+
+function summaryValue_(text, label) {
+  var lines = String(text || "").split(/\r?\n/);
+  var prefix = String(label || "") + ":";
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(prefix) === 0) return lines[i].slice(prefix.length).trim();
+  }
+  return "";
+}
+
+function summaryReferencePart_(value, label) {
+  var prefix = String(label || "") + ":";
+  var parts = String(value || "").split(" | ");
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i].indexOf(prefix) === 0) return parts[i].slice(prefix.length).trim();
+  }
+  return "";
+}
+
+function summaryReferenceName_(value) {
+  return String(value || "").split(" | ")[0].trim();
+}
+
+function buildRentalApplicationResumeData_(app) {
+  var landlord = String(app.landlordReference || "");
+  var currentResidence = summarySection_(landlord, "Current Residence");
+  var previousResidence = summarySection_(landlord, "Previous Residence");
+  var references = summarySection_(landlord, "References");
+  var employment = summarySection_(app.employer, "Employment & Income");
+  var background = summarySection_(app.evictionHistory, "Background / Credit");
+  var emergency = summarySection_(app.additionalNotes, "Emergency Contact");
+  var supporting = summarySection_(app.additionalNotes, "Supporting Documents");
+  var otherNotes = summarySection_(app.additionalNotes, "Other Notes");
+  var referenceOne = summaryValue_(references, "Reference 1");
+  var referenceTwo = summaryValue_(references, "Reference 2");
+  var jointEmployment = String(app.jointEmployment || "");
+  var parking = String(app.parkingRequest || "");
+
+  return {
+    applicantName: app.applicantName || "",
+    email: app.email || "",
+    phone: app.phone || "",
+    dateOfBirth: app.dateOfBirth || "",
+    wechat: app.wechat || "",
+    currentResidenceAddress: app.currentAddress || summaryValue_(previousResidence, "Address"),
+    currentResidenceSince: summaryValue_(currentResidence, "Residence Period"),
+    currentResidenceLandlordName: summaryValue_(currentResidence, "Landlord / Manager"),
+    currentResidenceLandlordContact: summaryValue_(currentResidence, "Landlord Contact"),
+    currentResidenceMonthlyRent: summaryValue_(currentResidence, "Current Monthly Rent"),
+    currentResidenceReasonForLeaving: app.reasonForMoving || "",
+    previousResidenceAddress: summaryValue_(previousResidence, "Address"),
+    previousResidenceDates: summaryValue_(previousResidence, "Residence Period"),
+    previousResidenceLandlordName: summaryValue_(previousResidence, "Landlord / Manager"),
+    previousResidenceLandlordContact: summaryValue_(previousResidence, "Landlord Contact"),
+    previousResidenceMonthlyRent: summaryValue_(previousResidence, "Monthly Rent"),
+    employmentStatus: app.employmentStatus || summaryValue_(employment, "Status"),
+    employer: summaryValue_(employment, "Employer / Income Source") || app.employer || "",
+    employmentLength: summaryValue_(employment, "Length of Employment"),
+    employerContact: summaryValue_(employment, "Employer Contact"),
+    otherIncome: summaryValue_(employment, "Other Income"),
+    monthlyIncome: app.monthlyIncome || "",
+    moveInDate: app.moveInDate || "",
+    leaseTerm: app.leaseTerm || "",
+    totalOccupants: app.occupants || "",
+    adults: app.adults || "",
+    minors: app.minors || "",
+    occupantNamesAges: app.occupantNamesAges || "",
+    hasJointApplicant: app.hasJointApplicant || "No / 否",
+    jointName: app.jointName || "",
+    jointPhone: app.jointPhone || "",
+    jointEmail: app.jointEmail || "",
+    jointDob: app.jointDob || "",
+    jointAddress: app.jointAddress || "",
+    jointEmploymentStatus: summaryValue_(jointEmployment, "Status"),
+    jointEmployerIncomeSource: summaryValue_(jointEmployment, "Employer / Income Source") || jointEmployment,
+    jointIncome: app.jointIncome || "",
+    jointEmployerContact: app.jointEmployerContact || "",
+    jointLandlordReference: app.jointLandlordReference || "",
+    jointCreditInfo: app.jointCreditInfo || "",
+    jointProofOfIncome: app.jointProofOfIncome || "",
+    depositFundsAvailable: app.depositFundsAvailable || "",
+    depositAgreement: /^agreed$/i.test(String(app.depositAgreement || "")),
+    hasPets: app.hasPets || "No / 无宠物",
+    petDepositFunds: app.petDepositFunds || "",
+    petDetails: app.petDetails || "",
+    smokesVapesCannabis: app.smokesVapesCannabis || "",
+    noSmokingAgreement: /^agreed$/i.test(String(app.noSmokingAgreement || "")),
+    referenceOneName: summaryReferenceName_(referenceOne),
+    referenceOneRelationship: summaryReferencePart_(referenceOne, "Relationship"),
+    referenceOneContact: summaryReferencePart_(referenceOne, "Contact"),
+    referenceTwoName: summaryReferenceName_(referenceTwo),
+    referenceTwoRelationship: summaryReferencePart_(referenceTwo, "Relationship"),
+    referenceTwoContact: summaryReferencePart_(referenceTwo, "Contact"),
+    emergencyName: summaryValue_(emergency, "Name"),
+    emergencyRelationship: summaryValue_(emergency, "Relationship"),
+    emergencyPhone: summaryValue_(emergency, "Phone"),
+    emergencyEmail: summaryValue_(emergency, "Email"),
+    creditHistory: app.creditHistory || "",
+    evictionHistory: summaryValue_(background, "Evictions / tenancy breaches") || app.evictionHistory || "",
+    backgroundNotes: summaryValue_(background, "Additional background or credit notes"),
+    proofOfIncome: app.proofOfIncome || "",
+    supportingDocsNotes: summaryValue_(supporting, "Available documents / notes"),
+    hasTenantInsurance: app.hasTenantInsurance || "",
+    tenantInsuranceAgreement: /^agreed$/i.test(String(app.tenantInsuranceAgreement || "")),
+    proofInsuranceBeforeMoveIn: app.proofInsuranceBeforeMoveIn || "",
+    vehicleCount: summaryValue_(parking, "Vehicles"),
+    vehicleDetails: summaryValue_(parking, "Vehicle details") || parking.replace(/^Vehicles:[^\r\n]*(?:\r?\n|$)/i, "").trim(),
+    additionalNotes: otherNotes || "",
+    agreed: false,
+  };
+}
+
+function invalidRentalApplicationResumeError_() {
+  return new Error("This application link is invalid or expired.");
+}
+
+function findRentalApplicationForResume_(listingId, recordId, token) {
+  if (!listingId || !recordId || !token) throw invalidRentalApplicationResumeError_();
+  var parsedToken = parseRentalApplicationResumeToken_(token);
+  if (!parsedToken || Date.now() > parsedToken.expiresAtMs) throw invalidRentalApplicationResumeError_();
+  var found;
+  try {
+    found = findApplicationRowByRecordId_(recordId);
+  } catch (e) {
+    throw invalidRentalApplicationResumeError_();
+  }
+  var app = found.app;
+  var expectedToken;
+  try {
+    expectedToken = rentalApplicationResumeToken_(
+      listingId,
+      recordId,
+      new Date(parsedToken.expiresAtMs).toISOString(),
+      app.updatedAt || app.submittedAt
+    );
+  } catch (e) {
+    throw invalidRentalApplicationResumeError_();
+  }
+  if (String(app.listingId || "") !== String(listingId || "") ||
+      String(expectedToken || "") !== String(token || "") ||
+      !isEligibleApplicantForOwnerScreening_(app)) {
+    throw invalidRentalApplicationResumeError_();
+  }
+  return found;
+}
+
+function getRentalApplicationResume_(listingId, recordId, token) {
+  var found = findRentalApplicationForResume_(listingId, recordId, token);
+  return {
+    success: true,
+    recordId: found.app.recordId,
+    listingId: found.app.listingId,
+    submittedAt: found.app.submittedAt,
+    data: buildRentalApplicationResumeData_(found.app),
+  };
+}
+
+function buildRentalApplicationUpdatedPdfName_(recordId, listingId, applicantName) {
+  var baseName = buildRentalApplicationPdfName_(recordId, listingId, applicantName).replace(/\.pdf$/i, "");
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss");
+  return baseName + " - Updated-" + stamp + "-" + new Date().getTime() + ".pdf";
+}
+
+function updateRentalApplication_(listingId, recordId, token, body) {
+  var found = findRentalApplicationForResume_(listingId, recordId, token);
+  var editable = buildRentalApplicationEditableDataMap_(body || {});
+  var updatedAt = new Date().toISOString();
+  var nextToken = generateUploadToken_();
+  var nextTokenExpiresAt = getExpiryIso_(7);
+  var pdfData = Object.assign({
+    "Record ID": found.app.recordId,
+    "Listing ID": found.app.listingId,
+    "Submitted At": found.app.submittedAt,
+  }, editable);
+  var appFolder = getRentalApplicationArchiveFolder_(
+    found.app.listingId,
+    found.app.recordId,
+    body.applicantName || found.app.applicantName || "Applicant"
+  );
+  var pdfBlob = generateApplicationPdf_(pdfData, found.app.recordId);
+  var pdfFile = appFolder.createFile(pdfBlob.setName(buildRentalApplicationUpdatedPdfName_(
+    found.app.recordId,
+    found.app.listingId,
+    body.applicantName || found.app.applicantName || "Applicant"
+  )));
+  keepDriveItemPrivate_(pdfFile, "updated application pdf");
+
+  var values = {
+    "PDF URL": pdfFile.getUrl(),
+    "Application Download Token": nextToken,
+    "Application Download Expires At": nextTokenExpiresAt,
+    "Updated At": updatedAt,
+  };
+  RENTAL_APPLICATION_EDITABLE_FIELDS_.forEach(function(field) {
+    if (Object.prototype.hasOwnProperty.call(editable, field)) values[field] = editable[field];
+  });
+  setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, values);
+  SpreadsheetApp.flush();
+  return {
+    success: true,
+    updated: true,
+    recordId: found.app.recordId,
+    listingId: found.app.listingId,
+    submittedAt: found.app.submittedAt,
+    updatedAt: updatedAt,
+    pdfUrl: pdfFile.getUrl(),
+    applicationDownloadToken: nextToken,
+    applicationDownloadExpiresAt: nextTokenExpiresAt,
+  };
 }
 
 function getApplicationPdfDownloadData_(recordId, token) {

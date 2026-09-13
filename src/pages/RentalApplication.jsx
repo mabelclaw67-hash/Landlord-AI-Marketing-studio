@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import RentalApplicationNotice from "../components/RentalApplicationNotice";
-import { downloadApplicationPdf, getListing, getPublicListings, saveRentalApplication } from "../utils/storage";
+import {
+  downloadApplicationPdf,
+  getListing,
+  getPublicListings,
+  getRentalApplicationResume,
+  saveRentalApplication,
+  updateRentalApplication,
+} from "../utils/storage";
 import { downloadSubmittedAppPdf } from "../utils/rentalApplicationPdf";
 import { isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
 
@@ -211,6 +218,9 @@ export default function RentalApplication() {
   const [error, setError] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeSession, setResumeSession] = useState(null);
+  const [duplicateNotice, setDuplicateNotice] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
 
   useEffect(() => {
@@ -225,11 +235,45 @@ export default function RentalApplication() {
           ),
         ]);
         if (!cancelled) setListing(result);
+        const params = new URLSearchParams(window.location.search);
+        const resumeRecordId = params.get("resumeRecordId");
+        const resumeToken = params.get("token");
+        if (resumeRecordId && resumeToken) {
+          if (!cancelled) setResumeLoading(true);
+          try {
+            const resumed = await getRentalApplicationResume(listingId, resumeRecordId, resumeToken);
+            if (!cancelled) {
+              setForm((prev) => ({ ...prev, ...(resumed?.data || {}) }));
+              setResumeSession({ recordId: resumed.recordId, token: resumeToken, submittedAt: resumed.submittedAt });
+            }
+          } catch (resumeError) {
+            if (!cancelled) setError(resumeError.message || "This application link is invalid or expired.");
+          } finally {
+            if (!cancelled) setResumeLoading(false);
+          }
+        }
       } catch {
         try {
           const all = await getPublicListings();
           const fallback = all.find((item) => item.id === listingId) || null;
           if (!cancelled) setListing(fallback);
+          const params = new URLSearchParams(window.location.search);
+          const resumeRecordId = params.get("resumeRecordId");
+          const resumeToken = params.get("token");
+          if (resumeRecordId && resumeToken) {
+            if (!cancelled) setResumeLoading(true);
+            try {
+              const resumed = await getRentalApplicationResume(listingId, resumeRecordId, resumeToken);
+              if (!cancelled) {
+                setForm((prev) => ({ ...prev, ...(resumed?.data || {}) }));
+                setResumeSession({ recordId: resumed.recordId, token: resumeToken, submittedAt: resumed.submittedAt });
+              }
+            } catch (resumeError) {
+              if (!cancelled) setError(resumeError.message || "This application link is invalid or expired.");
+            } finally {
+              if (!cancelled) setResumeLoading(false);
+            }
+          }
         } catch {
           if (!cancelled) setListing(null);
         }
@@ -267,6 +311,7 @@ export default function RentalApplication() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    setDuplicateNotice("");
 
     if (!clean(form.applicantName)) {
       setError("Applicant name is required.");
@@ -374,7 +419,7 @@ export default function RentalApplication() {
 
     setSubmitting(true);
     try {
-      const result = await saveRentalApplication({
+      const applicationData = {
         listingId,
         applicantName: clean(form.applicantName),
         email: clean(form.email),
@@ -425,8 +470,19 @@ export default function RentalApplication() {
         reasonForMoving: clean(form.currentResidenceReasonForLeaving),
         parkingRequest: vehicleSummary,
         additionalNotes,
+      };
+      const result = resumeSession
+        ? await updateRentalApplication(listingId, resumeSession.recordId, resumeSession.token, applicationData)
+        : await saveRentalApplication(applicationData);
+      if (result?.duplicate) {
+        setDuplicateNotice(result.message || "We found an existing application for this property. If you need to make changes, please continue with your existing application.");
+        return;
+      }
+      setSubmitted({
+        ...result,
+        updated: Boolean(resumeSession),
+        submittedAt: result?.submittedAt || resumeSession?.submittedAt,
       });
-      setSubmitted(result);
     } catch (err) {
       setError(
         err.message || "Submission failed. Please try again."
@@ -436,7 +492,7 @@ export default function RentalApplication() {
     }
   }
 
-  if (loading) {
+  if (loading || resumeLoading) {
     return (
       <div
         style={{
@@ -579,7 +635,7 @@ export default function RentalApplication() {
         <div className="card" style={{ textAlign: "center", padding: "40px 32px" }}>
           <div style={{ fontSize: "3rem", marginBottom: 16 }}>✅</div>
           <h1 style={{ fontWeight: 800, fontSize: "1.4rem", marginBottom: 8 }}>
-            Application Submitted
+            {submitted.updated ? "Application Updated" : "Application Submitted"}
           </h1>
           <p
             style={{
@@ -588,7 +644,9 @@ export default function RentalApplication() {
               lineHeight: 1.7,
             }}
           >
-            Your application has been submitted. If shortlisted, you will receive a secure document upload link by email.
+            {submitted.updated
+              ? "Your existing application has been updated. Your reference number remains the same."
+              : "Your application has been submitted. If shortlisted, you will receive a secure document upload link by email."}
           </p>
           <div
             style={{
@@ -721,6 +779,15 @@ export default function RentalApplication() {
       {error && (
         <div className="notice notice--error" style={{ marginBottom: 20 }}>
           <p>{error}</p>
+        </div>
+      )}
+
+      {duplicateNotice && (
+        <div className="notice notice--info" style={{ marginBottom: 20 }}>
+          <p style={{ fontWeight: 700, marginBottom: 6 }}>Existing Application</p>
+          <p>{duplicateNotice}</p>
+          <p style={{ marginTop: 8, fontWeight: 700 }}>Continue / Update Existing Application</p>
+          <p style={{ marginTop: 4 }}>Please use the secure link sent to the applicant email address to continue.</p>
         </div>
       )}
 

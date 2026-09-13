@@ -326,6 +326,31 @@ export async function saveRentalApplication(data) {
   return { success: true, recordId: `APP-${year}-${num}`, pdfUrl: "", submittedAt: new Date().toISOString() };
 }
 
+export async function getRentalApplicationResume(listingId, recordId, token) {
+  if (!isApiConnected() || !listingId || !recordId || !token) {
+    throw new Error("This application link is invalid or expired.");
+  }
+  return apiPost({
+    action: "getRentalApplicationResume",
+    listingId,
+    recordId,
+    token,
+  });
+}
+
+export async function updateRentalApplication(listingId, recordId, token, data) {
+  if (!isApiConnected() || !listingId || !recordId || !token) {
+    throw new Error("This application link is invalid or expired.");
+  }
+  return apiPost({
+    action: "updateRentalApplication",
+    listingId,
+    recordId,
+    token,
+    data,
+  });
+}
+
 export async function getApplicationsByListing(listingId) {
   if (!isApiConnected() || !listingId) return [];
   return apiPost({ action: "getApplicationsByListing", listingId, ...getStudioRequestAuth("rental") });
