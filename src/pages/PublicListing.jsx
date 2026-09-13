@@ -984,10 +984,11 @@ export default function PublicListing({ lang = "en" }) {
               <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   "A completed rental application for each adult occupant",
+                  "Identity verification",
                   "Proof of income and/or employment",
                   "Credit report, or written consent if a credit report is requested as part of the rental process",
                   "References",
-                  "Tenant insurance with a minimum of $1 million third-party liability coverage",
+                  "Proof of tenant insurance prior to move-in, with a minimum of $1 million in third-party liability coverage",
                 ].map((req, i) => (
                   <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: "0.875rem", lineHeight: 1.6 }}>
                     <span style={{ color: "#3e5b4b", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>✓</span>
