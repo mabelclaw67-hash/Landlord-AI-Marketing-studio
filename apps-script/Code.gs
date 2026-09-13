@@ -4471,9 +4471,8 @@ function getApplicantSensitiveRootFolder_() {
     var folder = DriveApp.getFolderById(APPLICANT_SENSITIVE_ROOT_FOLDER_ID);
     var actualName = String(folder.getName() || "").trim();
     if (actualName !== APPLICANT_SENSITIVE_ROOT_FOLDER_NAME) {
-      throw new Error(
-        "Expected folder name \"" + APPLICANT_SENSITIVE_ROOT_FOLDER_NAME +
-        "\" but found \"" + actualName + "\"."
+      Logger.log(
+        "[ApplicantSensitiveData] Canonical root descriptive name differs; using the configured folder ID."
       );
     }
     keepDriveItemPrivate_(folder, "applicant sensitive data folder");
@@ -4494,9 +4493,12 @@ function getApplicantSensitiveRootFolder_() {
 function findApplicantSensitiveRootFolder_() {
   try {
     var folder = DriveApp.getFolderById(APPLICANT_SENSITIVE_ROOT_FOLDER_ID);
-    return String(folder.getName() || "").trim() === APPLICANT_SENSITIVE_ROOT_FOLDER_NAME
-      ? folder
-      : null;
+    if (String(folder.getName() || "").trim() !== APPLICANT_SENSITIVE_ROOT_FOLDER_NAME) {
+      Logger.log(
+        "[ApplicantSensitiveData] Canonical root descriptive name differs; using the configured folder ID."
+      );
+    }
+    return folder;
   } catch (e) {
     Logger.log(
       "[ApplicantSensitiveData] Canonical root lookup failed: " +

@@ -18,6 +18,7 @@ function iterator(items) {
 
 function makeFolder(id, name) {
   const childFolders = [];
+  let sharingCalls = 0;
   return {
     id,
     name,
@@ -25,7 +26,8 @@ function makeFolder(id, name) {
     getId() { return this.id; },
     getName() { return this.name; },
     setName(next) { this.name = next; return this; },
-    setSharing() { return this; },
+    setSharing() { sharingCalls++; return this; },
+    getSharingCalls() { return sharingCalls; },
     getFolders() { return iterator(childFolders); },
     getFoldersByName(childName) {
       return iterator(childFolders.filter((folder) => folder.getName() === childName));
@@ -118,6 +120,23 @@ check(resolved.getId() === "listing-folder-1", "reuses the existing Listing ID f
 check(resolved.getName() === "LST-TEST-001 - 123 Main St", "renames from exact 01 Listings Property Address");
 check(first.getCreateCount() === 0, "does not create a second listing folder");
 check(first.requestedFolderIds.every((id) => id === "1rP1Z05zTkOh8Rp9NMdXOrWEh8t7Qi2nA"), "uses only the canonical root ID");
+
+// The configured Folder ID is authoritative even when the descriptive Drive
+// name has been changed. Privacy enforcement still runs on the resolved root.
+const renamedRoot = loadSandbox({ rootName: "09 Applicant Sensitive Data" });
+const renamedRootResolved = renamedRoot.sandbox.getApplicantSensitiveRootFolder_();
+check(renamedRootResolved.getId() === "1rP1Z05zTkOh8Rp9NMdXOrWEh8t7Qi2nA", "accepts the canonical root after a descriptive rename");
+check(renamedRoot.canonicalRoot.getSharingCalls() === 1, "keeps root privacy enforcement after a descriptive rename");
+
+const differentlyRenamedRoot = loadSandbox({ rootName: "Renamed private applicant root" });
+check(
+  differentlyRenamedRoot.sandbox.findApplicantSensitiveRootFolder_().getId() === "1rP1Z05zTkOh8Rp9NMdXOrWEh8t7Qi2nA",
+  "read-only root lookup accepts any name for the configured Folder ID"
+);
+check(
+  differentlyRenamedRoot.requestedFolderIds.every((id) => id === "1rP1Z05zTkOh8Rp9NMdXOrWEh8t7Qi2nA"),
+  "renamed root lookup never falls back to a name-based folder search"
+);
 
 // A missing listing folder is created once; the second call reuses it.
 const second = loadSandbox();
