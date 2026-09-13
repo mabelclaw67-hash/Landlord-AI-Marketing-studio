@@ -6607,7 +6607,7 @@ function getAllApplications_(auth) {
     .filter(function(row) { return !!colVal_(row, headerMap, "Record ID"); })
     .map(function(row) { return rowToApplication_(row, headerMap); })
     .map(function(app) {
-      return sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, false), auth);
+      return sanitizeApplicantReportLinksForAccess_(app, auth);
     });
 }
 
