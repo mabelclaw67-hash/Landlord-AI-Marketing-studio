@@ -2768,10 +2768,15 @@ function getAdminSettings_(auth) {
 function resolveAccessContext_(payload, moduleName, options) {
   payload = payload || {};
   options = options || {};
+  // getAdminAccessCode_() opens the spreadsheet and reads "08 System Settings" —
+  // skip that round trip entirely when the caller didn't even send a code
+  // (every anonymous public getListings call on /rentals and /apply).
   var adminAccessCode = String(payload.adminAccessCode || "").trim();
-  var expectedAdminCode = getAdminAccessCode_();
-  if (options.allowAdmin !== false && adminAccessCode && expectedAdminCode && adminAccessCode === expectedAdminCode) {
-    return { mode: "admin", module: moduleName || "" };
+  if (options.allowAdmin !== false && adminAccessCode) {
+    var expectedAdminCode = getAdminAccessCode_();
+    if (expectedAdminCode && adminAccessCode === expectedAdminCode) {
+      return { mode: "admin", module: moduleName || "" };
+    }
   }
 
   if (options.allowNoAccess) {
@@ -2836,9 +2841,14 @@ function getListings_(auth) {
   var numCols   = sheet.getLastColumn();
   var headerMap = getHeaderMap_(sheet);
   var data      = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  // Anonymous /rentals and /apply visitors never see these fields (stripped
+  // below by sanitizeListingForAccess_) — skip parsing them at all for that
+  // case. Admin and any internal no-auth caller (e.g. syncAllVideoUrls_ run
+  // from the Apps Script editor) still get full data.
+  var isPublic  = !!auth && auth.mode === "public";
 
   return data
-    .map(function(row) { return rowToListing_(row, headerMap); })
+    .map(function(row) { return rowToListing_(row, headerMap, isPublic); })
     .filter(function(l) { return canAccessListingRecord_(l, auth); })
     .map(function(l) { return sanitizeListingForAccess_(l, auth); })
     .filter(function(l) { return !!l.id; });
@@ -2891,7 +2901,11 @@ function sanitizeListingForAccess_(listing, auth) {
     safe[key] = listing[key];
   }
 
+  // Trial access has been retired — admin returns above, so only "public"
+  // reaches here. Neither driveFolderLink nor outputs (admin-generated
+  // marketing copy) is needed by anonymous /rentals or /apply visitors.
   delete safe.driveFolderLink;
+  delete safe.outputs;
   delete safe.driveFiles;
   delete safe.enhancedFolderId;
   delete safe.reviewStatus;
@@ -2904,7 +2918,14 @@ function sanitizeListingForAccess_(listing, auth) {
 }
 
 // Convert a sheet row to a listing object using header-name lookup.
-function rowToListing_(row, headerMap) {
+// skipHeavyFields (public /rentals and /apply bulk reads only — never admin,
+// whose own studio UI needs the real values) avoids JSON.parse-ing
+// the admin-managed blob columns (Outputs, Review Status, Compliance Flag,
+// Media Checklist, Drive Files) that sanitizeListingForAccess_ strips out of
+// the public response anyway. Skipping the parse (not just the post-hoc
+// delete) is what saves the CPU time across every row of a bulk getListings_
+// call for anonymous visitors.
+function rowToListing_(row, headerMap, skipHeavyFields) {
   function col(name) { return colVal_(row, headerMap, name); }
   return {
     id:              col("Listing ID"),
@@ -2938,11 +2959,11 @@ function rowToListing_(row, headerMap) {
     openHouseDateTime: col("Open House Date / Time") || "",
     openHouseViewingInstructions: col("Open House Viewing Instructions") || "",
     openHouseParkingNotes: col("Open House Parking Notes") || "",
-    outputs:          tryParse_(col("Outputs"),         {}),
-    reviewStatus:     tryParse_(col("Review Status"),   {}),
-    complianceFlag:   tryParse_(col("Compliance Flag"), {}),
-    mediaChecklist:  tryParse_(col("Media Checklist"), [false, false, false, false]),
-    driveFiles:      tryParse_(col("Drive Files"),     []),
+    outputs:          skipHeavyFields ? {} : tryParse_(col("Outputs"),         {}),
+    reviewStatus:     skipHeavyFields ? {} : tryParse_(col("Review Status"),   {}),
+    complianceFlag:   skipHeavyFields ? {} : tryParse_(col("Compliance Flag"), {}),
+    mediaChecklist:  skipHeavyFields ? [false, false, false, false] : tryParse_(col("Media Checklist"), [false, false, false, false]),
+    driveFiles:      skipHeavyFields ? [] : tryParse_(col("Drive Files"),     []),
     enhancedFolderId: col("Enhanced Folder ID") || null,
     videoUrl:         col("videoUrl")           || null,
     publicVideoUrl:   col("publicVideoUrl")     || null,

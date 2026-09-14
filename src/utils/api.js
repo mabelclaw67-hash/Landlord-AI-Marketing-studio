@@ -23,6 +23,32 @@ export function isApiConnected() {
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
 
+// No request to the Apps Script backend may hang forever — a slow/stuck
+// execution must not leave a page stuck on "Loading..." indefinitely. 18s
+// sits inside the 15-20s window callers are expected to design around,
+// leaving headroom for the redirect-retry loop above it.
+const REQUEST_TIMEOUT_MS = 18000;
+
+function timeoutError() {
+  return Object.assign(new Error("Request timed out. Please try again."), { isTimeout: true });
+}
+
+// fetch() with a hard deadline. AbortController cancels the in-flight
+// request at REQUEST_TIMEOUT_MS so a stuck Apps Script execution can never
+// leave the caller waiting past that point.
+async function fetchWithTimeout(input, init) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (ex) {
+    if (ex?.name === "AbortError") throw timeoutError();
+    throw ex;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Reads are idempotent, and every write listed here overwrites a fixed target
 // (same sheet row, or same Drive filename, which uploadToSubfolder_ trashes
 // before recreating). Append-style actions — saveContact, saveRentalApplication,
@@ -66,7 +92,7 @@ export async function apiGet(params) {
     const json = await withRedirectRetry(async () => {
       // Bust the Apps Script GET cache per attempt, not per call.
       url.searchParams.set("_t", String(Date.now()));
-      const res = await fetch(url.toString(), { redirect: "follow", cache: "no-store" });
+      const res = await fetchWithTimeout(url.toString(), { redirect: "follow", cache: "no-store" });
       if (!res.ok) throw Object.assign(new Error(`API GET error: ${res.status}`), { httpStatus: res.status });
       const body = await res.json();
       if (body.error) throw Object.assign(new Error(body.error), { httpStatus: res.status });
@@ -91,7 +117,7 @@ export async function apiPost(body) {
   const payload = JSON.stringify(body);
   try {
     const json = await withRedirectRetry(async () => {
-      const res = await fetch(EXEC_URL, {
+      const res = await fetchWithTimeout(EXEC_URL, {
         method: "POST",
         redirect: "follow",
         headers: { "Content-Type": "text/plain" },

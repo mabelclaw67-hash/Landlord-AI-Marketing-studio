@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getPublicListings } from "../utils/storage";
 import { COMPANY_FOOTER } from "../components/Footer";
 import { getListingStatusMeta, isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
 import { sortRentalListings } from "../utils/listingSort";
 import RentalApplicationNotice from "../components/RentalApplicationNotice";
+import { usePublicRentalListings } from "../hooks/usePublicRentalListings";
 
 function formatDate(value) {
   if (!value) return "";
@@ -14,31 +13,8 @@ function formatDate(value) {
 }
 
 export default function RentalApplicationLanding() {
-  const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getPublicListings()
-      .then((rows) => {
-        if (cancelled) return;
-        const availableListings = (rows || [])
-          .filter(isRentalListingAcceptingApplications);
-        setListings(sortRentalListings(availableListings));
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || "Unable to load rental listings.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { listings: rawListings, loading, error, retry } = usePublicRentalListings();
+  const listings = sortRentalListings(rawListings.filter(isRentalListingAcceptingApplications));
 
   return (
     <div className="page-wrapper tenant-page">
@@ -67,6 +43,9 @@ export default function RentalApplicationLanding() {
           {!loading && error && (
             <div className="notice notice--error">
               <p>{error}</p>
+              <button type="button" className="btn btn--primary" style={{ marginTop: 10 }} onClick={retry}>
+                Retry
+              </button>
             </div>
           )}
 

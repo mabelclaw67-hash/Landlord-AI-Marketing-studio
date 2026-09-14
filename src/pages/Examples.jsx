@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getPublicListingFolderFiles, getPublicListingSubfolderFiles, getPublicListings } from "../utils/storage";
+import { getPublicListingFolderFiles, getPublicListingSubfolderFiles } from "../utils/storage";
 import { buildPublicSiteUrl } from "../utils/publicUrls";
+import { usePublicRentalListings } from "../hooks/usePublicRentalListings";
 import ShareButton from "../components/ShareButton";
 import ShareKit from "../components/ShareKit";
 import { RentalApplicationProcessCard } from "../components/RentalApplicationProcessPanel";
@@ -51,6 +52,7 @@ const RENTAL_PUBLIC_TEXT = {
     // Listing card labels (unchanged)
     loading: "Loading listings...",
     loadError: "Failed to load listings:",
+    retry: "Retry",
     emptyTitle: "No listings available right now.",
     emptyDesc: "New homes are added regularly — please check back soon or apply to be notified.",
     photoUnavailable: "Photo unavailable",
@@ -140,6 +142,7 @@ const RENTAL_PUBLIC_TEXT = {
     // Listing card labels (unchanged)
     loading: "正在加载出租房源...",
     loadError: "出租房源加载失败：",
+    retry: "重试",
     emptyTitle: "目前暂无可租房源。",
     emptyDesc: "新房源会定期更新，请稍后再来查看，或先提交申请以便通知。",
     photoUnavailable: "照片暂不可用",
@@ -273,14 +276,18 @@ function formatDate(val) {
 export default function Examples({ lang = "en" }) {
   const safeLang = lang === "zh" ? "zh" : "en";
   const labels = RENTAL_PUBLIC_TEXT[safeLang];
-  const [listings, setListings] = useState([]);
+  const { listings: rawListings, loading, error, retry } = usePublicRentalListings();
   const [coverPhotos, setCoverPhotos] = useState({});
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
   const [showQr,   setShowQr]   = useState(false);
   const [portalCopied, setPortalCopied] = useState(false);
 
   const portalUrl = buildPublicSiteUrl("/rentals");
+
+  const active = rawListings.filter((listing) =>
+    (listing.status || "").trim().toLowerCase() === "published"
+    && getListingStatusMeta(listing).status !== "Unavailable"
+  );
+  const listings = sortRentalListings(active);
 
   const copyPortalLink = async () => {
     try {
@@ -292,60 +299,47 @@ export default function Examples({ lang = "en" }) {
     }
   };
 
+  // Cover photos load in a second pass, after the listing cards themselves
+  // are already visible — this must never gate the "Loading listings..."
+  // state above it.
   useEffect(() => {
+    if (loading || active.length === 0) return;
     let cancelled = false;
 
-    async function load() {
-      try {
-        const all = await getPublicListings();
-        const active = (all || []).filter((listing) =>
-          (listing.status || "").trim().toLowerCase() === "published"
-          && getListingStatusMeta(listing).status !== "Unavailable"
-        );
-        if (cancelled) return;
-        setListings(sortRentalListings(active));
-        setCoverPhotos(Object.fromEntries(
-          active.map((listing) => [
-            listing.id,
-            resolveRentalListingCover([], [], listing.coverImageFileId),
-          ])
-        ));
-        setLoading(false);
+    setCoverPhotos(Object.fromEntries(
+      active.map((listing) => [
+        listing.id,
+        resolveRentalListingCover([], [], listing.coverImageFileId),
+      ])
+    ));
 
-        Promise.all(
-          active.map(async (listing) => {
-            try {
-              const [rootFiles, subfolder] = await Promise.all([
-                getPublicListingFolderFiles("", listing.id).catch(() => []),
-                getPublicListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
-              ]);
-              const coverPhoto = resolveRentalListingCover(
-                rootFiles || [],
-                subfolder?.files || [],
-                listing.coverImageFileId
-              );
-              return [listing.id, coverPhoto];
-            } catch {
-              return [listing.id, resolveRentalListingCover([], [], listing.coverImageFileId)];
-            }
-          })
-        ).then((coverEntries) => {
-          if (cancelled) return;
-          setCoverPhotos(Object.fromEntries(coverEntries));
-        });
-      } catch (err) {
-        if (cancelled) return;
-        setError(err.message);
-        setLoading(false);
-      }
-    }
-
-    load();
+    Promise.all(
+      active.map(async (listing) => {
+        try {
+          const [rootFiles, subfolder] = await Promise.all([
+            getPublicListingFolderFiles("", listing.id).catch(() => []),
+            getPublicListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
+          ]);
+          const coverPhoto = resolveRentalListingCover(
+            rootFiles || [],
+            subfolder?.files || [],
+            listing.coverImageFileId
+          );
+          return [listing.id, coverPhoto];
+        } catch {
+          return [listing.id, resolveRentalListingCover([], [], listing.coverImageFileId)];
+        }
+      })
+    ).then((coverEntries) => {
+      if (cancelled) return;
+      setCoverPhotos(Object.fromEntries(coverEntries));
+    });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, rawListings]);
 
   return (
     <div className="page-wrapper tenant-page rental-portal">
@@ -391,6 +385,9 @@ export default function Examples({ lang = "en" }) {
           {error && (
             <div className="notice notice--error" style={{ margin: "16px 0" }}>
               <p>{labels.loadError} {error}</p>
+              <button type="button" className="btn btn--primary" style={{ marginTop: 10 }} onClick={retry}>
+                {labels.retry}
+              </button>
             </div>
           )}
 
