@@ -2838,15 +2838,32 @@ function parsePlatforms_(val) {
 // every visitor, so they're safe to share across requests via CacheService.
 // Admin reads are never cached — an admin must see their own edit immediately.
 var PUBLIC_LISTINGS_CACHE_KEY = "publicListingsJson_v1";
-var PUBLIC_LISTING_COVERS_CACHE_KEY = "publicListingCoverBundle_v1";
+var PUBLIC_LISTING_COVER_CACHE_PREFIX = "pubCover_";
 var PUBLIC_CACHE_TTL_SECONDS = 300; // 5 minutes
 
 function invalidatePublicListingsCache_() {
   try {
-    CacheService.getScriptCache().removeAll([PUBLIC_LISTINGS_CACHE_KEY, PUBLIC_LISTING_COVERS_CACHE_KEY]);
+    CacheService.getScriptCache().remove(PUBLIC_LISTINGS_CACHE_KEY);
   } catch (ex) {
     // Cache is a pure optimization on top of the Sheet/Drive source of truth
     // — never let a cache failure block a write.
+  }
+}
+
+// Per-listing cover cache key, not a single combined key: a combined
+// bundle for every published listing serialized to well over the
+// CacheService 100KB-per-value limit in production (measured ~280KB for 20
+// listings), which made cache.put() throw on every request — silently
+// swallowed, so the cache never actually engaged and every request paid
+// the full serial Drive-scan cost (25-40s+). Keying per listing keeps each
+// cached value small and lets most listings stay warm even when one
+// listing's own photos just changed.
+function invalidatePublicListingCoverCache_(listingId) {
+  if (!listingId) return;
+  try {
+    CacheService.getScriptCache().remove(PUBLIC_LISTING_COVER_CACHE_PREFIX + listingId);
+  } catch (ex) {
+    // Cache is a pure optimization — never let a cache failure block a write.
   }
 }
 
@@ -2897,10 +2914,6 @@ function getListings_(auth) {
 // so the picked photo is identical to what the per-listing calls produced.
 function getPublicListingCoverBundle_() {
   var cache = CacheService.getScriptCache();
-  var cached = cache.get(PUBLIC_LISTING_COVERS_CACHE_KEY);
-  if (cached) {
-    try { return JSON.parse(cached); } catch (ex) { /* fall through and rebuild */ }
-  }
 
   var sheet = getSheet_(LISTINGS_SHEET);
   ensureHeaders_(sheet, LISTING_HEADERS);
@@ -2913,30 +2926,56 @@ function getPublicListingCoverBundle_() {
   var data      = sheet.getRange(2, 1, last - 1, numCols).getValues();
   var publicAuth = { mode: "public" };
 
+  var publishedListings = [];
   for (var i = 0; i < data.length; i++) {
     var listing = rowToListing_(data[i], headerMap, true);
     if (!listing.id || !canAccessListingRecord_(listing, publicAuth)) continue;
+    publishedListings.push(listing);
+  }
 
+  var cacheKeys = publishedListings.map(function(l) { return PUBLIC_LISTING_COVER_CACHE_PREFIX + l.id; });
+  var cached = cacheKeys.length ? cache.getAll(cacheKeys) : {};
+  var toCache = {};
+
+  publishedListings.forEach(function(listing) {
+    var key = PUBLIC_LISTING_COVER_CACHE_PREFIX + listing.id;
+    if (cached[key]) {
+      try {
+        bundle[listing.id] = JSON.parse(cached[key]);
+        return;
+      } catch (ex) { /* fall through and rebuild this listing's entry */ }
+    }
+
+    var entry;
     var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
-    if (!folderId) { bundle[listing.id] = { rootFiles: [], coverFiles: [] }; continue; }
-
-    try {
-      var folder = DriveApp.getFolderById(folderId);
-      var rootFiles = listDriveMediaFiles_(folder, { includeVideos: false });
-      var coverFiles = [];
-      var subIt = folder.getFoldersByName("03_Cover_Images");
-      if (subIt.hasNext()) {
-        coverFiles = listDriveMediaFiles_(subIt.next(), { includeVideos: true });
+    if (!folderId) {
+      entry = { rootFiles: [], coverFiles: [] };
+    } else {
+      try {
+        var folder = DriveApp.getFolderById(folderId);
+        var rootFiles = listDriveMediaFiles_(folder, { includeVideos: false });
+        var coverFiles = [];
+        var subIt = folder.getFoldersByName("03_Cover_Images");
+        if (subIt.hasNext()) {
+          coverFiles = listDriveMediaFiles_(subIt.next(), { includeVideos: true });
+        }
+        entry = { rootFiles: rootFiles, coverFiles: coverFiles };
+      } catch (ex) {
+        entry = { rootFiles: [], coverFiles: [] };
       }
-      bundle[listing.id] = { rootFiles: rootFiles, coverFiles: coverFiles };
-    } catch (ex) {
-      bundle[listing.id] = { rootFiles: [], coverFiles: [] };
+    }
+    bundle[listing.id] = entry;
+
+    var json = JSON.stringify(entry);
+    if (json.length < 90000) toCache[key] = json; // stay safely under the 100KB-per-value cap
+  });
+
+  if (Object.keys(toCache).length > 0) {
+    try { cache.putAll(toCache, PUBLIC_CACHE_TTL_SECONDS); } catch (ex) {
+      // Cache is a pure optimization — never let a cache failure break the response.
     }
   }
 
-  try { cache.put(PUBLIC_LISTING_COVERS_CACHE_KEY, JSON.stringify(bundle), PUBLIC_CACHE_TTL_SECONDS); } catch (ex) {
-    // Payload over the 100KB CacheService limit, or cache unavailable — safe to skip.
-  }
   return bundle;
 }
 
@@ -3391,6 +3430,7 @@ function saveListingUnlocked_(data, auth) {
 
   SpreadsheetApp.flush(); // commit writes before returning response
   invalidatePublicListingsCache_();
+  invalidatePublicListingCoverCache_(data.id); // covers a cover-image selection change (Cover Image File ID)
 
   var rentedNotification = null;
   var previousTenantStatus = existingRow > 0 ? (existingListing.listingStatus || existingListing.tenantListingStatus || existingListing.publicStatus) : "";
@@ -7140,7 +7180,7 @@ function uploadToSubfolder_(body, auth) {
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
   var fileId = file.getId();
-  invalidatePublicListingsCache_(); // covers the common case: a new listing photo/cover upload
+  invalidatePublicListingCoverCache_(body.listingId); // new/replaced photo for this listing
   return {
     fileId:          fileId,
     url:             file.getUrl(),
