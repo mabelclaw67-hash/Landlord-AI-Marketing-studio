@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { getPublicListingFolderFiles, getPublicListingSubfolderFiles } from "../utils/storage";
+import { getPublicListingCoverBundle } from "../utils/storage";
 import { buildPublicSiteUrl } from "../utils/publicUrls";
 import { usePublicRentalListings } from "../hooks/usePublicRentalListings";
 import ShareButton from "../components/ShareButton";
@@ -302,6 +302,13 @@ export default function Examples({ lang = "en" }) {
   // Cover photos load in a second pass, after the listing cards themselves
   // are already visible — this must never gate the "Loading listings..."
   // state above it.
+  //
+  // One batched request fetches every listing's root photo list + cover
+  // subfolder list in a single Apps Script execution (was previously 2
+  // separate requests per listing, i.e. 2N round trips for N listings).
+  // Cover selection itself still runs through the same
+  // resolveRentalListingCover() used by the detail page, so the chosen
+  // photo per listing is unchanged.
   useEffect(() => {
     if (loading || active.length === 0) return;
     let cancelled = false;
@@ -313,27 +320,24 @@ export default function Examples({ lang = "en" }) {
       ])
     ));
 
-    Promise.all(
-      active.map(async (listing) => {
-        try {
-          const [rootFiles, subfolder] = await Promise.all([
-            getPublicListingFolderFiles("", listing.id).catch(() => []),
-            getPublicListingSubfolderFiles("", "03_Cover_Images", listing.id).catch(() => ({ files: [] })),
-          ]);
-          const coverPhoto = resolveRentalListingCover(
-            rootFiles || [],
-            subfolder?.files || [],
-            listing.coverImageFileId
-          );
-          return [listing.id, coverPhoto];
-        } catch {
-          return [listing.id, resolveRentalListingCover([], [], listing.coverImageFileId)];
-        }
+    getPublicListingCoverBundle()
+      .then((bundle) => {
+        if (cancelled) return;
+        setCoverPhotos(Object.fromEntries(
+          active.map((listing) => {
+            const entry = bundle?.[listing.id];
+            const coverPhoto = resolveRentalListingCover(
+              entry?.rootFiles || [],
+              entry?.coverFiles || [],
+              listing.coverImageFileId
+            );
+            return [listing.id, coverPhoto];
+          })
+        ));
       })
-    ).then((coverEntries) => {
-      if (cancelled) return;
-      setCoverPhotos(Object.fromEntries(coverEntries));
-    });
+      .catch(() => {
+        // Leave the coverImageFileId-only placeholders already set above.
+      });
 
     return () => {
       cancelled = true;

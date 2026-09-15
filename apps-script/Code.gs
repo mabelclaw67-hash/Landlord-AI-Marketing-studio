@@ -259,13 +259,14 @@ function rentalDoGet_(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getDailyMarketBrief", "getRetirementBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getDailyMarketBrief", "getRetirementBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
     if (action === "getListingById")      return ok(getListingById_(e.parameter.listingId, auth));
     if (action === "getListingFolder")    return ok(getListingFolderFiles_(e.parameter.folderId, e.parameter.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(e.parameter.folderId, e.parameter.subfolderName, e.parameter.listingId, auth));
+    if (action === "getPublicListingCovers") return ok(getPublicListingCoverBundle_());
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
     if (action === "getRetirementBrief") return ok(getRetirementBrief_(e && e.parameter ? e.parameter.date : ""));
     if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
@@ -287,7 +288,7 @@ function rentalDoPost_(e) {
       assertPublicUploadBridge_(body);
     }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "saveRentalApplication", "getRentalApplicationResume", "updateRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "saveRentalApplication", "getRentalApplicationResume", "updateRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -297,6 +298,7 @@ function rentalDoPost_(e) {
     if (action === "getListingById")    return ok(getListingById_(body.listingId, auth));
     if (action === "getListingFolder")  return ok(getListingFolderFiles_(body.folderId, body.listingId, auth));
     if (action === "getListingSubfolder") return ok(getListingSubfolderFiles_(body.folderId, body.subfolderName, body.listingId, auth));
+    if (action === "getPublicListingCovers") return ok(getPublicListingCoverBundle_());
     if (action === "getCollagePhotoData") return ok(getCollagePhotoData_(body.listingId, body.fileIds, auth));
     if (action === "generateListingId") return ok({ listingId: generateListingId_() });
     if (action === "saveListing")       return ok(saveListing_(body.data, auth));
@@ -2832,7 +2834,32 @@ function parsePlatforms_(val) {
 
 // ── Listings ──────────────────────────────────────────────────────────────────
 
+// Public reads (anonymous /rentals and /apply visitors) are identical for
+// every visitor, so they're safe to share across requests via CacheService.
+// Admin reads are never cached — an admin must see their own edit immediately.
+var PUBLIC_LISTINGS_CACHE_KEY = "publicListingsJson_v1";
+var PUBLIC_LISTING_COVERS_CACHE_KEY = "publicListingCoverBundle_v1";
+var PUBLIC_CACHE_TTL_SECONDS = 300; // 5 minutes
+
+function invalidatePublicListingsCache_() {
+  try {
+    CacheService.getScriptCache().removeAll([PUBLIC_LISTINGS_CACHE_KEY, PUBLIC_LISTING_COVERS_CACHE_KEY]);
+  } catch (ex) {
+    // Cache is a pure optimization on top of the Sheet/Drive source of truth
+    // — never let a cache failure block a write.
+  }
+}
+
 function getListings_(auth) {
+  var isPublic = !!auth && auth.mode === "public";
+  var cache = isPublic ? CacheService.getScriptCache() : null;
+  if (cache) {
+    var cached = cache.get(PUBLIC_LISTINGS_CACHE_KEY);
+    if (cached) {
+      try { return JSON.parse(cached); } catch (ex) { /* fall through and rebuild */ }
+    }
+  }
+
   var sheet = getSheet_(LISTINGS_SHEET);
   ensureHeaders_(sheet, LISTING_HEADERS);
   var last = sheet.getLastRow();
@@ -2845,13 +2872,72 @@ function getListings_(auth) {
   // below by sanitizeListingForAccess_) — skip parsing them at all for that
   // case. Admin and any internal no-auth caller (e.g. syncAllVideoUrls_ run
   // from the Apps Script editor) still get full data.
-  var isPublic  = !!auth && auth.mode === "public";
 
-  return data
+  var result = data
     .map(function(row) { return rowToListing_(row, headerMap, isPublic); })
     .filter(function(l) { return canAccessListingRecord_(l, auth); })
     .map(function(l) { return sanitizeListingForAccess_(l, auth); })
     .filter(function(l) { return !!l.id; });
+
+  if (cache) {
+    try { cache.put(PUBLIC_LISTINGS_CACHE_KEY, JSON.stringify(result), PUBLIC_CACHE_TTL_SECONDS); } catch (ex) {
+      // Payload over the 100KB CacheService limit, or cache unavailable — safe to skip.
+    }
+  }
+  return result;
+}
+
+// Batched replacement for the old per-listing getListingFolder +
+// getListingSubfolder calls the public /rentals grid used to make once per
+// card (2 Apps Script round trips x N listings). This does the same Drive
+// reads server-side in one execution and returns every listing's root photo
+// list + 03_Cover_Images subfolder list keyed by listing id, so the browser
+// makes exactly one request no matter how many listings are published.
+// Cover *selection* still happens on the frontend (resolveRentalListingCover)
+// so the picked photo is identical to what the per-listing calls produced.
+function getPublicListingCoverBundle_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(PUBLIC_LISTING_COVERS_CACHE_KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (ex) { /* fall through and rebuild */ }
+  }
+
+  var sheet = getSheet_(LISTINGS_SHEET);
+  ensureHeaders_(sheet, LISTING_HEADERS);
+  var last = sheet.getLastRow();
+  var bundle = {};
+  if (last < 2) return bundle;
+
+  var numCols   = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var data      = sheet.getRange(2, 1, last - 1, numCols).getValues();
+  var publicAuth = { mode: "public" };
+
+  for (var i = 0; i < data.length; i++) {
+    var listing = rowToListing_(data[i], headerMap, true);
+    if (!listing.id || !canAccessListingRecord_(listing, publicAuth)) continue;
+
+    var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
+    if (!folderId) { bundle[listing.id] = { rootFiles: [], coverFiles: [] }; continue; }
+
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      var rootFiles = listDriveMediaFiles_(folder, { includeVideos: false });
+      var coverFiles = [];
+      var subIt = folder.getFoldersByName("03_Cover_Images");
+      if (subIt.hasNext()) {
+        coverFiles = listDriveMediaFiles_(subIt.next(), { includeVideos: true });
+      }
+      bundle[listing.id] = { rootFiles: rootFiles, coverFiles: coverFiles };
+    } catch (ex) {
+      bundle[listing.id] = { rootFiles: [], coverFiles: [] };
+    }
+  }
+
+  try { cache.put(PUBLIC_LISTING_COVERS_CACHE_KEY, JSON.stringify(bundle), PUBLIC_CACHE_TTL_SECONDS); } catch (ex) {
+    // Payload over the 100KB CacheService limit, or cache unavailable — safe to skip.
+  }
+  return bundle;
 }
 
 function getListingById_(listingId, auth) {
@@ -3304,6 +3390,7 @@ function saveListingUnlocked_(data, auth) {
   }
 
   SpreadsheetApp.flush(); // commit writes before returning response
+  invalidatePublicListingsCache_();
 
   var rentedNotification = null;
   var previousTenantStatus = existingRow > 0 ? (existingListing.listingStatus || existingListing.tenantListingStatus || existingListing.publicStatus) : "";
@@ -7053,6 +7140,7 @@ function uploadToSubfolder_(body, auth) {
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
   var fileId = file.getId();
+  invalidatePublicListingsCache_(); // covers the common case: a new listing photo/cover upload
   return {
     fileId:          fileId,
     url:             file.getUrl(),

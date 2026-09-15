@@ -316,6 +316,17 @@ export async function getPublicListingSubfolderFiles(folderId, subfolderName, li
   return apiPost({ action: "getListingSubfolder", folderId, subfolderName, listingId });
 }
 
+// Batched cover-photo source data for every published listing in one call —
+// replaces what used to be a getListingFolder + getListingSubfolder round
+// trip per listing on the /rentals grid (2N Apps Script requests for N
+// listings). Returns { [listingId]: { rootFiles, coverFiles } }; callers
+// still run resolveRentalListingCover() locally so the picked photo is
+// identical to the old per-listing behavior.
+export async function getPublicListingCoverBundle() {
+  if (!isApiConnected()) return {};
+  return apiPost({ action: "getPublicListingCovers" });
+}
+
 // Upload a file into a subfolder of the listing's own Drive folder.
 // Pass subfolderName="" to upload to the folder root.
 export async function uploadToSubfolder(folderId, subfolderName, file, listingId = "") {
