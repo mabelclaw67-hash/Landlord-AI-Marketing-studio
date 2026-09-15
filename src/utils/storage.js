@@ -10,6 +10,7 @@ import { getStudioRequestAuth, isStudioRequestAuthReady } from "./trialAccess.js
 import { publicUpload } from "./publicUpload.js";
 
 const LISTINGS_KEY = "vanisland_listings_v1";
+const PUBLIC_LISTINGS_LAST_GOOD_KEY = "vanisland_public_listings_last_good_v1";
 
 // Small browser-only SWR cache for the three high-frequency Rental reads.
 // Google Sheets remains the source of truth; this cache only shortens repeat
@@ -22,6 +23,7 @@ const RENTAL_READ_TTLS = {
 
 const rentalReadCache = {
   listings: { value: undefined, expiresAt: 0, refreshPromise: null, generation: 0, listeners: new Set() },
+  publicListings: { value: undefined, expiresAt: 0, refreshPromise: null, generation: 0, listeners: new Set() },
   applicationsByListing: new Map(),
   applicationById: new Map(),
 };
@@ -47,6 +49,7 @@ function refreshRentalRead(entry, loader, ttl, options = {}) {
       if (generation !== entry.generation) return value;
       entry.value = value;
       entry.expiresAt = Date.now() + ttl;
+      if (options.onSuccess) options.onSuccess(value);
       const listeners = [...entry.listeners];
       entry.listeners.clear();
       listeners.forEach((listener) => {
@@ -84,11 +87,12 @@ function cachedRentalRead(cache, key, ttl, loader, options = {}) {
 }
 
 function invalidateRentalListingsCache() {
-  const entry = rentalReadCache.listings;
-  entry.value = undefined;
-  entry.expiresAt = 0;
-  entry.generation += 1;
-  entry.listeners.clear();
+  [rentalReadCache.listings, rentalReadCache.publicListings].forEach((entry) => {
+    entry.value = undefined;
+    entry.expiresAt = 0;
+    entry.generation += 1;
+    entry.listeners.clear();
+  });
 }
 
 function invalidateRentalApplicationCache(recordId, listingId = "") {
@@ -130,6 +134,24 @@ function lsSetAll(listings) {
   localStorage.setItem(LISTINGS_KEY, JSON.stringify(listings));
 }
 
+function getPublicListingsLastGood() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PUBLIC_LISTINGS_LAST_GOOD_KEY) || "null");
+    return Array.isArray(cached) ? cached : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function setPublicListingsLastGood(listings) {
+  if (!Array.isArray(listings)) return;
+  try {
+    localStorage.setItem(PUBLIC_LISTINGS_LAST_GOOD_KEY, JSON.stringify(listings));
+  } catch {
+    // Public rendering remains network/memory based if browser storage is unavailable.
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getListings(options = {}) {
@@ -147,9 +169,23 @@ export async function getListings(options = {}) {
 }
 
 // Public variant: no auth sent — backend returns only Published listings visible to everyone.
-export async function getPublicListings() {
+export async function getPublicListings(options = {}) {
   if (isApiConnected()) {
-    return apiPost({ action: "getListings" });
+    const entry = rentalReadCache.publicListings;
+    if (entry.value === undefined) {
+      const lastGood = getPublicListingsLastGood();
+      if (lastGood !== undefined) {
+        entry.value = lastGood;
+        entry.expiresAt = Date.now() + RENTAL_READ_TTLS.listings;
+      }
+    }
+    return cachedRentalRead(
+      rentalReadCache.publicListings,
+      "",
+      RENTAL_READ_TTLS.listings,
+      () => apiPost({ action: "getListings" }),
+      { ...options, onSuccess: setPublicListingsLastGood },
+    );
   }
   return lsGetAll();
 }

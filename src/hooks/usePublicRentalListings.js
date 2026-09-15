@@ -29,7 +29,14 @@ export function usePublicRentalListings() {
     setStatus("loading");
     setError("");
 
-    getPublicListings()
+    getPublicListings({
+      onRefresh: (rows) => {
+        if (cancelled) return;
+        setListings(rows || []);
+        setError("");
+        setStatus("ready");
+      },
+    })
       .then((rows) => {
         if (cancelled) return;
         setListings(rows || []);
