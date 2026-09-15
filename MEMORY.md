@@ -117,6 +117,8 @@ Handling:
 
 Relevant file: `src/utils/api.js`
 
+**A parallel, unrelated two-leg pattern**: `drive.google.com/thumbnail?id=...` (the URL scheme this project uses for every listing photo) itself answers with a **302** to `lh3.googleusercontent.com/d/<same fileId>=<size>`, for every single request, 100% reproducible — verified directly with `curl -L`. A packet capture showing the same file ID hit on both hosts is this redirect, not app-level duplication, a retry, or a fallback path. There is no `lh3.googleusercontent.com` fallback logic anywhere in this codebase for public pages (confirmed by search) — don't go looking for one, and don't try to "fix" it; it's Google's own Drive-thumbnail infrastructure and cannot be bypassed by changing request parameters.
+
 ---
 
 ## 8. Admin Authentication
@@ -153,7 +155,28 @@ Never rely solely on React transient state, browser blob cache, or current-sessi
 
 ---
 
-## 10. Key Commits
+## 10. Public Cover Photo Batching & Cache
+
+- The `/rentals` grid needs one cover photo per listing. Doing this via N separate per-listing Drive-folder reads (`getListingFolder` + `getListingSubfolder`, once per listing, run from the browser) produces **2N requests per page load** — this actually happened (20+ requests observed against the exec endpoint) and is the wrong pattern for any "one thing per row in a list" read.
+- **Correct pattern**: one batched backend action (`getPublicListingCoverBundle_`, `apps-script/Code.gs`) that loops over every listing *inside a single Apps Script execution* and returns `{ [listingId]: { rootFiles, coverFiles } }` in one response. The frontend still runs the existing `resolveRentalListingCover()` (`src/utils/listingPublicMeta.js`) locally per listing from that data — cover *selection* logic stays in the one place it already lived, only the *data fetch* moved server-side.
+- **CacheService has a hard 100KB-per-value limit, and it fails silently if you're not checking.** Caching the whole multi-listing bundle under one combined key works fine in dev with a handful of listings and then silently breaks in production once the payload crosses ~100KB (measured 285KB for 20 listings) — `cache.put()` throws, a bare `try/catch` swallows it without a trace, and the cache **never engages again**, so every request falls through to a full uncached Drive scan (measured 18-43s per request). **Always cache per-item** (here: `pubCover_<listingId>` keys via `cache.getAll()`/`putAll()`) for any cached collection whose total size scales with the number of items, never one shared blob.
+- A cold/expired cache entry still costs a full Drive scan for whoever hits it first, and several concurrent visitors landing in the same cold window each pay that cost independently and can queue up Apps Script executions — this measurably slowed down *unrelated* callers sharing the same script project (the admin "My Listings" dashboard got slower too, not just `/rentals`). Mitigate with a **time-based warmup trigger** (`installPublicListingCoverWarmupTrigger`, `apps-script/Code.gs`) that fires more often than the cache TTL, so a real visitor almost always lands on an already-warm cache instead of triggering the scan themselves.
+
+Relevant files: `apps-script/Code.gs` (`getPublicListingCoverBundle_`, `getListings_`, `warmPublicListingCoverCache`) · `src/utils/storage.js` (`getPublicListingCoverBundle`) · `src/pages/Examples.jsx`
+
+---
+
+## 11. Apps Script Manifest OAuth Scopes Are Not Additive-by-Default
+
+- Once `appsscript.json`'s `oauthScopes` array is explicit (non-empty), Apps Script does **not** fall back to any default/implicit scope set. A function that needs a scope not listed there fails at runtime with `Exception: Specified permissions are not sufficient to call X. Required permissions: <scope URL>` — even after the user clicks through the authorization prompt for whatever scopes *are* currently declared. This looks like a code bug but is a manifest gap.
+- `ScriptApp.newTrigger()` / `getProjectTriggers()` / `deleteTrigger()` need `https://www.googleapis.com/auth/script.scriptapp`. Add it to `oauthScopes` explicitly *before* shipping any trigger-installing function, or the install function will run "successfully" (no thrown error at the call site that invokes it, if wrapped) but the actual `ScriptApp.*` call inside it will fail.
+- `apps-script/appsscript.json` is tracked in this repo (added 2026-09-15, was live on the script but untracked before that) — keep it in sync with what's actually deployed.
+- A new scope requires a new `clasp deploy` **and** the human re-authorizing via the Apps Script editor's Run button — this consent click cannot and should not be automated by an agent (this manifest already grants full Gmail-send, full Drive, and Sheets access; a human must personally review and approve any scope change to it).
+- `clasp run-function` and `clasp logs` both fail on this project (`Unable to run script function...` / `GCP project ID is not set`) because no GCP project is linked for Cloud Logging / the Apps Script API — there's no way for an agent to remotely execute a script function or pull Stackdriver execution logs here. Verification of a manually-run function has to go through the human (Execution log screenshot, or the Triggers panel).
+
+---
+
+## 12. Key Commits
 
 | Commit | Meaning |
 |---|---|
@@ -162,12 +185,16 @@ Never rely solely on React transient state, browser blob cache, or current-sessi
 | `7d1167a` | Cover / video reload rehydration from Drive |
 | `7579be8` | **Wrong approach** — Drive iframe player |
 | `985b039` | Reverted the iframe and restored Cloudinary playback |
+| `86bc73e` | Batched `/rentals` cover photo loading (Apps Script v172 — introduced the 100KB cache bug, see §10) |
+| `97a757e` | Fixed cover cache to per-listing keys (Apps Script v173) |
+| `3fa9718` | Cover cache warmup trigger + 15min TTL (Apps Script v174) |
+| `730e168` | Tracked `appsscript.json`, added `script.scriptapp` scope (Apps Script v175) |
 
 > `7579be8` was a mistaken attempt: it used a Drive preview page as the player, which violates the Drive-is-internal architecture rule and was unnecessary because the Cloudinary pipeline already existed and was already populated. It was fully reverted by `985b039` and **must not be reintroduced**.
 
 ---
 
-## 11. Troubleshooting Order
+## 13. Troubleshooting Order
 
 1. Read `MEMORY.md` and the architecture docs.
 2. Reproduce on production.
