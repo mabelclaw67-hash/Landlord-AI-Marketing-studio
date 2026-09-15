@@ -109,6 +109,27 @@ v172 上线后发现 `getPublicListingCovers` 单次请求耗时 25–43 秒（�
   （`ScriptApp.getProjectTriggers()` 里应该能看到 handler 为
   `warmPublicListingCoverCache`、每 5 分钟一次的记录）。
 
+**补充（同一天，Apps Script v175，commit `730e168`）**：第一次在编辑器里手动运行
+`installPublicListingCoverWarmupTrigger` 时报错：
+
+```
+Exception: Specified permissions are not sufficient to call
+ScriptApp.getProjectTriggers. Required permissions:
+https://www.googleapis.com/auth/script.scriptapp
+```
+
+根因：这个 Apps Script 项目的 `appsscript.json`（**此前完全没有被这个 git 仓库
+跟踪**，已在这次一并加进 `apps-script/appsscript.json`）显式声明了 `oauthScopes`
+数组，但里面缺了触发器管理需要的 `script.scriptapp` 这一项——显式声明了列表之后，
+Apps Script 不会再退回到某种"默认权限集"，所以哪怕手动点 Allow 授权也不会补上
+清单里没写的权限。修复：在 `oauthScopes` 里加上
+`https://www.googleapis.com/auth/script.scriptapp`（只授予"管理脚本自己的触发
+器"，不涉及更多数据访问），部署为 v175。**这一步之后，人工在编辑器里重新运行
+`installPublicListingCoverWarmupTrigger` 会弹出一次新的授权确认（针对新加的这个
+权限范围）——这次点击 Allow 必须由账号所有者本人完成，Claude 不会代为点击 OAuth
+授权确认（这个脚本的清单里已经有 `mail.google.com` 全量 Gmail、`drive` 全量
+Drive、`spreadsheets` 等高权限范围，授权确认页面理应由人親自确认）。**
+
 ### 遗留已知现象（无需处理）
 
 浏览器 Network 面板会看到同一个 Drive 文件 ID 同时出现在
@@ -138,6 +159,7 @@ curl -sS -D - -o /dev/null -L "https://drive.google.com/thumbnail?id=<fileId>&sz
 | v172 | 批量封面接口首次上线（含未发现的 100KB 缓存 bug） | `86bc73e` |
 | v173 | 缓存粒度改成按房源独立 key，修复静默失败 | `97a757e` |
 | v174 | 预热触发器 + TTL 延长到 15 分钟 | `3fa9718` |
+| v175 | 补 `script.scriptapp` OAuth 权限范围，触发器安装函数才能真正运行 | `730e168` |
 
 部署 ID 全程未变：`AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`
 （Script ID `1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp`），对应
