@@ -463,7 +463,7 @@ export default function ListingDetail({ lang: langProp }) {
     if (!listing?.id) return;
     setScreeningSummaryBusy(true);
     try {
-      const applications = await getApplicationsByListing(listing.id);
+      const applications = await getApplicationsByListing(listing.id, { fresh: true });
       const result = await downloadApplicantInitialScreeningSummary({ listing, applications, lang });
       const report = {
         id: `${result.reportType}-${Date.now()}`,

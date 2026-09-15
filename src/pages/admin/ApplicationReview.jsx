@@ -422,14 +422,23 @@ export default function ApplicationReview() {
   const [retentionPreview, setRetentionPreview] = useState(null);
 
   useEffect(() => {
-    getApplicationById(applicationId)
+    let active = true;
+    getApplicationById(applicationId, {
+      onRefresh: (data) => {
+        if (!active || !data) return;
+        setApp(data);
+        setNotes(data.internalNotes || "");
+      },
+    })
       .then((data) => {
+        if (!active) return;
         setApp(data);
         setNotes(data?.internalNotes || "");
         if (data?.listingId) getListing(data.listingId).then(setListing).catch(() => {});
       })
       .catch((e) => setError(e.message || "Failed to load application."))
       .finally(() => setLoading(false));
+    return () => { active = false; };
   }, [applicationId]);
 
   async function handleStatusChange(newStatus) {
@@ -602,7 +611,7 @@ export default function ApplicationReview() {
 
       setMessage("Response timed out. Verifying saved status…");
       try {
-        const verified = await getApplicationById(app.recordId);
+        const verified = await getApplicationById(app.recordId, { fresh: true });
         const savedStatus = String(verified?.dataRetentionStatus || "").trim().toLowerCase();
         const targetStatus = String(retentionStatus || "").trim().toLowerCase();
         if (savedStatus === targetStatus) {

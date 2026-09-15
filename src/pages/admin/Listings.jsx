@@ -16,10 +16,14 @@ export default function Listings() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
 
   useEffect(() => {
-    getListings()
+    let active = true;
+    getListings({
+      onRefresh: (rows) => { if (active) setListings(Array.isArray(rows) ? rows : []); },
+    })
       .then(setListings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

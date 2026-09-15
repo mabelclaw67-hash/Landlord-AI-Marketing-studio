@@ -192,12 +192,16 @@ function RentalDashboardView({ lang }) {
   const L = AL[lang] ?? AL.en;
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
-    getListings()
+    getListings({
+      onRefresh: (rows) => { if (active) setListings(Array.isArray(rows) ? rows : []); },
+    })
       .then(setListings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    return () => { active = false; };
   }, [location.key]);
 
   const counts = { Draft: 0, "In Review": 0, "Ready to Publish": 0, Published: 0 };
@@ -318,7 +322,9 @@ export default function Dashboard({ lang, mode = "platform" }) {
     setError(null);
 
     Promise.all([
-      getListings().catch(() => []),
+      getListings({
+        onRefresh: (rows) => { if (mounted) setRentalListings(Array.isArray(rows) ? rows : []); },
+      }).catch(() => []),
       getHomeSaleListings().catch(() => []),
     ])
       .then(([rentals, sales]) => {

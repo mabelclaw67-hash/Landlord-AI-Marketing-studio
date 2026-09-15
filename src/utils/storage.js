@@ -11,6 +11,111 @@ import { publicUpload } from "./publicUpload.js";
 
 const LISTINGS_KEY = "vanisland_listings_v1";
 
+// Small browser-only SWR cache for the three high-frequency Rental reads.
+// Google Sheets remains the source of truth; this cache only shortens repeat
+// reads within the current page session and never persists API data.
+const RENTAL_READ_TTLS = {
+  listings: 60_000,
+  applicationsByListing: 30_000,
+  applicationById: 15_000,
+};
+
+const rentalReadCache = {
+  listings: { value: undefined, expiresAt: 0, refreshPromise: null, generation: 0, listeners: new Set() },
+  applicationsByListing: new Map(),
+  applicationById: new Map(),
+};
+
+function cacheEntry(cache, key) {
+  if (cache instanceof Map) {
+    if (!cache.has(key)) {
+      cache.set(key, { value: undefined, expiresAt: 0, refreshPromise: null, generation: 0, listeners: new Set() });
+    }
+    return cache.get(key);
+  }
+  return cache;
+}
+
+function refreshRentalRead(entry, loader, ttl, options = {}) {
+  if (options.onRefresh) entry.listeners.add(options.onRefresh);
+  if (entry.refreshPromise && !options.fresh) return entry.refreshPromise;
+
+  const generation = ++entry.generation;
+  const request = Promise.resolve()
+    .then(loader)
+    .then((value) => {
+      if (generation !== entry.generation) return value;
+      entry.value = value;
+      entry.expiresAt = Date.now() + ttl;
+      const listeners = [...entry.listeners];
+      entry.listeners.clear();
+      listeners.forEach((listener) => {
+        try { listener(value); } catch { /* UI refresh callbacks are best effort. */ }
+      });
+      return value;
+    })
+    .catch((error) => {
+      entry.listeners.clear();
+      // A background refresh must not turn an already-rendered page into an
+      // error/empty state. Explicit fresh reads still surface the error.
+      if (!options.fresh && entry.value !== undefined) return entry.value;
+      throw error;
+    })
+    .finally(() => {
+      if (entry.refreshPromise === request) entry.refreshPromise = null;
+    });
+
+  entry.refreshPromise = request;
+  return request;
+}
+
+function cachedRentalRead(cache, key, ttl, loader, options = {}) {
+  const entry = cacheEntry(cache, key);
+  const hasValue = entry.value !== undefined;
+  const isValid = hasValue && entry.expiresAt > Date.now();
+
+  if (!options.fresh && isValid) {
+    // Return cached data immediately while refreshing once in the background.
+    void refreshRentalRead(entry, loader, ttl, options);
+    return Promise.resolve(entry.value);
+  }
+
+  return refreshRentalRead(entry, loader, ttl, options);
+}
+
+function invalidateRentalListingsCache() {
+  const entry = rentalReadCache.listings;
+  entry.value = undefined;
+  entry.expiresAt = 0;
+  entry.generation += 1;
+  entry.listeners.clear();
+}
+
+function invalidateRentalApplicationCache(recordId, listingId = "") {
+  const id = String(recordId || "").trim();
+  if (id) rentalReadCache.applicationById.delete(id);
+
+  const appsCache = rentalReadCache.applicationsByListing;
+  if (listingId) {
+    appsCache.delete(String(listingId).trim());
+    return;
+  }
+
+  // Status/notes/retention writes only receive a Record ID. Find the exact
+  // listing cache containing that record; do not clear unrelated listings.
+  for (const [key, entry] of appsCache.entries()) {
+    if (Array.isArray(entry.value) && entry.value.some((app) => String(app?.recordId || "").trim() === id)) {
+      appsCache.delete(key);
+    }
+  }
+}
+
+async function applicationWriteWithInvalidation(write, recordId, listingId = "") {
+  const result = await write();
+  invalidateRentalApplicationCache(recordId, listingId);
+  return result;
+}
+
 // ── localStorage helpers (synchronous, private) ───────────────────────────────
 
 function lsGetAll() {
@@ -27,10 +132,16 @@ function lsSetAll(listings) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function getListings() {
+export async function getListings(options = {}) {
   // apiGet adds _t=Date.now() and cache:"no-store" to bust GET caching
   if (isApiConnected()) {
-    return apiGet({ action: "getListings", ...getStudioRequestAuth("rental") });
+    return cachedRentalRead(
+      rentalReadCache.listings,
+      "",
+      RENTAL_READ_TTLS.listings,
+      () => apiGet({ action: "getListings", ...getStudioRequestAuth("rental") }),
+      options,
+    );
   }
   return lsGetAll();
 }
@@ -76,7 +187,9 @@ export async function getListing(id) {
 
 export async function saveListing(listing) {
   if (isApiConnected()) {
-    return apiPost({ action: "saveListing", data: listing, ...getStudioRequestAuth("rental") });
+    const result = await apiPost({ action: "saveListing", data: listing, ...getStudioRequestAuth("rental") });
+    invalidateRentalListingsCache();
+    return result;
   }
   const all = lsGetAll();
   const idx = all.findIndex((l) => l.id === listing.id);
@@ -90,7 +203,9 @@ export async function saveListing(listing) {
 // This is the primary post-generation sync path.
 export async function syncVideoUrl(listingId) {
   if (isApiConnected()) {
-    return apiPost({ action: "syncVideoUrl", listingId, ...getStudioRequestAuth("rental") });
+    const result = await apiPost({ action: "syncVideoUrl", listingId, ...getStudioRequestAuth("rental") });
+    invalidateRentalListingsCache();
+    return result;
   }
   console.info("[localStorage mode] syncVideoUrl no-op for", listingId);
 }
@@ -100,7 +215,9 @@ export async function syncVideoUrl(listingId) {
 // also creates the column header if it doesn't yet exist in the sheet.
 export async function updateVideoUrl(listingId, videoUrl) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateVideoUrl", listingId, videoUrl, ...getStudioRequestAuth("rental") });
+    const result = await apiPost({ action: "updateVideoUrl", listingId, videoUrl, ...getStudioRequestAuth("rental") });
+    invalidateRentalListingsCache();
+    return result;
   }
   // localStorage mode: patch the listing object in place
   const all = lsGetAll();
@@ -279,7 +396,9 @@ function fileToBase64(file) {
 
 export async function saveRentalApplication(data) {
   if (isApiConnected()) {
-    return apiPost({ action: "saveRentalApplication", data: { ...data, origin: window.location.origin } });
+    const result = await apiPost({ action: "saveRentalApplication", data: { ...data, origin: window.location.origin } });
+    invalidateRentalApplicationCache(result?.recordId, data?.listingId);
+    return result;
   }
   // localStorage fallback: generate a fake record ID so the UI can show success
   const year = new Date().getFullYear();
@@ -304,18 +423,29 @@ export async function updateRentalApplication(listingId, recordId, token, data) 
   if (!isApiConnected() || !listingId || !recordId || !token) {
     throw new Error("This application link is invalid or expired.");
   }
-  return apiPost({
-    action: "updateRentalApplication",
-    listingId,
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "updateRentalApplication",
+      listingId,
+      recordId,
+      token,
+      data,
+    }),
     recordId,
-    token,
-    data,
-  });
+    listingId,
+  );
 }
 
-export async function getApplicationsByListing(listingId) {
+export async function getApplicationsByListing(listingId, options = {}) {
   if (!isApiConnected() || !listingId) return [];
-  return apiPost({ action: "getApplicationsByListing", listingId, ...getStudioRequestAuth("rental") });
+  const key = String(listingId).trim();
+  return cachedRentalRead(
+    rentalReadCache.applicationsByListing,
+    key,
+    RENTAL_READ_TTLS.applicationsByListing,
+    () => apiPost({ action: "getApplicationsByListing", listingId, ...getStudioRequestAuth("rental") }),
+    options,
+  );
 }
 
 export async function getAllApplications() {
@@ -323,9 +453,16 @@ export async function getAllApplications() {
   return apiPost({ action: "getAllApplications", ...getStudioRequestAuth("rental") });
 }
 
-export async function getApplicationById(applicationId) {
+export async function getApplicationById(applicationId, options = {}) {
   if (!isApiConnected() || !applicationId) return null;
-  return apiGet({ action: "getApplicationById", applicationId, ...getStudioRequestAuth("rental") });
+  const key = String(applicationId).trim();
+  return cachedRentalRead(
+    rentalReadCache.applicationById,
+    key,
+    RENTAL_READ_TTLS.applicationById,
+    () => apiGet({ action: "getApplicationById", applicationId, ...getStudioRequestAuth("rental") }),
+    options,
+  );
 }
 
 export async function downloadApplicationPdf(recordId, token) {
@@ -352,14 +489,20 @@ export async function downloadApplicationPdf(recordId, token) {
 
 export async function updateApplicationStatus(applicationId, reviewStatus) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus, ...getStudioRequestAuth("rental") });
+    return applicationWriteWithInvalidation(
+      () => apiPost({ action: "updateApplicationStatus", applicationId, reviewStatus, ...getStudioRequestAuth("rental") }),
+      applicationId,
+    );
   }
   console.info("[localStorage mode] updateApplicationStatus (not persisted):", applicationId, reviewStatus);
 }
 
 export async function updateApplicationNotes(applicationId, notes) {
   if (isApiConnected()) {
-    return apiPost({ action: "updateApplicationNotes", applicationId, notes, ...getStudioRequestAuth("rental") });
+    return applicationWriteWithInvalidation(
+      () => apiPost({ action: "updateApplicationNotes", applicationId, notes, ...getStudioRequestAuth("rental") }),
+      applicationId,
+    );
   }
   console.info("[localStorage mode] updateApplicationNotes (not persisted):", applicationId);
 }
@@ -383,59 +526,74 @@ export async function requestSupportingDocuments(recordId) {
   if (!isApiConnected()) {
     throw new Error("Supporting document requests require Google Apps Script integration.");
   }
-  return apiPost({
-    action: "requestSupportingDocuments",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "requestSupportingDocuments",
+      recordId,
+      origin: window.location.origin,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    origin: window.location.origin,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function resendSupportingDocumentsEmail(recordId) {
   if (!isApiConnected()) {
     throw new Error("Supporting document requests require Google Apps Script integration.");
   }
-  return apiPost({
-    action: "resendSupportingDocumentsEmail",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "resendSupportingDocumentsEmail",
+      recordId,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function generateDraftScreeningReport(recordId) {
   if (!isApiConnected()) {
     throw new Error("Screening report generation requires Google Apps Script integration.");
   }
-  return apiPost({
-    action: "generateDraftScreeningReport",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "generateDraftScreeningReport",
+      recordId,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function generateFullApplicantAuditReport(recordId, language) {
   if (!isApiConnected()) {
     throw new Error("Full Applicant Audit Report generation requires Google Apps Script integration.");
   }
-  return apiPost({
-    action: "generateFullApplicantAuditReport",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "generateFullApplicantAuditReport",
+      recordId,
+      language,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    language,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function updateApplicationRetentionStatus(recordId, retentionStatus, notes = "") {
   if (!isApiConnected()) {
     throw new Error("Data retention actions require Google Apps Script integration.");
   }
-  return apiPost({
-    action: "updateApplicationRetentionStatus",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "updateApplicationRetentionStatus",
+      recordId,
+      retentionStatus,
+      notes,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    retentionStatus,
-    notes,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function cleanupExpiredApplicationsPreview() {
@@ -452,11 +610,14 @@ export async function deleteExpiredApplicantSensitiveFiles(recordId) {
   if (!isApiConnected()) {
     throw new Error("Sensitive file cleanup requires Google Apps Script integration.");
   }
-  return apiPost({
-    action: "deleteExpiredApplicantSensitiveFiles",
+  return applicationWriteWithInvalidation(
+    () => apiPost({
+      action: "deleteExpiredApplicantSensitiveFiles",
+      recordId,
+      ...getStudioRequestAuth("rental"),
+    }),
     recordId,
-    ...getStudioRequestAuth("rental"),
-  });
+  );
 }
 
 export async function validateUploadToken(listingId, recordId, token) {

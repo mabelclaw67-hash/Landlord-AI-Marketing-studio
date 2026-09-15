@@ -105,14 +105,20 @@ export default function Leads() {
   const isInternalAdmin = isAdminSessionActive();
   const canSeeInternalDriveLinks = isInternalAdmin;
 
-  const refreshApplications = useCallback(() => {
+  const refreshApplications = useCallback((isActive = () => true) => {
+    const appOptions = filter
+      ? { onRefresh: (rows) => { if (isActive()) setApps(Array.isArray(rows) ? rows : []); } }
+      : undefined;
+    const listingOptions = {
+      onRefresh: (rows) => { if (isActive()) setListings(Array.isArray(rows) ? rows : []); },
+    };
     const appPromise = filter
-      ? getApplicationsByListing(filter)
+      ? getApplicationsByListing(filter, appOptions)
       : isInternalAdmin
       ? getAllApplications()
       : Promise.resolve([]);
 
-    return Promise.all([appPromise, getListings()]).then(([appRows, listingRows]) => {
+    return Promise.all([appPromise, getListings(listingOptions)]).then(([appRows, listingRows]) => {
       setApps(Array.isArray(appRows) ? appRows : []);
       setListings(Array.isArray(listingRows) ? listingRows : []);
       setError("");
@@ -120,9 +126,11 @@ export default function Leads() {
   }, [filter, isInternalAdmin]);
 
   useEffect(() => {
-    refreshApplications()
+    let active = true;
+    refreshApplications(() => active)
       .catch((e) => setError(e.message || "Failed to load applications."))
       .finally(() => setLoading(false));
+    return () => { active = false; };
   }, [refreshApplications]);
 
   async function handleRequestDocuments(app) {
