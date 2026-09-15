@@ -595,7 +595,35 @@ export default function ApplicationReview() {
       }));
       setMessage(`Data retention status updated to ${result?.dataRetentionStatus || retentionStatus}.`);
     } catch (e) {
-      setMessage("Retention update failed: " + (e.message || "unknown error"));
+      if (!e?.isTimeout) {
+        setMessage("Retention update failed: " + (e.message || "unknown error"));
+        return;
+      }
+
+      setMessage("Response timed out. Verifying saved status…");
+      try {
+        const verified = await getApplicationById(app.recordId);
+        const savedStatus = String(verified?.dataRetentionStatus || "").trim().toLowerCase();
+        const targetStatus = String(retentionStatus || "").trim().toLowerCase();
+        if (savedStatus === targetStatus) {
+          setApp((prev) => ({
+            ...prev,
+            dataRetentionStatus: verified.dataRetentionStatus,
+            retentionExpiryDate: verified.retentionExpiryDate || "",
+            retentionAction: verified.retentionAction || prev?.retentionAction,
+            retentionNotes: verified.retentionNotes || prev?.retentionNotes,
+          }));
+          setMessage(`Data retention status updated to ${verified.dataRetentionStatus || retentionStatus}.`);
+        } else {
+          setMessage("Unable to confirm the update. Please try again.");
+        }
+      } catch (verifyError) {
+        if (verifyError?.isTimeout) {
+          setMessage("Update may have been saved, but confirmation timed out. Please refresh before trying again.");
+        } else {
+          setMessage("Unable to confirm the update. Please try again.");
+        }
+      }
     } finally {
       setRetentionBusy("");
     }

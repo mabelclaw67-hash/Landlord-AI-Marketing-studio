@@ -5491,23 +5491,31 @@ function analyzeApplicantSupportDocuments_(uploadedFiles, language) {
   return { reviewed: reviewed, manualVerification: manual };
 }
 
-function fullAuditLatestInfo_(app, includeMarkdown) {
+function fullAuditLatestInfo_(app, includeMarkdown, context) {
   if (!app || !app.listingId) return { status: "Not Generated" };
-  var listing = findListingById_(app.listingId);
+  var listing = context && context.listing ? context.listing : findListingById_(app.listingId);
   if (!listing) return { status: "Not Generated" };
-  var folder = getListingScreeningReportsFolder_(listing, false);
+  var folder = context && Object.prototype.hasOwnProperty.call(context, "folder")
+    ? context.folder
+    : getListingScreeningReportsFolder_(listing, false);
   if (!folder) return { status: "Not Generated" };
-  var files = folder.getFiles();
   var latestMd = null;
   var latestPdf = null;
-  while (files.hasNext()) {
-    var file = files.next();
-    var name = file.getName();
-    if (!isFullAuditReportFileName_(name)) continue;
-    if (name.indexOf(app.recordId) === -1) continue;
-    var lower = name.toLowerCase();
-    if (lower.slice(-3) === ".md" && (!latestMd || file.getLastUpdated() > latestMd.getLastUpdated())) latestMd = file;
-    if (lower.slice(-4) === ".pdf" && (!latestPdf || file.getLastUpdated() > latestPdf.getLastUpdated())) latestPdf = file;
+  if (context && context.filesByRecordId) {
+    var indexed = context.filesByRecordId[app.recordId] || {};
+    latestMd = indexed.latestMd || null;
+    latestPdf = indexed.latestPdf || null;
+  } else {
+    var files = folder.getFiles();
+    while (files.hasNext()) {
+      var file = files.next();
+      var name = file.getName();
+      if (!isFullAuditReportFileName_(name)) continue;
+      if (name.indexOf(app.recordId) === -1) continue;
+      var lower = name.toLowerCase();
+      if (lower.slice(-3) === ".md" && (!latestMd || file.getLastUpdated() > latestMd.getLastUpdated())) latestMd = file;
+      if (lower.slice(-4) === ".pdf" && (!latestPdf || file.getLastUpdated() > latestPdf.getLastUpdated())) latestPdf = file;
+    }
   }
   if (!latestMd && !latestPdf) return { status: "Not Generated" };
   var markdown = "";
@@ -5537,7 +5545,7 @@ function fullAuditLatestInfo_(app, includeMarkdown) {
   };
 }
 
-function enrichApplicationWithFullAudit_(app, includeMarkdown) {
+function enrichApplicationWithFullAudit_(app, includeMarkdown, context) {
   // NOTE: Full Audit reports can be generated from listing-level Supporting
   // Documents even when the applicant record has no record-level
   // supportDocumentFolderUrl. Do NOT gate this on supportDocumentFolderUrl -
@@ -5551,7 +5559,7 @@ function enrichApplicationWithFullAudit_(app, includeMarkdown) {
     return app;
   }
   try {
-    var info = fullAuditLatestInfo_(app, includeMarkdown);
+    var info = fullAuditLatestInfo_(app, includeMarkdown, context);
     app.fullAuditReportStatus = info.status || "Not Generated";
     app.fullAuditReportGeneratedAt = info.generatedAt || "";
     app.fullAuditReportUrl = info.url || "";
@@ -5567,6 +5575,31 @@ function enrichApplicationWithFullAudit_(app, includeMarkdown) {
     app.fullAuditReportError = err && err.message ? err.message : String(err);
   }
   return app;
+}
+
+function buildFullAuditFilesByRecordId_(folder, apps) {
+  var filesByRecordId = {};
+  if (!folder) return filesByRecordId;
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName();
+    if (!isFullAuditReportFileName_(name)) continue;
+    var lower = name.toLowerCase();
+    for (var i = 0; i < apps.length; i++) {
+      var recordId = apps[i].recordId;
+      if (!recordId || name.indexOf(recordId) === -1) continue;
+      var current = filesByRecordId[recordId] || {};
+      if (lower.slice(-3) === ".md" && (!current.latestMd || file.getLastUpdated() > current.latestMd.getLastUpdated())) {
+        current.latestMd = file;
+      }
+      if (lower.slice(-4) === ".pdf" && (!current.latestPdf || file.getLastUpdated() > current.latestPdf.getLastUpdated())) {
+        current.latestPdf = file;
+      }
+      filesByRecordId[recordId] = current;
+    }
+  }
+  return filesByRecordId;
 }
 
 function markdownValue_(value) {
@@ -6599,7 +6632,11 @@ function generateApplicationPdf_(data, recordId) {
 
 function getApplicationsByListing_(listingId, auth) {
   if (!listingId) throw new Error("getApplicationsByListing: listingId required");
-  getListingById_(listingId, auth);
+  var listing = findListingById_(listingId);
+  if (!listing) throw new Error("Listing not found: " + listingId);
+  if (!canAccessListingRecord_(listing, auth)) {
+    throw new Error("Access denied for this listing.");
+  }
   var sheet = getSheet_(INTAKE_SHEET);
   addMissingHeaders_(sheet, INTAKE_HEADERS);
   var last = sheet.getLastRow();
@@ -6607,13 +6644,19 @@ function getApplicationsByListing_(listingId, auth) {
   var numCols   = sheet.getLastColumn();
   var headerMap = getHeaderMap_(sheet);
   var rows      = sheet.getRange(2, 1, last - 1, numCols).getValues();
-  return rows
+  var apps = rows
     .filter(function(row) { return colVal_(row, headerMap, "Listing ID") === listingId; })
     .map(function(row) { return rowToApplication_(row, headerMap); })
-    .filter(isEligibleApplicantForOwnerScreening_)
-    .map(function(app) {
-      return sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, false), auth);
-    });
+    .filter(isEligibleApplicantForOwnerScreening_);
+  var folder = apps.length ? getListingScreeningReportsFolder_(listing, false) : null;
+  var context = {
+    listing: listing,
+    folder: folder,
+    filesByRecordId: buildFullAuditFilesByRecordId_(folder, apps),
+  };
+  return apps.map(function(app) {
+    return sanitizeApplicantReportLinksForAccess_(enrichApplicationWithFullAudit_(app, false, context), auth);
+  });
 }
 
 function getAllApplications_(auth) {

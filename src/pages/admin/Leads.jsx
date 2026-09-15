@@ -223,7 +223,9 @@ export default function Leads() {
   const listingIdsFromApps = sortedApps.map((a) => a.listingId).filter(Boolean);
   const listingIdsFromListings = listings.map((l) => l.id).filter(Boolean);
   const listingIds  = [...new Set([...listingIdsFromListings, ...listingIdsFromApps])].sort(compareListingIdDesc);
-  const visible = filter && !error
+  const visible = error
+    ? []
+    : filter
     ? sortedApps.filter((a) => a.listingId === filter)
     : isInternalAdmin
     ? sortedApps
@@ -245,9 +247,9 @@ export default function Leads() {
           </h1>
           <p className="text-muted text-sm">
             租客申请 · AI 初步筛查 · 数据来源：<code>07 Intake Records</code>
-            {!loading && !setupError && ` · ${apps.length} total`}
+            {!loading && !setupError && !error && ` · ${apps.length} total`}
           </p>
-          {!loading && !setupError && (
+          {!loading && !setupError && !error && (
             <p className="text-muted text-sm" style={{ marginTop: 4 }}>
               {resultLabel}
             </p>
@@ -284,7 +286,7 @@ export default function Leads() {
       {/* Listing-level Initial Screening Summary — ranks all applicants for this
           listing. Separate from the per-applicant Full Audit controls shown in
           the table/cards below; the two report types are never interchangeable. */}
-      {!loading && !setupError && !accessDenied && filter && (
+      {!loading && !setupError && !error && !accessDenied && filter && (
         <div className="card mb-16">
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
             <div>
@@ -334,7 +336,7 @@ export default function Leads() {
       )}
 
       {/* Listing filter */}
-      {!loading && !setupError && listingIds.length > 0 && (
+      {!loading && !setupError && !error && listingIds.length > 0 && (
         <div className="card mb-16 admin-leads-filter-card">
           <div className="admin-leads-filter-card__row">
             <label htmlFor="listing-filter" className="admin-leads-filter-card__label">
@@ -367,7 +369,7 @@ export default function Leads() {
         <div style={{ padding: 40, textAlign: "center", color: "var(--color-text-muted)" }}>
           Loading…
         </div>
-      ) : accessDenied ? (
+      ) : error ? null : accessDenied ? (
         <div className="card mb-24">
           <div style={{ textAlign: "center", padding: "28px 12px" }}>
             <h2 style={{ fontSize: "1.05rem", fontWeight: 800, marginBottom: 8 }}>

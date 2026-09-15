@@ -22,6 +22,7 @@ export function isApiConnected() {
 // is why POST retries are opt-in per action below.
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
+const READ_TIMEOUT_RETRY_DELAY_MS = 400;
 
 // No request to the Apps Script backend may hang forever — a slow/stuck
 // execution must not leave a page stuck on "Loading..." indefinitely. 18s
@@ -66,6 +67,14 @@ const RETRYABLE_POST_ACTIONS = new Set([
   "syncVideoUrl",
 ]);
 
+const READ_ONLY_POST_ACTIONS = new Set([
+  "getListings",
+  "getListingById",
+  "getCollagePhotoData",
+  "getApplicationsByListing",
+  "getAllApplications",
+]);
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function withRedirectRetry(attempt, shouldRetry) {
@@ -82,6 +91,16 @@ async function withRedirectRetry(attempt, shouldRetry) {
   throw lastError;
 }
 
+async function withTimeoutRetry(attempt, shouldRetry) {
+  try {
+    return await attempt();
+  } catch (ex) {
+    if (!shouldRetry || !ex?.isTimeout) throw ex;
+    await sleep(READ_TIMEOUT_RETRY_DELAY_MS);
+    return attempt();
+  }
+}
+
 // GET ?action=xxx[&key=val ...]
 export async function apiGet(params) {
   if (!EXEC_URL) throw new Error("VITE_STUDIO_EXEC_URL not configured");
@@ -89,16 +108,16 @@ export async function apiGet(params) {
   const url = new URL(EXEC_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
   try {
-    const json = await withRedirectRetry(async () => {
-      // Bust the Apps Script GET cache per attempt, not per call.
-      url.searchParams.set("_t", String(Date.now()));
-      const res = await fetchWithTimeout(url.toString(), { redirect: "follow", cache: "no-store" });
-      if (!res.ok) throw Object.assign(new Error(`API GET error: ${res.status}`), { httpStatus: res.status });
-      const body = await res.json();
-      if (body.error) throw Object.assign(new Error(body.error), { httpStatus: res.status });
-      trace?.finish("success", { httpStatus: res.status });
-      return body;
-    }, true);
+    const json = await withTimeoutRetry(() => withRedirectRetry(async () => {
+        // Bust the Apps Script GET cache per attempt, not per call.
+        url.searchParams.set("_t", String(Date.now()));
+        const res = await fetchWithTimeout(url.toString(), { redirect: "follow", cache: "no-store" });
+        if (!res.ok) throw Object.assign(new Error(`API GET error: ${res.status}`), { httpStatus: res.status });
+        const body = await res.json();
+        if (body.error) throw Object.assign(new Error(body.error), { httpStatus: res.status });
+        trace?.finish("success", { httpStatus: res.status });
+        return body;
+      }, true), true);
     return json.data;
   } catch (ex) {
     trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
@@ -116,19 +135,20 @@ export async function apiPost(body) {
   const trace = beginPerfTrace(body.action, body);
   const payload = JSON.stringify(body);
   try {
-    const json = await withRedirectRetry(async () => {
-      const res = await fetchWithTimeout(EXEC_URL, {
-        method: "POST",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain" },
-        body: payload,
-      });
-      if (!res.ok) throw Object.assign(new Error(`API POST error: ${res.status}`), { httpStatus: res.status });
-      const parsed = await res.json();
-      if (parsed.error) throw Object.assign(new Error(parsed.error), { httpStatus: res.status });
-      trace?.finish("success", { httpStatus: res.status });
-      return parsed;
-    }, RETRYABLE_POST_ACTIONS.has(body.action));
+    const isReadOnly = READ_ONLY_POST_ACTIONS.has(body.action);
+    const json = await withTimeoutRetry(() => withRedirectRetry(async () => {
+        const res = await fetchWithTimeout(EXEC_URL, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain" },
+          body: payload,
+        });
+        if (!res.ok) throw Object.assign(new Error(`API POST error: ${res.status}`), { httpStatus: res.status });
+        const parsed = await res.json();
+        if (parsed.error) throw Object.assign(new Error(parsed.error), { httpStatus: res.status });
+        trace?.finish("success", { httpStatus: res.status });
+        return parsed;
+      }, RETRYABLE_POST_ACTIONS.has(body.action)), isReadOnly);
     return json.data;
   } catch (ex) {
     trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
