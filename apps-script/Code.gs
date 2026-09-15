@@ -2839,7 +2839,11 @@ function parsePlatforms_(val) {
 // Admin reads are never cached — an admin must see their own edit immediately.
 var PUBLIC_LISTINGS_CACHE_KEY = "publicListingsJson_v1";
 var PUBLIC_LISTING_COVER_CACHE_PREFIX = "pubCover_";
-var PUBLIC_CACHE_TTL_SECONDS = 300; // 5 minutes
+// 15 minutes, not 5: a 5-minute-triggered warmup (see
+// installPublicListingCoverWarmupTrigger below) refreshes the cover cache 3x
+// within this window, so it should always be warm for real visitors even if
+// one warmup run is delayed or skipped.
+var PUBLIC_CACHE_TTL_SECONDS = 900;
 
 function invalidatePublicListingsCache_() {
   try {
@@ -2977,6 +2981,48 @@ function getPublicListingCoverBundle_() {
   }
 
   return bundle;
+}
+
+// ── Public cover cache warmup trigger ────────────────────────────────────────
+// A real visitor landing on a cold/expired per-listing cache entry pays the
+// full serial Drive-scan cost directly (measured 18-40s+ for ~20 listings),
+// and if several visitors land on that same cold window at once, their
+// concurrent executions can queue up and slow down everything else sharing
+// this Apps Script project (including the admin dashboard). Proactively
+// re-warming the cache on a timer means real visitors almost always hit an
+// already-warm cache instead of triggering that scan themselves.
+var PUBLIC_LISTING_COVER_WARMUP_HANDLER = "warmPublicListingCoverCache";
+
+// Trigger handler — re-populates the per-listing cover cache. Reuses
+// getPublicListingCoverBundle_ unchanged (no separate warmup logic to drift
+// from the real read path): calling it is itself the warmup, since it
+// caches whatever it computes.
+function warmPublicListingCoverCache() {
+  getPublicListingCoverBundle_();
+}
+
+// Not wired to any dispatcher action — meant to be run once from the Apps
+// Script editor (or via `clasp run-function`) after this deploys, same as
+// installDailyMarketBriefAutoSync above.
+function installPublicListingCoverWarmupTrigger() {
+  removePublicListingCoverWarmupTrigger();
+  ScriptApp.newTrigger(PUBLIC_LISTING_COVER_WARMUP_HANDLER)
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  return { installed: true, handler: PUBLIC_LISTING_COVER_WARMUP_HANDLER, interval: "every 5 minutes" };
+}
+
+function removePublicListingCoverWarmupTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === PUBLIC_LISTING_COVER_WARMUP_HANDLER) {
+      ScriptApp.deleteTrigger(triggers[i]);
+      removed += 1;
+    }
+  }
+  return { removed: removed };
 }
 
 function getListingById_(listingId, auth) {
