@@ -1,6 +1,6 @@
 # Landlord AI Marketing Studio — HANDOFF
 
-最后更新：2026-09-06
+最后更新：2026-09-15
 
 ## 已完成证据
 
@@ -29,6 +29,119 @@
 - 其他相关 Spreadsheet（非 Listings 用途，避免混淆）：Daily Market Brief 用 `1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn4BcC8`；Property Strategy 用 `1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE`；Rental Intelligence 用 `1hst3mcCLeCbMmRBnH3OkKEPOEWbSVvONsRxMUiPKg5E`；AI Dispute Review 用独立的 `1Vf19MSfp73g3h-nJg8cCDRwPuoFHMLRMkWMCj7gTZ90`。来源：`apps-script/Code.gs` 常量 + `apps-script/README.md`。
 - Apps Script 部署入口：`VITE_STUDIO_EXEC_URL`（前端调用的部署 URL，存在 Netlify 环境变量和 `.env.local` 里）。来源：`PROJECT_OVERVIEW.md` §4/§5。
 - Netlify 部署：GitHub `mabelclaw67-hash/Landlord-AI-Marketing-Studio` main 分支推送自动触发。来源：`PROJECT_OVERVIEW.md` §5。
+
+## /rentals 与后台加载变慢排查记录（2026-09-15）
+
+### 背景
+
+`https://www.vanislandproperty.ca/rentals` 加载时抓包发现对 Apps Script exec 端点
+发起了 20+ 次独立 POST 请求，怀疑对每个房源循环调用了接口。修复过程中又引出一次
+生产性能事故（下方"事故与修复"），最终分三次部署解决。
+
+### 根因
+
+`src/pages/Examples.jsx`（修改前）在 `useEffect` 里对 `active`（已发布房源）数组
+做 `Promise.all`，每个房源分别调用 `getPublicListingFolderFiles` +
+`getPublicListingSubfolderFiles` 两次，用于解析封面图——N 个房源就是 2N 次 POST。
+来源：直接读取修改前的 `src/pages/Examples.jsx`（git history，commit `86bc73e`
+之前的版本）。
+
+### 修复 1：批量接口（commit `86bc73e`，Apps Script v172）
+
+- 前端：新增 `getPublicListingCoverBundle()`（`src/utils/storage.js:325`），
+  `Examples.jsx` 改成只调用这一个函数一次（`src/pages/Examples.jsx:323`），拿到
+  所有房源的图片文件列表后，本地仍用原有的 `resolveRentalListingCover()` 选封面
+  ——选择逻辑本身没有改变，只是数据来源从"N 次单独请求"改成"1 次批量请求"。
+- 后端：新增 `getPublicListingCoverBundle_()`（当时未分 key，直接
+  `CacheService.getScriptCache().put()` 整个 bundle），后端在一次 Apps Script
+  执行里内部循环所有已发布房源的 Drive 文件夹，前端因此从 2N 次请求降到 2 次
+  （`getListings` + `getPublicListingCovers`）。已用生产数据验证：
+  `performance.getEntriesByType('resource')` 统计确认 exec 请求数从 20+ 降到 2。
+
+### 事故与修复 2：缓存写入静默失败（commit `97a757e`，Apps Script v173）
+
+v172 上线后发现 `getPublicListingCovers` 单次请求耗时 25–43 秒（用 Node `fetch`
+直接测量，非 curl——curl 对 Apps Script 的重定向交付有已知误判，见
+`docs/AI_DEVELOPMENT_RUNBOOK.md` 备注）。排查发现：整个 bundle（20 个房源）
+`JSON.stringify` 后实测 **285,401 字节**，远超 `CacheService.put()` 单个 value
+**100KB** 的上限，`cache.put()` 每次都抛异常，被 `try/catch` 静默吞掉——**缓存
+从未真正生效过**，每次请求都要重新扫描全部房源的 Drive 文件夹。这类长耗时执行
+在并发访问下会挤占 Apps Script 的并发执行配额，观察到同一时段后台"My Listings"
+管理面板也一起变慢（不是后台代码本身变慢，是共享同一个 Apps Script 项目的执行
+资源被占满）。
+
+修复：把单一大 key 拆成**按房源单独的 CacheService key**
+（`PUBLIC_LISTING_COVER_CACHE_PREFIX = "pubCover_"`，`apps-script/Code.gs:2841`），
+用 `cache.getAll()` / `cache.putAll()` 批量读写（`getPublicListingCoverBundle_`，
+`apps-script/Code.gs:2919`）。单个房源序列化后若仍 ≥ 90KB 则直接跳过缓存那一条
+（不报错、不影响其他房源，只是那一个房源永远重新扫描）。同时把原来"整体失效"的
+`invalidatePublicListingsCache_()` 拆出一个按房源精确失效的
+`invalidatePublicListingCoverCache_(listingId)`（`apps-script/Code.gs:2865`），
+在 `saveListingUnlocked_` 保存房源、`uploadToSubfolder_` 上传照片时分别调用。
+
+验证：生产环境连续调用 `getPublicListingCovers`，冷启动 18.1 秒，随后两次命中
+缓存分别为 2.4 秒、2.8 秒——证实缓存机制本身修复正确。
+
+### 加固：预热触发器 + TTL 延长（commit `3fa9718`，Apps Script v174）
+
+即使 v173 修好了缓存本身，"缓存过期窗口内第一个访客"仍要独自承担一次完整扫描，
+且并发访客同时撞上冷缓存仍可能造成执行堆积（v173 部署后的复核一度又测到
+22.8 秒 / 28.8 秒的慢请求，怀疑是我自己短时间内高频测试流量叠加真实访问造成的
+并发拥堵，而非代码本身回归）。加固方案：
+
+- `PUBLIC_CACHE_TTL_SECONDS` 从 300（5 分钟）延长到 900（15 分钟），
+  `getListings_` 和封面缓存共用这一个常量（`apps-script/Code.gs:2846`）。
+- 新增 `warmPublicListingCoverCache()`（`apps-script/Code.gs:3000`，直接复用
+  `getPublicListingCoverBundle_`，没有另写一套逻辑）配合
+  `installPublicListingCoverWarmupTrigger()` / `removePublicListingCoverWarmupTrigger()`
+  （`apps-script/Code.gs:3007`/`3016`，写法参照已有的
+  `installDailyMarketBriefAutoSync`）建一个每 5 分钟跑一次的定时触发器，15 分钟
+  TTL 内刷新 3 次，减少访客撞上冷缓存的概率。
+- **遗留操作项**：这两个 install/remove 函数**没有**挂到任何前端可调用的
+  dispatcher action 上（和 `installDailyMarketBriefAutoSync`、
+  `setupPropertyStrategyFileStorage()` 是同一惯例——一次性手动函数）。`clasp
+  run-function installPublicListingCoverWarmupTrigger` 远程执行被拒绝
+  （`Unable to run script function. Please make sure you have permission to
+  run the script function.`——这个 Apps Script 项目没有关联 GCP 项目，`clasp
+  logs` 同样因为这个原因不可用），**必须由人从 Apps Script 编辑器里手动运行一次
+  `installPublicListingCoverWarmupTrigger`**，触发器才会真正建立。如果之后
+  `clasp deployments`/生产表现异常，先确认这个触发器是否已经装上
+  （`ScriptApp.getProjectTriggers()` 里应该能看到 handler 为
+  `warmPublicListingCoverCache`、每 5 分钟一次的记录）。
+
+### 遗留已知现象（无需处理）
+
+浏览器 Network 面板会看到同一个 Drive 文件 ID 同时出现在
+`drive.google.com/thumbnail?...` 和 `lh3.googleusercontent.com/d/...` 两条请求
+里。用生产环境真实文件 ID 实测确认：
+
+```
+curl -sS -D - -o /dev/null -L "https://drive.google.com/thumbnail?id=<fileId>&sz=w800"
+→ HTTP/2 302, location: https://lh3.googleusercontent.com/d/<同一个fileId>=w800
+→ HTTP/2 200 (真正的图片字节)
+```
+
+这是 **Google Drive 服务器自己的重定向行为**，每一张缩略图、每一次请求都会经过
+这一跳，和请求参数（`sz=w800`/`w1600`/`w640-h480`，对应
+`apps-script/Code.gs` 里 `thumbUrl`/`thumbUrlLg`/封面占位图三种格式）无关、
+100% 必现，不是代码里的 fallback/重试逻辑（`src/utils/listingPublicMeta.js`、
+`src/pages/Examples.jsx`、`src/pages/PublicListing.jsx` 里确认过没有任何
+`onError` 切换到 lh3 的逻辑），也不会因为批量接口的部署而改变（每张图仍然各自
+产生 1 次 302 + 1 次 200）。**不需要处理**，除非未来评估直接把图片地址换成
+`lh3.googleusercontent.com/d/...` 跳过这一跳重定向（跳过之前需要先验证 lh3
+地址的长期稳定性和权限规则是否与 `thumbnail` 完全一致，目前未验证，不建议现在改）。
+
+### 涉及的部署 ID / 提交对照表
+
+| Apps Script 版本 | 内容 | Git commit |
+|---|---|---|
+| v172 | 批量封面接口首次上线（含未发现的 100KB 缓存 bug） | `86bc73e` |
+| v173 | 缓存粒度改成按房源独立 key，修复静默失败 | `97a757e` |
+| v174 | 预热触发器 + TTL 延长到 15 分钟 | `3fa9718` |
+
+部署 ID 全程未变：`AKfycbw01LTH_pyJjcxk1GmWizYV3A8sHXy8TV54yMeccJdDQvyIBzgKK4N8gSpqPzWUcK0`
+（Script ID `1SottAUJmamosFwhimrmM2zThzQ2ELhyEiKq660vRULi5hGk-oYVTKJBp`），对应
+`.env.local` 的 `VITE_STUDIO_EXEC_URL`。
 
 ## 使用说明
 
