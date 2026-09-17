@@ -65,6 +65,7 @@ const RETRYABLE_POST_ACTIONS = new Set([
   "uploadToSubfolder",
   "updateVideoUrl",
   "syncVideoUrl",
+  "validateAdminAccessCode",
 ]);
 
 const READ_ONLY_POST_ACTIONS = new Set([
