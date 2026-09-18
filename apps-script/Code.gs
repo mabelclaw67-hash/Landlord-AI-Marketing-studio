@@ -3815,6 +3815,14 @@ function normalizeEmail_(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizePhone_(value) {
+  var digits = String(value || "").replace(/\D+/g, "");
+  if (digits.length === 11 && digits.charAt(0) === "1") {
+    digits = digits.slice(1);
+  }
+  return digits;
+}
+
 // ── Rental listing media folder auto-creation ────────────────────────────────
 
 function createRentalListingFolder_(listingId, address) {
@@ -5075,8 +5083,100 @@ function findExistingRentalListingMediaFolder_(listing) {
   throw new Error("Existing listing media folder not found for listing: " + listingId);
 }
 
-function getApplicantSupportingDocumentsFolder_(listing) {
-  return getApplicantSensitiveSupportingDocumentsFolder_(listing.id);
+// ── Public supporting documents resolution & storage ─────────────────────────
+
+function resolvePublicSupportingDocumentApplication_(body, listing) {
+  var listingId = String((body && body.listingId) || (listing && listing.id) || "").trim();
+  if (!listingId) throw new Error("Listing ID is required.");
+
+  var explicitRecordId = String((body && (body.recordId || body.applicationId || body.appId)) || "").trim();
+
+  // Normalize submitted identity upfront — needed for both Priority 1 and 2.
+  var inputEmail = normalizeEmail_(body && body.email);
+  var inputPhone = normalizePhone_(body && body.phone);
+  if (!inputEmail) throw new Error("Email is required.");
+  if (!inputPhone) throw new Error("Phone number is required.");
+
+  // Priority 1 — explicit recordId / APP-ID (narrowing hint only)
+  // The recordId is user-controlled on this public endpoint, so it MUST NOT
+  // authorize folder access by itself. We verify listing + email + phone.
+  if (explicitRecordId) {
+    var foundRow = findApplicationRowByRecordId_(explicitRecordId);
+    if (!foundRow || !foundRow.app) {
+      throw new Error("We could not find a submitted rental application matching this property, email address, and phone number. Please submit your Rental Application first or verify your contact information.");
+    }
+    if (String(foundRow.app.listingId || "").trim() !== listingId) {
+      throw new Error("We could not find a submitted rental application matching this property, email address, and phone number. Please submit your Rental Application first or verify your contact information.");
+    }
+    var recordEmail = normalizeEmail_(foundRow.app.email);
+    var recordPhone = normalizePhone_(foundRow.app.phone);
+    if (!recordEmail || !recordPhone || recordEmail !== inputEmail || recordPhone !== inputPhone) {
+      throw new Error("We could not find a submitted rental application matching this property, email address, and phone number. Please submit your Rental Application first or verify your contact information.");
+    }
+    return {
+      foundRow: foundRow,
+      app: foundRow.app,
+      matchMethod: "explicit_record_id",
+    };
+  }
+
+  // Priority 2 — public listing upload without recordId
+  // (inputEmail and inputPhone were already normalized above)
+
+  var sheet = getSheet_(INTAKE_SHEET);
+  addMissingHeaders_(sheet, INTAKE_HEADERS);
+  var last = sheet.getLastRow();
+  if (last < 2) {
+    throw new Error(
+      "We could not find a submitted rental application matching this property, email address, and phone number. Please submit your Rental Application first or verify your contact information."
+    );
+  }
+
+  var numCols = sheet.getLastColumn();
+  var headerMap = getHeaderMap_(sheet);
+  var rows = sheet.getRange(2, 1, last - 1, numCols).getValues();
+
+  var matchedRows = [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var rowListingId = String(colVal_(row, headerMap, "Listing ID") || "").trim();
+    if (rowListingId !== listingId) continue;
+
+    var app = rowToApplication_(row, headerMap);
+    if (!app.recordId) continue;
+
+    var appEmail = normalizeEmail_(app.email);
+    var appPhone = normalizePhone_(app.phone);
+
+    // Primary matching keys: normalized email AND normalized phone
+    if (appEmail && appPhone && appEmail === inputEmail && appPhone === inputPhone) {
+      matchedRows.push({
+        rowNumber: i + 2,
+        row: row,
+        headerMap: headerMap,
+        sheet: sheet,
+        app: app,
+      });
+    }
+  }
+
+  if (matchedRows.length === 0) {
+    throw new Error(
+      "We could not find a submitted rental application matching this property, email address, and phone number. Please submit your Rental Application first or verify your contact information."
+    );
+  }
+
+  if (matchedRows.length > 1) {
+    throw new Error(
+      "Multiple rental applications matched this contact information for this property. The application cannot be uniquely identified. Please contact VanIsland Property."
+    );
+  }
+
+  return {
+    foundRow: matchedRows[0],
+    app: matchedRows[0].app,
+    matchMethod: "normalized_email_phone",
+  };
 }
 
 function uploadPublicSupportingDocument_(body) {
@@ -5099,8 +5199,31 @@ function uploadPublicSupportingDocument_(body) {
   }
   validateSupportingDocumentFile_(originalFileName, body.mimeType, body.fileSize);
 
-  var folder = getApplicantSupportingDocumentsFolder_(listing);
-  var fileName = buildPublicSupportingDocumentFileName_(applicantName, category, originalFileName);
+  // Resolve target application SSOT before any Drive write.
+  // Throws if 0 matches or >1 matches — zero files are written.
+  var resolved = resolvePublicSupportingDocumentApplication_(body, listing);
+  var targetRecordId = resolved.app.recordId;
+  var targetApplicantName = resolved.app.applicantName || applicantName;
+
+  var folder = getApplicantSensitiveRecordSupportingDocumentsFolder_(
+    listingId,
+    targetRecordId,
+    targetApplicantName
+  );
+
+  // Ensure Support Document Folder URL points to the canonical application folder.
+  // Update if blank, stale, or pointing to a different folder (e.g. legacy listing-level).
+  var canonicalUrl = folder.getUrl();
+  var existingFolderId = extractDriveFolderId_(resolved.app.supportDocumentFolderUrl || "");
+  if (!existingFolderId || existingFolderId !== folder.getId()) {
+    setApplicationCells_(resolved.foundRow.sheet, resolved.foundRow.rowNumber, resolved.foundRow.headerMap, {
+      "Support Document Folder URL": canonicalUrl,
+      "Updated At": new Date().toISOString(),
+    });
+    SpreadsheetApp.flush();
+  }
+
+  var fileName = buildPublicSupportingDocumentFileName_(targetApplicantName, category, originalFileName);
   var uploadedAt = new Date().toISOString();
   var blob = Utilities.newBlob(
     Utilities.base64Decode(body.data),
@@ -5112,16 +5235,25 @@ function uploadPublicSupportingDocument_(body) {
   file.setDescription([
     "Listing ID: " + listingId,
     "Property Address: " + (listing.address || ""),
-    "Applicant Name: " + applicantName,
+    "Application ID: " + targetRecordId,
+    "Applicant Name: " + targetApplicantName,
     "Applicant Email: " + email,
     "Applicant Phone: " + phone,
     "Document Type: " + category,
     "Uploaded At: " + uploadedAt,
     "Notes: " + String(body.notes || "").trim()
   ].join("\n"));
+
+  try {
+    updateDocumentUploadStatus_(targetRecordId);
+  } catch (_) {
+    // Non-blocking status counter refresh
+  }
+
   return {
     success: true,
     listingId: listingId,
+    recordId: targetRecordId,
     fileId: file.getId(),
     fileName: file.getName(),
     uploadedAt: uploadedAt
@@ -5146,13 +5278,21 @@ function notifyPublicSupportingDocumentsUploaded_(body) {
   if (!isPublicRentalListingOpenForDocuments_(listing)) {
     throw new Error("This listing is no longer accepting applications or supporting documents.");
   }
-  var folder = getApplicantSupportingDocumentsFolder_(listing);
+
+  var resolved = resolvePublicSupportingDocumentApplication_(body, listing);
+  var folder = getApplicantSensitiveRecordSupportingDocumentsFolder_(
+    listingId,
+    resolved.app.recordId,
+    resolved.app.applicantName || applicantName
+  );
+
   var verifiedNames = filterVerifiedFilesInFolder_(folder, body.documents);
   if (!verifiedNames.length) throw new Error("No matching uploaded documents found for this listing.");
   var documentList = verifiedNames.join(", ");
-  var emailWarnings = sendSupportDocumentReceiptEmails_({}, listing, {
+  var emailWarnings = sendSupportDocumentReceiptEmails_(resolved.app, listing, {
     listingId: listingId,
-    applicantName: applicantName,
+    recordId: resolved.app.recordId,
+    applicantName: resolved.app.applicantName || applicantName,
     email: email,
     phone: phone,
     documentList: documentList,

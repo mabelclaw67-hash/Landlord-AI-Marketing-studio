@@ -692,7 +692,7 @@ export async function uploadSupportingDocument(listingId, recordId, token, categ
   }, turnstileToken);
 }
 
-export async function uploadPublicSupportingDocument({ listingId, applicantName, email, phone, notes, category, file, turnstileToken }) {
+export async function uploadPublicSupportingDocument({ listingId, applicantName, email, phone, notes, category, file, turnstileToken, recordId }) {
   if (!isApiConnected()) {
     throw new Error("Supporting document upload requires Google Apps Script integration.");
   }
@@ -709,6 +709,7 @@ export async function uploadPublicSupportingDocument({ listingId, applicantName,
     fileSize: file.size || 0,
     data: base64,
     origin: window.location.origin,
+    recordId: recordId || undefined,
   }, turnstileToken);
 }
 
@@ -730,7 +731,7 @@ export async function notifySupportingDocumentsUploaded(listingId, recordId, tok
   }, turnstileToken);
 }
 
-export async function notifyPublicSupportingDocumentsUploaded({ listingId, applicantName, email, phone, notes, documents, turnstileToken }) {
+export async function notifyPublicSupportingDocumentsUploaded({ listingId, applicantName, email, phone, notes, documents, turnstileToken, recordId }) {
   if (!isApiConnected()) {
     throw new Error("Supporting document upload requires Google Apps Script integration.");
   }
@@ -742,6 +743,7 @@ export async function notifyPublicSupportingDocumentsUploaded({ listingId, appli
     notes,
     documents,
     origin: window.location.origin,
+    recordId: recordId || undefined,
   }, turnstileToken);
 }
 

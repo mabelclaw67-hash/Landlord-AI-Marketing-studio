@@ -326,6 +326,7 @@ export default function SupportDocuments() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const publicListingId = searchParams.get("listing") || "";
+  const paramRecordId = searchParams.get("recordId") || searchParams.get("appId") || searchParams.get("app") || "";
   const isTokenMode = Boolean(tokenListingId || recordId || token);
   const [listing, setListing] = useState(null);
   const [listingLoading, setListingLoading] = useState(!isTokenMode && !!publicListingId);
@@ -409,6 +410,7 @@ export default function SupportDocuments() {
             category: entry.category,
             file: entry.file,
             turnstileToken: await uploadTurnstile.consumeToken(),
+            recordId: paramRecordId || undefined,
           });
           // Only the Drive fileId (not the name) is what the notify call is
           // authorized by — the backend re-verifies it against the folder.
@@ -430,6 +432,7 @@ export default function SupportDocuments() {
             notes: clean(form.notes),
             documents: uploadedDocs,
             turnstileToken: await uploadTurnstile.consumeToken(),
+            recordId: paramRecordId || undefined,
           });
         } catch (notifyErr) {
           if (!uploadError) uploadError = notifyErr;
