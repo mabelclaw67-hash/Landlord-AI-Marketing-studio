@@ -178,7 +178,7 @@ export default function NewListing({ lang: langProp }) {
             </FormGroup>
             <FormGroup label={t(lang, "newListing.bathrooms")} chHint="卫生间">
               <select className="form-control" value={form.bathrooms} onChange={set("bathrooms")}>
-                {["1", "1.5", "2", "2.5", "3+"].map((n) => <option key={n}>{n}</option>)}
+                {["1", "1.5", "2", "2.5", "3", "3+"].map((n) => <option key={n}>{n}</option>)}
               </select>
             </FormGroup>
           </div>
