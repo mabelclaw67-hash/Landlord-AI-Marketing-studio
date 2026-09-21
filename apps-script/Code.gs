@@ -4131,8 +4131,28 @@ function isEligibleApplicantForOwnerScreening_(app) {
     "selected tenant"
   ];
   if (retention && inactiveRetentionStates.indexOf(retention) >= 0) return false;
-  if (retention && inactiveRetentionStates.indexOf(retention) === -1) return false;
   return !review || inactiveReviewStates.indexOf(review) === -1;
+}
+
+// Applicant self-service access to their OWN submitted application (duplicate
+// routing + the secure resume link) is a different concern from owner-facing
+// screening-report visibility above, and must not use the same gate. It must
+// never depend on Data Retention Status: that field is an internal
+// reporting/lifecycle label an admin sets independently of whether the
+// applicant may still reach their own record via a validly issued link. The
+// real security boundary for resume access is the signed, time-limited token
+// verified in findRentalApplicationForResume_ — this check only confirms the
+// record itself has not been closed out (declined, withdrawn, already
+// leased, etc).
+function isEligibleApplicantForResume_(app) {
+  if (!app || !app.recordId) return false;
+  var review = normalizeApplicantScreeningState_(app.reviewStatus);
+  var closedReviewStates = [
+    "declined", "not selected", "withdrawn", "rejected", "archived",
+    "deleted", "inactive", "closed", "signed tenant", "final tenant",
+    "selected tenant"
+  ];
+  return !review || closedReviewStates.indexOf(review) === -1;
 }
 
 function sanitizeApplicantReportLinksForAccess_(app, auth) {
@@ -6480,7 +6500,7 @@ function findActiveDuplicateApplication_(body) {
       return found.app.listingId === String(body.listingId).trim() &&
         normalizeApplicantDuplicateEmail_(found.app.email) === email &&
         normalizeApplicantDuplicatePhone_(found.app.phone) === phone &&
-        isEligibleApplicantForOwnerScreening_(found.app);
+        isEligibleApplicantForResume_(found.app);
     });
   if (!matches.length) return null;
 
@@ -6518,7 +6538,7 @@ function sendRentalApplicationResumeEmail_(app, origin, token) {
     "Thank you,",
     "Vanisland Property Management",
   ].join("\n");
-  sendApplicantWorkflowEmail_(
+  return sendApplicantWorkflowEmail_(
     app.email,
     "Continue Your Rental Application",
     body,
@@ -6620,7 +6640,11 @@ function saveRentalApplication_(body) {
       resumeExpiresAt,
       duplicate.app.updatedAt || duplicate.app.submittedAt
     );
-    sendRentalApplicationResumeEmail_(duplicate.app, body.origin, resumeToken);
+    var resumeEmailWarning = sendRentalApplicationResumeEmail_(duplicate.app, body.origin, resumeToken);
+    if (resumeEmailWarning) {
+      Logger.log("[saveRentalApplication duplicate resume] secure link email failed: " + resumeEmailWarning);
+      throw new Error("We found your existing application, but we were unable to send the secure access link. Please contact support@vanislandproperty.ca for assistance.");
+    }
     return {
       success: true,
       duplicate: true,
@@ -7175,7 +7199,7 @@ function findRentalApplicationForResume_(listingId, recordId, token) {
   }
   if (String(app.listingId || "") !== String(listingId || "") ||
       String(expectedToken || "") !== String(token || "") ||
-      !isEligibleApplicantForOwnerScreening_(app)) {
+      !isEligibleApplicantForResume_(app)) {
     throw invalidRentalApplicationResumeError_();
   }
   return found;

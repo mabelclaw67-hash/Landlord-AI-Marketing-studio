@@ -145,7 +145,15 @@ function makeSandbox(appFields, options = {}) {
         };
       },
     },
-    GmailApp: { getAliases: () => ["support@vanislandproperty.ca"], sendEmail(to, subject, body) { sentEmails.push({ to, subject, body }); } },
+    GmailApp: {
+      getAliases: () => ["support@vanislandproperty.ca"],
+      sendEmail(to, subject, body) {
+        if (options.throwOnEmail) {
+          throw new Error(options.throwOnEmail === true ? "Gmail send failed: daily quota exceeded" : options.throwOnEmail);
+        }
+        sentEmails.push({ to, subject, body });
+      },
+    },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     Utilities: {
       getUuid: (() => { let n = 0; return () => `uuid-${++n}`; })(),
@@ -305,6 +313,56 @@ check(updateSandbox.__applicantFolder.files[0].trashed === false, "original PDF 
 let staleError = "";
 try { updateSandbox.getRentalApplicationResume_(base["Listing ID"], base["Record ID"], updateResumeToken); } catch (e) { staleError = e.message; }
 check(staleError === "This application link is invalid or expired.", "old resume token cannot resume after update");
+
+// ── Applicant resume eligibility is separate from owner-screening eligibility ──
+// A record carrying ANY Data Retention Status (an owner-facing
+// reporting/lifecycle label an admin sets, e.g. "Declined" for a routine
+// retention pass) must not lose the applicant's own self-service access to
+// their still-open application. Only review-status "closed out" states
+// affect resume eligibility, same as before this fix.
+const retentionTaggedButOpen = makeSandbox({
+  ...base,
+  "Review Status": "Pending",
+  "Data Retention Status": "Declined", // legitimate, non-empty retention label
+});
+const retentionDuplicate = retentionTaggedButOpen.findActiveDuplicateApplication_({
+  listingId: base["Listing ID"], email: base.Email, phone: base.Phone,
+});
+check(Boolean(retentionDuplicate), "non-empty Data Retention Status does not block duplicate detection");
+const retentionResumeToken = retentionTaggedButOpen.rentalApplicationResumeToken_(
+  base["Listing ID"], base["Record ID"], future, base["Updated At"]
+);
+const retentionResumed = retentionTaggedButOpen.getRentalApplicationResume_(base["Listing ID"], base["Record ID"], retentionResumeToken);
+check(retentionResumed.data.email === base.Email, "resume succeeds for a legitimate existing application even when Data Retention Status is non-empty");
+
+// Owner-screening eligibility keeps its own, independent, otherwise-unchanged
+// behavior: documented inactive retention/review states are still excluded,
+// but a non-empty retention value that is NOT one of those states no longer
+// wrongly excludes the applicant (the bug this fix removes).
+check(retentionTaggedButOpen.isEligibleApplicantForOwnerScreening_({ recordId: "X", dataRetentionStatus: "Declined", reviewStatus: "Pending" }) === false, "owner screening still excludes a documented inactive retention state");
+check(retentionTaggedButOpen.isEligibleApplicantForOwnerScreening_({ recordId: "X", dataRetentionStatus: "Reviewed", reviewStatus: "Pending" }) === true, "owner screening no longer excludes a non-empty retention value outside the inactive list");
+check(retentionTaggedButOpen.isEligibleApplicantForOwnerScreening_({ recordId: "X", dataRetentionStatus: "", reviewStatus: "Declined" }) === false, "owner screening still excludes a documented inactive review state");
+check(retentionTaggedButOpen.isEligibleApplicantForOwnerScreening_({ recordId: "X", dataRetentionStatus: "", reviewStatus: "Pending" }) === true, "owner screening still includes a normal active application");
+
+// ── Secure-link email delivery failure must not be reported as success ──
+const emailFailureSandbox = makeSandbox(base, { throwOnEmail: "Domain policy prohibits sending mail from this address." });
+let emailFailureError = "";
+try {
+  emailFailureSandbox.saveRentalApplication_({
+    listingId: base["Listing ID"], email: base.Email, phone: base.Phone, origin: "https://example.com",
+  });
+} catch (e) { emailFailureError = e.message; }
+check(
+  emailFailureError === "We found your existing application, but we were unable to send the secure access link. Please contact support@vanislandproperty.ca for assistance.",
+  "duplicate + failed resume email returns a safe, generic delivery-error message instead of success"
+);
+check(!emailFailureError.includes("Domain policy"), "the internal Gmail error text is never exposed to the applicant");
+check(emailFailureSandbox.__sentEmails.length === 0, "no email is recorded as sent when delivery fails");
+
+// The happy path (duplicate detected + email actually sends) keeps returning
+// the normal, non-error secure-link message.
+check(duplicateResponse.success === true, "duplicate + successful email still returns success: true");
+check(duplicateResponse.message.indexOf("existing application") !== -1, "duplicate + successful email keeps the normal secure-link guidance message");
 
 if (failures) process.exit(1);
 console.log("All duplicate/resume/update checks passed.");
