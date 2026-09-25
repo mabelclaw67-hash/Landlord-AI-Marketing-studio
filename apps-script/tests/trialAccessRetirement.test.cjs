@@ -7,6 +7,7 @@ const vm = require("node:vm");
 
 const code = fs.readFileSync(path.join(__dirname, "..", "Code.gs"), "utf8");
 const homeSale = fs.readFileSync(path.join(__dirname, "..", "HomeSaleStudioRead.gs"), "utf8");
+const adminAuth = fs.readFileSync(path.join(__dirname, "..", "AdminAuth.gs"), "utf8");
 const trialAccess = fs.readFileSync(path.join(__dirname, "..", "..", "src", "utils", "trialAccess.js"), "utf8");
 const appSource = fs.readFileSync(path.join(__dirname, "..", "..", "src", "App.jsx"), "utf8");
 const adminGuard = fs.readFileSync(path.join(__dirname, "..", "..", "src", "components", "AdminGuard.jsx"), "utf8");
@@ -46,6 +47,9 @@ function makeSandbox() {
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename: "Code.gs" });
   vm.runInContext(homeSale, sandbox, { filename: "HomeSaleStudioRead.gs" });
+  vm.runInContext(adminAuth, sandbox, { filename: "AdminAuth.gs" });
+  sandbox.adminAuthBridgeMatches_ = (token) => token === "TEST-BRIDGE";
+  sandbox.adminAuthValidateSession_ = (token) => (token === "TEST-SESSION" ? { c: 0, s: 0 } : null);
   sandbox.__sent = sent;
   return sandbox;
 }
@@ -95,7 +99,10 @@ try {
   error = caught;
 }
 check(error && error.message === "Admin access required.", "Old Rental Trial credentials fail closed");
-check(sandbox.resolveAccessContext_({ adminAccessCode: "ADMIN-TEST-CODE" }, "rental", {}).mode === "admin", "Existing Rental Admin credential still resolves");
+check(sandbox.resolveAccessContext_({ adminSessionToken: "TEST-SESSION", adminBridgeToken: "TEST-BRIDGE" }, "rental", {}).mode === "admin", "Rental Admin MFA session resolves");
+error = null;
+try { sandbox.resolveAccessContext_({ adminAccessCode: "ADMIN-TEST-CODE" }, "rental", {}); } catch (caught) { error = caught; }
+check(error && error.message === "Admin access required.", "Retired Rental admin access code fails closed");
 check(sandbox.resolveAccessContext_({}, "rental", { allowNoAccess: true }).mode === "public", "Explicit Rental public action remains public");
 
 error = null;
@@ -105,7 +112,10 @@ try {
   error = caught;
 }
 check(error && error.message === "Admin access required.", "Old Home Sale Trial credentials fail closed");
-check(sandbox.homeSaleResolveAccess_({ adminAccessCode: "ADMIN-TEST-CODE" }, "sale", false).mode === "admin", "Existing Home Sale Admin credential still resolves");
+check(sandbox.homeSaleResolveAccess_({ adminSessionToken: "TEST-SESSION", adminBridgeToken: "TEST-BRIDGE" }, "sale", false).mode === "admin", "Home Sale Admin MFA session resolves");
+error = null;
+try { sandbox.homeSaleResolveAccess_({ adminAccessCode: "ADMIN-TEST-CODE" }, "sale", false); } catch (caught) { error = caught; }
+check(error && error.message === "Admin access required.", "Retired Home Sale admin access code fails closed");
 
 // Verify sender identity is fixed while legal Gmail options remain pass-through.
 sandbox.sendCompanyEmail_("support@vanislandproperty.ca", "subject", "body", {

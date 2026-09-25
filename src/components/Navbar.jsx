@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import { t } from "../translations";
 import { normalizeLang } from "../utils/lang";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
-import { isAdminSessionActive } from "../utils/trialAccess";
+import { useAdminSessionStatus } from "../utils/adminSession";
 
 // Pages that get the tenant-only experience
 function isTenantRoute(pathname) {
@@ -52,7 +52,7 @@ export default function Navbar({ lang, setLang }) {
   const tenantLabels = TENANT_NAV[safeLang] || TENANT_NAV.en;
   // Tenants never see "Admin" — only an already-logged-in admin session does.
   // The admin dashboard itself still requires login; this only controls visibility of the nav link.
-  const showAdminLink = isAdminSessionActive();
+  const showAdminLink = useAdminSessionStatus() === "active";
   // When on a specific listing page, route Apply Now to the in-app form for that listing.
   const listingId = getListingIdFromPath(pathname);
   const applyTo = listingId ? `/apply/${listingId}` : "/apply";

@@ -6,6 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const code = fs.readFileSync(path.join(__dirname, "..", "Code.gs"), "utf8");
+const adminAuth = fs.readFileSync(path.join(__dirname, "..", "AdminAuth.gs"), "utf8");
 
 function makeSandbox() {
   const rows = [
@@ -37,9 +38,12 @@ function makeSandbox() {
 
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename: "Code.gs" });
+  vm.runInContext(adminAuth, sandbox, { filename: "AdminAuth.gs" });
 
   let enrichmentCalls = 0;
-  sandbox.getAdminAccessCode_ = () => "ADMIN-TEST-CODE";
+  // Admin = gateway secret + live MFA session (AdminAuth.gs); stubbed here.
+  sandbox.adminAuthBridgeMatches_ = (token) => token === "TEST-BRIDGE";
+  sandbox.adminAuthValidateSession_ = (token) => (token === "TEST-SESSION" ? { c: 0, s: 0 } : null);
   sandbox.getSheet_ = () => sheet;
   sandbox.addMissingHeaders_ = () => {};
   sandbox.getHeaderMap_ = () => ({ "Record ID": 0, "Listing ID": 1, "Applicant Name": 2 });
@@ -92,9 +96,14 @@ try {
 }
 check(denied && denied.error === "Admin access required.", "All-applications request without Admin auth is denied");
 
+const legacy = JSON.parse(sandbox.rentalDoPost_({
+  postData: { contents: JSON.stringify({ action: "getAllApplications", adminAccessCode: "ADMIN-TEST-CODE" }) },
+}).getContent());
+check(legacy.error === "Admin access required.", "All-applications request with the retired admin code is denied");
+
 const allowedResponse = sandbox.rentalDoPost_({
   postData: {
-    contents: JSON.stringify({ action: "getAllApplications", adminAccessCode: "ADMIN-TEST-CODE" }),
+    contents: JSON.stringify({ action: "getAllApplications", adminSessionToken: "TEST-SESSION", adminBridgeToken: "TEST-BRIDGE" }),
   },
 });
 const allowed = JSON.parse(allowedResponse.getContent());

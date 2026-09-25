@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { isAdminSessionActive } from "../utils/trialAccess";
+import { useAdminSessionStatus } from "../utils/adminSession";
 import { useLang } from "../contexts/LangContext";
 
 const FREE_MODULES = [
@@ -40,7 +40,7 @@ const PREMIUM_MODULES = [
 
 export default function ComingSoonSection() {
   const lang = useLang();
-  const isAdmin = isAdminSessionActive();
+  const isAdmin = useAdminSessionStatus() === "active";
 
   function premiumButtonLabel() {
     if (isAdmin) return lang === "zh" ? "仅供架构预览" : "Architecture Preview Only";

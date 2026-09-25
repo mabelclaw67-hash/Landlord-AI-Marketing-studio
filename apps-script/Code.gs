@@ -22,7 +22,6 @@ var DAILY_MARKET_BRIEF_SPREADSHEET_ID = "1kmV7FdBX6S06lGIZy3HveryolVbeMsC0pDXrWn
 var PROPERTY_STRATEGY_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
 var PROPERTY_STRATEGY_REPORTS_FOLDER_ID = "1J4p5SdWLGcSVzbZnAhla3PRR8fJgJUll";
 var RENTAL_INTELLIGENCE_SPREADSHEET_ID = "1hst3mcCLeCbMmRBnH3OkKEPOEWbSVvONsRxMUiPKg5E";
-var ADMIN_ACCESS_CODE = ""; // source of truth is 08 System Settings — no hardcoded fallback
 var LISTINGS_SHEET  = "01 Listings";
 var CONTACTS_SHEET  = "Contacts";
 var INTAKE_SHEET    = "07 Intake Records";
@@ -287,8 +286,12 @@ function rentalDoPost_(e) {
     if (["uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "uploadDisputeFile", "uploadPropertyStrategyFile"].indexOf(action) >= 0) {
       assertPublicUploadBridge_(body);
     }
+    // Retired single-password admin endpoints: tell stale tabs to reload.
+    if (action === "validateAdminAccessCode" || action === "updateAdminAccessCode") {
+      return err("Admin sign-in now requires two-step verification. Please reload the page.");
+    }
     // Actions that do not require any session (login/public endpoints)
-    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "saveRentalApplication", "getRentalApplicationResume", "updateRentalApplication", "validateAdminAccessCode", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
+    var noAuthActions = ["saveContact", "savePropertyStrategyAssessment", "getRentalIntelligenceCommunities", "getRentalIntelligenceKnowledge", "saveRentalApplication", "getRentalApplicationResume", "updateRentalApplication", "getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getApplicationPdfDownloadData", "validateUploadToken", "uploadSupportingDocument", "notifySupportingDocumentsUploaded", "uploadPublicSupportingDocument", "notifyPublicSupportingDocumentsUploaded", "startDisputeReview", "uploadDisputeFile", "deleteDisputeFile", "submitDisputeReview", "downloadDisputeReportPdf", "startPropertyStrategyAssessment", "uploadPropertyStrategyFile", "deletePropertyStrategyFile", "getPropertyStrategyFiles", "downloadPropertyStrategyReportPdf", "recoverPropertyStrategyReport", "recoverDisputeReport"];
     var isNoAuth = noAuthActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(body || {}, "rental", {
       allowAdmin: true,
@@ -393,8 +396,6 @@ function rentalDoPost_(e) {
     if (action === "uploadPublicSupportingDocument") return ok(uploadPublicSupportingDocument_(body));
     if (action === "notifyPublicSupportingDocumentsUploaded") return ok(notifyPublicSupportingDocumentsUploaded_(body));
     if (action === "updateDocumentUploadStatus") return ok(updateDocumentUploadStatus_(body.recordId));
-    if (action === "validateAdminAccessCode") return ok(validateAdminAccessCode_(body.code));
-    if (action === "updateAdminAccessCode")   return ok(updateAdminAccessCode_(body, auth));
     if (action === "getAdminSettings")        return ok(getAdminSettings_(auth));
     return err("Unknown POST action: " + action);
   } catch (ex) {
@@ -2706,80 +2707,29 @@ function setSystemSetting_(key, value, updatedBy) {
   sheet.appendRow([key, value, now, updatedBy || ""]);
 }
 
-function getAdminAccessCode_() {
-  try {
-    // 1. Sheet is the authoritative source of truth (set by Admin Settings UI)
-    var fromSheet = getSystemSetting_("admin_access_code");
-    if (fromSheet) {
-      // Keep PropertiesService in sync so updateAdminAccessCode_ cache-busts correctly
-      PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", fromSheet);
-      return fromSheet;
-    }
-    // 2. Hardcoded bootstrap value — used until Mabel sets a real code via Admin Settings
-    //    Intentionally skip PropertiesService here to avoid stale cached values
-    //    from previous deployments overriding the hardcoded bootstrap.
-    var bootstrap = ADMIN_ACCESS_CODE || "";
-    if (bootstrap) PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", bootstrap);
-    return bootstrap;
-  } catch (_) {
-    return ADMIN_ACCESS_CODE || "";
-  }
-}
-
 // ── Admin Settings action handlers ───────────────────────────────────────────
-
-function validateAdminAccessCode_(code) {
-  var entered = String(code || "").trim();
-  if (!entered) return { valid: false };
-  return { valid: entered === getAdminAccessCode_() };
-}
-
-function updateAdminAccessCode_(body, auth) {
-  assertAdmin_(auth);
-  var newCode    = String(body.newCode     || "").trim();
-  var confirmCode = String(body.confirmCode || "").trim();
-  if (newCode.length < 10) throw new Error("New code must be at least 10 characters.");
-  if (newCode !== confirmCode) throw new Error("New code and confirm code do not match.");
-  setSystemSetting_("admin_access_code", newCode, "admin");
-  PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", newCode);
-  return { success: true, updatedAt: new Date().toISOString() };
-}
+// Admin sign-in lives in AdminAuth.gs (password + TOTP, gateway-held session).
+// The old reusable "admin access code" is no longer accepted anywhere.
 
 function getAdminSettings_(auth) {
   assertAdmin_(auth);
-  try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var sheet = ss.getSheetByName(SYSTEM_SETTINGS_SHEET);
-    if (!sheet) return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
-    var rows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
-    for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][0]).trim() === "admin_access_code") {
-        return {
-          codeMasked: "••••••••",
-          updatedAt:  rows[i][2] ? new Date(rows[i][2]).toISOString() : null,
-          updatedBy:  rows[i][3] || null,
-        };
-      }
-    }
-  } catch (_) {}
-  return { codeMasked: "••••••••", updatedAt: null, updatedBy: null };
+  var props = PropertiesService.getScriptProperties();
+  return {
+    mfaEnrolled: !!props.getProperty(ADMIN_AUTH_KEYS_.TOTP),
+    recoveryCodesRemaining: adminAuthRecoveryHashes_().length,
+    passwordUpdatedAt: props.getProperty(ADMIN_AUTH_KEYS_.PASSWORD_UPDATED) || null,
+  };
 }
 
 function resolveAccessContext_(payload, moduleName, options) {
   payload = payload || {};
   options = options || {};
-  // getAdminAccessCode_() opens the spreadsheet and reads "08 System Settings" —
-  // skip that round trip entirely when the caller didn't even send a code
-  // (every anonymous public getListings call on /rentals and /apply).
-  var adminAccessCode = String(payload.adminAccessCode || "").trim();
-  if (options.allowAdmin !== false && adminAccessCode) {
-    var expectedAdminCode = getAdminAccessCode_();
-    if (expectedAdminCode && adminAccessCode === expectedAdminCode) {
-      return { mode: "admin", module: moduleName || "" };
-    }
+  // Admin = a gateway-signed live MFA session, or a verified single-use upload
+  // ticket (AdminAuth.gs). A raw admin access code is never accepted.
+  if (options.allowAdmin !== false && adminAuthResolveRequest_(payload)) {
+    return { mode: "admin", module: moduleName || "" };
   }
+  delete payload.adminAccessCode;
 
   if (options.allowNoAccess) {
     return { mode: "public", module: moduleName || "" };

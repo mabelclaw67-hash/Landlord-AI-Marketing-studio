@@ -1,4 +1,5 @@
-import { getStudioRequestAuth } from "./trialAccess";
+import { getStudioRequestAuth, takeAdminRoute } from "./trialAccess";
+import { adminApiRequest } from "./adminSession.js";
 import { buildHomeSalePublicUrl } from "./publicUrls";
 import { beginPerfTrace } from "./perfLog.js";
 export { buildHomeSalePublicUrl };
@@ -646,7 +647,29 @@ function ensureHomeSaleApiConnected() {
   }
 }
 
-async function homeSaleApiGet(params) {
+// Admin-marked requests go through the Netlify admin gateway (HttpOnly MFA
+// session cookie); it forwards to the main Studio deployment, which serves
+// the Home Sale actions too. Public reads still hit the Home Sale web app.
+async function homeSaleAdminRequest(method, params) {
+  const trace = beginPerfTrace(params.action, params);
+  try {
+    const payload = method === "GET"
+      ? Object.fromEntries(Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k, v]) => [k, String(v)]))
+      : params;
+    const data = await adminApiRequest(method, payload);
+    trace?.finish("success", { httpStatus: 200 });
+    return data;
+  } catch (ex) {
+    trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
+    throw ex;
+  }
+}
+
+async function homeSaleApiGet(rawParams) {
+  const { viaAdmin, payload: params } = takeAdminRoute(rawParams);
+  if (viaAdmin) return homeSaleAdminRequest("GET", params);
   const trace = beginPerfTrace(params.action, params);
   const url = new URL(HOME_SALE_EXEC_URL);
   Object.entries(params).forEach(([key, value]) => {
@@ -673,7 +696,9 @@ async function homeSaleApiGet(params) {
   }
 }
 
-async function homeSaleApiPost(payload) {
+async function homeSaleApiPost(rawPayload) {
+  const { viaAdmin, payload } = takeAdminRoute(rawPayload);
+  if (viaAdmin) return homeSaleAdminRequest("POST", payload);
   const trace = beginPerfTrace(payload.action, payload);
   try {
     const res = await fetch(HOME_SALE_EXEC_URL, {

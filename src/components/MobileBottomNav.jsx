@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { normalizeLang } from "../utils/lang";
 import { AL } from "../utils/adminLabels";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
-import { isAdminSessionActive } from "../utils/trialAccess";
+import { useAdminSessionStatus } from "../utils/adminSession";
 
 // ── Public nav labels (unchanged from original) ───────────────────────────────
 const PUBLIC_NAV = {
@@ -90,6 +90,7 @@ function AdminMobileNav({ lang }) {
 
 // ── Public nav (original, preserved exactly) ──────────────────────────────────
 function PublicMobileNav({ lang, pathname }) {
+  const adminActive = useAdminSessionStatus() === "active";
   const labels = PUBLIC_NAV[lang] || PUBLIC_NAV.en;
   return (
     <nav className="lh-mobile-bottom" aria-label={lang === "zh" ? "手机底部导航" : "Mobile navigation"}>
@@ -117,7 +118,7 @@ function PublicMobileNav({ lang, pathname }) {
         <span>✉️</span>
         <span>{labels.contact}</span>
       </NavLink>
-      {isAdminSessionActive() && (
+      {adminActive && (
         <NavLink to="/admin" className={({ isActive }) => `lh-mobile-bottom__item lh-mobile-bottom__item--admin${isActive ? " lh-mobile-bottom__item--active" : ""}`}>
           <span>⚙️</span>
           <span>{labels.admin}</span>

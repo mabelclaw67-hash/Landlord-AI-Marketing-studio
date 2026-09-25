@@ -10,8 +10,6 @@ var HOME_SALE_MEDIA_SHEET = "02 Media Assets";
 var HOME_SALE_MARKETING_SHEET = "03 Marketing Copy";
 var HOME_SALE_VIDEO_SHEET = "05 Video Scripts";
 var HOME_SALE_BUYER_INQUIRIES_SHEET = "04 Buyer Inquiries";
-// No hardcoded code. Set 'HOME_SALE_ADMIN_ACCESS_CODE' in Apps Script -> Project Settings -> Script Properties.
-var HOME_SALE_ADMIN_ACCESS_CODE = PropertiesService.getScriptProperties().getProperty('HOME_SALE_ADMIN_ACCESS_CODE') || "";
 var HOME_SALE_LISTING_ACCESS_HEADERS = [
   "Created By Email",
   "Created By Access Code",
@@ -66,7 +64,26 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  var body = JSON.parse((e.postData && e.postData.contents) || "{}");
+  var body;
+  try {
+    e = adminAuthPrepareRequest_(e);
+    body = JSON.parse((e.postData && e.postData.contents) || "{}");
+  } catch (err) {
+    return homeSaleErr_(err.message);
+  }
+  if (isAdminAuthAction_(body.action)) {
+    try {
+      return homeSaleOk_(handleAdminAuthAction_(body));
+    } catch (err) {
+      return homeSaleErr_(err.message);
+    }
+  }
+  // The admin gateway relays admin GET reads as POST so the session token
+  // never appears in a URL.
+  if (body.adminProxyGet === true) {
+    delete body.adminProxyGet;
+    return doGet({ parameter: body });
+  }
   if (!isHomeSaleRoutedAction_(body.action)) return rentalDoPost_(e);
   try {
     var action = body.action || "";
@@ -103,47 +120,15 @@ function doPost(e) {
 
 function homeSaleResolveAccess_(payload, moduleName, allowPublic) {
   payload = payload || {};
-  var adminAccessCode = String(payload.adminAccessCode || "").trim();
-  if (homeSaleIsValidAdminAccessCode_(adminAccessCode)) {
+  // Same MFA session / upload-ticket check as the rental resolver
+  // (AdminAuth.gs); a raw admin access code is never accepted.
+  if (adminAuthResolveRequest_(payload)) {
     return { mode: "admin", module: moduleName || "" };
   }
+  delete payload.adminAccessCode;
 
   if (allowPublic) return { mode: "public", module: moduleName || "" };
   throw new Error("Admin access required.");
-}
-
-function homeSaleIsValidAdminAccessCode_(adminAccessCode) {
-  if (!adminAccessCode) return false;
-  var expectedAdminCode = homeSaleGetAdminAccessCode_();
-  if (expectedAdminCode && adminAccessCode === expectedAdminCode) return true;
-  var bootstrap = String(HOME_SALE_ADMIN_ACCESS_CODE || "").trim();
-  return !!bootstrap && adminAccessCode === bootstrap;
-}
-
-function homeSaleGetAdminAccessCode_() {
-  // Source of truth: rental spreadsheet's "08 System Settings" sheet.
-  // Sheet is checked first to avoid stale PropertiesService values.
-  try {
-    var RENTAL_SS_ID = "1pRjwVN05ysN0u-c2FZb9xE9sIy7k6iHF09DIrw39Jw4";
-    var ss = SpreadsheetApp.openById(RENTAL_SS_ID);
-    var sheet = ss.getSheetByName("08 System Settings");
-    if (sheet && sheet.getLastRow() >= 2) {
-      var rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
-      for (var i = 0; i < rows.length; i++) {
-        if (String(rows[i][0]).trim() === "admin_access_code") {
-          var code = String(rows[i][1] || "").trim();
-          if (code) {
-            PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", code);
-            return code;
-          }
-        }
-      }
-    }
-  } catch (_) {}
-  // Bootstrap fallback — used until a real code is set via Admin Settings
-  var bootstrap = HOME_SALE_ADMIN_ACCESS_CODE || "";
-  if (bootstrap) PropertiesService.getScriptProperties().setProperty("ADMIN_ACCESS_CODE", bootstrap);
-  return bootstrap;
 }
 
 function homeSaleCanAccessListing_(record, auth) {

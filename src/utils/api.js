@@ -4,6 +4,8 @@
 // adapter falls back to localStorage automatically.
 
 import { beginPerfTrace } from "./perfLog.js";
+import { adminApiRequest } from "./adminSession.js";
+import { takeAdminRoute } from "./trialAccess.js";
 
 const EXEC_URL = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_STUDIO_EXEC_URL) || "";
 
@@ -50,23 +52,26 @@ async function fetchWithTimeout(input, init) {
   }
 }
 
-// Reads are idempotent, and every write listed here overwrites a fixed target
-// (same sheet row, or same Drive filename, which uploadToSubfolder_ trashes
-// before recreating). Append-style actions — saveContact, saveRentalApplication,
-// dispute/strategy intake — are deliberately absent: re-sending those would
-// create duplicate records.
+// Only reads are re-sent. A 404 means the script already ran and only its
+// response was lost, so no write is ever re-sent automatically — the user is
+// asked to refresh and check what was actually saved (WRITE_RESULT_UNKNOWN).
 const RETRYABLE_POST_ACTIONS = new Set([
   "getListings",
   "getListingById",
   "getCollagePhotoData",
   "getApplicationsByListing",
   "getAllApplications",
-  "saveListing",
-  "uploadToSubfolder",
-  "updateVideoUrl",
-  "syncVideoUrl",
-  "validateAdminAccessCode",
 ]);
+
+export const WRITE_RESULT_UNKNOWN =
+  "保存结果不明（服务器响应丢失），请先刷新页面，确认是否已保存，再决定是否重新提交。 " +
+  "The save result is unknown (the server response was lost). Refresh the page and check whether it was saved before submitting again.";
+
+// A lost response on a non-retryable action: the write may have succeeded.
+function unknownResultError(ex, action) {
+  if (ex?.httpStatus !== 404 || RETRYABLE_POST_ACTIONS.has(action)) return ex;
+  return Object.assign(new Error(WRITE_RESULT_UNKNOWN), { httpStatus: 404, resultUnknown: true, cause: ex });
+}
 
 const READ_ONLY_POST_ACTIONS = new Set([
   "getListings",
@@ -103,7 +108,12 @@ async function withTimeoutRetry(attempt, shouldRetry) {
 }
 
 // GET ?action=xxx[&key=val ...]
-export async function apiGet(params) {
+// Admin requests (marked by getStudioRequestAuth) go through the Netlify admin
+// gateway, which attaches the HttpOnly MFA session cookie; the same retry
+// rules apply. Public requests still go straight to Apps Script.
+export async function apiGet(rawParams) {
+  const { viaAdmin, payload: params } = takeAdminRoute(rawParams);
+  if (viaAdmin) return adminGet(params);
   if (!EXEC_URL) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const trace = beginPerfTrace(params.action, params);
   const url = new URL(EXEC_URL);
@@ -131,7 +141,9 @@ export async function apiGet(params) {
 // Apps Script processes doPost on the initial request, then 302-redirects to serve
 // the response via script.googleusercontent.com. redirect:"follow" lets the browser
 // fetch that response correctly.
-export async function apiPost(body) {
+export async function apiPost(rawBody) {
+  const { viaAdmin, payload: body } = takeAdminRoute(rawBody);
+  if (viaAdmin) return adminPost(body);
   if (!EXEC_URL) throw new Error("VITE_STUDIO_EXEC_URL not configured");
   const trace = beginPerfTrace(body.action, body);
   const payload = JSON.stringify(body);
@@ -153,7 +165,38 @@ export async function apiPost(body) {
     return json.data;
   } catch (ex) {
     trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
+    throw unknownResultError(ex, body.action);
+  }
+}
+
+async function adminGet(params) {
+  const trace = beginPerfTrace(params.action, params);
+  const stringParams = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]));
+  try {
+    const data = await withTimeoutRetry(
+      () => withRedirectRetry(() => adminApiRequest("GET", stringParams), true),
+      true,
+    );
+    trace?.finish("success", { httpStatus: 200 });
+    return data;
+  } catch (ex) {
+    trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
     throw ex;
+  }
+}
+
+async function adminPost(body) {
+  const trace = beginPerfTrace(body.action, body);
+  try {
+    const data = await withTimeoutRetry(
+      () => withRedirectRetry(() => adminApiRequest("POST", body), RETRYABLE_POST_ACTIONS.has(body.action)),
+      READ_ONLY_POST_ACTIONS.has(body.action),
+    );
+    trace?.finish("success", { httpStatus: 200 });
+    return data;
+  } catch (ex) {
+    trace?.finish("error", { httpStatus: ex.httpStatus ?? null, errorMessage: ex.message });
+    throw unknownResultError(ex, body.action);
   }
 }
 
