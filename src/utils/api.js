@@ -69,6 +69,13 @@ export const WRITE_RESULT_UNKNOWN =
 
 // A lost response on a non-retryable action: the write may have succeeded.
 function unknownResultError(ex, action) {
+  if ((action === "saveRentalApplication" || action === "updateRentalApplication") &&
+      (ex?.isTimeout || ex instanceof TypeError || ex instanceof SyntaxError || ex?.httpStatus >= 500)) {
+    return Object.assign(new Error(
+      "We could not confirm whether your application was saved. It may have been received. " +
+      "Do not submit another application. Check your email for confirmation or contact support@vanislandproperty.ca."
+    ), { resultUnknown: true, isTimeout: Boolean(ex?.isTimeout), cause: ex });
+  }
   if (ex?.httpStatus !== 404 || RETRYABLE_POST_ACTIONS.has(action)) return ex;
   return Object.assign(new Error(WRITE_RESULT_UNKNOWN), { httpStatus: 404, resultUnknown: true, cause: ex });
 }

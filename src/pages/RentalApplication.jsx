@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import RentalApplicationNotice from "../components/RentalApplicationNotice";
 import {
   downloadApplicationPdf,
@@ -177,11 +177,33 @@ function RadioGroup({ name, options, value, onChange }) {
 }
 
 function clean(value) {
-  return String(value || "").trim();
+  return String(value ?? "").trim();
+}
+
+function multiline(value) {
+  return String(value ?? "");
+}
+
+// A refresh must not make an uncertain write look safe to send again.
+// Store only a per-tab flag, never applicant details or a secure-link token.
+function submissionPendingKey(listingId) {
+  return `rental-application-pending:${listingId}`;
+}
+
+function readSubmissionPending(listingId) {
+  try { return sessionStorage.getItem(submissionPendingKey(listingId)) === "1"; }
+  catch { return false; }
+}
+
+function writeSubmissionPending(listingId, pending) {
+  try {
+    if (pending) sessionStorage.setItem(submissionPendingKey(listingId), "1");
+    else sessionStorage.removeItem(submissionPendingKey(listingId));
+  } catch { /* The in-memory guard still blocks another submission. */ }
 }
 
 function formatSection(title, lines) {
-  const normalized = lines.map(clean).filter(Boolean);
+  const normalized = lines.map(multiline).filter(Boolean);
   if (!normalized.length) return "";
   return `${title}\n${normalized.join("\n")}`;
 }
@@ -211,6 +233,10 @@ function serializeJointEmployment(status, source) {
 
 export default function RentalApplication() {
   const { listingId } = useParams();
+  const { search } = useLocation();
+  const resumeParams = new URLSearchParams(search);
+  const resumeRequested = resumeParams.has("resumeRecordId") || resumeParams.has("token");
+  const resumeRequestKey = `${listingId}${search}`;
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -220,6 +246,10 @@ export default function RentalApplication() {
   const [downloadMessage, setDownloadMessage] = useState("");
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeSession, setResumeSession] = useState(null);
+  const [loadedRequestKey, setLoadedRequestKey] = useState("");
+  const [resumeError, setResumeError] = useState("");
+  const [submissionPending, setSubmissionPending] = useState(() => readSubmissionPending(listingId));
+  const submissionInFlight = useRef(false);
   const [duplicateNotice, setDuplicateNotice] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
 
@@ -227,58 +257,61 @@ export default function RentalApplication() {
     let cancelled = false;
 
     async function loadListing() {
+      setLoading(true);
+      setResumeSession(null);
+      setResumeError("");
+      setError("");
+      setSubmitted(null);
+      setDuplicateNotice("");
+      setForm(INITIAL_FORM);
+      setSubmissionPending(readSubmissionPending(listingId));
       try {
-        const result = await Promise.race([
-          getListing(listingId),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("listing_lookup_timeout")), 3000)
-          ),
-        ]);
+        let result;
+        try {
+          result = await Promise.race([
+            getListing(listingId),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("listing_lookup_timeout")), 3000)
+            ),
+          ]);
+        } catch {
+          const all = await getPublicListings();
+          result = all.find((item) => item.id === listingId) || null;
+        }
         if (!cancelled) setListing(result);
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(search);
         const resumeRecordId = params.get("resumeRecordId");
         const resumeToken = params.get("token");
-        if (resumeRecordId && resumeToken) {
+        if (params.has("resumeRecordId") || params.has("token")) {
           if (!cancelled) setResumeLoading(true);
           try {
+            if (!resumeRecordId || !resumeToken) throw new Error("This application link is invalid or expired.");
             const resumed = await getRentalApplicationResume(listingId, resumeRecordId, resumeToken);
+            if (!resumed?.success || resumed.recordId !== resumeRecordId || resumed.listingId !== listingId ||
+                !resumed.data || typeof resumed.data !== "object" || Array.isArray(resumed.data)) {
+              throw new Error("This application link is invalid or expired.");
+            }
             if (!cancelled) {
-              setForm((prev) => ({ ...prev, ...(resumed?.data || {}) }));
-              setResumeSession({ recordId: resumed.recordId, token: resumeToken, submittedAt: resumed.submittedAt });
+              setForm({ ...INITIAL_FORM, ...resumed.data, agreed: false });
+              setResumeSession({ recordId: resumed.recordId, token: resumeToken, submittedAt: resumed.submittedAt, requestKey: `${listingId}${search}` });
+              // A validated link confirms an existing record, so editing it is
+              // safe even if an earlier submission's response was lost.
+              writeSubmissionPending(listingId, false);
+              setSubmissionPending(false);
             }
           } catch (resumeError) {
-            if (!cancelled) setError(resumeError.message || "This application link is invalid or expired.");
+            if (!cancelled) setResumeError(resumeError.message || "This application link is invalid or expired.");
           } finally {
             if (!cancelled) setResumeLoading(false);
           }
         }
       } catch {
-        try {
-          const all = await getPublicListings();
-          const fallback = all.find((item) => item.id === listingId) || null;
-          if (!cancelled) setListing(fallback);
-          const params = new URLSearchParams(window.location.search);
-          const resumeRecordId = params.get("resumeRecordId");
-          const resumeToken = params.get("token");
-          if (resumeRecordId && resumeToken) {
-            if (!cancelled) setResumeLoading(true);
-            try {
-              const resumed = await getRentalApplicationResume(listingId, resumeRecordId, resumeToken);
-              if (!cancelled) {
-                setForm((prev) => ({ ...prev, ...(resumed?.data || {}) }));
-                setResumeSession({ recordId: resumed.recordId, token: resumeToken, submittedAt: resumed.submittedAt });
-              }
-            } catch (resumeError) {
-              if (!cancelled) setError(resumeError.message || "This application link is invalid or expired.");
-            } finally {
-              if (!cancelled) setResumeLoading(false);
-            }
-          }
-        } catch {
-          if (!cancelled) setListing(null);
-        }
+        if (!cancelled) setListing(null);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoadedRequestKey(`${listingId}${search}`);
+          setLoading(false);
+        }
       }
     }
 
@@ -286,7 +319,7 @@ export default function RentalApplication() {
     return () => {
       cancelled = true;
     };
-  }, [listingId]);
+  }, [listingId, search]);
 
   function set(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -310,6 +343,9 @@ export default function RentalApplication() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (submissionInFlight.current || submissionPending || readSubmissionPending(listingId) ||
+        loadedRequestKey !== resumeRequestKey || resumeError ||
+        (resumeRequested && resumeSession?.requestKey !== resumeRequestKey)) return;
     setError("");
     setDuplicateNotice("");
 
@@ -377,16 +413,16 @@ export default function RentalApplication() {
           `Length of Employment: ${clean(form.employmentLength)}`,
         clean(form.employerContact) &&
           `Employer Contact: ${clean(form.employerContact)}`,
-        clean(form.otherIncome) &&
-          `Other Income: ${clean(form.otherIncome)}`,
+        multiline(form.otherIncome) &&
+          `Other Income: ${multiline(form.otherIncome)}`,
       ]),
     ]);
 
     const backgroundSummary = formatSection("Background / Credit", [
-      clean(form.evictionHistory) &&
-        `Evictions / tenancy breaches: ${clean(form.evictionHistory)}`,
-      clean(form.backgroundNotes) &&
-        `Additional background or credit notes: ${clean(form.backgroundNotes)}`,
+      multiline(form.evictionHistory) &&
+        `Evictions / tenancy breaches: ${multiline(form.evictionHistory)}`,
+      multiline(form.backgroundNotes) &&
+        `Additional background or credit notes: ${multiline(form.backgroundNotes)}`,
     ]);
 
     const emergencySummary = formatSection("Emergency Contact", [
@@ -398,8 +434,8 @@ export default function RentalApplication() {
     ]);
 
     const supportingSummary = formatSection("Supporting Documents", [
-      clean(form.supportingDocsNotes) &&
-        `Available documents / notes: ${clean(form.supportingDocsNotes)}`,
+      multiline(form.supportingDocsNotes) &&
+        `Available documents / notes: ${multiline(form.supportingDocsNotes)}`,
     ]);
 
     const vehicleSummary = [
@@ -413,11 +449,16 @@ export default function RentalApplication() {
     const additionalNotes = joinSections([
       emergencySummary,
       supportingSummary,
-      clean(form.additionalNotes) &&
-        formatSection("Other Notes", [clean(form.additionalNotes)]),
+      multiline(form.additionalNotes) &&
+        formatSection("Other Notes", [multiline(form.additionalNotes)]),
     ]);
 
+    submissionInFlight.current = true;
+    writeSubmissionPending(listingId, true);
     setSubmitting(true);
+    const submissionPath = window.location.pathname;
+    const submissionSearch = window.location.search;
+    const stillOnSubmissionPage = () => window.location.pathname === submissionPath && window.location.search === submissionSearch;
     try {
       const applicationData = {
         listingId,
@@ -451,13 +492,13 @@ export default function RentalApplication() {
         ),
         jointIncome: clean(form.jointIncome),
         jointEmployerContact: clean(form.jointEmployerContact),
-        jointLandlordReference: clean(form.jointLandlordReference),
+        jointLandlordReference: multiline(form.jointLandlordReference),
         jointCreditInfo: form.jointCreditInfo,
         depositFundsAvailable: form.depositFundsAvailable,
         depositAgreement: form.depositAgreement ? "Agreed" : "Not confirmed",
         hasPets: form.hasPets,
         petDepositFunds: form.petDepositFunds,
-        petDetails: clean(form.petDetails),
+        petDetails: multiline(form.petDetails),
         evictionHistory: backgroundSummary,
         smokesVapesCannabis: form.smokesVapesCannabis,
         noSmokingAgreement: form.noSmokingAgreement ? "Agreed" : "Not confirmed",
@@ -467,13 +508,15 @@ export default function RentalApplication() {
           ? "Agreed"
           : "Not confirmed",
         proofInsuranceBeforeMoveIn: form.proofInsuranceBeforeMoveIn,
-        reasonForMoving: clean(form.currentResidenceReasonForLeaving),
+        reasonForMoving: multiline(form.currentResidenceReasonForLeaving),
         parkingRequest: vehicleSummary,
         additionalNotes,
       };
       const result = resumeSession
         ? await updateRentalApplication(listingId, resumeSession.recordId, resumeSession.token, applicationData)
         : await saveRentalApplication(applicationData);
+      writeSubmissionPending(listingId, false);
+      if (!stillOnSubmissionPage()) return;
       if (result?.duplicate) {
         setDuplicateNotice(result.message || "We found an existing application for this property. If you need to make changes, please continue with your existing application.");
         return;
@@ -484,15 +527,21 @@ export default function RentalApplication() {
         submittedAt: result?.submittedAt || resumeSession?.submittedAt,
       });
     } catch (err) {
-      setError(
-        err.message || "Submission failed. Please try again."
-      );
+      if (err.resultUnknown || err.isTimeout) {
+        if (stillOnSubmissionPage()) setSubmissionPending(true);
+      } else {
+        writeSubmissionPending(listingId, false);
+        if (!stillOnSubmissionPage()) return;
+        if (resumeSession && err.message === "This application link is invalid or expired.") setResumeError(err.message);
+        setError(err.message || "Submission failed. Please try again.");
+      }
     } finally {
+      submissionInFlight.current = false;
       setSubmitting(false);
     }
   }
 
-  if (loading || resumeLoading) {
+  if (loading || resumeLoading || loadedRequestKey !== resumeRequestKey) {
     return (
       <div
         style={{
@@ -502,6 +551,32 @@ export default function RentalApplication() {
         }}
       >
         Loading…
+      </div>
+    );
+  }
+
+  if (resumeError || (resumeRequested && resumeSession?.requestKey !== resumeRequestKey)) {
+    return (
+      <div className="container" style={{ padding: "40px 20px", maxWidth: 760 }}>
+        <div className="notice notice--error" role="alert">
+          <h1>Unable to open your existing application</h1>
+          <p>{resumeError || "This application link is invalid or expired."}</p>
+          <p>Use the latest secure link sent to your email, or contact <a href="mailto:support@vanislandproperty.ca">support@vanislandproperty.ca</a> for help. This page cannot submit a new application.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (submissionPending) {
+    return (
+      <div className="container" style={{ padding: "40px 20px", maxWidth: 760 }}>
+        <div className="notice notice--info" role="status">
+          <h1>Application save awaiting confirmation</h1>
+          {resumeSession && <p>Application: <strong>{resumeSession.recordId}</strong></p>}
+          <p>We could not confirm whether your application was saved. It may have been received.</p>
+          <p>Do not submit another application. Check your email for confirmation, or contact <a href="mailto:support@vanislandproperty.ca">support@vanislandproperty.ca</a> for help.</p>
+          <p>If you receive a new secure link, use it to update your existing application.</p>
+        </div>
       </div>
     );
   }
@@ -788,6 +863,13 @@ export default function RentalApplication() {
           <p>{duplicateNotice}</p>
           <p style={{ marginTop: 8, fontWeight: 700 }}>Continue / Update Existing Application</p>
           <p style={{ marginTop: 4 }}>Please use the secure link sent to the applicant email address to continue.</p>
+        </div>
+      )}
+
+      {resumeSession && (
+        <div className="notice notice--info" style={{ marginBottom: 20 }} role="status">
+          <p style={{ fontWeight: 700 }}>Editing application <strong>{resumeSession.recordId}</strong></p>
+          <p>Your changes will update this existing application and keep the same APP ID.</p>
         </div>
       )}
 
@@ -1729,7 +1811,7 @@ export default function RentalApplication() {
           disabled={submitting}
           style={{ width: "100%", padding: "16px 0", fontSize: "1.05rem", fontWeight: 700 }}
         >
-          {submitting ? "Submitting…" : "Submit Application"}
+          {submitting ? "Submitting…" : resumeSession ? "Update Application" : "Submit Application"}
         </button>
 
         <p

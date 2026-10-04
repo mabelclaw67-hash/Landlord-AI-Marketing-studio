@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:admin-auth": "node apps-script/tests/adminAuthMfa.test.cjs && node tests/adminGateway.test.mjs && node tests/adminWriteNoRetry.test.mjs && node apps-script/tests/adminLeadsLoading.test.cjs && node apps-script/tests/trialAccessRetirement.test.cjs"
+    "test:admin-auth": "node apps-script/tests/adminAuthMfa.test.cjs && node tests/adminGateway.test.mjs && node tests/adminWriteNoRetry.test.mjs && node apps-script/tests/adminLeadsLoading.test.cjs && node apps-script/tests/trialAccessRetirement.test.cjs",
+    "test:rental-resume": "node apps-script/tests/duplicateRentalApplication.test.cjs && node apps-script/tests/rentalApplicationPhoneText.test.cjs && node tests/rentalApplicationTimeout.test.mjs"
   },
   "dependencies": {
     "mp4-muxer": "^5.2.2",

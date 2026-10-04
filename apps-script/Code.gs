@@ -4117,7 +4117,12 @@ function sanitizeApplicantReportLinksForAccess_(app, auth) {
 }
 
 function rowToApplication_(row, headerMap) {
-  function col(name) { return colVal_(row, headerMap, name); }
+  // Application cells can contain numeric 0. Keep it without changing the
+  // shared colVal_ reader used by unrelated workflows.
+  function col(name) {
+    var idx = headerMap[name];
+    return idx !== undefined && row[idx] != null ? row[idx] : "";
+  }
   var legacySupportingDocs = col("Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).");
   return {
     // System
@@ -4153,7 +4158,7 @@ function rowToApplication_(row, headerMap) {
     jointDob:               col("Joint DOB") || col("Joint Applicant's Date of Birth (DD/MM/YYYY)"),
     jointAddress:           col("Joint Address") || col("Joint Applicant Current Address"),
     jointEmployment:        col("Joint Employment") || col("Joint Applicant Employment / Income Source"),
-    jointIncome:            col("Joint Income") || col("Joint Applicant Monthly Income"),
+    jointIncome:            col("Joint Income") === "" ? col("Joint Applicant Monthly Income") : col("Joint Income"),
     jointEmployerContact:   col("Joint Employer Contact") || col("Joint Applicant Employer Contact ") || col("Joint Applicant Employer Contact"),
     jointLandlordReference: col("Joint Landlord Reference") || col("Joint Applicant Current Landlord Reference"),
     jointCreditInfo:        col("Joint Credit Info") || col("Joint Applicant Credit Information"),
@@ -4245,11 +4250,26 @@ function findApplicationRowByRecordId_(recordId) {
   throw new Error("Application not found: " + recordId);
 }
 
+// Phone cells are stored as plain text: a value such as "+1 (250) 555-0100"
+// typed/appended as-is would be parsed by Sheets as a formula (#ERROR!).
+var RENTAL_APPLICATION_PHONE_TEXT_COLUMNS_ = ["Phone", "Joint Phone", "Joint Applicant Phone Number"];
+
+function isRentalApplicationPhoneTextColumn_(name) {
+  return RENTAL_APPLICATION_PHONE_TEXT_COLUMNS_.indexOf(name) !== -1;
+}
+
 function setApplicationCells_(sheet, rowNumber, headerMap, values) {
   for (var name in values) {
     if (!Object.prototype.hasOwnProperty.call(values, name)) continue;
     var colIdx = headerMap[name];
-    if (colIdx !== undefined) sheet.getRange(rowNumber, colIdx + 1).setValue(values[name]);
+    if (colIdx === undefined) continue;
+    var range = sheet.getRange(rowNumber, colIdx + 1);
+    if (isRentalApplicationPhoneTextColumn_(name)) {
+      range.setNumberFormat("@");
+      range.setValue(values[name] == null ? "" : String(values[name]));
+    } else {
+      range.setValue(values[name]);
+    }
   }
 }
 
@@ -6422,7 +6442,12 @@ function normalizeApplicantDuplicateEmail_(value) {
 }
 
 function normalizeApplicantDuplicatePhone_(value) {
-  return String(value || "").replace(/\D/g, "");
+  // Digits only; a leading North American country code "1" on an 11-digit
+  // number is dropped so "+1 (250) 555-0100", "1-250-555-0100" and
+  // "250-555-0100" compare equal. Used for both the incoming and stored value.
+  var digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.charAt(0) === "1") digits = digits.substring(1);
+  return digits;
 }
 
 function findActiveDuplicateApplication_(body) {
@@ -6505,7 +6530,7 @@ var RENTAL_APPLICATION_EDITABLE_FIELDS_ = [
   "Joint Proof of Income", "Joint Applicant / Co-Applicant Information", "Joint Applicant Full Legal Name",
   "Joint Applicant Phone Number", "Joint Applicant Email Address", "Joint Applicant's Date of Birth (DD/MM/YYYY)",
   "Joint Applicant Current Address", "Joint Applicant Employment / Income Source", "Joint Applicant Monthly Income",
-  "Joint Applicant Employer Contact ", "Joint Applicant Landlord Reference", "Joint Applicant Credit Information",
+  "Joint Applicant Employer Contact ", "Joint Applicant Current Landlord Reference", "Joint Applicant Credit Information",
   "Deposit Funds Available", "Deposit Agreement", "Has Pets", "Pet Deposit Funds", "Pet Details",
   "Eviction History", "Smokes Vapes Cannabis", "No Smoking Agreement", "Proof of Income",
   "Indicate your and Joint Applicant willingness to provide supporting documents (e.g., proof of income, credit report).",
@@ -6527,14 +6552,14 @@ function buildRentalApplicationEditableDataMap_(body) {
     "WeChat": body.wechat || "",
     "Employment Status": body.employmentStatus || "",
     "Employer": body.employer || "",
-    "Monthly Income": body.monthlyIncome || "",
+    "Monthly Income": body.monthlyIncome == null ? "" : body.monthlyIncome,
     "Landlord Reference": body.landlordReference || "",
     "Credit History": body.creditHistory || "",
     "Move-in Date": body.moveInDate || "",
     "Lease Term Requested": body.leaseTerm || "",
-    "Occupants": body.occupants || "",
-    "Adults": body.adults || "",
-    "Minors": body.minors || "",
+    "Occupants": body.occupants == null ? "" : body.occupants,
+    "Adults": body.adults == null ? "" : body.adults,
+    "Minors": body.minors == null ? "" : body.minors,
     "Occupant Names Ages": body.occupantNamesAges || "",
     "Has Joint Applicant": body.hasJointApplicant || "",
     "Joint Name": body.jointName || "",
@@ -6543,7 +6568,7 @@ function buildRentalApplicationEditableDataMap_(body) {
     "Joint DOB": body.jointDob || "",
     "Joint Address": body.jointAddress || "",
     "Joint Employment": body.jointEmployment || "",
-    "Joint Income": body.jointIncome || "",
+    "Joint Income": body.jointIncome == null ? "" : body.jointIncome,
     "Joint Employer Contact": body.jointEmployerContact || "",
     "Joint Landlord Reference": body.jointLandlordReference || "",
     "Joint Credit Info": body.jointCreditInfo || "",
@@ -6555,9 +6580,9 @@ function buildRentalApplicationEditableDataMap_(body) {
     "Joint Applicant's Date of Birth (DD/MM/YYYY)": body.jointDob || "",
     "Joint Applicant Current Address": body.jointAddress || "",
     "Joint Applicant Employment / Income Source": body.jointEmployment || "",
-    "Joint Applicant Monthly Income": body.jointIncome || "",
+    "Joint Applicant Monthly Income": body.jointIncome == null ? "" : body.jointIncome,
     "Joint Applicant Employer Contact ": body.jointEmployerContact || "",
-    "Joint Applicant Landlord Reference": body.jointLandlordReference || "",
+    "Joint Applicant Current Landlord Reference": body.jointLandlordReference || "",
     "Joint Applicant Credit Information": body.jointCreditInfo || "",
     "Deposit Funds Available": body.depositFundsAvailable || "",
     "Deposit Agreement": body.depositAgreement || "",
@@ -6641,16 +6666,16 @@ function saveRentalApplication_(body) {
     // Employment
     "Employment Status": body.employmentStatus || "",
     "Employer":          body.employer         || "",
-    "Monthly Income":    body.monthlyIncome    || "",
+    "Monthly Income":    body.monthlyIncome == null ? "" : body.monthlyIncome,
     // Reference & Credit
     "Landlord Reference": body.landlordReference || "",
     "Credit History":     body.creditHistory     || "",
     // Occupancy
     "Move-in Date":        body.moveInDate        || "",
     "Lease Term Requested": body.leaseTerm        || "",
-    "Occupants":           body.occupants         || "",
-    "Adults":              body.adults            || "",
-    "Minors":              body.minors            || "",
+    "Occupants":           body.occupants == null ? "" : body.occupants,
+    "Adults":              body.adults == null ? "" : body.adults,
+    "Minors":              body.minors == null ? "" : body.minors,
     "Occupant Names Ages": body.occupantNamesAges || "",
     // Joint applicant
     "Has Joint Applicant":      body.hasJointApplicant      || "",
@@ -6660,7 +6685,7 @@ function saveRentalApplication_(body) {
     "Joint DOB":                body.jointDob               || "",
     "Joint Address":            body.jointAddress           || "",
     "Joint Employment":         body.jointEmployment        || "",
-    "Joint Income":             body.jointIncome            || "",
+    "Joint Income":             body.jointIncome == null ? "" : body.jointIncome,
     "Joint Employer Contact":   body.jointEmployerContact   || "",
     "Joint Landlord Reference": body.jointLandlordReference || "",
     "Joint Credit Info":        body.jointCreditInfo        || "",
@@ -6673,7 +6698,7 @@ function saveRentalApplication_(body) {
     "Joint Applicant's Date of Birth (DD/MM/YYYY)": body.jointDob || "",
     "Joint Applicant Current Address": body.jointAddress || "",
     "Joint Applicant Employment / Income Source": body.jointEmployment || "",
-    "Joint Applicant Monthly Income": body.jointIncome || "",
+    "Joint Applicant Monthly Income": body.jointIncome == null ? "" : body.jointIncome,
     "Joint Applicant Employer Contact ": body.jointEmployerContact || "",
     "Joint Applicant Current Landlord Reference": body.jointLandlordReference || "",
     "Joint Applicant Credit Information": body.jointCreditInfo || "",
@@ -6712,13 +6737,20 @@ function saveRentalApplication_(body) {
   // Append initial row (without PDF URL yet).
   var numCols = Math.max(sheet.getLastColumn(), INTAKE_HEADERS.length);
   var row = new Array(numCols).fill("");
+  var phoneTextValues = {};
   for (var key in dataMap) {
     var idx = headerMap[key];
-    if (idx !== undefined) row[idx] = dataMap[key];
+    if (idx === undefined) continue;
+    if (isRentalApplicationPhoneTextColumn_(key)) {
+      phoneTextValues[key] = dataMap[key]; // written as text below, never through appendRow
+    } else {
+      row[idx] = dataMap[key];
+    }
   }
   sheet.appendRow(row);
   SpreadsheetApp.flush();
   var newRowNumber = sheet.getLastRow();
+  setApplicationCells_(sheet, newRowNumber, headerMap, phoneTextValues);
 
   // Look up listing's Drive folder (Apps Script side, avoids passing folderId from client).
   var folderId = null;
@@ -6824,10 +6856,10 @@ function generateApplicationPdf_(data, recordId) {
   );
 
   function field(label, key) {
-    body.appendParagraph(label + ": " + (data[key] || "—"));
+    fieldValue(label, data[key]);
   }
   function fieldValue(label, value) {
-    body.appendParagraph(label + ": " + (value || "—"));
+    body.appendParagraph(label + ": " + (value == null || value === "" ? "—" : value));
   }
   function section(title) {
     body.appendParagraph("");
@@ -6996,15 +7028,17 @@ function summarySection_(text, title) {
   if (start < 0) return "";
   var section = [];
   for (var i = start + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    if (lines[i].trim() === "Current Residence" ||
-        lines[i].trim() === "Previous Residence" ||
-        lines[i].trim() === "References" ||
-        lines[i].trim() === "Employment & Income" ||
-        lines[i].trim() === "Background / Credit" ||
-        lines[i].trim() === "Emergency Contact" ||
-        lines[i].trim() === "Supporting Documents" ||
-        lines[i].trim() === "Other Notes") break;
+    if (lines[i - 1] === "" && (lines[i] === "Current Residence" ||
+        lines[i] === "Previous Residence" ||
+        lines[i] === "References" ||
+        lines[i] === "Employment & Income" ||
+        lines[i] === "Background / Credit" ||
+        lines[i] === "Emergency Contact" ||
+        lines[i] === "Supporting Documents" ||
+        lines[i] === "Other Notes")) {
+      section.pop(); // Only the blank separator added by joinSections.
+      break;
+    }
     section.push(lines[i]);
   }
   return section.join("\n");
@@ -7017,6 +7051,32 @@ function summaryValue_(text, label) {
     if (lines[i].indexOf(prefix) === 0) return lines[i].slice(prefix.length).trim();
   }
   return "";
+}
+
+// Preserve continuation lines, blank lines and indentation. Only known
+// following field labels delimit a value in the existing summary format.
+function summaryMultilineValue_(text, label, followingLabels) {
+  var lines = String(text || "").split(/\r?\n/);
+  var prefix = label + ":";
+  var start = lines.findIndex(function(line) { return line.indexOf(prefix) === 0; });
+  if (start < 0) return "";
+  var value = [lines[start].slice(prefix.length).replace(/^ /, "")];
+  for (var i = start + 1; i < lines.length; i++) {
+    if ((followingLabels || []).some(function(next) { return lines[i].indexOf(next + ":") === 0; })) break;
+    value.push(lines[i]);
+  }
+  return value.join("\n");
+}
+
+function rentalApplicationResumeDate_(value, timeZone) {
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    return isNaN(value.getTime()) ? "" : Utilities.formatDate(value, timeZone || "UTC", "yyyy-MM-dd");
+  }
+  var text = String(value == null ? "" : value).trim();
+  var iso = text.match(/^(\d{4}-\d{2}-\d{2})(?:T.*)?$/);
+  if (iso) return iso[1];
+  var legacy = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return legacy ? legacy[3] + "-" + legacy[2] + "-" + legacy[1] : "";
 }
 
 function summaryReferencePart_(value, label) {
@@ -7032,7 +7092,7 @@ function summaryReferenceName_(value) {
   return String(value || "").split(" | ")[0].trim();
 }
 
-function buildRentalApplicationResumeData_(app) {
+function buildRentalApplicationResumeData_(app, timeZone) {
   var landlord = String(app.landlordReference || "");
   var currentResidence = summarySection_(landlord, "Current Residence");
   var previousResidence = summarySection_(landlord, "Previous Residence");
@@ -7044,16 +7104,16 @@ function buildRentalApplicationResumeData_(app) {
   var otherNotes = summarySection_(app.additionalNotes, "Other Notes");
   var referenceOne = summaryValue_(references, "Reference 1");
   var referenceTwo = summaryValue_(references, "Reference 2");
-  var jointEmployment = String(app.jointEmployment || "");
+  var jointEmployment = extractJointEmploymentParts_(app.jointEmployment);
   var parking = String(app.parkingRequest || "");
 
   return {
     applicantName: app.applicantName || "",
     email: app.email || "",
     phone: app.phone || "",
-    dateOfBirth: app.dateOfBirth || "",
+    dateOfBirth: rentalApplicationResumeDate_(app.dateOfBirth, timeZone),
     wechat: app.wechat || "",
-    currentResidenceAddress: app.currentAddress || summaryValue_(previousResidence, "Address"),
+    currentResidenceAddress: app.currentAddress || "",
     currentResidenceSince: summaryValue_(currentResidence, "Residence Period"),
     currentResidenceLandlordName: summaryValue_(currentResidence, "Landlord / Manager"),
     currentResidenceLandlordContact: summaryValue_(currentResidence, "Landlord Contact"),
@@ -7065,26 +7125,26 @@ function buildRentalApplicationResumeData_(app) {
     previousResidenceLandlordContact: summaryValue_(previousResidence, "Landlord Contact"),
     previousResidenceMonthlyRent: summaryValue_(previousResidence, "Monthly Rent"),
     employmentStatus: app.employmentStatus || summaryValue_(employment, "Status"),
-    employer: summaryValue_(employment, "Employer / Income Source") || app.employer || "",
+    employer: employment ? summaryValue_(employment, "Employer / Income Source") : app.employer || "",
     employmentLength: summaryValue_(employment, "Length of Employment"),
     employerContact: summaryValue_(employment, "Employer Contact"),
-    otherIncome: summaryValue_(employment, "Other Income"),
-    monthlyIncome: app.monthlyIncome || "",
-    moveInDate: app.moveInDate || "",
+    otherIncome: summaryMultilineValue_(employment, "Other Income"),
+    monthlyIncome: app.monthlyIncome == null ? "" : app.monthlyIncome,
+    moveInDate: rentalApplicationResumeDate_(app.moveInDate, timeZone),
     leaseTerm: app.leaseTerm || "",
-    totalOccupants: app.occupants || "",
-    adults: app.adults || "",
-    minors: app.minors || "",
+    totalOccupants: app.occupants == null ? "" : app.occupants,
+    adults: app.adults == null ? "" : app.adults,
+    minors: app.minors == null ? "" : app.minors,
     occupantNamesAges: app.occupantNamesAges || "",
     hasJointApplicant: app.hasJointApplicant || "No / 否",
     jointName: app.jointName || "",
     jointPhone: app.jointPhone || "",
     jointEmail: app.jointEmail || "",
-    jointDob: app.jointDob || "",
+    jointDob: rentalApplicationResumeDate_(app.jointDob, timeZone),
     jointAddress: app.jointAddress || "",
-    jointEmploymentStatus: summaryValue_(jointEmployment, "Status"),
-    jointEmployerIncomeSource: summaryValue_(jointEmployment, "Employer / Income Source") || jointEmployment,
-    jointIncome: app.jointIncome || "",
+    jointEmploymentStatus: jointEmployment.status,
+    jointEmployerIncomeSource: jointEmployment.source,
+    jointIncome: app.jointIncome == null ? "" : app.jointIncome,
     jointEmployerContact: app.jointEmployerContact || "",
     jointLandlordReference: app.jointLandlordReference || "",
     jointCreditInfo: app.jointCreditInfo || "",
@@ -7107,10 +7167,10 @@ function buildRentalApplicationResumeData_(app) {
     emergencyPhone: summaryValue_(emergency, "Phone"),
     emergencyEmail: summaryValue_(emergency, "Email"),
     creditHistory: app.creditHistory || "",
-    evictionHistory: summaryValue_(background, "Evictions / tenancy breaches") || app.evictionHistory || "",
-    backgroundNotes: summaryValue_(background, "Additional background or credit notes"),
+    evictionHistory: background ? summaryMultilineValue_(background, "Evictions / tenancy breaches", ["Additional background or credit notes"]) : app.evictionHistory || "",
+    backgroundNotes: summaryMultilineValue_(background, "Additional background or credit notes"),
     proofOfIncome: app.proofOfIncome || "",
-    supportingDocsNotes: summaryValue_(supporting, "Available documents / notes"),
+    supportingDocsNotes: summaryMultilineValue_(supporting, "Available documents / notes"),
     hasTenantInsurance: app.hasTenantInsurance || "",
     tenantInsuranceAgreement: /^agreed$/i.test(String(app.tenantInsuranceAgreement || "")),
     proofInsuranceBeforeMoveIn: app.proofInsuranceBeforeMoveIn || "",
@@ -7162,7 +7222,7 @@ function getRentalApplicationResume_(listingId, recordId, token) {
     recordId: found.app.recordId,
     listingId: found.app.listingId,
     submittedAt: found.app.submittedAt,
-    data: buildRentalApplicationResumeData_(found.app),
+    data: buildRentalApplicationResumeData_(found.app, found.sheet.getParent().getSpreadsheetTimeZone()),
   };
 }
 
@@ -7203,6 +7263,9 @@ function updateRentalApplication_(listingId, recordId, token, body) {
     "Updated At": updatedAt,
   };
   RENTAL_APPLICATION_EDITABLE_FIELDS_.forEach(function(field) {
+    // Keep untouched legacy reference cells exactly as stored.
+    if ((field === "Joint Landlord Reference" || field === "Joint Applicant Current Landlord Reference")
+        && body.jointLandlordReference === found.app.jointLandlordReference) return;
     if (Object.prototype.hasOwnProperty.call(editable, field)) values[field] = editable[field];
   });
   setApplicationCells_(found.sheet, found.rowNumber, found.headerMap, values);

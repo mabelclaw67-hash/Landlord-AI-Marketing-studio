@@ -25,6 +25,7 @@ const intakeHeaders = [
   "Data Retention Status", "Retention Expiry Date", "Retention Action", "Retention Notes", "Sensitive Files Deleted At",
   "Archived Tenant File URL", "Rented Notification Status", "Rented Notification Sent At", "Rented Notification Failure",
   "Rented Notification Sent",
+  "Joint Applicant Current Landlord Reference",
 ];
 
 const listingHeaders = ["Listing ID", "Property Address", "Status", "Created By Email"];
@@ -83,6 +84,7 @@ function row(fields) {
 
 function makeSheet(rows) {
   return {
+    getParent() { return { getSpreadsheetTimeZone: () => "UTC" }; },
     getLastRow() { return rows.length; },
     getLastColumn() { return rows[0].length; },
     getRange(rowNumber, columnNumber, rowCount = 1, columnCount = 1) {
@@ -95,6 +97,7 @@ function makeSheet(rows) {
           rows[rowNumber - 1][columnNumber - 1] = value;
           return this;
         },
+        setNumberFormat() { return this; },
         setFontWeight() { return this; },
         setBackground() { return this; },
       };
@@ -114,6 +117,7 @@ function makeSandbox(appFields, options = {}) {
   const applicantFolder = applicationsFolder.createFolder(`${appFields["Record ID"]} - ${appFields["Applicant Name"]}`);
   applicantFolder.files.push(makeFile("original-pdf", "Rental Application - original.pdf"));
   const sentEmails = [];
+  const pdfParagraphs = [];
   const sandbox = {
     console,
     SpreadsheetApp: {
@@ -140,7 +144,7 @@ function makeSandbox(appFields, options = {}) {
       create() {
         return {
           getId: () => "temp-doc",
-          getBody: () => ({ clear() {}, appendParagraph() { return { setHeading() {} }; } }),
+          getBody: () => ({ clear() {}, appendParagraph(text) { pdfParagraphs.push(String(text)); return { setHeading() {} }; } }),
           saveAndClose() {},
         };
       },
@@ -160,7 +164,9 @@ function makeSandbox(appFields, options = {}) {
       computeDigest: (_algorithm, input) => Array.from(crypto.createHash("sha256").update(String(input)).digest()),
       Charset: { UTF_8: "UTF-8" },
       DigestAlgorithm: { SHA_256: "SHA-256" },
-      formatDate: (_date, _tz, format) => format === "yyyyMMdd-HHmmss" ? "20260913-120000" : "",
+      formatDate: (date, tz, format) => format === "yyyy-MM-dd"
+        ? new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(date)
+        : format === "yyyyMMdd-HHmmss" ? "20260913-120000" : "",
       newBlob: (_bytes, _type, name) => ({ name, setName(value) { this.name = value; return this; }, getAs() { return this; } }),
       base64Decode: () => [],
       base64Encode: () => "encoded",
@@ -182,8 +188,13 @@ function makeSandbox(appFields, options = {}) {
   sandbox.__root = root;
   sandbox.__applicantFolder = applicantFolder;
   sandbox.__sentEmails = sentEmails;
+  sandbox.__pdfParagraphs = pdfParagraphs;
   return sandbox;
 }
+
+module.exports = { makeSandbox, intakeHeaders };
+
+if (require.main === module) {
 
 function check(condition, label) {
   console.log(`${condition ? "PASS" : "FAIL"} ${label}`);
@@ -366,3 +377,127 @@ check(duplicateResponse.message.indexOf("existing application") !== -1, "duplica
 
 if (failures) process.exit(1);
 console.log("All duplicate/resume/update checks passed.");
+
+// Reproduce actual Sheets types and run the REAL page's submit serializer.
+// The old fixture only used strings, hiding Date/0 and multiline defects.
+const pageSource = fs.readFileSync(path.join(__dirname, "..", "..", "src", "pages", "RentalApplication.jsx"), "utf8");
+const pageHelpers = pageSource.slice(pageSource.indexOf("function clean("), pageSource.indexOf("export default function RentalApplication"));
+const pageSubmit = pageSource.slice(pageSource.indexOf("  async function handleSubmit("), pageSource.indexOf("  if (loading || resumeLoading"));
+const multiline = "\n  First line\n\n  Indented second line: preserve punctuation\n第三行 / third line  \n";
+const full = {
+  ...base,
+  "Date of Birth": new Date("1990-01-02T00:00:00.000Z"),
+  "Move-in Date": new Date("2026-12-01T00:00:00.000Z"),
+  "Joint DOB": new Date("1991-02-03T00:00:00.000Z"),
+  "Current Address": "TEST Current Address",
+  "Employment Status": "Employed Full-Time / 全职",
+  "Employer": "Employment & Income\nEmployer / Income Source: TEST Employer\nLength of Employment: 2 years\nEmployer Contact: employer@example.invalid\nOther Income: " + multiline,
+  "Monthly Income": 0, "Occupants": 2, "Adults": 2, "Minors": 0,
+  "Landlord Reference": "Current Residence\nLandlord / Manager: TEST Current Manager\nLandlord Contact: current@example.invalid\nCurrent Monthly Rent: 1500\nResidence Period: 2 years\n\nPrevious Residence\nAddress: TEST Previous Address\nResidence Period: 2022-2024\nMonthly Rent: 1400\nLandlord / Manager: TEST Previous Manager\nLandlord Contact: previous@example.invalid\n\nReferences\nReference 1: TEST Ref One | Relationship: Colleague | Contact: ref1@example.invalid\nReference 2: TEST Ref Two | Relationship: Friend | Contact: ref2@example.invalid",
+  "Has Joint Applicant": "Yes / 是", "Joint Name": "TEST Joint Applicant",
+  "Joint Phone": "2505550198", "Joint Email": "joint@example.invalid", "Joint Address": "TEST Joint Address",
+  "Joint Employment": "Status: Employed Part-Time / 兼职\nEmployer / Income Source: TEST Joint Employer",
+  "Joint Income": 0, "Joint Employer Contact": "joint-employer@example.invalid", "Joint Landlord Reference": multiline,
+  "Joint Credit Info": "Good / 良好", "Joint Proof of Income": "Yes / 是",
+  "Deposit Funds Available": "Yes / 是", "Deposit Agreement": "Agreed",
+  "Has Pets": "Yes / 有宠物", "Pet Deposit Funds": "Yes / 是", "Pet Details": multiline,
+  "Eviction History": "Background / Credit\nEvictions / tenancy breaches: " + multiline + "\nAdditional background or credit notes: " + multiline,
+  "Smokes Vapes Cannabis": "No / 否", "No Smoking Agreement": "Agreed", "Proof of Income": "Yes / 是",
+  "Has Tenant Insurance": "No, but will obtain before move-in / 否，但将在入住前购买",
+  "Tenant Insurance Agreement": "Agreed", "Proof Insurance Before Move-in": "In progress / 办理中",
+  "Reason for Moving": multiline, "Parking Request": "Vehicles: 0\nVehicle details: TEST Sedan",
+  "Additional Notes": "Emergency Contact\nName: TEST Emergency\nRelationship: Sibling\nPhone: 2505550197\nEmail: emergency@example.invalid\n\nSupporting Documents\nAvailable documents / notes: " + multiline + "\n\nOther Notes\n" + multiline,
+  "Support Document Folder URL": "https://drive.google.com/drive/folders/synthetic-only",
+  "Document Upload Status": "Uploaded", "Uploaded File Count": 1,
+};
+
+async function pageRoundTrip(fields = full) {
+  const env = makeSandbox(fields);
+  const token = env.rentalApplicationResumeToken_(base["Listing ID"], base["Record ID"], future, base["Updated At"]);
+  const data = env.getRentalApplicationResume_(base["Listing ID"], base["Record ID"], token).data;
+  check(data.moveInDate === "2026-12-01" && data.dateOfBirth === "1990-01-02" && data.jointDob === "1991-02-03", "native Sheet Dates restore as YYYY-MM-DD");
+  check(env.rentalApplicationResumeDate_(new Date("2026-11-30T16:00:00Z"), "Asia/Hong_Kong") === "2026-12-01", "native Date normalization uses the Sheet timezone, not UTC truncation");
+  check(env.rentalApplicationResumeDate_("2026-12-01T00:00:00.000Z", "UTC") === "2026-12-01", "ISO string normalization preserves the date portion");
+  check(env.rentalApplicationResumeDate_("03/02/1991", "UTC") === "1991-02-03", "documented legacy DD/MM/YYYY joint dates normalize");
+  check(data.minors === 0 && data.monthlyIncome === 0 && data.jointIncome === 0, "actual numeric zero survives the Sheet reader and resume mapping");
+  for (const key of ["otherIncome", "evictionHistory", "backgroundNotes", "supportingDocsNotes", "additionalNotes", "petDetails", "jointLandlordReference", "currentResidenceReasonForLeaving"]) {
+    check(data[key] === multiline, `${key}: exact multiline, internal blank lines, indentation and Chinese text restored`);
+  }
+  const stored = new Map();
+  const page = {
+    form: { ...data, agreed: true }, listingId: base["Listing ID"],
+    resumeSession: { recordId: base["Record ID"], token, requestKey: "test" },
+    resumeRequestKey: "test", loadedRequestKey: "test", resumeRequested: true, resumeError: "",
+    submissionPending: false, submissionInFlight: { current: false },
+    window: { location: { pathname: "/apply/LST-TEST-001", search: "?resumeRecordId=APP-TEST-001&token=synthetic" } },
+    sessionStorage: { getItem: (k) => stored.get(k), setItem: (k, v) => stored.set(k, v), removeItem: (k) => stored.delete(k) },
+    setError() {}, setDuplicateNotice() {}, setSubmitting() {}, setSubmitted() {}, setSubmissionPending() {}, setResumeError() {},
+    saveRentalApplication: async () => { throw new Error("Resume must NEVER select new-application save"); },
+    updateRentalApplication: async (listing, id, secureToken, payload) => env.updateRentalApplication_(listing, id, secureToken, payload),
+  };
+  vm.createContext(page);
+  vm.runInContext(pageHelpers + "\n" + pageSubmit, page);
+  await page.handleSubmit({ preventDefault() {} });
+  const after = env.__rows[1];
+  for (const key of Object.keys(fields)) {
+    if (["PDF URL", "Application Download Token", "Application Download Expires At", "Updated At"].includes(key)) continue;
+    const previous = fields[key];
+    const actual = after[intakeHeaders.indexOf(key)];
+    check(previous instanceof Date ? actual === previous.toISOString().slice(0, 10) : String(actual) === String(previous), `untouched resume → REAL page serialize → update preserves ${key}`);
+  }
+  check(env.__rows.length === 2, "untouched resubmit keeps same row and creates no duplicate");
+  check(env.__applicantFolder.files.length === 2 && !env.__applicantFolder.files[0].trashed, "new PDF generated and original kept");
+  check(env.__pdfParagraphs.includes("Minors: 0"), "generated PDF renders numeric zero, not a blank/dash");
+  check(env.__pdfParagraphs.join("\n").includes(multiline), "generated PDF receives complete multiline text");
+  check(!stored.size, "confirmed write clears the pending-submission flag");
+  let forbiddenCalls = 0;
+  page.updateRentalApplication = page.saveRentalApplication = async () => { forbiddenCalls++; };
+  for (const scenario of [
+    { resumeSession: null },
+    { resumeSession: { requestKey: "stale" } },
+    { resumeSession: { requestKey: "test" }, resumeError: "invalid" },
+    { resumeError: "", submissionPending: true },
+    { submissionPending: false, loadedRequestKey: "stale" },
+  ]) {
+    Object.assign(page, scenario);
+    await page.handleSubmit({ preventDefault() {} });
+  }
+  check(forbiddenCalls === 0, "invalid/missing/stale resume, uncertain write and route transition cannot submit");
+  // A request already in flight must not display its APP or error on a new URL.
+  Object.assign(page, { resumeSession: { requestKey: "test", recordId: base["Record ID"], token }, resumeError: "", submissionPending: false, loadedRequestKey: "test" });
+  for (const outcome of ["success", "timeout"]) {
+    let finish;
+    let start;
+    const started = new Promise((resolve) => { start = resolve; });
+    const response = new Promise((resolve, reject) => { finish = outcome === "success" ? resolve : reject; });
+    let staleUpdates = 0;
+    page.setSubmitted = page.setSubmissionPending = page.setDuplicateNotice = page.setResumeError = () => { staleUpdates++; };
+    page.updateRentalApplication = async () => { start(); return response; };
+    const pending = page.handleSubmit({ preventDefault() {} });
+    await started;
+    staleUpdates = 0;
+    page.window.location.search = "?new-url=" + outcome;
+    finish(outcome === "success" ? { success: true, recordId: base["Record ID"] } : { resultUnknown: true });
+    await pending;
+    check(staleUpdates === 0, `in-flight ${outcome} does not overwrite the new URL's page state`);
+    stored.clear();
+  }
+  const legacy = makeSandbox({ ...fields, "Joint Landlord Reference": "", "Joint Applicant Current Landlord Reference": multiline });
+  const legacyApp = legacy.rowToApplication_(legacy.__rows[1], legacy.getHeaderMap_(legacy.getSheet_(legacy.INTAKE_SHEET)));
+  check(legacy.buildRentalApplicationResumeData_(legacyApp, "UTC").jointLandlordReference === multiline, "legacy joint landlord reference restores complete multiline text");
+  const legacyToken = legacy.rentalApplicationResumeToken_(base["Listing ID"], base["Record ID"], future, base["Updated At"]);
+  legacy.updateRentalApplication_(base["Listing ID"], base["Record ID"], legacyToken, { jointLandlordReference: multiline, moveInDate: "2026-12-01" });
+  check(legacy.__rows[1][intakeHeaders.indexOf("Joint Landlord Reference")] === "", "untouched legacy reference does not populate an originally blank canonical cell");
+  check(legacy.__rows[1][intakeHeaders.indexOf("Joint Applicant Current Landlord Reference")] === multiline, "untouched legacy reference remains exactly as stored");
+  const nextLegacyToken = legacy.rentalApplicationResumeToken_(base["Listing ID"], base["Record ID"], future, legacy.__rows[1][intakeHeaders.indexOf("Updated At")]);
+  legacy.updateRentalApplication_(base["Listing ID"], base["Record ID"], nextLegacyToken, { jointLandlordReference: "Updated legacy\nsecond line", moveInDate: "2026-12-01" });
+  check(legacy.__rows[1][intakeHeaders.indexOf("Joint Applicant Current Landlord Reference")] === "Updated legacy\nsecond line", "update writes the same legacy joint reference column that the reader uses");
+  if (failures) process.exitCode = 1;
+}
+pageRoundTrip().then(() => pageRoundTrip({
+  ...full,
+  "Employer": "Employment & Income\nOther Income: " + multiline,
+  "Current Address": "",
+  "Joint Employment": "Employed Full-Time / 全职",
+})).catch((error) => { console.error(error); process.exitCode = 1; });
+}
