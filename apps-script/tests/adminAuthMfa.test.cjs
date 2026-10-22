@@ -319,6 +319,21 @@ function doPost(env, body) {
   check(JSON.stringify(sneaky) === JSON.stringify(JSON.parse(sandbox.rentalDoPost_({ postData: { contents: JSON.stringify({ ...body, data: { fileName: '"adminTicket" in a name.pdf', data: "QUJD" } }) } }).getContent())), "A file named like the ticket field is not mistaken for a ticket");
 }
 
+// ── Upload ticket still works when the runtime makes postData.contents read-only ──
+{
+  const env = setup();
+  const { sandbox } = env;
+  sandbox.uploadToSubfolder_ = (body, auth) => ({ uploaded: true, mode: auth.mode });
+  const token = login(env).sessionToken;
+  const payloadText = JSON.stringify({ action: "uploadToSubfolder", folderId: "F", data: "QUJD" });
+  const hash = sandbox.adminAuthSha256Hex_(payloadText);
+  const ticket = sandbox.handleAdminAuthAction_({ action: "adminAuthMintTicket", adminBridgeToken: BRIDGE, clientKey: "ip-a", adminSessionToken: token, targetAction: "uploadToSubfolder", payloadHash: hash }).ticket;
+  const raw = JSON.stringify({ adminTicket: ticket, adminTicketPayload: payloadText });
+  const postData = {};
+  Object.defineProperty(postData, "contents", { get: () => raw });
+  const res = JSON.parse(sandbox.doPost({ postData }).getContent());
+  check(res.data && res.data.mode === "admin", "Ticket upload works even if postData.contents cannot be reassigned");
+}
 // ── Upload tickets (payloads over Netlify's 6 MB limit) ──
 {
   const env = setup();

@@ -221,8 +221,22 @@ function adminAuthPrepareRequest_(e) {
     throw new Error("Upload authorization failed.");
   }
   ADMIN_AUTH_VERIFIED_TICKET_ = { action: ticket.a };
-  e.postData.contents = payloadText;
-  return e;
+  // Hand back a new event instead of assigning to e.postData.contents: on the
+  // real web-app runtime that property can be read-only, so the assignment is
+  // silently ignored and the router then sees the ticket envelope (no action)
+  // and answers "Admin access required." for every large upload.
+  var postData = e.postData || {};
+  return {
+    parameter: e.parameter,
+    parameters: e.parameters,
+    queryString: e.queryString,
+    postData: {
+      contents: payloadText,
+      length: payloadText.length,
+      type: postData.type,
+      name: postData.name,
+    },
+  };
 }
 
 // ── Login / logout ───────────────────────────────────────────────────────────
