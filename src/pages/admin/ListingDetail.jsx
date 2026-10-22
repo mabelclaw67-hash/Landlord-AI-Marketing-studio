@@ -1392,7 +1392,14 @@ export default function ListingDetail({ lang: langProp }) {
 
     // Upload to 04_Video_Output — Drive is storage only, not the viewing interface
     setVideoStatus("uploading");
+    // Diagnostics for upload failures (shown with the error): without a live
+    // admin session the request would be sent with no credentials and the
+    // backend can only answer "Admin access required."
+    const uploadDiag = { sessionActive: isAdminSessionActive(), bytes: blob.size, route: "pending" };
     try {
+      if (!isStudioRequestAuthReady(getStudioRequestAuth("rental"))) {
+        throw new Error("Admin session is not active in this tab. Sign in again, then press Generate Again.");
+      }
       const base64 = await new Promise((res, rej) => {
         const fr = new FileReader();
         fr.onload  = () => res(fr.result.split(",")[1]);
@@ -1400,6 +1407,9 @@ export default function ListingDetail({ lang: langProp }) {
         fr.readAsDataURL(blob);
       });
       const fileName = `video__${listing.id}__${videoFormat}.mp4`;
+      uploadDiag.route = base64.length > 4_000_000 ? "large-file ticket" : "gateway";
+      uploadDiag.base64Chars = base64.length;
+      console.info("[video upload] sending", uploadDiag);
       const result = await apiPost({
         action:        "uploadToSubfolder",
         folderId,
@@ -1474,7 +1484,8 @@ export default function ListingDetail({ lang: langProp }) {
       }
     } catch (err) {
       setVideoStatus("done"); // still show preview even if Drive upload fails
-      setVideoMsg(`Video ready. Drive upload failed: ${err.message}`);
+      console.error("[video upload] failed", uploadDiag, err);
+      setVideoMsg(`Video ready. Drive upload failed: ${err.message} (diagnostic: session ${uploadDiag.sessionActive ? "active" : "NOT active"}, ${(uploadDiag.bytes / 1048576).toFixed(1)} MB, route ${uploadDiag.route}${err.httpStatus ? `, HTTP ${err.httpStatus}` : ""})`);
       setVideoMusicStatus(musicStatus);
     }
   }
