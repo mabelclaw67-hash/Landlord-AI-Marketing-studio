@@ -635,9 +635,23 @@ export default function ListingDetail({ lang: langProp }) {
     ));
   };
 
-  const saveDraftCopy = () => {
-    setEditedCopy((prev) => ({ ...prev, [copyEditMode]: editingText }));
-    setCopyEditMode(null);
+  // Write the edited copy into the listing's Outputs (same saveListing path
+  // Regenerate uses). On failure stay in edit mode so the text is not lost.
+  const saveDraftCopy = async () => {
+    const key = copyEditMode;
+    if (!key) return;
+    const updated = { ...listing, outputs: { ...listing.outputs, [key]: editingText } };
+    setSaving(true);
+    try {
+      await saveListing(updated);
+      setListing(updated);
+      setEditedCopy((prev) => { const n = { ...prev }; delete n[key]; return n; });
+      setCopyEditMode(null);
+    } catch (e) {
+      alert("Save failed: " + e.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancelEditCopy = () => {
@@ -3038,14 +3052,14 @@ export default function ListingDetail({ lang: langProp }) {
                     }}
                   />
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button className="btn btn--primary btn--sm" onClick={saveDraftCopy}>
-                      💾 Save Draft
+                    <button className="btn btn--primary btn--sm" onClick={saveDraftCopy} disabled={saving}>
+                      {saving ? "Saving…" : "💾 Save Draft"}
                     </button>
                     <button className="btn btn--ghost btn--sm" onClick={cancelEditCopy}>
                       Cancel
                     </button>
                     <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", alignSelf: "center" }}>
-                      ⚠️ Unsaved local draft — not written to sheet until a save path is added.
+                      Save Draft writes this copy to the listing sheet. Regenerate Copy replaces it.
                     </span>
                   </div>
                 </div>
