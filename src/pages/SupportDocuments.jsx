@@ -30,6 +30,8 @@ const ALLOWED_TYPES = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
+// HEIC/HEIF (iPhone photos) may be picked; they are converted to JPEG before validation/upload.
+const PICKER_EXTENSIONS = [...ALLOWED_EXTENSIONS, ".heic", ".heif"];
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const CLOSED_MESSAGE = "This listing is no longer accepting applications or supporting documents.";
 const SUCCESS_MESSAGE = "Thank you. Your supporting documents have been received.";
@@ -68,6 +70,9 @@ function validateFile(file) {
   const lowerName = String(file?.name || "").toLowerCase();
   const hasAllowedExtension = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
   const hasAllowedType = !file?.type || ALLOWED_TYPES.includes(file.type);
+  if (/\.(heic|heif)$/i.test(lowerName)) {
+    return `"${file.name}" is an iPhone-format (HEIC) photo that this browser could not convert. Please open this page in Safari on the iPhone, or choose the photo as a JPG, or email it to support@vanislandproperty.ca.`;
+  }
   if (!hasAllowedExtension || !hasAllowedType) {
     return `"${file?.name}" can't be uploaded. Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.`;
   }
@@ -289,7 +294,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
     <section className="card">
       <h2 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 12 }}>Upload files</h2>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 8 }}>
-        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 4 MB per file. Photos (JPG/PNG) larger than 4 MB are reduced automatically; PDF and Word files must be 4 MB or smaller.
+        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 4 MB per file. Photos (JPG, PNG, or iPhone HEIC) are converted and reduced automatically when needed; PDF and Word files must be 4 MB or smaller.
       </p>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
         You can upload documents such as: {CATEGORIES.join(", ")}. Select all your files below at once — you don't need to submit them separately by type.
@@ -297,7 +302,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
       {turnstile && <div style={{ marginBottom: 16 }}>{turnstile.widget}<p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem" }}>{turnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</p></div>}
 
       <div style={{ marginBottom: 16 }}>
-        <input type="file" multiple accept={ALLOWED_EXTENSIONS.join(",")} onChange={handleFilesChosen} disabled={optimizing} />
+        <input type="file" multiple accept={[...PICKER_EXTENSIONS, "image/heic", "image/heif"].join(",")} onChange={handleFilesChosen} disabled={optimizing} />
         {optimizing && <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginTop: 8 }}>Preparing your files…</p>}
         {rejections.length > 0 && (
           <div role="alert" style={{ marginTop: 10, color: "#b3261e", fontSize: "0.86rem", lineHeight: 1.6, fontWeight: 600 }}>
