@@ -10,6 +10,7 @@ import {
 } from "../utils/storage";
 import { COMPANY_FOOTER } from "../components/Footer";
 import { isRentalListingAcceptingApplications } from "../utils/listingPublicMeta";
+import { shrinkImageToFit } from "../utils/compressImage";
 import { usePublicUploadTurnstile } from "../components/PublicUploadTurnstile";
 
 const CATEGORIES = [
@@ -239,20 +240,32 @@ function InfoBlock({ label, value, code = false }) {
 }
 
 function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message, turnstile }) {
-  function handleFilesChosen(e) {
+  const [optimizing, setOptimizing] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  async function handleFilesChosen(e) {
     const chosen = Array.from(e.target.files || []);
-    if (chosen.length > 0) {
+    // Allow re-choosing the same file again after removing it from the list.
+    e.target.value = "";
+    if (chosen.length === 0) return;
+    setOptimizing(true);
+    setNotice("");
+    try {
+      const prepared = [];
+      for (const file of chosen) prepared.push(await shrinkImageToFit(file, MAX_FILE_SIZE));
+      const reduced = prepared.filter((file, i) => file !== chosen[i]).length;
+      if (reduced > 0) setNotice(`${reduced} photo${reduced > 1 ? "s were" : " was"} larger than 4 MB and ${reduced > 1 ? "were" : "was"} reduced automatically.`);
       setSelectedFiles((prev) => [
         ...prev,
-        ...chosen.map((file) => ({
+        ...prepared.map((file) => ({
           key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
           file,
           category: DEFAULT_CATEGORY,
         })),
       ]);
+    } finally {
+      setOptimizing(false);
     }
-    // Allow re-choosing the same file again after removing it from the list.
-    e.target.value = "";
   }
 
   function removeFile(key) {
@@ -267,7 +280,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
     <section className="card">
       <h2 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 12 }}>Upload files</h2>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 8 }}>
-        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 4 MB per file.
+        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 4 MB per file. Photos (JPG/PNG) larger than 4 MB are reduced automatically; PDF and Word files must be 4 MB or smaller.
       </p>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
         You can upload documents such as: {CATEGORIES.join(", ")}. Select all your files below at once — you don't need to submit them separately by type.
@@ -275,7 +288,9 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
       {turnstile && <div style={{ marginBottom: 16 }}>{turnstile.widget}<p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem" }}>{turnstile.ready ? "Security check complete." : "Complete the security check before uploading."}</p></div>}
 
       <div style={{ marginBottom: 16 }}>
-        <input type="file" multiple accept={ALLOWED_EXTENSIONS.join(",")} onChange={handleFilesChosen} />
+        <input type="file" multiple accept={ALLOWED_EXTENSIONS.join(",")} onChange={handleFilesChosen} disabled={optimizing} />
+        {optimizing && <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginTop: 8 }}>Preparing your files…</p>}
+        {notice && <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginTop: 8 }}>{notice}</p>}
       </div>
 
       {selectedFiles.length > 0 && (
@@ -307,7 +322,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
         </div>
       )}
 
-      <button type="button" className="btn btn--primary" disabled={busy || selectedFiles.length === 0} onClick={onUpload}>
+      <button type="button" className="btn btn--primary" disabled={busy || optimizing || selectedFiles.length === 0} onClick={onUpload}>
         {busy ? "Uploading..." : "Upload"}
       </button>
 
