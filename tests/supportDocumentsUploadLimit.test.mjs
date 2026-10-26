@@ -58,3 +58,16 @@ try {
 } finally { globalThis.fetch = realFetch; }
 
 console.log("supportDocumentsUploadLimit: all checks passed");
+
+// Friendly, specific messages (named file, size, reason, what to do).
+const big = validateFile({ name: "lease.pdf", type: "application/pdf", size: 6 * MiB });
+assert.match(big, /"lease\.pdf" is 6\.0 MB/);
+assert.match(big, /PDF and Word files cannot be reduced automatically/);
+assert.match(big, /support@vanislandproperty\.ca/);
+assert.match(validateFile({ name: "id.jpg", type: "image/jpeg", size: 6 * MiB }), /could not reduce this photo/);
+assert.match(validateFile({ name: "x.exe", type: "", size: 10 }), /"x\.exe" can't be uploaded/);
+try {
+  globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await assert.rejects(publicUpload("uploadSupportingDocument", {}, "tok"), /check your internet connection/);
+} finally { globalThis.fetch = realFetch; }
+console.log("friendly messages: passed");

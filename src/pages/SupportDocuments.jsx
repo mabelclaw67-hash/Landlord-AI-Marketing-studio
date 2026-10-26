@@ -69,10 +69,15 @@ function validateFile(file) {
   const hasAllowedExtension = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
   const hasAllowedType = !file?.type || ALLOWED_TYPES.includes(file.type);
   if (!hasAllowedExtension || !hasAllowedType) {
-    return "Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.";
+    return `"${file?.name}" can't be uploaded. Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.`;
   }
   if (file.size > MAX_FILE_SIZE) {
-    return "Each file must be 4 MB or smaller.";
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    const isPhoto = /\.(jpe?g|png)$/i.test(lowerName);
+    const advice = isPhoto
+      ? "We could not reduce this photo enough automatically. Please choose a smaller photo"
+      : "PDF and Word files cannot be reduced automatically. Please make the file smaller (for example, save it as a reduced-size PDF) and select it again";
+    return `"${file.name}" is ${mb} MB, which is over the 4 MB limit per file. ${advice}, or email it to support@vanislandproperty.ca.`;
   }
   return "";
 }
@@ -242,6 +247,7 @@ function InfoBlock({ label, value, code = false }) {
 function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message, turnstile }) {
   const [optimizing, setOptimizing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [rejections, setRejections] = useState([]);
 
   async function handleFilesChosen(e) {
     const chosen = Array.from(e.target.files || []);
@@ -250,14 +256,17 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
     if (chosen.length === 0) return;
     setOptimizing(true);
     setNotice("");
+    setRejections([]);
     try {
       const prepared = [];
       for (const file of chosen) prepared.push(await shrinkImageToFit(file, MAX_FILE_SIZE));
       const reduced = prepared.filter((file, i) => file !== chosen[i]).length;
       if (reduced > 0) setNotice(`${reduced} photo${reduced > 1 ? "s were" : " was"} larger than 4 MB and ${reduced > 1 ? "were" : "was"} reduced automatically.`);
+      const problems = prepared.map((file) => validateFile(file));
+      setRejections(problems.filter(Boolean));
       setSelectedFiles((prev) => [
         ...prev,
-        ...prepared.map((file) => ({
+        ...prepared.filter((_, i) => !problems[i]).map((file) => ({
           key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
           file,
           category: DEFAULT_CATEGORY,
@@ -290,6 +299,12 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
       <div style={{ marginBottom: 16 }}>
         <input type="file" multiple accept={ALLOWED_EXTENSIONS.join(",")} onChange={handleFilesChosen} disabled={optimizing} />
         {optimizing && <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginTop: 8 }}>Preparing your files…</p>}
+        {rejections.length > 0 && (
+          <div role="alert" style={{ marginTop: 10, color: "#b3261e", fontSize: "0.86rem", lineHeight: 1.6, fontWeight: 600 }}>
+            <p style={{ marginBottom: 4 }}>{rejections.length > 1 ? "These files were not added:" : "This file was not added:"}</p>
+            {rejections.map((text) => <p key={text} style={{ marginBottom: 4 }}>{text}</p>)}
+          </div>
+        )}
         {notice && <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", marginTop: 8 }}>{notice}</p>}
       </div>
 
@@ -327,7 +342,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
       </button>
 
       {message && (
-        <p style={{ marginTop: 16, color: message.startsWith("Thank you") ? "#2e7d4f" : "var(--color-text-muted)", fontWeight: 700 }}>
+        <p style={{ marginTop: 16, color: message.startsWith("Thank you") ? "#2e7d4f" : "#b3261e", fontWeight: 700 }}>
           {message}
         </p>
       )}
