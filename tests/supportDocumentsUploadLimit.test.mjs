@@ -71,3 +71,8 @@ try {
   await assert.rejects(publicUpload("uploadSupportingDocument", {}, "tok"), /check your internet connection/);
 } finally { globalThis.fetch = realFetch; }
 console.log("friendly messages: passed");
+
+// HEIC the browser could not convert gets a specific message; the picker offers HEIC.
+assert.match(validateFile({ name: "IMG_1.HEIC", type: "image/heic", size: 2000 }), /iPhone-format \(HEIC\)/);
+assert.match(page, /accept=\{\[\.\.\.PICKER_EXTENSIONS, "image\/heic", "image\/heif"\]/);
+console.log("heic messages: passed");

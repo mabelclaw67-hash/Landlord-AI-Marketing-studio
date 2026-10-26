@@ -3,10 +3,24 @@
 const DIMENSIONS = [3000, 2400, 2000, 1600, 1200];
 const QUALITIES = [0.88, 0.8, 0.7];
 const IMAGE_EXT = /\.(jpe?g|png)$/i;
+const HEIC_EXT = /\.(heic|heif)$/i; // iPhone default photo format; converted to JPEG here
 
 async function browserDecode(file) {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  return { width: bitmap.width, height: bitmap.height, source: bitmap };
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    return { width: bitmap.width, height: bitmap.height, source: bitmap };
+  } catch {
+    // Some browsers (e.g. Safari with HEIC) decode only through an <img> element.
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return { width: img.naturalWidth, height: img.naturalHeight, source: img };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 }
 
 function browserEncode(image, width, height, quality) {
@@ -21,8 +35,10 @@ function browserEncode(image, width, height, quality) {
 }
 
 export async function shrinkImageToFit(file, maxBytes, { decode = browserDecode, encode = browserEncode } = {}) {
+  const isHeic = HEIC_EXT.test(file.name) || /^image\/hei[cf]$/.test(file.type);
   const isImage = /^image\/(jpeg|png)$/.test(file.type) || (!file.type && IMAGE_EXT.test(file.name));
-  if (!isImage || !IMAGE_EXT.test(file.name) || file.size <= maxBytes) return file;
+  // HEIC is always converted (the server only stores PDF/JPG/PNG/DOC/DOCX); other photos only when too big.
+  if (!isHeic && (!isImage || !IMAGE_EXT.test(file.name) || file.size <= maxBytes)) return file;
   try {
     const image = await decode(file);
     const target = Math.floor(maxBytes * 0.9); // leave margin under the hard limit
@@ -33,7 +49,7 @@ export async function shrinkImageToFit(file, maxBytes, { decode = browserDecode,
       for (const quality of QUALITIES) {
         const blob = await encode(image, width, height, quality);
         if (blob && blob.size <= target) {
-          return new File([blob], file.name.replace(IMAGE_EXT, ".jpg"), { type: "image/jpeg", lastModified: file.lastModified });
+          return new File([blob], file.name.replace(isHeic ? HEIC_EXT : IMAGE_EXT, ".jpg"), { type: "image/jpeg", lastModified: file.lastModified });
         }
       }
     }

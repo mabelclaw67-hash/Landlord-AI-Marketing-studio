@@ -30,3 +30,15 @@ assert.equal(await shrinkImageToFit(huge, MAX, { decode, encode: async () => new
 assert.equal(await shrinkImageToFit(huge, MAX, { decode: async () => { throw new Error("bad"); }, encode }), huge);
 
 console.log("compressImage: all checks passed");
+
+// iPhone HEIC/HEIF: always converted to .jpg even when small; unconvertible -> original returned.
+for (const [name, type] of [["IMG_1.HEIC", "image/heic"], ["IMG_2.heif", ""], ["IMG_3.heic", "image/heif"]]) {
+  const tiny = big(name, type, 2000);
+  const out = await shrinkImageToFit(tiny, MAX, { decode, encode });
+  assert.equal(out.type, "image/jpeg");
+  assert.match(out.name, /^IMG_\d\.jpg$/);
+  assert.ok(out.size <= MAX * 0.9);
+}
+const heic = big("IMG_4.heic", "image/heic");
+assert.equal(await shrinkImageToFit(heic, MAX, { decode: async () => { throw new Error("no heic"); }, encode }), heic);
+console.log("compressImage heic: passed");
