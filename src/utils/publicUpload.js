@@ -6,6 +6,7 @@ export async function publicUpload(action, payload, turnstileToken) {
     body: JSON.stringify({ action, turnstileToken, ...payload }),
   });
   const body = await response.json().catch(() => ({}));
+  if (response.status === 413) throw new Error("File is too large. Please upload files up to 4 MB each.");
   if (!response.ok || !body.ok) throw new Error(body.error || "Upload failed. Please try again.");
   return body.data;
 }

@@ -29,7 +29,7 @@ const ALLOWED_TYPES = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const CLOSED_MESSAGE = "This listing is no longer accepting applications or supporting documents.";
 const SUCCESS_MESSAGE = "Thank you. Your supporting documents have been received.";
 
@@ -71,7 +71,7 @@ function validateFile(file) {
     return "Please upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.";
   }
   if (file.size > MAX_FILE_SIZE) {
-    return "Each file must be 10 MB or smaller.";
+    return "Each file must be 4 MB or smaller.";
   }
   return "";
 }
@@ -267,7 +267,7 @@ function UploadPanel({ selectedFiles, setSelectedFiles, busy, onUpload, message,
     <section className="card">
       <h2 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: 12 }}>Upload files</h2>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 8 }}>
-        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 10 MB per file.
+        Accepted file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum 4 MB per file.
       </p>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.84rem", lineHeight: 1.7, marginBottom: 16 }}>
         You can upload documents such as: {CATEGORIES.join(", ")}. Select all your files below at once — you don't need to submit them separately by type.
