@@ -666,6 +666,8 @@ export default function ListingDetail({ lang: langProp }) {
   // ── Listing info edit helpers ────────────────────────────────────────────────
   const startEditInfo = () => {
     setInfoDraft({
+      ownerName: listing.ownerName || "",
+      address: listing.address || "",
       available: listing.available || "",
       rent: String(listing.rent || ""),
       bedrooms: String(listing.bedrooms || ""),
@@ -685,6 +687,11 @@ export default function ListingDetail({ lang: langProp }) {
   const cancelEditInfo = () => { setInfoEditMode(false); setInfoDraft({}); };
 
   const saveInfoToSheet = async () => {
+    // Other workflows (application PDFs, Drive folders) require a Property Address.
+    if ("address" in infoDraft && !String(infoDraft.address).trim()) {
+      alert("Property Address cannot be empty.");
+      return;
+    }
     setInfoSaving(true);
     setRentedNotificationResult(null);
     try {
@@ -1933,6 +1940,8 @@ export default function ListingDetail({ lang: langProp }) {
                 [L.fieldUtilities, "utilities", "text"],
                 [L.fieldPetPolicy, "pets", "text"],
                 [L.fieldParking, "parking", "text"],
+                [L.fieldOwnerName, "ownerName", "text"],
+                [L.fieldPropertyAddress, "address", "text"],
               ].map(([label, field, type]) => (
                 <div key={field} className="info-item">
                   <label>{label}</label>
@@ -1964,7 +1973,6 @@ export default function ListingDetail({ lang: langProp }) {
               </div>
               {/* Read-only fields */}
               {[
-                [L.fieldOwnerName, listing.ownerName], [L.fieldPropertyAddress, listing.address],
                 [L.fieldCity, listing.city], [L.fieldLeaseTerm, listing.leaseTerm],
                 [L.fieldLaundry, listing.laundry], [L.fieldSmokingPolicy, listing.smoking],
                 [L.fieldDefaultLanguage, listing.language], [L.fieldTargetAudience, listing.targetAudience],
