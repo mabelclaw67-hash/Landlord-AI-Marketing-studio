@@ -134,12 +134,13 @@ Use this checklist before changing the system again.
 /Users/mabelchen/Mabel Project/04_landlord-ai-marketing-studio
 ```
 
-2. Confirm branch and git status before code changes:
+2. Run the version preflight before code changes, and again before any release:
 
 ```text
-git branch --show-current
-git status
+scripts/preflight.sh
 ```
+
+It fetches GitHub, then compares this folder's branch, `origin/main` and the Netlify production deploy, and lists uncommitted files. If it prints `STOP`, do not edit or release from this folder: start a new branch from `origin/main` (`git switch -c <name> origin/main`). Never copy a whole file from an older branch over a newer one — move only the specific change.
 
 3. Decide whether the change is:
 

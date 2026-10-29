@@ -12,6 +12,10 @@ mabelclaw67-hash/Landlord-AI-Marketing-Studio
 
 Production branch: `main`
 
+Before starting work and before any release, run `scripts/preflight.sh` (read-only).
+`STOP` means this folder is behind `origin/main` or Netlify production differs from
+`origin/main` — branch fresh from `origin/main` instead of editing here.
+
 ## Cross-System Boundary: 01 Internal vs 04 Public
 
 This runbook governs **04**, the public Netlify application at
