@@ -3848,6 +3848,9 @@ function getCollagePhotoData_(listingId, fileIds, auth) {
   if (!listingId) throw new Error("getCollagePhotoData: listingId required");
   if (!Array.isArray(fileIds)) throw new Error("getCollagePhotoData: fileIds must be an array");
   if (fileIds.length > 5) throw new Error("getCollagePhotoData: maximum 5 photos allowed");
+  // Netlify buffers synchronous function responses at 6 MB. Keep this action's
+  // Base64 image payload below 4 MiB so JSON and gateway framing have headroom.
+  var MAX_COLLAGE_PREVIEW_BASE64_BYTES = 4 * 1024 * 1024;
 
   var listing = getListingById_(listingId, auth);
   var folderId = extractDriveFolderId_(listing.driveFolderLink || "");
@@ -3870,6 +3873,7 @@ function getCollagePhotoData_(listingId, fileIds, auth) {
     filesById[file.getId()] = file;
   }
 
+  var totalBase64Bytes = 0;
   return requestedIds.map(function(fileId) {
     var file = filesById[fileId];
     if (!file) {
@@ -3881,17 +3885,34 @@ function getCollagePhotoData_(listingId, fileIds, auth) {
       return { fileId: fileId, fileName: file.getName(), error: "Selected file is not a JPEG or PNG image." };
     }
 
+    var blob;
+    var contentType;
+    var base64;
     try {
-      var blob = file.getBlob();
-      var contentType = blob.getContentType() || mime;
-      return {
-        fileId: fileId,
-        fileName: file.getName(),
-        dataUrl: "data:" + contentType + ";base64," + Utilities.base64Encode(blob.getBytes()),
-      };
+      // The collage only needs screen-sized inputs. Returning original files
+      // can exceed the Gateway's response limit even when only five are chosen.
+      blob = file.getThumbnail();
+      if (!blob) {
+        return { fileId: fileId, fileName: file.getName(), error: "A Drive preview is not available for this photo." };
+      }
+      contentType = blob.getContentType() || mime;
+      if (contentType !== "image/jpeg" && contentType !== "image/png") {
+        return { fileId: fileId, fileName: file.getName(), error: "Drive returned an unsupported photo preview." };
+      }
+      base64 = Utilities.base64Encode(blob.getBytes());
     } catch (ex) {
       return { fileId: fileId, fileName: file.getName(), error: "Photo could not be read from Drive." };
     }
+
+    totalBase64Bytes += base64.length;
+    if (totalBase64Bytes > MAX_COLLAGE_PREVIEW_BASE64_BYTES) {
+      throw new Error("Collage photo previews exceed the safe response size. Select fewer photos and try again.");
+    }
+    return {
+      fileId: fileId,
+      fileName: file.getName(),
+      dataUrl: "data:" + contentType + ";base64," + base64,
+    };
   });
 }
 
