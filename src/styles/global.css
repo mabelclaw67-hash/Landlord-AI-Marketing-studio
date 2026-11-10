@@ -82,7 +82,7 @@ img { max-width: 100%; height: auto; display: block; }
   gap: 8px;
 }
 .navbar__brand span { font-size: 0.78rem; color: var(--color-text-muted); font-weight: 400; }
-@media (max-width: 1280px) { .navbar__brand .navbar__tagline { display: none; } }
+@media (max-width: 1640px) { .navbar__brand .navbar__tagline { display: none; } }
 .navbar__links {
   display: flex;
   align-items: center;
@@ -353,7 +353,9 @@ img { max-width: 100%; height: auto; display: block; }
 /* =====================
    Forms
    ===================== */
-.form-group { margin-bottom: 20px; }
+.form-group { margin-bottom: 20px; min-width: 0; }
+/* A long option must not push a dropdown wider than a phone screen. */
+.form-group .select-control { max-width: 100%; }
 .form-group label {
   display: block;
   font-size: 0.88rem;
