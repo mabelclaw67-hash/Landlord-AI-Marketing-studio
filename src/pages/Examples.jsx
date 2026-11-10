@@ -69,7 +69,7 @@ const RENTAL_PUBLIC_TEXT = {
     perMonth: "/mo",
 
     // Hero (compact)
-    heroBrand: "Vanisland Rentals",
+    heroBrand: "VanIsland Property",
     heroSub: "Rental listings and tenant services on Vancouver Island. VanIsland provides rental marketing, applicant screening and administrative support for individual landlords — the landlord remains the decision-maker regarding the tenancy.",
     heroBrowse: "View Rentals",
     heroApply: "Apply Now",
@@ -159,7 +159,7 @@ const RENTAL_PUBLIC_TEXT = {
     perMonth: "每月",
 
     // Hero (compact)
-    heroBrand: "Vanisland 出租",
+    heroBrand: "VanIsland Property",
     heroSub: "温哥华岛租赁房源与租客服务。VanIsland 为个人房东提供出租营销、申请人筛选和行政支持——租约的最终决定权在房东。",
     heroBrowse: "查看房源",
     heroApply: "立即申请",
@@ -351,7 +351,7 @@ export default function Examples({ lang = "en" }) {
       {/* ── Hero ───────────────────────────────────────────── */}
       <section className="rp-hero">
         <div className="rp-hero__inner">
-          <span className="rp-hero__eyebrow">🏠 VanIsland Rentals</span>
+          <span className="rp-hero__eyebrow">🏠 VanIsland Property</span>
           <h1 className="rp-hero__title">{labels.heroBrand}</h1>
           <p className="rp-hero__sub">{labels.heroSub}</p>
           <div className="rp-hero__actions">

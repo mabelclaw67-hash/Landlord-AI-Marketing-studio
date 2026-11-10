@@ -23,7 +23,7 @@ export default function AdminGuard({ children }) {
           <div className="admin-guard__mark">V</div>
           <div>
             <strong>VanIsland Property</strong>
-            <span>AI Studio · Admin</span>
+            <span>Admin Studio</span>
           </div>
         </div>
         {status === "unknown" ? (

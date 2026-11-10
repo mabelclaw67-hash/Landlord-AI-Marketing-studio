@@ -228,7 +228,7 @@ export default function PublicListing({ lang = "en" }) {
     setMeta('twitter:title', listingTitle);
 
     return () => {
-      document.title = 'Vanisland Rentals';
+      document.title = 'VanIsland Property';
     };
   }, [listing]);
 
@@ -413,7 +413,7 @@ export default function PublicListing({ lang = "en" }) {
     const safeAvailable = escapePrintHtml(formatDate(listing.available));
     const safeListingUrl = escapePrintHtml(listingUrl);
     const safeContactPhone = escapePrintHtml(listing.contactPhone || "");
-    const safeContactEmail = escapePrintHtml(listing.contactEmail || listing.ownerEmail || "");
+    const safeContactEmail = escapePrintHtml(listing.contactEmail || "support@vanislandproperty.ca");
 
     printWindow.document.write(`<!doctype html>
 <html lang="en">
@@ -601,7 +601,7 @@ export default function PublicListing({ lang = "en" }) {
       }}>
         <div className="public-listing-shell">
           <p style={{ fontSize: "0.75rem", color: "#62796b", marginBottom: 8, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
-            Vanisland Residential · Public Rental Listing
+            VanIsland Property · Public Rental Listing
           </p>
           <div style={{ marginBottom: 12 }}>
             <span

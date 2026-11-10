@@ -14,9 +14,6 @@ import { apiPost, isApiConnected } from "./api";
 import { getStudioRequestAuth } from "./trialAccess";
 import { publicUpload } from "./publicUpload";
 
-export const DISPUTE_REVIEW_SPREADSHEET_ID = "1Vf19MSfp73g3h-nJg8cCDRwPuoFHMLRMkWMCj7gTZ90";
-export const DISPUTE_REVIEW_FOLDER_URL = "https://drive.google.com/drive/folders/1iIMToPAg8EBjiWs-fprXBZW_tpycJ000";
-
 export const DISPUTE_MAX_FILES = 25;
 export const DISPUTE_MAX_FILE_BYTES = 15 * 1024 * 1024;
 export const DISPUTE_ACCEPT_ATTRIBUTE =

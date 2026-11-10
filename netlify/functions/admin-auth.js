@@ -2,6 +2,7 @@
 // The session token returned by Apps Script is placed in an HttpOnly cookie
 // and is never included in a response body.
 import crypto from "node:crypto";
+import process from "node:process";
 import {
   callAppsScript, clearedSessionCookies, clientKey, guardRequest, header, isConfigured,
   isRateLimited, isSessionError, json, parseBody, readSessionCookie, recordFailure, sessionCookies,
@@ -41,6 +42,13 @@ const MESSAGES = {
   ADMIN_AUTH_MFA_NOT_ENROLLED: [409, "Two-step verification is not set up yet. Use first-time setup."],
   ADMIN_AUTH_SESSION_INVALID: [401, "Your admin session has ended. Please sign in again."],
   ADMIN_AUTH_BUSY: [503, "The server is still finishing your previous attempt. Please press the button again."],
+};
+
+// Internal links for signed-in admins only. They are returned with a verified
+// session and are never shipped in the public site files.
+const HOME_SALE_SHEET_ID = process.env.HOME_SALE_SPREADSHEET_ID || "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
+const ADMIN_LINKS = {
+  homeSaleSheet: `https://docs.google.com/spreadsheets/d/${HOME_SALE_SHEET_ID}/edit`,
 };
 
 export async function handler(event) {
@@ -107,5 +115,6 @@ export async function handler(event) {
   if (opName === "logout" || opName === "logoutAll" || (opName === "changePassword" && data.signedOut)) {
     return json(200, { ok: true, data }, clearedSessionCookies());
   }
+  if (opName === "session") return json(200, { ok: true, data: { ...data, links: ADMIN_LINKS } });
   return json(200, { ok: true, data });
 }

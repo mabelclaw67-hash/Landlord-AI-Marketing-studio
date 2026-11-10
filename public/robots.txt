@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /admin
+Disallow: /apply/
+Disallow: /photo-tips
+Disallow: /faq
+Disallow: /supporting-documents
+Disallow: /support-documents/
+Disallow: /strategy-assessment/report/
+Disallow: /dispute-review/report/
+Disallow: /.netlify/
+
+Sitemap: https://www.vanislandproperty.ca/sitemap.xml

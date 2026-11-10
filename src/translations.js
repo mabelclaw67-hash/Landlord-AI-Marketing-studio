@@ -16,7 +16,7 @@ export const translations = {
       listings: "Listings",
     },
     home: {
-      heroTitle: "Vanisland AI Marketing Studio",
+      heroTitle: "VanIsland Property",
       heroSubtitle:
         "Create marketing packages for rental and home sale listings.",
       heroChTitle: "",
@@ -184,7 +184,7 @@ export const translations = {
     home: {
       heroTitle: "房源 AI 营销工作台",
       heroSubtitle: "出租与出售房源推广素材一站式生成",
-      heroChTitle: "Vanisland AI Marketing Studio",
+      heroChTitle: "VanIsland Property",
       heroChSubtitle:
         "Create marketing packages for rental and home sale listings.",
       ctaStart: "联系我们",
@@ -210,7 +210,6 @@ export const translations = {
         "所有 AI 生成内容发布前必须人工审核。若使用 AI 美化或虚拟布置，必须明确标注，避免误导租客。",
       complianceCh:
         "All AI-generated content must be reviewed before publishing. AI-enhanced or virtually staged images must be clearly disclosed.",
-      ctaLearn: "了解更多",
     },
     examples: {
       title: "房源示例",

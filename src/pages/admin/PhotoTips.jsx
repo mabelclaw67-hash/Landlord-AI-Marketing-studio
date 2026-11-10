@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useLang } from "../../contexts/LangContext";
+import { useAdminSessionStatus } from "../../utils/adminSession";
 
 const SECTIONS = [
   {
@@ -64,6 +65,9 @@ const SECTIONS = [
 
 export default function PhotoTips() {
   const lang = useLang();
+  // This help page is also reachable without login; only a signed-in admin
+  // gets links back to the Admin Studio.
+  const isAdmin = useAdminSessionStatus() === "active";
   return (
     <div>
       <div className="flex-between mb-24">
@@ -73,7 +77,7 @@ export default function PhotoTips() {
             {lang === "zh" ? "按照此清单拍摄，帮助您的房源吸引更多咨询。" : "Follow this checklist to take listing photos that attract more inquiries."}
           </p>
         </div>
-        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
+        <Link to={isAdmin ? "/admin" : "/"} className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
       </div>
 
       <div className="notice notice--sage" style={{ marginBottom: 24 }}>
@@ -120,7 +124,7 @@ export default function PhotoTips() {
       </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回后台" : "← Back to Dashboard"}</Link>
+        <Link to={isAdmin ? "/admin" : "/"} className="btn btn--ghost">{isAdmin ? (lang === "zh" ? "← 返回后台" : "← Back to Dashboard") : (lang === "zh" ? "← 返回首页" : "← Back to Home")}</Link>
         <Link to="/admin/home-sale" className="btn btn--ghost">Home Sale Studio →</Link>
       </div>
     </div>

@@ -1,16 +1,16 @@
-// Vanisland Rentals — Service Worker
+// VanIsland Property — Service Worker
 // Caches the static app shell (HTML/JS/CSS/images/icons) for offline use and
 // fast repeat loads. Never caches API/data requests — Netlify Functions
 // (tenant applications, uploads, verification) and any cross-origin calls
 // (Apps Script backends) always hit the network so live data is never stale.
 
-const CACHE_NAME = 'vanisland-rentals-static-v1';
+const CACHE_NAME = 'vanisland-rentals-static-v2';
 
 const DYNAMIC_PATH_PREFIXES = [
   '/.netlify/functions/',
 ];
 
-self.addEventListener('install', event => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -52,7 +52,10 @@ async function cacheFirst(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response && response.ok) {
+  // Only store real assets. A full (200) non-HTML response is cacheable; the SPA
+  // shell returned for a missing file, or a partial (206) media range, is not.
+  const type = response && response.headers.get('content-type') || '';
+  if (response && response.status === 200 && !type.includes('text/html')) {
     cache.put(request, response.clone());
   }
   return response;
@@ -72,7 +75,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const isStaticAsset = /\.(?:js|css|png|jpg|jpeg|svg|webp|gif|ico|woff2?|json|mp4|mp3)$/.test(url.pathname);
+  const isStaticAsset = /\.(?:js|css|png|jpg|jpeg|svg|webp|gif|ico|woff2?|mp4|mp3)$/.test(url.pathname);
   if (isStaticAsset) {
     event.respondWith(cacheFirst(request));
   }

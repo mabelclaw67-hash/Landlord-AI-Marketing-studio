@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useLang } from "../../contexts/LangContext";
+import { useAdminSessionStatus } from "../../utils/adminSession";
 
 const FAQS = [
   {
@@ -91,6 +92,9 @@ function FaqItem({ item }) {
 
 export default function Faq() {
   const lang = useLang();
+  // This help page is also reachable without login; only a signed-in admin
+  // gets links back to the Admin Studio.
+  const isAdmin = useAdminSessionStatus() === "active";
   return (
     <div>
       <div className="flex-between mb-24">
@@ -100,7 +104,7 @@ export default function Faq() {
             {lang === "zh" ? "关于平台使用的常见问题解答。" : "Frequently asked questions about using the platform."}
           </p>
         </div>
-        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
+        <Link to={isAdmin ? "/admin" : "/"} className="btn btn--ghost">{lang === "zh" ? "← 返回" : "← Back"}</Link>
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
@@ -110,7 +114,7 @@ export default function Faq() {
       </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <Link to="/admin" className="btn btn--ghost">{lang === "zh" ? "← 返回后台" : "← Back to Dashboard"}</Link>
+        <Link to={isAdmin ? "/admin" : "/"} className="btn btn--ghost">{isAdmin ? (lang === "zh" ? "← 返回后台" : "← Back to Dashboard") : (lang === "zh" ? "← 返回首页" : "← Back to Home")}</Link>
         <Link to="/admin/photo-tips" className="btn btn--ghost">{lang === "zh" ? "📷 拍照建议 →" : "📷 Photo Tips →"}</Link>
       </div>
     </div>

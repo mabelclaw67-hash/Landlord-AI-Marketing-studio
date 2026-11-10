@@ -1,5 +1,24 @@
 # Production Baseline
 
+## Update 2026-11-10 — Apps Script v182 (supersedes the "Current production" block below)
+
+- Apps Script version: `182` on the same production deployment (`AKfycbw01LTH…`); previous `181`, rollback target `181`.
+- Source: PR #8 branch `audit/2026-11-10-site-cleanup`, commit `e710d47` (Apps Script files = `origin/main` `eb805e3` + this fix only).
+  `main` will equal production again once PR #8 is merged; until then production is one fix ahead of `main`.
+- Approved by Mabel 2026-11-10 ("批准发布修复"). Released 2026-11-10 ~16:40 PST.
+- Change: public (not signed-in) listing reads no longer return `ownerName` / `ownerEmail`
+  (`sanitizeListingForAccess_`); home-sale public reads drop `ownerName`
+  (`homeSaleSanitizeListingForAccess_`); `syncDailyMarketBrief` is admin-only (was a public GET that wrote to the sheet).
+- Before release: `clasp pull --versionNumber 181` compared file-by-file with `origin/main` — 19/19 identical.
+- After release: `clasp pull --versionNumber 182` compared with commit `e710d47` — 19/19 identical.
+- Verification: read-only live probe without login; public `getListingById` clean immediately; bulk `getListings`
+  is cached for 15 minutes (`PUBLIC_CACHE_TTL_SECONDS`), re-checked after expiry (see handoff
+  `2026-11-10_Website_Audit_PR8_Handoff.md` in Drive). Public reads (`getDailyMarketBrief`, `getPublicListingCovers`) still answer.
+- Not covered: the Home Sale endpoint (`VITE_HOME_SALE_EXEC_URL`) is served by a different Apps Script
+  project/deployment that is not in this project's `clasp deployments`; it still returns `ownerName` for sale listings.
+- Note: the "Current production" block below (v152, 2026-08-25) was already out of date before this update
+  (production was at v181); always trust `clasp deployments`.
+
 ## Current production
 
 - Git main: `7aa3960113730af8bc84b0e83471464a915543e4`

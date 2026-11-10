@@ -204,7 +204,7 @@ const T = {
 
     // QR section
     qrEyebrow: "Scan to Access the Platform",
-    qrTitle: "Vanisland Property",
+    qrTitle: "VanIsland Property",
     qrBody:
       "Built for Vancouver Island landlords, home sellers, FSBO owners, and realtors. Scan the QR code to open our website on any device — easy to share with clients and partners.",
     qrFeatures: [
@@ -217,7 +217,7 @@ const T = {
       "🌐 Bilingual (English + Chinese) across all outputs",
     ],
     qrBadge: "Scan to Try",
-    qrUrlLabel: "Vanisland Property",
+    qrUrlLabel: "VanIsland Property",
     qrCaption: "Scan to open our website",
     qrOpenBtn: "Open Website →",
 
@@ -422,7 +422,7 @@ const T = {
 
     // QR section
     qrEyebrow: "扫码访问平台",
-    qrTitle: "Vanisland Property",
+    qrTitle: "VanIsland Property",
     qrBody:
       "专为温哥华岛房东、卖家、自售业主和房产经纪人打造。扫描二维码在任何设备上访问我们的网站，方便分享给客户和合作伙伴。",
     qrFeatures: [
@@ -435,7 +435,7 @@ const T = {
       "🌐 全部产出支持中英双语",
     ],
     qrBadge: "扫码试用",
-    qrUrlLabel: "Vanisland Property",
+    qrUrlLabel: "VanIsland Property",
     qrCaption: "扫码访问我们的网站",
     qrOpenBtn: "打开网站 →",
 
@@ -452,7 +452,7 @@ const LANDLORD_SHARE_MESSAGES = [
     label: "WeChat Landlord Promotion",
     rows: 8,
     text:
-      "Hello landlords and property owners,\n\nVanisland AI Rental Listing Marketing Studio helps prepare bilingual rental ads, photo listing pages, online application links, QR-code application access, media display, and organized application materials.\n\nIdeal for busy Vancouver Island independent landlords and property owners. Tenants can view listings and apply online from any device — no printing or emailing documents back and forth.",
+      "Hello landlords and property owners,\n\nVanIsland Property helps prepare bilingual rental ads, photo listing pages, online application links, QR-code application access, media display, and organized application materials.\n\nIdeal for busy Vancouver Island independent landlords and property owners. Tenants can view listings and apply online from any device — no printing or emailing documents back and forth.",
   },
   {
     id: "facebook-landlord",

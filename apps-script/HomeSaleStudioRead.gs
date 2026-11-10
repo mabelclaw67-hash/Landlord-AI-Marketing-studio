@@ -1527,6 +1527,7 @@ function homeSaleSanitizeListingForAccess_(listing, auth) {
     safe[key] = listing[key];
   }
 
+  delete safe.ownerName;
   delete safe.googleDriveFolderUrl;
   delete safe.notes;
   delete safe.internalStatus;

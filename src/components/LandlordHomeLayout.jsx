@@ -2,6 +2,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import Home from "../pages/Home";
 import { normalizeLang } from "../utils/lang";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
+import { useAdminSessionStatus } from "../utils/adminSession";
 
 const NAV = {
   en: {
@@ -46,6 +47,8 @@ export default function LandlordHomeLayout({ lang, setLang }) {
   const { pathname } = useLocation();
   const safeLang = normalizeLang(lang);
   const n = NAV[safeLang] || NAV.en;
+  // Same rule as the tenant nav: the Admin item appears only for a signed-in admin.
+  const showAdminLink = useAdminSessionStatus() === "active";
 
   return (
     <div className="landlord-app">
@@ -55,7 +58,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
           <div className="lh-brand-mark">V</div>
           <div>
             <strong>VanIsland Property</strong>
-            <span>AI Studio</span>
+            <span>Professional Landlord Support</span>
           </div>
         </div>
 
@@ -101,10 +104,12 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">{n.workspaceLabel}</div>
+          {showAdminLink && (
           <NavLink to="/admin" className={({ isActive }) => `lh-nav-item lh-nav-item--admin${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">⚙️</span>
             <span><strong>{n.admin}</strong></span>
           </NavLink>
+          )}
           <div className="lh-nav-item lh-lang-row">
             🌐
             <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
@@ -132,7 +137,7 @@ export default function LandlordHomeLayout({ lang, setLang }) {
         <div className="lh-mobile-top">
           <div>
             <strong>🏠 VanIsland Property</strong>
-            <span>AI Studio</span>
+            <span>Professional Landlord Support</span>
           </div>
           <div className="lh-mobile-actions">
             <div className="lh-mobile-lang">
