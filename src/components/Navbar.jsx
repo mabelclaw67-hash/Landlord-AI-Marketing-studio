@@ -134,7 +134,6 @@ export default function Navbar({ lang, setLang }) {
       <div className="navbar__inner">
         <Link to="/" className="navbar__brand" onClick={() => setOpen(false)}>
           🏠 VanIsland Property
-          <span className="navbar__tagline">Professional Landlord Support</span>
         </Link>
 
         <button
