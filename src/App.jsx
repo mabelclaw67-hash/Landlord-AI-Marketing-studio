@@ -1,62 +1,119 @@
-import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Suspense, lazy, useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import "./styles/global.css";
 
 import Navbar from "./components/Navbar";
 import LandlordHomeLayout from "./components/LandlordHomeLayout";
 import MobileBottomNav from "./components/MobileBottomNav";
 import Footer from "./components/Footer";
-import Services from "./pages/Services";
-import Examples from "./pages/Examples";
-import Resources from "./pages/Resources";
-import Contact from "./pages/Contact";
-import HomeSaleStudio from "./pages/HomeSaleStudio";
-import StrategyAssessment from "./pages/StrategyAssessment";
-import AIReviewCenter from "./pages/AIReviewCenter";
-import DisputeReview from "./pages/DisputeReview";
-import HomeSaleListingDetail from "./pages/HomeSaleListingDetail";
-import HomeSaleAdmin from "./pages/HomeSaleAdmin";
-import AdminLayout from "./pages/admin/AdminLayout";
-import Dashboard from "./pages/admin/Dashboard";
-import NewListing from "./pages/admin/NewListing";
-import ListingDetail from "./pages/admin/ListingDetail";
-import Listings from "./pages/admin/Listings";
-import Leads from "./pages/admin/Leads";
-import StrategyAssessments from "./pages/admin/StrategyAssessments";
-import DisputeReviews from "./pages/admin/DisputeReviews";
-import HomeSaleListings from "./pages/admin/HomeSaleListings";
-import HomeSaleListingDetailAdmin from "./pages/admin/HomeSaleListingDetailAdmin";
-import HomeSaleListingForm from "./pages/admin/HomeSaleListingForm";
-import HomeSaleMedia from "./pages/admin/HomeSaleMedia";
-import HomeSaleMarketing from "./pages/admin/HomeSaleMarketing";
-import HomeSaleShare from "./pages/admin/HomeSaleShare";
-import HomeSaleVideo from "./pages/admin/HomeSaleVideo";
-import HomeSaleOpenHouse from "./pages/admin/HomeSaleOpenHouse";
-import HomeSalePhotoEnhance from "./pages/admin/HomeSalePhotoEnhance";
-import HomeSaleVirtualStaging from "./pages/admin/HomeSaleVirtualStaging";
-import HomeSaleCoverImage from "./pages/admin/HomeSaleCoverImage";
-import HomeSaleBuyerInquiry from "./pages/admin/HomeSaleBuyerInquiry";
-import HomeSaleReviewPublish from "./pages/admin/HomeSaleReviewPublish";
-import HomeSaleBuyerInquiries from "./pages/admin/HomeSaleBuyerInquiries";
-import ApplicationReview from "./pages/admin/ApplicationReview";
-import AdminSettings from "./pages/admin/AdminSettings";
-import PhotoTips from "./pages/admin/PhotoTips";
-import Faq from "./pages/admin/Faq";
-import SystemPerformance from "./pages/admin/SystemPerformance";
-import OurStory from "./pages/OurStory";
-import RentalApplicationLanding from "./pages/RentalApplicationLanding";
-import RentalApplication from "./pages/RentalApplication";
-import SupportDocuments from "./pages/SupportDocuments";
-import PublicListing from "./pages/PublicListing";
-import PublicVideoPage from "./pages/PublicVideoPage";
-import TenantContact from "./pages/TenantContact";
-import TenantServiceRequest from "./pages/TenantServiceRequest";
-import WebsiteReport from "./pages/WebsiteReport";
-import DailyMarketBriefReport from "./pages/DailyMarketBriefReport";
-import RetirementLivingBriefReport from "./pages/RetirementLivingBriefReport";
-import AITenantScreeningDemo, { AITenantScreeningDemoViewer } from "./pages/AITenantScreeningDemo";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 import { LangContext } from "./contexts/LangContext";
+import { PUBLIC_SITE_BASE_URL } from "./utils/publicUrls";
+
+// Pages load on demand so public visitors do not download the admin studio.
+// If a chunk is missing (a new version was deployed while this tab was open),
+// reload once to pick up the current build instead of showing a blank page.
+const CHUNK_RELOAD_KEY = "vanisland_chunk_reload_at";
+function lazyPage(load) {
+  return lazy(() =>
+    load().catch((err) => {
+      try {
+        const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+        if (Date.now() - last > 60000) {
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      } catch { /* storage unavailable — fall through to the error */ }
+      throw err;
+    })
+  );
+}
+
+const Services = lazyPage(() => import("./pages/Services"));
+const Examples = lazyPage(() => import("./pages/Examples"));
+const Resources = lazyPage(() => import("./pages/Resources"));
+const Contact = lazyPage(() => import("./pages/Contact"));
+const HomeSaleStudio = lazyPage(() => import("./pages/HomeSaleStudio"));
+const StrategyAssessment = lazyPage(() => import("./pages/StrategyAssessment"));
+const AIReviewCenter = lazyPage(() => import("./pages/AIReviewCenter"));
+const DisputeReview = lazyPage(() => import("./pages/DisputeReview"));
+const HomeSaleListingDetail = lazyPage(() => import("./pages/HomeSaleListingDetail"));
+const HomeSaleAdmin = lazyPage(() => import("./pages/HomeSaleAdmin"));
+const AdminLayout = lazyPage(() => import("./pages/admin/AdminLayout"));
+const Dashboard = lazyPage(() => import("./pages/admin/Dashboard"));
+const NewListing = lazyPage(() => import("./pages/admin/NewListing"));
+const ListingDetail = lazyPage(() => import("./pages/admin/ListingDetail"));
+const Listings = lazyPage(() => import("./pages/admin/Listings"));
+const Leads = lazyPage(() => import("./pages/admin/Leads"));
+const StrategyAssessments = lazyPage(() => import("./pages/admin/StrategyAssessments"));
+const DisputeReviews = lazyPage(() => import("./pages/admin/DisputeReviews"));
+const HomeSaleListings = lazyPage(() => import("./pages/admin/HomeSaleListings"));
+const HomeSaleListingDetailAdmin = lazyPage(() => import("./pages/admin/HomeSaleListingDetailAdmin"));
+const HomeSaleListingForm = lazyPage(() => import("./pages/admin/HomeSaleListingForm"));
+const HomeSaleMedia = lazyPage(() => import("./pages/admin/HomeSaleMedia"));
+const HomeSaleMarketing = lazyPage(() => import("./pages/admin/HomeSaleMarketing"));
+const HomeSaleShare = lazyPage(() => import("./pages/admin/HomeSaleShare"));
+const HomeSaleVideo = lazyPage(() => import("./pages/admin/HomeSaleVideo"));
+const HomeSaleOpenHouse = lazyPage(() => import("./pages/admin/HomeSaleOpenHouse"));
+const HomeSalePhotoEnhance = lazyPage(() => import("./pages/admin/HomeSalePhotoEnhance"));
+const HomeSaleVirtualStaging = lazyPage(() => import("./pages/admin/HomeSaleVirtualStaging"));
+const HomeSaleCoverImage = lazyPage(() => import("./pages/admin/HomeSaleCoverImage"));
+const HomeSaleBuyerInquiry = lazyPage(() => import("./pages/admin/HomeSaleBuyerInquiry"));
+const HomeSaleReviewPublish = lazyPage(() => import("./pages/admin/HomeSaleReviewPublish"));
+const HomeSaleBuyerInquiries = lazyPage(() => import("./pages/admin/HomeSaleBuyerInquiries"));
+const ApplicationReview = lazyPage(() => import("./pages/admin/ApplicationReview"));
+const AdminSettings = lazyPage(() => import("./pages/admin/AdminSettings"));
+const PhotoTips = lazyPage(() => import("./pages/admin/PhotoTips"));
+const Faq = lazyPage(() => import("./pages/admin/Faq"));
+const SystemPerformance = lazyPage(() => import("./pages/admin/SystemPerformance"));
+const OurStory = lazyPage(() => import("./pages/OurStory"));
+const RentalApplicationLanding = lazyPage(() => import("./pages/RentalApplicationLanding"));
+const RentalApplication = lazyPage(() => import("./pages/RentalApplication"));
+const SupportDocuments = lazyPage(() => import("./pages/SupportDocuments"));
+const PublicListing = lazyPage(() => import("./pages/PublicListing"));
+const PublicVideoPage = lazyPage(() => import("./pages/PublicVideoPage"));
+const TenantContact = lazyPage(() => import("./pages/TenantContact"));
+const TenantServiceRequest = lazyPage(() => import("./pages/TenantServiceRequest"));
+const WebsiteReport = lazyPage(() => import("./pages/WebsiteReport"));
+const DailyMarketBriefReport = lazyPage(() => import("./pages/DailyMarketBriefReport"));
+const RetirementLivingBriefReport = lazyPage(() => import("./pages/RetirementLivingBriefReport"));
+const AITenantScreeningDemo = lazyPage(() => import("./pages/AITenantScreeningDemo"));
+const AITenantScreeningDemoViewer = lazyPage(() =>
+  import("./pages/AITenantScreeningDemo").then((m) => ({ default: m.AITenantScreeningDemoViewer }))
+);
+
+// On page change: start at the top, or at the #anchor when the link has one,
+// and keep <link rel="canonical"> pointing at the page actually shown.
+function RouteEffects() {
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute("href", `${PUBLIC_SITE_BASE_URL}${pathname}`);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!hash) {
+      // Back/forward (POP) keeps the browser's own remembered position.
+      if (navigationType !== "POP") window.scrollTo(0, 0);
+      return undefined;
+    }
+    const id = decodeURIComponent(hash.slice(1));
+    let tries = 0;
+    let timer = 0;
+    const seek = () => {
+      const target = document.getElementById(id);
+      if (target) target.scrollIntoView({ block: "start" });
+      else if (tries++ < 20) timer = window.setTimeout(seek, 100);
+    };
+    seek();
+    return () => window.clearTimeout(timer);
+  }, [pathname, hash, navigationType]);
+
+  return null;
+}
 
 function AppInner({ lang, setLang }) {
   const { pathname } = useLocation();
@@ -64,7 +121,9 @@ function AppInner({ lang, setLang }) {
 
   return (
     <>
+      <RouteEffects />
       {!isHome && <Navbar lang={lang} setLang={setLang} />}
+      <Suspense fallback={<div style={{ minHeight: "60vh" }} aria-busy="true" />}>
       <Routes>
         <Route path="/" element={<LandlordHomeLayout lang={lang} setLang={setLang} />} />
         <Route path="/services" element={<Services lang={lang} />} />
@@ -131,6 +190,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/tenant-service-request" element={<TenantServiceRequest lang={lang} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       <Footer lang={lang} />
       <MobileBottomNav lang={lang} />
     </>

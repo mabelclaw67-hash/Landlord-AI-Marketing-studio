@@ -210,7 +210,6 @@ export const translations = {
         "所有 AI 生成内容发布前必须人工审核。若使用 AI 美化或虚拟布置，必须明确标注，避免误导租客。",
       complianceCh:
         "All AI-generated content must be reviewed before publishing. AI-enhanced or virtually staged images must be clearly disclosed.",
-      ctaLearn: "了解更多",
     },
     examples: {
       title: "房源示例",

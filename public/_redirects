@@ -1,1 +1,6 @@
-/* /index.html 200
+# Missing build assets must return a real 404 (not the SPA shell), so a stale
+# tab or service worker never receives HTML in place of a JS/CSS file.
+/assets/*  /index.html  404
+
+# SPA fallback
+/*  /index.html  200

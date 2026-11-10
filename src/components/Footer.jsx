@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 export const COMPANY_FOOTER = {
-  year: "2026",
+  year: String(new Date().getFullYear()),
   name: "VanIsland Property",
   location: "Vancouver Island, BC",
   email: "support@vanislandproperty.ca",
@@ -13,8 +13,12 @@ export default function Footer({ lang } = {}) {
   return (
     <footer className="footer">
       <img
-        src="/brand/company-logo.png"
+        src="/brand/company-logo-420.png"
         alt="VanIsland Property"
+        width="420"
+        height="280"
+        loading="lazy"
+        decoding="async"
         className="footer__logo"
       />
       <p>
