@@ -1,3 +1,8 @@
+# Old address -> current domain (permanent). Only the exact old host matches,
+# so deploy previews (deploy-preview-N--...) and branch subdomains keep working.
+https://landlord-ai-marketing-studio.netlify.app/*  https://www.vanislandproperty.ca/:splat  301!
+http://landlord-ai-marketing-studio.netlify.app/*  https://www.vanislandproperty.ca/:splat  301!
+
 # Missing build assets must return a real 404 (not the SPA shell), so a stale
 # tab or service worker never receives HTML in place of a JS/CSS file.
 /assets/*  /index.html  404

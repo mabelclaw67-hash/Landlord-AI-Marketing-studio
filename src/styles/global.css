@@ -82,6 +82,7 @@ img { max-width: 100%; height: auto; display: block; }
   gap: 8px;
 }
 .navbar__brand span { font-size: 0.78rem; color: var(--color-text-muted); font-weight: 400; }
+@media (max-width: 1280px) { .navbar__brand .navbar__tagline { display: none; } }
 .navbar__links {
   display: flex;
   align-items: center;

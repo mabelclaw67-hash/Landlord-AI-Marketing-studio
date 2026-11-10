@@ -8,7 +8,6 @@ const COPY = {
     openGuide: "Open guide",
     categoryLabel: "Category",
     lastReviewed: "Last Reviewed: July 2026",
-    nextReview: "Next Review: October 2026",
     cardStatus: "Status: General reference, professional review required",
     sectionCta: "Reference card",
     disclaimerTitle: "Reference only",
@@ -41,7 +40,6 @@ const COPY = {
             body: "Official update: the maximum annual rent increase for covered residential tenancies is 2.2% in 2027. Review the effective date, notice, calculation, exemptions, and manufactured-home-park rules.",
             href: "#rent-increases",
             lastReviewed: "Last Reviewed: August 27, 2026",
-            nextReview: "Next Review: October 2026",
           },
           {
             id: "owner-occupancy",
@@ -273,7 +271,6 @@ const COPY = {
     openGuide: "查看指南",
     categoryLabel: "分类",
     lastReviewed: "最后审核：2026年7月",
-    nextReview: "下次审核：2026年10月",
     cardStatus: "状态：一般参考，需专业审核确认",
     sectionCta: "参考卡片",
     disclaimerTitle: "仅供参考",
@@ -306,7 +303,6 @@ const COPY = {
             body: "官方更新：受法规覆盖的住宅租赁，2027 年最高年度租金上涨幅度为 2.2%。可查看生效日期、通知、计算、例外情况和流动房屋公园规则。",
             href: "#rent-increases",
             lastReviewed: "最后审核：2026年8月27日",
-            nextReview: "下次审核：2026年10月",
           },
           {
             id: "owner-occupancy",
@@ -587,7 +583,6 @@ function KnowledgeCard({ item, pillarTitle, copy }) {
         <p>{item.body}</p>
         <div className="knowledge-card__meta">
           <span>{item.lastReviewed || copy.lastReviewed}</span>
-          <span>{item.nextReview || copy.nextReview}</span>
           <span>{copy.cardStatus}</span>
         </div>
         {item.href ? <a className="knowledge-card__link" href={item.href}>{copy.openGuide}</a> : <span className="knowledge-card__placeholder">{copy.sectionCta}</span>}

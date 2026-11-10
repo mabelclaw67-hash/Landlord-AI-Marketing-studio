@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
-import { isAdminSessionActive } from "../../utils/trialAccess";
+import { adminAuthRequest } from "../../utils/adminSession";
 import { formatSalePrice, getHomeSaleListings, getSuggestedSaleListingId, homeSaleSheetConfig } from "../../utils/homeSaleSheet";
 import { useLang } from "../../contexts/LangContext";
 import { AL } from "../../utils/adminLabels";
@@ -12,12 +12,18 @@ export default function HomeSaleListings() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // The database link is internal: it comes from the admin gateway after the
+  // session is verified, and is never part of the public site files.
+  const [sheetUrl, setSheetUrl] = useState("");
 
   useEffect(() => {
     getHomeSaleListings()
       .then(setListings)
       .catch((err) => setError(err.message || "Failed to load Home Sale listings."))
       .finally(() => setLoading(false));
+    adminAuthRequest("session")
+      .then((data) => setSheetUrl(data?.links?.homeSaleSheet || ""))
+      .catch(() => {});
   }, []);
 
   return (
@@ -31,8 +37,8 @@ export default function HomeSaleListings() {
           <Link to="/admin/home-sale/listings/new" className="btn btn--primary">
             {L.newSaleListingBtn}
           </Link>
-          {isAdminSessionActive() && (
-            <a href={homeSaleSheetConfig.spreadsheetUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">
+          {sheetUrl && (
+            <a href={sheetUrl} target="_blank" rel="noreferrer" className="btn btn--ghost">
               Open Sale Database
             </a>
           )}

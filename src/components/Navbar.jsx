@@ -27,7 +27,7 @@ function getListingIdFromPath(pathname) {
 
 const TENANT_NAV = {
   en: {
-    brand: "Vanisland Rentals",
+    brand: "VanIsland Property",
     home: "Home",
     rentalListings: "Rental Listings",
     contact: "Contact",
@@ -35,7 +35,7 @@ const TENANT_NAV = {
     admin: "Admin Dashboard",
   },
   zh: {
-    brand: "Vanisland 出租",
+    brand: "VanIsland Property",
     home: "首页",
     rentalListings: "出租房源",
     contact: "联系",
@@ -134,7 +134,7 @@ export default function Navbar({ lang, setLang }) {
       <div className="navbar__inner">
         <Link to="/" className="navbar__brand" onClick={() => setOpen(false)}>
           🏠 VanIsland Property
-          <span>AI Studio</span>
+          <span className="navbar__tagline">Professional Landlord Support</span>
         </Link>
 
         <button
@@ -168,6 +168,7 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
+          {showAdminLink && (
           <li>
             <NavLink
               to="/admin"
@@ -177,6 +178,7 @@ export default function Navbar({ lang, setLang }) {
               {t(lang, "nav.admin")}
             </NavLink>
           </li>
+          )}
           <li className="navbar__lang">
             <button
               className={safeLang === "en" ? "active" : ""}

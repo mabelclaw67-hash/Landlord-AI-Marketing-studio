@@ -258,7 +258,7 @@ function rentalDoGet_(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
     if (action === "ping")               return ok({ status: "connected" });
-    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getDailyMarketBrief", "getRetirementBrief", "getWebsiteReport", "syncDailyMarketBrief", "getApplicationPdfDownloadData", "validateUploadToken"];
+    var publicGetActions = ["getListings", "getListingById", "getListingFolder", "getListingSubfolder", "getPublicListingCovers", "getDailyMarketBrief", "getRetirementBrief", "getWebsiteReport", "getApplicationPdfDownloadData", "validateUploadToken"];
     var isPublicGet = publicGetActions.indexOf(action) >= 0;
     var auth = resolveAccessContext_(e.parameter || {}, "rental", { allowAdmin: true, allowNoAccess: isPublicGet });
     if (action === "getListings")         return ok(getListings_(auth));
@@ -269,7 +269,8 @@ function rentalDoGet_(e) {
     if (action === "getDailyMarketBrief") return ok(getDailyMarketBrief_());
     if (action === "getRetirementBrief") return ok(getRetirementBrief_(e && e.parameter ? e.parameter.date : ""));
     if (action === "getWebsiteReport") return ok(getWebsiteReport_(e.parameter.reportId));
-    if (action === "syncDailyMarketBrief") return ok(syncDailyMarketBriefFromLatestReport_());
+    // Writes to the brief sheet, so it is admin-only (the hourly trigger does the routine sync).
+    if (action === "syncDailyMarketBrief") { assertAdmin_(auth); return ok(syncDailyMarketBriefFromLatestReport_()); }
     if (action === "getApplicationById")  return ok(getApplicationById_(e.parameter.applicationId, auth));
     if (action === "getApplicationPdfDownloadData") return ok(getApplicationPdfDownloadData_(e.parameter.recordId, e.parameter.token));
     if (action === "validateUploadToken") return ok(validateUploadToken_(e.parameter.listingId, e.parameter.recordId, e.parameter.token));
@@ -3025,6 +3026,9 @@ function sanitizeListingForAccess_(listing, auth) {
   // Trial access has been retired — admin returns above, so only "public"
   // reaches here. Neither driveFolderLink nor outputs (admin-generated
   // marketing copy) is needed by anonymous /rentals or /apply visitors.
+  // Owner identity is internal: public pages show the company contact only.
+  delete safe.ownerName;
+  delete safe.ownerEmail;
   delete safe.driveFolderLink;
   delete safe.outputs;
   delete safe.driveFiles;

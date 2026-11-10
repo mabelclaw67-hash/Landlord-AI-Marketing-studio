@@ -16,7 +16,7 @@ export const translations = {
       listings: "Listings",
     },
     home: {
-      heroTitle: "Vanisland AI Marketing Studio",
+      heroTitle: "VanIsland Property",
       heroSubtitle:
         "Create marketing packages for rental and home sale listings.",
       heroChTitle: "",
@@ -184,7 +184,7 @@ export const translations = {
     home: {
       heroTitle: "房源 AI 营销工作台",
       heroSubtitle: "出租与出售房源推广素材一站式生成",
-      heroChTitle: "Vanisland AI Marketing Studio",
+      heroChTitle: "VanIsland Property",
       heroChSubtitle:
         "Create marketing packages for rental and home sale listings.",
       ctaStart: "联系我们",

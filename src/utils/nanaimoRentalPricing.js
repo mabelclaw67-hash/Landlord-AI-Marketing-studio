@@ -22,10 +22,6 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function round10(value) {
-  return Math.round(value / 10) * 10;
-}
-
 function round25(value) {
   return Math.round(value / 25) * 25;
 }

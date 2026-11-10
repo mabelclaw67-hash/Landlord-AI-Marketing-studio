@@ -217,7 +217,7 @@ const COPY = {
       "Suggestions to improve rental success",
     ],
     successTitle: "Assessment submitted successfully",
-    successDesc: "Vanisland will review your intake before making a final recommendation.",
+    successDesc: "VanIsland Property will review your intake before making a final recommendation.",
     successThanks: "Thank you. Your property strategy intake has been submitted successfully.",
     resultTitle: "Property Strategy Assessment Result",
     reportGenerated: "Your assessment report has been generated. You can view the professional report or print/save it as a PDF.",
@@ -232,8 +232,8 @@ const COPY = {
     assessmentId: "Assessment ID",
     nextStepSelected: "Next step selected by owner:",
     notSelected: "Not selected",
-    reviewNote: "Vanisland will review your assessment before providing a final recommendation.",
-    nextStepContact: "Vanisland may contact you for the next step.",
+    reviewNote: "VanIsland Property will review your assessment before providing a final recommendation.",
+    nextStepContact: "VanIsland Property may contact you for the next step.",
     progress: "Step {current} of {total}",
     back: "Back",
     next: "Next",
@@ -311,7 +311,7 @@ const COPY = {
     followEmpty: "Follow-up questions will appear after rental goal, suite, yard, pet, ocean view, or Airbnb / STR details are selected.",
     questionSingular: "question",
     questionPlural: "questions",
-    consentText: "I agree that Vanisland may contact me about this assessment.",
+    consentText: "I agree that VanIsland Property may contact me about this assessment.",
     privacyText: "I consent to submitting this property information for review.",
     report: {
       propertyClassification: "Building and Rental Unit Type",
@@ -353,7 +353,7 @@ const COPY = {
       "提高出租成功率建议",
     ],
     successTitle: "初评已成功提交",
-    successDesc: "Vanisland 会先审核您提交的信息，再给出最终建议。",
+    successDesc: "VanIsland Property 会先审核您提交的信息，再给出最终建议。",
     successThanks: "谢谢，您的房产出租策略初评表已成功提交。",
     resultTitle: "房产出租策略AI初评结果",
     reportGenerated: "评估报告已生成。您可以查看专业报告，或打印 / 保存为 PDF。",
@@ -368,8 +368,8 @@ const COPY = {
     assessmentId: "初评编号",
     nextStepSelected: "业主选择的下一步：",
     notSelected: "未选择",
-    reviewNote: "Vanisland 会先审核您的评估，再提供最终建议。",
-    nextStepContact: "Vanisland 可能会就下一步服务联系您。",
+    reviewNote: "VanIsland Property 会先审核您的评估，再提供最终建议。",
+    nextStepContact: "VanIsland Property 可能会就下一步服务联系您。",
     progress: "第 {current} 步，共 {total} 步",
     back: "上一步",
     next: "下一步",
@@ -447,7 +447,7 @@ const COPY = {
     followEmpty: "选择出租目标、套房、院子、宠物、海景或 Airbnb / 短租信息后，这里会自动显示追问。",
     questionSingular: "个问题",
     questionPlural: "个问题",
-    consentText: "我同意 Vanisland 就本次初评联系我。",
+    consentText: "我同意 VanIsland Property 就本次初评联系我。",
     privacyText: "我同意提交这些物业信息供审核使用。",
     report: {
       propertyClassification: "建筑与出租单元类型",
@@ -1986,13 +1986,4 @@ function getPdfConfidenceLabel(value) {
   const lines = Array.isArray(value) ? value : [value];
   const first = String(lines[0] || "");
   return first.replace(/^AI 评估信心：/, "").replace(/^AI Assessment Confidence: /, "").replace(/^Assessment Confidence：/, "").replace(/^Assessment Confidence: /, "") || "Preliminary";
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

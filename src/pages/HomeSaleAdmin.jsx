@@ -4,7 +4,6 @@ import { formatSalePrice, getHomeSaleListings } from "../utils/homeSaleSheet";
 import PrototypeBanner from "../components/PrototypeBanner";
 import ComingSoonSection from "../components/ComingSoonSection";
 import { useLang } from "../contexts/LangContext";
-import { AL } from "../utils/adminLabels";
 
 function statusBadge(status) {
   const map = {
@@ -23,7 +22,6 @@ function statusBadge(status) {
 
 export default function HomeSaleAdmin() {
   const lang = useLang();
-  const L = AL[lang] ?? AL.en;
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

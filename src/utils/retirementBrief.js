@@ -19,7 +19,7 @@ const INTERNAL_LINK_FIELDS = new Set([
 
 function publicText(value) {
   if (typeof value !== "string") return value;
-  const text = value.replace(PRIVATE_NAME_RE, "Vanisland AI Studio").trim();
+  const text = value.replace(PRIVATE_NAME_RE, "VanIsland Property").trim();
   return INTERNAL_GOOGLE_URL_RE.test(text) ? "" : text;
 }
 

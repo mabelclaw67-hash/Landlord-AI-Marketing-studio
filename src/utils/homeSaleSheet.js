@@ -3,12 +3,9 @@ import { adminApiRequest } from "./adminSession.js";
 import { buildHomeSalePublicUrl } from "./publicUrls";
 import { beginPerfTrace } from "./perfLog.js";
 export { buildHomeSalePublicUrl };
-const HOME_SALE_SPREADSHEET_ID = "1z-pCCkJt0XcLmbzPL8ZDKw8fEmLNPc9X7CpRj7FspxQ";
 const HOME_SALE_EXEC_URL = import.meta.env.VITE_HOME_SALE_EXEC_URL || "";
 
 export const homeSaleSheetConfig = {
-  spreadsheetId: HOME_SALE_SPREADSHEET_ID,
-  spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${HOME_SALE_SPREADSHEET_ID}/edit`,
   tabs: {
     listings: "01 Sale Listings",
     media: "02 Media Assets",
@@ -340,7 +337,7 @@ export async function getPublicSaleMarketingCopy(listingId) {
   try {
     const data = await homeSaleApiGet({ action: "getMarketingCopyByListingId", listingId });
     return Array.isArray(data) ? data.map((item) => normalizeRecord(item, MARKETING_HEADER_MAP)) : [];
-  } catch (_) { return []; }
+  } catch { return []; }
 }
 
 export async function getPublicSaleVideoScripts(listingId) {
@@ -348,7 +345,7 @@ export async function getPublicSaleVideoScripts(listingId) {
   try {
     const data = await homeSaleApiGet({ action: "getVideoScriptsByListingId", listingId });
     return Array.isArray(data) ? data.map((item) => normalizeRecord(item, VIDEO_HEADER_MAP)) : [];
-  } catch (_) { return []; }
+  } catch { return []; }
 }
 
 export async function getMarketingCopyByListingId(listingId) {

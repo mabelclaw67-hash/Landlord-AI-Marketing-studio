@@ -120,6 +120,11 @@ check(res.statusCode === 401 && parse(res).code === "SESSION_INVALID", "Session 
 upstream = () => ({ error: "ADMIN_AUTH_SESSION_INVALID" });
 res = await auth(event({ op: "session" }, { cookie: cookieHeader }));
 check(res.statusCode === 401 && cookies(res).some((c) => c.startsWith("__Host-vip_admin=;") && /Max-Age=0/.test(c)), "Expired session → 401 and cookie cleared");
+upstream = () => ({ data: { active: true } });
+res = await auth(event({ op: "session" }, { cookie: cookieHeader }));
+check(res.statusCode === 200 && /^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(parse(res).data?.links?.homeSaleSheet || ""), "Verified session receives the internal admin links");
+res = await auth(event({ op: "session" }));
+check(res.statusCode === 401 && !JSON.stringify(parse(res)).includes("docs.google.com"), "No session → no internal links");
 upstream = () => ({ data: { revokedSessions: 2 } });
 res = await auth(event({ op: "logoutAll" }, { cookie: cookieHeader }));
 check(res.statusCode === 200 && cookies(res).some((c) => /Max-Age=0/.test(c)) && upstreamCalls.at(-1).body.adminSessionToken.startsWith("SESSION-TOKEN"), "Sign out everywhere forwards the session and clears cookies");

@@ -1,4 +1,4 @@
-// Vanisland Rentals — Service Worker
+// VanIsland Property — Service Worker
 // Caches the static app shell (HTML/JS/CSS/images/icons) for offline use and
 // fast repeat loads. Never caches API/data requests — Netlify Functions
 // (tenant applications, uploads, verification) and any cross-origin calls
@@ -10,7 +10,7 @@ const DYNAMIC_PATH_PREFIXES = [
   '/.netlify/functions/',
 ];
 
-self.addEventListener('install', event => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 

@@ -9,6 +9,7 @@ import Footer from "./components/Footer";
 import { applyDocumentLang, normalizeLang, persistLang, readPreferredLang } from "./utils/lang";
 import { LangContext } from "./contexts/LangContext";
 import { PUBLIC_SITE_BASE_URL } from "./utils/publicUrls";
+import { applyPageMeta } from "./utils/pageMeta";
 
 // Pages load on demand so public visitors do not download the admin studio.
 // If a chunk is missing (a new version was deployed while this tab was open),
@@ -67,6 +68,7 @@ const AdminSettings = lazyPage(() => import("./pages/admin/AdminSettings"));
 const PhotoTips = lazyPage(() => import("./pages/admin/PhotoTips"));
 const Faq = lazyPage(() => import("./pages/admin/Faq"));
 const SystemPerformance = lazyPage(() => import("./pages/admin/SystemPerformance"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
 const OurStory = lazyPage(() => import("./pages/OurStory"));
 const RentalApplicationLanding = lazyPage(() => import("./pages/RentalApplicationLanding"));
 const RentalApplication = lazyPage(() => import("./pages/RentalApplication"));
@@ -85,7 +87,7 @@ const AITenantScreeningDemoViewer = lazyPage(() =>
 
 // On page change: start at the top, or at the #anchor when the link has one,
 // and keep <link rel="canonical"> pointing at the page actually shown.
-function RouteEffects() {
+function RouteEffects({ lang }) {
   const { pathname, hash } = useLocation();
   const navigationType = useNavigationType();
 
@@ -93,6 +95,11 @@ function RouteEffects() {
     const canonical = document.querySelector('link[rel="canonical"]');
     if (canonical) canonical.setAttribute("href", `${PUBLIC_SITE_BASE_URL}${pathname}`);
   }, [pathname]);
+
+  // Browser title and search description for the page shown, in the chosen language.
+  useEffect(() => {
+    applyPageMeta(pathname, lang);
+  }, [pathname, lang]);
 
   useEffect(() => {
     if (!hash) {
@@ -121,7 +128,7 @@ function AppInner({ lang, setLang }) {
 
   return (
     <>
-      <RouteEffects />
+      <RouteEffects lang={lang} />
       {!isHome && <Navbar lang={lang} setLang={setLang} />}
       <Suspense fallback={<div style={{ minHeight: "60vh" }} aria-busy="true" />}>
       <Routes>
@@ -188,7 +195,7 @@ function AppInner({ lang, setLang }) {
         <Route path="/reports/:reportId" element={<WebsiteReport lang={lang} />} />
         <Route path="/tenant-contact" element={<TenantContact />} />
         <Route path="/tenant-service-request" element={<TenantServiceRequest lang={lang} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound lang={lang} />} />
       </Routes>
       </Suspense>
       <Footer lang={lang} />

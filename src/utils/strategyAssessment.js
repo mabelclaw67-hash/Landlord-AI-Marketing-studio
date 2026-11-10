@@ -1,5 +1,5 @@
 import { apiPost, isApiConnected } from "./api";
-import { computeLocalRentJudgment, getRegionNarrative } from "./nanaimoRentalPricing";
+import { computeLocalRentJudgment } from "./nanaimoRentalPricing";
 import { publicUpload } from "./publicUpload";
 
 export const STRATEGY_ASSESSMENT_SPREADSHEET_ID = "1F3rPmEMsOoTFWYo3CPD76BS4RuRbSPTCB47g5YTHopE";
@@ -9,11 +9,6 @@ export const STRATEGY_ASSESSMENT_DISCLAIMER =
 
 export const STRATEGY_ASSESSMENT_DISCLAIMER_ZH =
   "本报告基于现有物业资料、社区知识库及本地出租实务经验生成，供初步决策参考。";
-
-const KNOWLEDGE_CENTER_GUIDE = {
-  en: "Please review the latest guide in the Landlord Knowledge Center and confirm through professional review before making a final decision.",
-  zh: "请查看房东知识中心最新指南，并经专业审核后再作最终决定。",
-};
 
 const OPTION_LABELS_ZH = {
   Yes: "是",
@@ -93,16 +88,6 @@ export function displayStrategyValue(value, lang = "en") {
   return displayOption(String(value || ""), normalizeLang(lang));
 }
 
-function formatCurrency(value, lang) {
-  const text = String(value || "").trim();
-  if (!text) return lang === "zh" ? "待确认" : "to be confirmed";
-  const numeric = Number(text.replace(/[$,\s]/g, ""));
-  if (Number.isFinite(numeric) && numeric > 0) {
-    return `$${Math.round(numeric).toLocaleString("en-US")}`;
-  }
-  return text.includes("$") ? text : `$${text}`;
-}
-
 function parseMoneyAmount(value) {
   const numeric = Number(String(value || "").replace(/[$,\s]/g, ""));
   return Number.isFinite(numeric) ? numeric : 0;
@@ -120,20 +105,6 @@ function normalizeLang(value) {
   return value === "zh" ? "zh" : "en";
 }
 
-function formatAssessmentLocation(form, lang = "en") {
-  const street = String(form.propertyAddress || "").trim();
-  const cityProvincePostal = [form.city, form.province, form.postalCode].filter(Boolean).join(" ");
-  const location = [street, cityProvincePostal].filter(Boolean).join(", ");
-  return location || (lang === "zh" ? "本地市场" : "the local market");
-}
-
-
-function getConfidenceLabel(score, lang = "en") {
-  if (score >= 88) return lang === "zh" ? "★★★★★ 高信心" : "★★★★★ High Confidence";
-  if (score >= 78) return lang === "zh" ? "★★★★ 中高信心" : "★★★★ Medium-High Confidence";
-  if (score >= 68) return lang === "zh" ? "★★★★ 中等信心" : "★★★★ Medium Confidence";
-  return lang === "zh" ? "★★★ 初步判断" : "★★★ Preliminary";
-}
 
 export function createAssessmentId(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
@@ -826,47 +797,6 @@ function buildSuiteQualityPrivacy(form, lang = "en") {
   return notes.length ? notes : (lang === "zh" ? "相关品质、隐私、水电和院子条件需要结合平面布局与照片确认。" : "Quality, privacy, utilities, and yard conditions need layout and photo review.");
 }
 
-function communityTagPhrase(tag, lang) {
-  const key = String(tag || "").trim().toLowerCase();
-  const phrases = {
-    "nature-oriented": ["自然环境导向", "nature-oriented setting"],
-    "lakefront lifestyle": ["湖区生活方式", "lake-area lifestyle"],
-    "viu proximity": ["临近 VIU 的区位潜力", "potential appeal from proximity to VIU"],
-    quiet: ["安静的居住环境", "quiet residential setting"],
-    "pet-friendly": ["对重视宠物政策的住户具有潜在吸引力", "potential appeal to households that value pet-friendly policies"],
-    "active tenants": ["重视户外活动的租住需求", "demand from households that value outdoor activity"],
-    "trail access": ["步道和休闲生活方式", "trail and recreation lifestyle"],
-  };
-  return phrases[key]?.[lang === "zh" ? 0 : 1] || "";
-}
-
-function propertyFitField(form) {
-  const type = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
-  const fields = {
-    "Basement / Secondary Suite": "Basement Suite Fit",
-    "Entire Detached House": "Detached House Fit",
-    "Detached House": "Detached House Fit",
-    "Entire Condo": "Condo Fit",
-    Condo: "Condo Fit",
-    "Entire Townhouse": "Townhouse Fit",
-    Townhouse: "Townhouse Fit",
-    "Room Rental": "Room Rental Fit",
-  };
-  return fields[type] || "";
-}
-
-function decisionHintField(form) {
-  const type = form.rentalUnitType || form.propertyBuildingType || form.propertyType;
-  const fields = {
-    "Basement / Secondary Suite": "If Basement Suite",
-    "Entire Detached House": "If Detached House",
-    "Detached House": "If Detached House",
-    "Entire Condo": "If Condo",
-    Condo: "If Condo",
-  };
-  return fields[type] || "";
-}
-
 function buildCommunityKnowledgeNarrative(form, community, lang = "en") {
   if (community.status !== "confirmed" || !community.communityId) {
     return [lang === "zh"
@@ -959,13 +889,6 @@ function firstKnowledgeValue(record, names) {
 // has none of those fields populated, it is skipped rather than dumping the
 // row's raw key:value pairs (that dump was the source of internal-field
 // leaks into client reports).
-function joinKnowledgeRows(rows, preferredFields) {
-  return (Array.isArray(rows) ? rows : [])
-    .map((row) => firstKnowledgeValue(row, preferredFields))
-    .filter(Boolean)
-    .slice(0, 4);
-}
-
 // NOTE on Knowledge Base language handling:
 // The Community_Knowledge_Base Google Sheet is maintained in English prose.
 // This system has no live translation model available, so word-by-word
@@ -1099,47 +1022,6 @@ function infrastructureValue(value) {
   return /^(n\/a|none|not available|unknown|需按具体地址确认)$/i.test(text) ? "" : text;
 }
 
-function localizeAccessNote(value, lang) {
-  const text = infrastructureValue(value);
-  if (!text || lang !== "zh") return text;
-  const exact = {
-    "Car dependent / Transit available": "日常出行较依赖驾车，同时有公共交通可用。",
-    "Transit accessible.": "可使用公共交通。",
-    "Car-dependent.": "日常出行较依赖驾车。",
-    "Highly car-dependent.": "日常出行高度依赖驾车。",
-    "Good access to daily essentials.": "日常采购和基础服务相对便利。",
-    "Good access to essentials.": "日常采购和基础服务相对便利。",
-    "Limited local essentials.": "社区内日常采购选择有限，可能需要前往邻近商业区。",
-    "Suburban access": "郊区出行条件，日常通常以驾车为主。",
-    "Car dependent": "日常出行较依赖驾车。",
-    "Semi-rural, car dependent": "半乡村环境，日常出行较依赖驾车。",
-    "Rural, car dependent": "乡村环境，日常出行较依赖驾车。",
-    "Suburban, car dependent": "郊区环境，日常出行较依赖驾车。",
-    "Walkable core, transit available": "核心区域具备一定步行条件，并有公共交通可用。",
-    "Walkable village, car dependent for regional": "村镇中心具备一定步行条件，跨区域出行仍较依赖驾车。",
-    "Central convenience": "中心区域生活便利。",
-    "Suburban growth": "郊区发展区域，出行条件应结合具体地址确认。",
-    "Seaside village, car dependent for high school": "海滨村镇环境，中学通学较依赖驾车。",
-    "Ferry-dependent for high school": "中学通学需要依赖渡轮。",
-    "Evolving market, car dependent": "发展中的市场，日常出行较依赖驾车。",
-    "Excellent access to shopping and groceries.": "购物和日常食品采购选择丰富。",
-    "Excellent access to shopping.": "购物条件便利。",
-    "Excellent access to daily essentials.": "日常采购和基础服务便利。",
-    "Excellent access to all essentials.": "日常采购及基础服务较为集中。",
-    "Basic essentials available locally.": "社区内可满足部分基本日常需求。",
-    "Basic essentials available.": "可满足部分基本日常需求。",
-    "Basic essentials available, ferry required for major shopping.": "社区内可满足基本日常需求，大型采购需要乘渡轮前往。",
-    "Good access to essentials nearby.": "邻近区域可满足日常采购和基础服务需求。",
-    "Good access to shopping.": "购物条件相对便利。",
-    "Somewhat walkable, transit available.": "具备一定步行条件，并有公共交通可用。",
-    "Walkable town centre.": "镇中心具备一定步行便利性，具体距离须结合物业地址确认。",
-    "Mostly car-dependent.": "日常出行主要依赖驾车。",
-    "Car-dependent but transit available.": "日常出行较依赖驾车，同时有公共交通可用。",
-    "Car-dependent, ferry access required.": "日常出行较依赖驾车，离岛交通需要使用渡轮。",
-  };
-  return exact[text] || text;
-}
-
 function buildEducationResources(community, lang = "en") {
   if (community.status !== "confirmed") return [];
   const data = community.infrastructure || {};
@@ -1180,10 +1062,6 @@ function buildShoppingConvenience(community, lang = "en") {
   const items = [];
   appendUniqueKnowledge(items, community.facts?.shoppingServices, lang, "购物与生活服务：", "Shopping and daily services: ");
   return items;
-}
-
-function splitKnowledgeTags(value) {
-  return String(value || "").split(/[;|\n]+/).map((item) => item.trim()).filter(Boolean);
 }
 
 function resolveCommunityPresentation(form, community, judgment) {
@@ -1615,19 +1493,6 @@ function buildKnowledgeLinks(form, lang) {
   }
 
   return groups.filter((group) => group.links.length > 0);
-}
-
-function displayOwnerGoal(goal, lang) {
-  if (lang !== "zh") return goal || "the owner's rental goal";
-  const map = {
-    "Rent ASAP": "尽快出租",
-    "Maximize rent": "尽量提高租金",
-    "Long-term Stable Tenant": "稳定长期租客",
-    "Try Airbnb": "尝试 Airbnb",
-    "Prepare for Sale Later": "之后准备出售",
-    "Not Sure": "还不确定",
-  };
-  return map[goal] || "业主出租目标";
 }
 
 export async function submitStrategyAssessment(form, lang = "en") {

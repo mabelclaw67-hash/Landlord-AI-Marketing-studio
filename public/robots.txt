@@ -1,6 +1,8 @@
 User-agent: *
 Disallow: /admin
 Disallow: /apply/
+Disallow: /photo-tips
+Disallow: /faq
 Disallow: /supporting-documents
 Disallow: /support-documents/
 Disallow: /strategy-assessment/report/

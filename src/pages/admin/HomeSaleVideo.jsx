@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useLang } from "../../contexts/LangContext";
-import { AL } from "../../utils/adminLabels";
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import HomeSaleWorkflowNav from "../../components/HomeSaleWorkflowNav";
 import { getStudioRequestAuth, isAdminSessionActive } from "../../utils/trialAccess";
@@ -74,7 +73,6 @@ function emptyVideoForm(listingId) {
 export default function HomeSaleVideo() {
   const { listingId } = useParams();
   const lang = useLang();
-  const L = AL[lang] ?? AL.en;
   const MUSIC_NO_MUSIC = lang === "zh" ? MUSIC_NO_MUSIC_ZH : MUSIC_NO_MUSIC_EN;
   const listingRef = useRef(null);
 
@@ -357,7 +355,7 @@ export default function HomeSaleVideo() {
         audioAdded = true;
       } catch (err) {
         setVideoMsg(`⚠️ Music failed (${err.message}) — generating silent video.`);
-        if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
+        if (audioCtx) { try { audioCtx.close(); } catch { /* already closed */ } audioCtx = null; }
         audioSource = null; decodedAudioBuf = null;
       }
     }
@@ -615,8 +613,8 @@ export default function HomeSaleVideo() {
     await renderFor(() => drawPhotoOutro(outroImg), 3.0);
     await renderFor((p) => fadeBlack(() => drawPhotoOutro(outroImg), p), 0.4);
 
-    if (audioSource) { try { audioSource.stop(); } catch {} }
-    if (audioCtx)    { try { audioCtx.close();   } catch {} }
+    if (audioSource) { try { audioSource.stop(); } catch { /* already stopped */ } }
+    if (audioCtx)    { try { audioCtx.close();   } catch { /* already closed */ } }
 
     // Encode audio
     if (audioEncoder && decodedAudioBuf) {
