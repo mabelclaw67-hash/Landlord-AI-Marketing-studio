@@ -167,7 +167,7 @@ export default function Navbar({ lang, setLang }) {
               </NavLink>
             </li>
           ))}
-          {showAdminLink && (
+          {/* Always visible (owner's decision 2026-11-11): do not hide. */}
           <li>
             <NavLink
               to="/admin"
@@ -177,7 +177,6 @@ export default function Navbar({ lang, setLang }) {
               {t(lang, "nav.admin")}
             </NavLink>
           </li>
-          )}
           <li className="navbar__lang">
             <button
               className={safeLang === "en" ? "active" : ""}
