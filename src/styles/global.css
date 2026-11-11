@@ -4956,6 +4956,18 @@ tr:hover td { background: #F9F6F0; }
   flex-wrap: wrap;
 }
 
+.lh-admin-login-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.lh-admin-login-link:hover,
+.lh-admin-login-link:focus-visible { color: #fff; }
+
 /* Why card — hidden; content is repeated in the Why section below the hero */
 .lh-hero__showcase {
   display: none;

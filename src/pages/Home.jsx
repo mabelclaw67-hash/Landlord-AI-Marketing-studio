@@ -572,6 +572,7 @@ export default function Home({ lang }) {
               <Link to="/contact" className="lh-btn lh-btn--sand">{s.requestAccess}</Link>
               <Link to="/services" className="lh-btn lh-btn--white">{s.exploreServices}</Link>
             </div>
+            <Link to="/admin" className="lh-admin-login-link">Admin Login</Link>
           </div>
 
           <div className="lh-hero__showcase">
