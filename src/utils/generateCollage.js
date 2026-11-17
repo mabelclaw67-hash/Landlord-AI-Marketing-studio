@@ -228,6 +228,14 @@ function drawOverlay(ctx, data, x, y, w, h) {
     ctx.shadowBlur   = 7;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 2;
+    // Long date lines shrink to fit instead of being cut off with "…".
+    if (line.text === date) {
+      let fit = sz;
+      while (fit > 12 && ctx.measureText(line.text).width > maxW) {
+        fit -= 1;
+        ctx.font = `${line.weight} ${fit}px Arial, Helvetica, sans-serif`;
+      }
+    }
     ctx.fillText(truncate(ctx, line.text, maxW), x + pad, curY);
     curY -= sz + Math.round(sz * 0.24);
   }
