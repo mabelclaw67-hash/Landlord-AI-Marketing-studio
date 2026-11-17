@@ -1528,6 +1528,10 @@ export default function ListingDetail({ lang: langProp }) {
     if (l.available && String(l.available).trim()) {
       date = `Available: ${String(l.available).trim().slice(0, 10)}`;
     }
+    // A listing whose copy states a flexible move-in window shows that exact
+    // wording on the cover, so the image never disagrees with the body text.
+    const flex = String(l.features || "").match(/Move-in flexible:[^\n]*?\d{4}\s*[–-]\s*[A-Za-z]+ \d{1,2}, \d{4}/);
+    if (flex) date = flex[0].trim();
     const contactName = l.contactName || l.ownerName || "";
     const contactPhone = l.contactPhone || l.ownerPhone || l.phone || "";
     const contact = [contactName, contactPhone].filter(Boolean).join(" · ") || null;
