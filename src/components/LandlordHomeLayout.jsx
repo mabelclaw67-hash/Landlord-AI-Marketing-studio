@@ -2,7 +2,6 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import Home from "../pages/Home";
 import { normalizeLang } from "../utils/lang";
 import { REVIEW_CENTER_PATH, isReviewCenterRoute } from "../utils/reviewCenterNav";
-import { useAdminSessionStatus } from "../utils/adminSession";
 
 const NAV = {
   en: {
@@ -47,8 +46,6 @@ export default function LandlordHomeLayout({ lang, setLang }) {
   const { pathname } = useLocation();
   const safeLang = normalizeLang(lang);
   const n = NAV[safeLang] || NAV.en;
-  // Same rule as the tenant nav: the Admin item appears only for a signed-in admin.
-  const showAdminLink = useAdminSessionStatus() === "active";
 
   return (
     <div className="landlord-app">
@@ -104,12 +101,11 @@ export default function LandlordHomeLayout({ lang, setLang }) {
 
         <nav className="lh-nav-group">
           <div className="lh-nav-label">{n.workspaceLabel}</div>
-          {showAdminLink && (
+          {/* Always visible (owner's decision 2026-11-11): do not hide. */}
           <NavLink to="/admin" className={({ isActive }) => `lh-nav-item lh-nav-item--admin${isActive ? " lh-nav-item--active" : ""}`}>
             <span className="lh-nav-item__icon">⚙️</span>
             <span><strong>{n.admin}</strong></span>
           </NavLink>
-          )}
           <div className="lh-nav-item lh-lang-row">
             🌐
             <button className={safeLang === "en" ? "active" : ""} onClick={() => setLang("en")} translate="no" lang="en">EN</button>
